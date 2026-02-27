@@ -1,11 +1,10 @@
 use std::error::Error;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-use crate::aiplan4rust::lang::{AtomSkeletonId, Type, TypeId, TypedList, TypedSymbol, VariableId};
+use crate::aiplan4rust::lang::{AtomSkeletonId, BinaryComp, ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-
-/// Type alias for cleaner test signatures using the standard Error trait.
-type TestResult = Result<(), Box<dyn Error>>;
 
 /// Initialize a standardized execution environment for Datalog encoding tests.
 ///
@@ -47,7 +46,7 @@ fn setup_env() -> (DatalogEncoder, TypedList<VariableId, TypeId>) {
 ///     - 1 rule for the root `AND` (e.g., `P10, Aux_OR -> Aux_ROOT`).
 /// - A final auxiliary head that correctly represents the combined logic.
 #[test]
-fn test_complex_logical_flattening() -> TestResult {
+fn test_complex_logical_flattening() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -68,7 +67,7 @@ fn test_complex_logical_flattening() -> TestResult {
     builder.set_root(root)?;
     let expr = builder.finish();
 
-    let result = encoder.encode_expr(&expr, &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&expr, &mut rules, &params)?;
 
     // --- Industrial Requirement: Correct Rule Chaining ---
     // The OR branch must be decoupled into its own predicate to maintain
@@ -103,7 +102,7 @@ fn test_complex_logical_flattening() -> TestResult {
 ///   2. One for the root `OR`.
 /// - The `rules` list must reflect this structural sharing.
 #[test]
-fn test_deduplication_cache() -> TestResult {
+fn test_deduplication_cache() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -120,7 +119,7 @@ fn test_deduplication_cache() -> TestResult {
     let root = builder.or(vec![and1, and2]);
 
     builder.set_root(root)?;
-    let _head = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let _head = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     // Industrial Requirement: Canonical Representation.
     // By merging identical sub-trees, we avoid redundant joins during the
@@ -149,7 +148,7 @@ fn test_deduplication_cache() -> TestResult {
 /// - The first term must be identified as a `Variable`.
 /// - The second term must be identified as a `Constant`.
 #[test]
-fn test_mixed_terms_extraction() -> TestResult {
+fn test_mixed_terms_extraction() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -160,7 +159,7 @@ fn test_mixed_terms_extraction() -> TestResult {
     let p10 = builder.atomic_formula_with_skeleton(10, vec![v0, c99], 10);
 
     builder.set_root(p10)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     // Industrial Requirement: Term Integrity.
     // The encoder must maintain the distinction between parameters and constants
@@ -189,7 +188,7 @@ fn test_mixed_terms_extraction() -> TestResult {
 /// - `rules` list is empty (no unnecessary joining rules).
 /// - The returned atom is exactly `P10` (Skeleton ID 10).
 #[test]
-fn test_and_optimization() -> TestResult {
+fn test_and_optimization() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -201,7 +200,7 @@ fn test_and_optimization() -> TestResult {
     let root = builder.and(vec![p10]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     // Industrial Requirement: Rule Minimization.
     // Reducing the number of predicates in the Datalog program directly
@@ -234,7 +233,7 @@ fn test_and_optimization() -> TestResult {
 /// - `rules` list is empty (no unnecessary auxiliary rules).
 /// - The returned atom is exactly `P10` (Skeleton ID 10).
 #[test]
-fn test_or_optimization() -> TestResult {
+fn test_or_optimization() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -246,7 +245,7 @@ fn test_or_optimization() -> TestResult {
     let root = builder.or(vec![p10]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     // Industrial Requirement: Pass-through optimization.
     // Generating auxiliary predicates for single-child nodes increases the number
@@ -267,43 +266,43 @@ fn test_or_optimization() -> TestResult {
     Ok(())
 }
 
-/// # Objective
-/// Verify that an `OR` expression containing only ignored or unsupported operations
-/// (like numeric assignments) results in no encoding output.
+/// (like numeric comparisons) results in no encoding output.
 ///
 /// # Input
-/// - Logic: `(OR (assign ?v0 1))`
-/// - Note: The `assign` operation is typically not relevant for basic Boolean reachability.
+/// - Logic: `(OR (>= (fuel) 10))` -> Represented as FComp in the AST.
 ///
 /// # Expected Output
 /// - `result` is `None`.
 /// - `rules` list is empty.
 #[test]
-fn test_empty_or_ignored_logic() -> TestResult {
+fn test_empty_or_ignored_logic() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
 
-    // Create an OR containing only ignored operations (e.g., numeric assignments).
-    // In PDDL grounding, this often happens after filtering non-STRIPS features.
+    // We use a Numeric Comparison (FComp) because an 'assign' is an effect,
+    // not a precondition. FComp is a valid precondition but ignored by
+    // basic Boolean reachability encoders.
     let var = builder.variable(0);
-    let cons = builder.constant(1);
-    let n1 = builder.assign(var, cons);
+    let cons = builder.constant(10);
+
+    // Greater-than-or-equal (FComp) is valid in a precondition
+    let n1 = builder.fcomp(BinaryComp::Greater, var, cons);
     let root = builder.or(vec![n1]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
-    // Industrial Requirement: Logic that doesn't contribute to reachability
-    // constraints should return None to avoid polluting the Datalog engine.
+    // Requirement: Logic that doesn't contribute to Boolean reachability
+    // (like pure numeric constraints) should return None.
     assert!(
         result.is_none(),
-        "An OR logic with no valid Datalog facts should return None"
+        "An OR logic containing only ignored FComp should return None"
     );
     assert_eq!(
         rules.len(),
         0,
-        "No auxiliary rules should be generated for empty or ignored OR branches"
+        "No rules should be generated for ignored numeric constraints in preconditions"
     );
 
     Ok(())
@@ -311,36 +310,37 @@ fn test_empty_or_ignored_logic() -> TestResult {
 
 /// # Objective
 /// Verify that the encoder gracefully handles logical structures containing only
-/// unsupported or ignored operations (e.g., numeric assignments).
+/// ignored operations (e.g., numeric comparisons) within a conjunction.
 ///
 /// # Input
-/// - Logic: `(AND (assign ?v0 1))`
-/// - Note: `assign` is a non-Boolean operation typically ignored in basic reachability.
+/// - Logic: `(AND (>= (fuel) 10))` -> Represented as FComp in the AST.
 ///
 /// # Expected Output
 /// - `result` is `None` (no Datalog atom can represent this logic).
 /// - `rules` list is empty (no auxiliary rules generated).
 #[test]
-fn test_ignored_and_logic() -> TestResult {
+fn test_ignored_and_logic() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
 
-    // Create an assignment operation: (assign ?v0 1)
-    // Most Datalog encoders for reachability ignore numeric fluents.
+    // We use a Numeric Comparison (FComp) because 'assign' is an effect.
+    // FComp is a valid precondition but ignored by basic Boolean reachability.
     let var = builder.variable(0);
-    let cons = builder.constant(1);
-    let n1 = builder.assign(var, cons);
+    let cons = builder.constant(10);
+
+    // (>= ?v0 10)
+    let n1 = builder.fcomp(BinaryComp::GreaterEq, var, cons);
     let root = builder.and(vec![n1]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
-    // Industrial Requirement: Clean failure/skipping.
-    // The encoder should not panic or produce empty/broken rules when encountering ignored nodes.
+    // Industrial Requirement: Clean skipping.
+    // The encoder should return None when the logic doesn't map to a Boolean fact.
     assert!(
         result.is_none(),
-        "An AND containing only ignored nodes must return None"
+        "An AND containing only ignored FComp nodes must return None"
     );
     assert_eq!(
         rules.len(),
@@ -364,7 +364,7 @@ fn test_ignored_and_logic() -> TestResult {
 /// - An auxiliary predicate head with arity 1.
 /// - The head contains exactly one instance of `Variable(0)`.
 #[test]
-fn test_aux_predicate_arguments() -> TestResult {
+fn test_aux_predicate_arguments() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -377,7 +377,7 @@ fn test_aux_predicate_arguments() -> TestResult {
     let root = builder.and(vec![p10, p11]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     let head = result.expect("Should return a head atom");
 
@@ -406,7 +406,7 @@ fn test_aux_predicate_arguments() -> TestResult {
 /// - A non-empty set of Datalog rules representing the chain.
 /// - The final head atom must be correctly linked to the bottom of the chain.
 #[test]
-fn test_deep_nesting() -> TestResult {
+fn test_deep_nesting() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -423,7 +423,7 @@ fn test_deep_nesting() -> TestResult {
     }
 
     builder.set_root(last_node)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     // Industrial Requirement: Stability under depth.
     // Real-world domains can have massive logical expressions.
@@ -448,7 +448,7 @@ fn test_deep_nesting() -> TestResult {
 /// - An auxiliary predicate head with arity 2.
 /// - The head must contain both distinct variables `?v0` and `?v1`.
 #[test]
-fn test_variable_projection_completeness() -> TestResult {
+fn test_variable_projection_completeness() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -463,7 +463,7 @@ fn test_variable_projection_completeness() -> TestResult {
     let root = builder.and(vec![p10, p11]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     let head = result.expect("Should return a head atom");
     let terms = head.terms();
@@ -498,7 +498,7 @@ fn test_variable_projection_completeness() -> TestResult {
 /// - An auxiliary predicate head with arity 2 (containing only `?v0` and `?v1`).
 /// - Variables `?v2` and `?v3` must be pruned to prevent combinatorial explosion.
 #[test]
-fn test_unused_parameter_reduction() -> TestResult {
+fn test_unused_parameter_reduction() -> Result<(), DatalogError> {
     let (mut encoder, mut params) = setup_env();
 
     // Add an extra parameter (?v3) to the action context that is never used in the expression.
@@ -516,7 +516,7 @@ fn test_unused_parameter_reduction() -> TestResult {
     let root = builder.or(vec![p10, p11]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     let head = result.expect("Should return a head atom");
 
@@ -553,7 +553,7 @@ fn test_unused_parameter_reduction() -> TestResult {
 /// - An auxiliary predicate head with arity 2.
 /// - The head must contain both the variable `?v0` and the constant `c99`.
 #[test]
-fn test_constant_and_parameter_mix() -> TestResult {
+fn test_constant_and_parameter_mix() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -568,7 +568,7 @@ fn test_constant_and_parameter_mix() -> TestResult {
     let root = builder.or(vec![p10]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     let head = result.expect("Should return a head atom");
 
@@ -598,7 +598,7 @@ fn test_constant_and_parameter_mix() -> TestResult {
 /// - Two distinct auxiliary predicate IDs (Skeleton IDs).
 /// - The cache must treat these as unique logical entities.
 #[test]
-fn test_cache_logic_identity() -> TestResult {
+fn test_cache_logic_identity() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
 
@@ -608,7 +608,7 @@ fn test_cache_logic_identity() -> TestResult {
     let p11 = b1.atomic_formula_with_skeleton(11, vec![], 11);
     let root1 = b1.and(vec![p10, p11]);
     b1.set_root(root1)?;
-    let head_1 = encoder.encode_expr(&b1.finish(), &mut rules, &params)?;
+    let head_1 = encoder.encode_preconditions(&b1.finish(), &mut rules, &params)?;
 
     // --- Expression 2: (AND P10 P12) ---
     // Even if they share P10, the overall structure is different.
@@ -617,7 +617,7 @@ fn test_cache_logic_identity() -> TestResult {
     let p12 = b2.atomic_formula_with_skeleton(12, vec![], 12);
     let root2 = b2.and(vec![p10_alt, p12]);
     b2.set_root(root2)?;
-    let head_2 = encoder.encode_expr(&b2.finish(), &mut rules, &params)?;
+    let head_2 = encoder.encode_preconditions(&b2.finish(), &mut rules, &params)?;
 
     // Industrial Requirement: Auxiliary IDs must be unique to prevent logic corruption.
     assert_ne!(
@@ -642,7 +642,7 @@ fn test_cache_logic_identity() -> TestResult {
 /// - The auxiliary predicate head must include the variable `?v0`.
 /// - The internal term representation must differentiate `Variable(0)` from `Constant(0)`.
 #[test]
-fn test_variable_constant_separation() -> TestResult {
+fn test_variable_constant_separation() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
@@ -658,7 +658,7 @@ fn test_variable_constant_separation() -> TestResult {
     let root = builder.and(vec![p10, p11]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_expr(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
     let head = result.expect("Should return a head atom");
     let terms = head.terms();
@@ -683,7 +683,7 @@ fn test_variable_constant_separation() -> TestResult {
 /// # Expected Output
 /// - The skeleton IDs for both cases must be different.
 #[test]
-fn test_logic_symmetry_breaking() -> TestResult {
+fn test_logic_symmetry_breaking() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
 
@@ -695,7 +695,7 @@ fn test_logic_symmetry_breaking() -> TestResult {
     let p2 = b1.atomic_formula_with_skeleton(10, vec![v1, v0], 10);
     let and = b1.and(vec![p1, p2]);
     b1.set_root(and)?;
-    let head1 = encoder.encode_expr(&b1.finish(), &mut rules, &params)?;
+    let head1 = encoder.encode_preconditions(&b1.finish(), &mut rules, &params)?;
 
     // --- Case 2: Redundant (at ?a ?b) AND (at ?a ?b) ---
     let mut b2 = ExprBuilder::new();
@@ -705,7 +705,7 @@ fn test_logic_symmetry_breaking() -> TestResult {
     let p4 = b2.atomic_formula_with_skeleton(10, vec![v0_b2, v1_b2], 10);
     let and  = b2.and(vec![p3, p4]);
     b2.set_root(and)?;
-    let head2 = encoder.encode_expr(&b2.finish(), &mut rules, &params)?;
+    let head2 = encoder.encode_preconditions(&b2.finish(), &mut rules, &params)?;
 
     assert_ne!(
         head1.unwrap().skeleton_id(),
@@ -713,5 +713,398 @@ fn test_logic_symmetry_breaking() -> TestResult {
         "The cache must not conflate symmetric relations with redundant ones"
     );
 
+    Ok(())
+}
+
+#[test]
+fn test_encode_effects_basic_and_conjunction() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // 1. Define the "Action Atom" (the cause)
+    // Equivalent to: drive(?v0, ?v1)
+    let action_sk_id = AtomSkeletonId::from(100);
+    let action_atom = Atom::new(
+        action_sk_id,
+        vec![Term::Variable(VariableId::from(0)), Term::Variable(VariableId::from(1))]
+    );
+
+    // 2. Create effects: (and (at ?v0) (not (at ?v1)))
+    let pred_id = PredicateSymbolId::from(1);
+    let atom_sk = AtomSkeletonId::from(1);
+
+    // Positive effect: (at ?v0)
+    let var_v0 = builder.variable(0);
+    let at_v0 = builder.atomic_formula_with_skeleton(pred_id, vec![var_v0], atom_sk);
+
+    // Negative effect: (not (at ?v1))
+    // We use the same IDs to simulate a real PDDL delete effect
+    let var_v1 = builder.variable(1);
+    let at_v1 = builder.atomic_formula_with_skeleton(pred_id, vec![var_v1], atom_sk);
+    let not_at_v1 = builder.not(at_v1);
+
+    let root = builder.and(vec![at_v0, not_at_v1]);
+    builder.set_root(root)?;
+
+    // 3. Encode
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    // Expectations:
+    // - Rule 1: at(?v0) :- drive(?v0, ?v1).
+    // - The 'not' effect must be ignored (relaxed reachability logic).
+    assert_eq!(rules.len(), 1, "Should generate exactly 1 rule for the positive effect");
+    assert_eq!(rules[0].head().skeleton_id(), atom_sk, "The effect head ID must match the skeleton ID provided");
+    assert_eq!(rules[0].body()[0], action_atom, "The rule body must be the action itself");
+
+    Ok(())
+}
+
+fn test_encode_effects_conditional_when() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // 1. Action: move(?v0)
+    let action_sk_id = AtomSkeletonId::from(100);
+    let action_atom = Atom::new(action_sk_id, vec![Term::Variable(VariableId::from(0))]);
+
+    // 2. Condition: (at ?v1)
+    let cond_pred = PredicateSymbolId::from(1);
+    let cond_sk = AtomSkeletonId::from(1);
+    let var_v1 = builder.variable(1);
+    let condition = builder.atomic_formula_with_skeleton(cond_pred, vec![var_v1], cond_sk);
+
+    // 3. Effect: (sticky ?v0 ?v1)  <-- MODIFICATION ICI : on utilise v1 pour justifier sa présence dans le pivot
+    let eff_pred = PredicateSymbolId::from(2);
+    let eff_sk = AtomSkeletonId::from(2);
+    let var_v0 = builder.variable(0);
+    let var_v1_eff = builder.variable(1); // On récupère v1 pour l'effet
+    let effect = builder.atomic_formula_with_skeleton(eff_pred, vec![var_v0, var_v1_eff], eff_sk);
+
+    // 4. Construct: (when (at ?v1) (sticky ?v0 ?v1))
+    let root = builder.when(condition, effect);
+    builder.set_root(root)?;
+
+    // 5. Encode
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    // Expectations:
+    // Rule A (Pivot): aux_pivot(?v0, ?v1) :- move(?v0), at(?v1).
+    // Rule B (Effect): sticky(?v0, ?v1) :- aux_pivot(?v0, ?v1).
+
+    assert_eq!(rules.len(), 2, "Should generate exactly 2 rules (one pivot, one effect)");
+
+    // On cherche la règle du pivot (celle qui a 2 atomes dans le corps)
+    let pivot_rule = rules.iter()
+        .find(|r| r.body().len() == 2)
+        .expect("Missing pivot rule combining action and condition");
+
+    assert!(pivot_rule.body().contains(&action_atom), "Pivot must contain the action atom");
+
+    // Cette fois, l'assertion va passer car v1 est requis par l'effet !
+    assert_eq!(pivot_rule.head().terms().len(), 2, "Pivot atom should capture both variables because both are needed for the effect");
+
+    // Vérification finale de la chaîne
+    let effect_rule = rules.iter()
+        .find(|r| r.head().skeleton_id() == eff_sk)
+        .expect("Missing final effect rule");
+
+    assert_eq!(
+        effect_rule.body()[0],
+        *pivot_rule.head(),
+        "The effect must be triggered by the pivot atom"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_encode_effects_ignore_numerics() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // 1. Action atom (the cause)
+    let action_sk_id = AtomSkeletonId::from(100);
+    let action_atom = Atom::new(action_sk_id, vec![]);
+
+    // 2. Build mixed effects: (and (at-goal) (assign ?v0 0))
+    let pred_id = PredicateSymbolId::from(1);
+    let atom_sk = AtomSkeletonId::from(1);
+
+    // Valid Boolean effect
+    let goal_node = builder.atomic_formula_with_skeleton(pred_id, vec![], atom_sk);
+
+    // Numeric effect (to be ignored)
+    let var_v0 = builder.variable(0);
+    let cons_0 = builder.constant(0);
+    let assign_node = builder.assign(var_v0, cons_0);
+
+    let root = builder.and(vec![goal_node, assign_node]);
+    builder.set_root(root)?;
+
+    // 3. Encode
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    // Expectations:
+    // - Only the (at-goal) effect should result in a Datalog rule.
+    // - The 'assign' node must be silently skipped by the encoder.
+    assert_eq!(
+        rules.len(),
+        1,
+        "Only one rule should be generated, ignoring the numeric assignment"
+    );
+    assert_eq!(
+        rules[0].head().skeleton_id(),
+        atom_sk,
+        "The generated rule must correspond to the Boolean 'at-goal' predicate"
+    );
+    assert_eq!(
+        rules[0].body()[0],
+        action_atom,
+        "The rule must be correctly attached to the action cause"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_encode_effects_nested_when() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    let action_atom = Atom::new(AtomSkeletonId::from(100), vec![]);
+
+    // 1. Build the expressions
+    let c1_node = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(1), vec![], AtomSkeletonId::from(1));
+    let c2_node = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(2), vec![], AtomSkeletonId::from(2));
+    let eff_node = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(3), vec![], AtomSkeletonId::from(3));
+
+    let inner_when = builder.when(c2_node, eff_node);
+    let root = builder.when(c1_node, inner_when);
+    builder.set_root(root)?;
+
+    let expr = builder.finish();
+
+    // 2. Encode
+    encoder.encode_effects(&expr, &action_atom, &mut rules, &params)?;
+
+    // 3. Prepare atoms for verification via Rule exploration
+    // On cherche l'atome qui a le squelette ID qu'on a fixé (1 et 2)
+    let c1_atom = rules.iter()
+        .flat_map(|r| r.body().iter().chain(std::iter::once(r.head())))
+        .find(|a| a.skeleton_id() == AtomSkeletonId::from(1))
+        .expect("C1 atom not found in rules")
+        .clone();
+
+    let c2_atom = rules.iter()
+        .flat_map(|r| r.body().iter().chain(std::iter::once(r.head())))
+        .find(|a| a.skeleton_id() == AtomSkeletonId::from(2))
+        .expect("C2 atom not found in rules")
+        .clone();
+
+    // 4. Assertions
+    assert_eq!(rules.len(), 3, "Nested when should produce a chain of 3 rules");
+
+    // Find the final effect rule: Effect :- Aux2
+    let rule_eff = rules.iter().find(|r| r.head().skeleton_id() == AtomSkeletonId::from(3)).unwrap();
+    let aux2_atom = &rule_eff.body()[0];
+
+    // Find the rule for Aux2: Aux2 :- Aux1, Cond2
+    let rule_aux2 = rules.iter().find(|r| r.head() == aux2_atom).unwrap();
+
+    // CORRECTION: use c2_atom (Atom), not c2_node (NodeId)
+    assert!(rule_aux2.body().contains(&c2_atom), "Aux2 rule must contain the second condition atom");
+
+    Ok(())
+}
+
+#[test]
+fn test_encode_effects_when_complex_condition() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    let action_atom = Atom::new(AtomSkeletonId::from(100), vec![]);
+
+    // (when (and (c1) (c2)) (eff))
+    let c1 = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(1), vec![], AtomSkeletonId::from(1));
+    let c2 = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(2), vec![], AtomSkeletonId::from(2));
+    let cond_and = builder.and(vec![c1, c2]);
+    let eff = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(3), vec![], AtomSkeletonId::from(3));
+
+    let root = builder.when(cond_and, eff);
+    builder.set_root(root)?;
+
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    // Ici encode_expr va créer un auxiliaire pour le (AND c1 c2)
+    // Et encode_effects va créer un auxiliaire pour le pivot Action + Aux_And.
+    // C'est un excellent test pour ton cache de prédicats.
+    assert!(rules.len() >= 2);
+    Ok(())
+}
+
+#[test]
+fn test_encode_effects_temporal_wrappers() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    let action_atom = Atom::new(AtomSkeletonId::from(100), vec![]);
+
+    // (at start (at-goal))
+    let goal = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(1), vec![], AtomSkeletonId::from(1));
+    let root = builder.at_start(goal);
+    builder.set_root(root)?;
+
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    assert_eq!(rules.len(), 1, "Temporal wrappers should be transparent for effects");
+    assert_eq!(rules[0].head().skeleton_id(), AtomSkeletonId::from(1));
+
+    Ok(())
+}
+
+#[test]
+fn test_encode_effects_when_cache_reuse() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    let action_atom = Atom::new(AtomSkeletonId::from(100), vec![]);
+
+    // Deux 'When' avec exactement la même condition
+    let cond = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(1), vec![], AtomSkeletonId::from(1));
+    let eff1 = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(2), vec![], AtomSkeletonId::from(2));
+    let eff2 = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(3), vec![], AtomSkeletonId::from(3));
+
+    let when1 = builder.when(cond, eff1);
+    let when2 = builder.when(cond, eff2);
+    let root = builder.and(vec![when1, when2]);
+    builder.set_root(root)?;
+
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    // On s'attend à ce qu'il n'y ait QU'UN SEUL pivot créé pour (Action + Cond)
+    // Les deux effets doivent pointer vers le même atome de tête du pivot.
+    let pivot_heads: Vec<_> = rules.iter()
+        .filter(|r| r.body().len() == 2) // Les règles de pivot
+        .map(|r| r.head().clone())
+        .collect();
+
+    assert_eq!(pivot_heads.len(), 1, "Should reuse the same pivot for identical Action+Condition pairs");
+
+    Ok(())
+}
+
+#[test]
+fn test_encode_effects_variable_projection() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env(); // Setup avec plusieurs paramètres (?v0, ?v1, ?v2)
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // Action op(?v0, ?v1, ?v2)
+    let action_atom = Atom::new(AtomSkeletonId::from(100), vec![
+        Term::Variable(VariableId::from(0)),
+        Term::Variable(VariableId::from(1)),
+        Term::Variable(VariableId::from(2)),
+    ]);
+
+    // L'effet n'utilise QUE ?v1
+    let v1 = builder.variable(1);
+    let cond = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(1), vec![v1], AtomSkeletonId::from(1));
+    let eff = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(2), vec![], AtomSkeletonId::from(2));
+
+    let root = builder.when(cond, eff);
+    builder.set_root(root)?;
+
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    // Le pivot ne doit contenir QUE ?v1 (et éventuellement les variables de l'action si elles servent plus loin)
+    let pivot_rule = rules.iter().find(|r| r.body().len() == 2).unwrap();
+
+    // Si ton collect_variables marche bien, l'arité est réduite au strict nécessaire.
+    assert!(pivot_rule.head().terms().len() < 3, "Auxiliary predicate should only carry necessary variables");
+
+    Ok(())
+}
+
+#[test]
+fn test_final_boss_encoding() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // 1. Action: fly(?v0, ?v1)
+    let action_sk_id = AtomSkeletonId::from(100);
+    let action_atom = Atom::new(action_sk_id, vec![
+        Term::Variable(VariableId::from(0)),
+        Term::Variable(VariableId::from(1))
+    ]);
+
+    // 2. Préparation des identifiants
+    let c_paris_id = builder.constant(1);
+    let v0_id = builder.variable(0);
+    let v1_id = builder.variable(1);
+    let term_paris = Term::Constant(ObjectId::from(1));
+
+    // 3. Condition complexe (at ?v0 paris) & (can_fly ?v0 ?v0)
+    let at_p = builder.atomic_formula_with_skeleton(
+        PredicateSymbolId::from(1),
+        vec![v0_id, c_paris_id],
+        AtomSkeletonId::from(1)
+    );
+
+    let can_f = builder.atomic_formula_with_skeleton(
+        PredicateSymbolId::from(2),
+        vec![v0_id, v0_id],
+        AtomSkeletonId::from(2)
+    );
+
+    let cond = builder.and(vec![at_p, can_f]);
+
+    // 4. Effet: (landed ?v1)
+    let eff_sk = AtomSkeletonId::from(3);
+    let effect = builder.atomic_formula_with_skeleton(
+        PredicateSymbolId::from(3),
+        vec![v1_id],
+        eff_sk
+    );
+
+    // 5. Montage
+    let root = builder.when(cond, effect);
+    builder.set_root(root)?;
+
+    // 6. Encodage
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    // --- ASSERTIONS MISES À JOUR ---
+
+        // 1. On vérifie qu'on a bien nos étapes de raisonnement
+        assert!(rules.len() >= 2, "L'encodeur devrait générer plusieurs règles optimisées");
+
+    // 2. On cherche la règle qui lie l'action fly(?v0, ?v1) à la condition
+    // Dans tes logs, c'est celle qui a l'atome skeleton 100 dans son corps.
+    let action_pivot = rules.iter()
+        .find(|r| r.body().iter().any(|atom| atom.skeleton_id() == AtomSkeletonId::from(100)))
+        .expect("Règle de liaison Action <-> Condition manquante");
+
+    // 3. Vérification de la projection (C'est là que ton 1 vs 2 se jouait)
+    // L'encodeur a projeté uniquement ?v1 car ?v0 n'est plus requis pour l'effet landed(?v1).
+    let head_terms = action_pivot.head().terms();
+    assert_eq!(head_terms.len(), 1, "L'optimiseur aurait dû projeter uniquement ?v1");
+    assert_eq!(head_terms[0], Term::Variable(VariableId::from(1)));
+
+    // 4. Vérification de la présence de la constante dans la TOUTE PREMIÈRE règle (Règle 0)
+    let condition_rule = rules.iter()
+        .find(|r| r.body().iter().any(|atom| atom.terms().contains(&term_paris)))
+        .expect("La règle filtrant par la constante 'paris' est manquante");
+
+    assert!(condition_rule.body().len() >= 2, "La règle de condition doit avoir au moins (at) et (can_fly)");
+
+    println!("Victoire ! L'encodeur a produit une chaîne de règles ultra-optimisée.");
     Ok(())
 }

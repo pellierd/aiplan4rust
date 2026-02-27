@@ -139,14 +139,14 @@ impl DatalogEngine {
         let domain_threshold = type_threshold + problem.predicate_defs().len();
 
         for action in problem.action_defs() {
-            // 1. Aplatir la précondition
-            let precond_opt = flattener.encode_expr(
+            // 1. Aplatir la précondition (Génère des règles auxiliaires si nécessaire)
+            let precond_opt = flattener.encode_preconditions(
                 action.precondition(),
                 &mut self.rules,
                 action.parameters()
             )?;
 
-            // 2. Créer l'identifiant unique pour l'action
+            // 2. Créer l'identifiant unique (prédicat virtuel) pour l'action
             let action_sk_id = flattener.encode_action_as_predicate(action);
 
             // 3. Préparer les termes de la tête et les TYPE GUARDS
@@ -157,40 +157,43 @@ impl DatalogEngine {
                 let var_term = Term::Variable(param.symbol());
                 head_terms.push(var_term.clone());
 
-                // --- INJECTION DES TYPES ---
-                // On récupère le skeleton ID correspondant au type du paramètre
-                // param.ty() est un vect<TypeId> qui indexe directement self.type_to_skeleton
-                //Grâce à ton module de flattening, param.ty() est maintenant
-                // garanti d'être un type "Pivot" (primitive pointant vers une liste de feuilles)
+                // Injection des types pour limiter le grounding aux objets valides
                 let type_sk_id = self.type_to_skeleton[param.ty().members()[0].as_usize()];
-
-                // On ajoute l'atome de garde : Type_Robot(?v0), etc.
                 body.push(Atom::new(type_sk_id, vec![var_term]));
             }
 
+            // --- L'ATOME PIVOT ---
+            // Cet atome représente l'exécution de l'action : ex: drive(?v1, ?v2)
             let head = Atom::new(action_sk_id, head_terms);
 
-            // 4. Finaliser la règle Maîtresse
+            // 4. Finaliser la règle Maîtresse : Preconds -> Action
             if let Some(body_atom) = precond_opt {
-                // Le corps contient maintenant : [Type_1(?v1), Type_2(?v2), ..., Precond_Aux(...)]
                 body.push(body_atom);
             }
 
-            // On trie le corps pour être sûr que les types sont traités en premier par le moteur
-            // (Même si ici ils sont déjà au début, c'est une bonne sécurité)
-            // Le seuil correspond aux types + prédicats du domaine.
-            // Tout ce qui est au-dessus de ce nombre est un auxiliaire créé par le flattener.
-            // Appel de l'optimiseur avec les deux seuils
+            // On optimise le corps de la règle maîtresse (tris des types en premier)
             Self::optimize_body(&mut body, type_threshold, domain_threshold);
 
-            self.rules.push(Rule::new(head, body));
+            // On enregistre la règle qui déclenche l'action
+            // On clone 'head' ici car on va en avoir besoin pour les effets juste après
+            self.rules.push(Rule::new(head.clone(), body));
+
+            // --- ÉTAPE 5 : ENCODAGE DES EFFETS (Causalité) ---
+            // On utilise 'head' (l'action) comme corps pour les règles d'effets.
+            // Cela crée les liens : Effet(?x) :- Action(?x)
+            // ainsi que les effets conditionnels (When).
+            flattener.encode_effects(
+                action.effect(),
+                &head,             // L'action est la CAUSE
+                &mut self.rules,   // On ajoute les nouvelles règles d'effets
+                action.parameters()
+            )?;
         }
 
-        // --- L'ÉTAPE CRUCIALE ---
-        // Maintenant que TOUTES les règles (actions + auxiliaires du flattener) sont là,
-        // on les trie toutes une par une selon la stratégie FD (3 niveaux).
+        // --- L'ÉTAPE CRUCIALE : Optimisation Globale ---
+        // Maintenant que TOUTES les règles (Actions, Effets simples, When) sont dans self.rules,
+        // on les trie toutes selon la stratégie Fast Downward.
         for rule in &mut self.rules {
-            // Supposons que tu as ajouté un accesseur mutable : rule.body_mut()
             Self::optimize_body(rule.body_mut(), type_threshold, domain_threshold);
         }
 

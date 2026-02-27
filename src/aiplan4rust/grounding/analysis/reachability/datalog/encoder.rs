@@ -7,6 +7,7 @@ use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, Type, TypeId, 
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LiftedAction;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Maximum number of variables (parameters) allowed per action or rule.
 ///
@@ -180,49 +181,194 @@ impl DatalogEncoder {
     }
 
 
-    /*fn extract_effect_atom(&self, effect: &Expr, params: &TypedList<VariableId, TypeId>) -> Result<Option<Atom>, DatalogError> {
-        match effect.kind() {
-            // Effet simple : (at ?robot ?loc)
-            ExprKind::AtomicFormula => {
-                let atom = self.extract_atom(effect.expr(), effect.root_node())?;
-                Ok(Some(atom))
-            },
-            // Effet conditionnel : (when (condition) (effect))
-            // INDUSTRIEL : FD traite souvent cela en créant une action virtuelle
-            // avec (condition AND action_params) comme précondition.
-            ExprKind::When => {
-                // Pour l'instant, on peut ignorer ou logger
-                Ok(None)
-            },
-            // On ignore les effets numériques pour la reachability pure
-            _ => Ok(None),
-        }
-    }*/
-
-    /// Iteratively encodes an expression into Datalog atoms and rules.
+    /// Encodes action effects into Datalog rules by propagating causality from the action to its consequences.
     ///
-    /// This function performs a post-order traversal of the expression tree using
-    /// an explicit work stack to flatten complex logical structures (AND/OR)
-    /// into auxiliary predicates (Tseitin-like transformation).
+    /// This function performs an iterative top-down traversal of the effect expression tree.
+    /// It establishes a logical chain between the "cause" (the action atom) and the resulting
+    /// "facts" (atomic formulas).
+    ///
+    /// # Conditional Effects (WHEN)
+    ///
+    /// When encountering a `When` node, the function:
+    /// 1. Uses `encode_expr` to flatten the condition into an auxiliary atom.
+    /// 2. Creates a "pivot" auxiliary predicate representing the conjunction of the action
+    ///    and the condition.
+    /// 3. Propagates this new auxiliary atom as the "cause" for all nested sub-effects.
+    ///
+    /// # Relaxed Semantics
+    ///
+    /// For reachability analysis, this encoder follows a positive-only Datalog model:
+    /// * **Delete-effects (`Not`)** are explicitly ignored.
+    /// * **Numerical effects** (Assign, Operation, etc.) are skipped as they do not contribute
+    ///   to atomic fact reachability.
     ///
     /// # Arguments
-    /// * `expr` - The expression tree to encode.
+    ///
+    /// * `root_effect` - The expression tree representing the action's effects.
+    /// * `action_atom` - The atom representing the execution of the action (the initial cause).
     /// * `rules_sink` - A vector where newly generated Datalog rules are stored.
-    /// * `parameters` - The typed parameters available in the current context.
+    /// * `parameters` - The typed parameters of the action, used for auxiliary predicate signatures.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`DatalogError`] if:
+    /// * An unsupported node kind is encountered (e.g., `Forall` or `Exists` not yet implemented).
+    /// * There is a failure in auxiliary predicate generation or variable collection.
+    pub fn encode_effects(
+        &mut self,
+        root_effect: &Expr,
+        action_atom: &Atom,
+        rules_sink: &mut Vec<Rule>,
+        parameters: &TypedList<VariableId, TypeId>,
+    ) -> Result<(), DatalogError> {
+        // Work stack: (Node ID, Current Cause)
+        let mut work_stack = vec![(root_effect.try_root_id()?, action_atom.clone())];
+
+        while let Some((node_id, current_cause)) = work_stack.pop() {
+            let node = root_effect.try_node(node_id)?;
+            let kind = node.kind();
+
+            match kind {
+                // 1. Fact Production: Create the rule Effect :- Cause
+                ExprKind::AtomicFormula => {
+                    let effect_atom = self.extract_atom(root_effect, node)?;
+                    rules_sink.push(Rule::new(effect_atom, vec![current_cause]));
+                }
+
+                // 2. Conjunction: Propagate the cause to all sub-effects
+                ExprKind::And => {
+                    for &child_id in node.children().iter().rev() {
+                        work_stack.push((child_id, current_cause.clone()));
+                    }
+                }
+
+                // 3. Conditional Effect: Create a pivot between Action and Condition
+                ExprKind::When => {
+                    let children = node.children();
+                    let condition_id = children[0];
+                    let sub_effect_id = children[1];
+
+                    if let Some(cond_atom) = self.encode_expr(root_effect, condition_id, rules_sink, parameters)? {
+                        // 1. Les variables qu'on A (Cause + Condition)
+                        // Note le '?' à la fin car collect_mask peut échouer (VariableLimitExceeded)
+                        let available_mask = self.collect_mask(&[current_cause.clone(), cond_atom.clone()]);
+
+                        // 2. Les variables dont on a BESOIN (le futur de l'effet)
+                        let required_mask = self.scan_required_vars_mask(root_effect, sub_effect_id);
+
+                        // 3. LA PROJECTION : Intersection bit à bit
+                        let final_mask = available_mask & required_mask;
+
+                        // 4. On transforme le mask en Vec via ton code optimisé
+                        let filtered_vars = self.mask_to_vars(final_mask);
+
+                        // --- Logique de cache ---
+                        let mut combined_body = vec![current_cause.clone(), cond_atom];
+                        // On trie le corps pour que l'ordre des atomes n'impacte pas le cache
+                        combined_body.sort_by_key(|a| a.skeleton_id());
+
+                        let aux_when_atom = if let Some(existing_head) = self.cache.get(&combined_body) {
+                            existing_head.clone()
+                        } else {
+                            // Création de l'atome avec uniquement les variables utiles (filtered_vars)
+                            let head = self.create_aux_atom(filtered_vars, parameters);
+                            rules_sink.push(Rule::new(head.clone(), combined_body.clone()));
+                            self.cache.insert(combined_body, head.clone());
+                            head
+                        };
+
+                        // On continue la pile avec le pivot comme nouvelle cause
+                        work_stack.push((sub_effect_id, aux_when_atom));
+                    }
+                }
+
+                // 4. Temporal Wrappers: Simply traverse through
+                ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
+                    if let Some(&child_id) = node.children().first() {
+                        work_stack.push((child_id, current_cause));
+                    }
+                }
+
+                // 5. Explicitly Ignored Nodes (Numerical / Metrics)
+                // These are skipped as they don't impact atomic fact reachability
+                ExprKind::Assign | ExprKind::Operation | ExprKind::FComp | ExprKind::Not | ExprKind::Metric => {
+                    // Note: 'Not' is ignored here because positive Datalog ignores delete-effects
+                    continue;
+                }
+
+                // 6. Safety: Any other node kind triggers an error (e.g., Forall, Exists)
+                _ => {
+                    return Err(DatalogError::UnsupportedNode {
+                        kind: kind.clone(),
+                        node_id,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Encodes the preconditions of an action into Datalog atoms and rules.
+    ///
+    /// This function serves as the public entry point for flattening action preconditions.
+    /// It delegates the iterative post-order traversal to `encode_expr`, starting from
+    /// the root of the provided expression tree.
+    ///
+    /// Complex logical structures (AND/OR) are decomposed into auxiliary predicates
+    /// using a Tseitin-like transformation to maintain a flat Horn-clause structure.
+    ///
+    /// # Arguments
+    ///
+    /// * `expr` - The expression tree representing the action's preconditions.
+    /// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
+    /// * `parameters` - The typed parameters of the action, used to define the signature of auxiliary predicates.
     ///
     /// # Returns
-    /// * `Ok(Some(Atom))` - The head atom representing the encoded expression.
-    /// * `Ok(None)` - If the expression branch is ignored (e.g., unsupported or non-logical nodes).
-    /// * `Err(DatalogError)` - If the stack is inconsistent or an unsupported node is encountered.
-    pub fn encode_expr(
+    ///
+    /// * `Ok(Some(Atom))` - The head atom representing the unified precondition logic.
+    /// * `Ok(None)` - If the expression is empty or contains only ignored nodes (e.g., empty AND).
+    /// * `Err(DatalogError)` - If the expression tree is malformed or contains unsupported nodes.
+    pub fn encode_preconditions(
         &mut self,
         expr: &Expr,
         rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
     ) -> Result<Option<Atom>, DatalogError> {
+        if let Some(root_id) = expr.root_id() {
+            self.encode_expr(expr, root_id, rules_sink, parameters)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Encodes a sub-expression starting from a specific node into Datalog atoms and rules.
+    ///
+    /// This is the internal engine used by both `encode_preconditions` and `encode_effects`.
+    /// It performs an iterative post-order traversal starting at `node_id` to flatten
+    /// complex logical structures (AND/OR) into auxiliary predicates.
+    ///
+    /// # Arguments
+    ///
+    /// * `expr` - The global expression tree containing the node.
+    /// * `node_id` - The starting point for the encoding (root of the sub-tree).
+    /// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
+    /// * `parameters` - The typed parameters available in the current context (e.g., action parameters).
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(Atom))` - The head atom representing the encoded sub-expression.
+    /// * `Ok(None)` - If the branch contains no logical content (e.g., empty AND, ignored nodes).
+    /// * `Err(DatalogError)` - If the stack is inconsistent or an unsupported node is encountered.
+    pub fn encode_expr(
+        &mut self,
+        expr: &Expr,
+        node_id: NodeId,
+        rules_sink: &mut Vec<Rule>,
+        parameters: &TypedList<VariableId, TypeId>,
+    ) -> Result<Option<Atom>, DatalogError> {
         // Work stack: (Node ID, is_visited)
         // Start with the root node, initially unvisited.
-        let mut work_stack = vec![(expr.try_root_id()?, false)];
+        let mut work_stack = vec![(node_id, false)];
 
         // Result stack for post-order synthesis (stores computed Atoms or None).
         let mut results_stack: Vec<Option<Atom>> = Vec::with_capacity(32);
@@ -251,8 +397,7 @@ impl DatalogEncoder {
                     }
 
                     // Ignore nodes that do not contribute to the Datalog logic mapping
-                    ExprKind::Not | ExprKind::Assign | ExprKind::Operation | ExprKind::Metric
-                    | ExprKind::Task | ExprKind::FunctionTerm | ExprKind::FComp => {
+                    ExprKind::Not | ExprKind::Operation | ExprKind::FComp => {
                         results_stack.push(None);
                         continue;
                     }
@@ -344,32 +489,7 @@ impl DatalogEncoder {
         Ok(results_stack.pop().flatten())
     }
 
-    /// Encodes a new auxiliary predicate based on a collection of atoms.
-    ///
-    /// This is a helper function used during the transformation of complex formulas
-    /// (like AND/OR) into Horn clauses. It performs two main steps:
-    /// 1. It collects all unique variables from the provided `atoms` to determine
-    ///    the signature (arity and types) of the new predicate.
-    /// 2. It allocates a new unique predicate ID and returns the corresponding [`Atom`].
-    ///
-    /// # Arguments
-    /// * `atoms` - The list of atoms that will form the body (for AND) or the options (for OR)
-    ///             of the rules associated with this auxiliary predicate.
-    /// * `parameters` - The typed list of parameters from the current scope (e.g., action parameters).
-    ///
-    /// # Errors
-    /// Returns a [`DatalogError`] if variable collection fails or if there is an
-    /// inconsistency in the typed list.
-    fn encode_new_aux_predicate(
-        &mut self,
-        atoms: &[Atom],
-        parameters: &TypedList<VariableId, TypeId>,
-    ) -> Result<Atom, DatalogError> {
-        // Collect unique variables to define the new predicate's signature
-        let vars = self.collect_variables(atoms)?;
-        // Generate the unique auxiliary atom
-        Ok(self.create_aux_atom(vars, parameters))
-    }
+
 
     /// Extracts a logical [`Atom`] from a specific expression node.
     ///
@@ -433,6 +553,33 @@ impl DatalogEncoder {
         }
 
         Ok(Atom::new(skeleton_id, terms))
+    }
+
+    /// Encodes a new auxiliary predicate based on a collection of atoms.
+    ///
+    /// This is a helper function used during the transformation of complex formulas
+    /// (like AND/OR) into Horn clauses. It performs two main steps:
+    /// 1. It collects all unique variables from the provided `atoms` to determine
+    ///    the signature (arity and types) of the new predicate.
+    /// 2. It allocates a new unique predicate ID and returns the corresponding [`Atom`].
+    ///
+    /// # Arguments
+    /// * `atoms` - The list of atoms that will form the body (for AND) or the options (for OR)
+    ///             of the rules associated with this auxiliary predicate.
+    /// * `parameters` - The typed list of parameters from the current scope (e.g., action parameters).
+    ///
+    /// # Errors
+    /// Returns a [`DatalogError`] if variable collection fails or if there is an
+    /// inconsistency in the typed list.
+    fn encode_new_aux_predicate(
+        &mut self,
+        atoms: &[Atom],
+        parameters: &TypedList<VariableId, TypeId>,
+    ) -> Result<Atom, DatalogError> {
+        // Collect unique variables to define the new predicate's signature
+        let vars = self.collect_variables(atoms)?;
+        // Generate the unique auxiliary atom
+        Ok(self.create_aux_atom(vars, parameters))
     }
 
     /// Creates a new auxiliary atom and registers its skeleton locally.
@@ -516,48 +663,62 @@ impl DatalogEncoder {
     ///
     /// # Returns
     /// A `Vec<VariableId>` sorted by ID in ascending order (due to the nature of bit-scanning).
-    fn collect_variables(&self, atoms: &[Atom]) -> Result<Vec<VariableId>, DatalogError> {
-        // The 'mask' serves as a bitset where the n-th bit represents VariableId(n).
+    pub fn collect_variables(&self, atoms: &[Atom]) -> Result<Vec<VariableId>, DatalogError> {
+        let mask = self.collect_mask(atoms);
+        Ok(self.mask_to_vars(mask))
+    }
+
+
+    fn scan_required_vars_mask(&self, expr: &Expr, start_node_id: NodeId) -> u64 {
         let mut mask: u64 = 0;
+        let mut stack = vec![start_node_id];
 
-        // --- PHASE 1: Marking Presence ---
-        for atom in atoms {
-            for term in atom.terms() {
-                if let Term::Variable(v) = term {
-                    let id = v.as_usize();
-
-                    // Check if the variable fits in our 64-bit registry
-                    if id >= Self::MAX_VARS {
-                        return Err(DatalogError::VariableLimitExceeded(id as u32));
+        while let Some(node_id) = stack.pop() {
+            if let Ok(node) = expr.try_node(node_id) {
+                match node.kind() {
+                    ExprKind::AtomicFormula => {
+                        // --- CORRECTION ICI ---
+                        // On utilise extract_atom pour obtenir l'objet qui possède la méthode .terms()
+                        if let Ok(atom) = self.extract_atom(expr, node) {
+                            for term in atom.terms() {
+                                if let Term::Variable(v) = term {
+                                    mask |= 1 << v.as_usize();
+                                }
+                            }
+                        }
                     }
-
-                    // Set the bit corresponding to the variable ID.
-                    mask |= 1 << id;
+                    // On continue de descendre dans les enfants pour trouver tous les atomes
+                    ExprKind::And | ExprKind::When | ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
+                        for &child_id in node.children() {
+                            stack.push(child_id);
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
+        mask
+    }
 
-        // --- PHASE 2: Extraction ---
-        // Pre-allocate the vector with the exact capacity needed using the
-        // CPU's population count (popcount) instruction.
-        let mut vars = Vec::with_capacity(mask.count_ones() as usize);
-        let mut temp_mask = mask;
-
-        // High-performance bit-scanning loop.
-        while temp_mask != 0 {
-            // trailing_zeros() uses the CPU's CTZ/BSF instruction to find the
-            // index of the lowest set bit in O(1).
-            let bit = temp_mask.trailing_zeros();
-
-            // Convert the bit position back to a VariableId.
-            vars.push(VariableId::from(bit as usize));
-
-            // Clear the lowest set bit (BLSR trick: n & (n - 1)).
-            // This is more efficient than shifting because it jumps directly
-            // to the next set bit.
-            temp_mask &= temp_mask - 1;
+    fn collect_mask(&self, atoms: &[Atom]) -> u64 {
+        let mut mask: u64 = 0;
+        for atom in atoms {
+            for term in atom.terms() {
+                if let Term::Variable(v) = term {
+                    mask |= 1 << v.as_usize();
+                }
+            }
         }
+        mask
+    }
 
-        Ok(vars)
+    fn mask_to_vars(&self, mut mask: u64) -> Vec<VariableId> {
+        let mut vars = Vec::with_capacity(mask.count_ones() as usize);
+        while mask != 0 {
+            let bit = mask.trailing_zeros();
+            vars.push(VariableId::from(bit as usize));
+            mask &= mask - 1;
+        }
+        vars
     }
 }
