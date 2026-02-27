@@ -491,6 +491,23 @@ where
         Ok(node.is_atomic_formula())
     }
 
+    /// Returns `true` if the node represents a **variable**.
+    ///
+    /// In the context of a lifted PDDL expression, a variable node acts as
+    /// an identifier for a parameter of an action or a quantified variable.
+    ///
+    /// # Arguments
+    /// * `node_id` - The ID of the node to check.
+    ///
+    /// # Returns
+    /// * `Ok(true)` if the node kind is a variable.
+    /// * `Ok(false)` otherwise.
+    /// * `Err(SyntaxTreeError)` if the node ID is invalid.
+    pub fn is_variable(&self, node_id: NodeId) -> Result<bool, SyntaxTreeError> {
+        let node = self.try_node(node_id)?;
+        Ok(node.is_variable())
+    }
+
     /// Returns `true` if the node is a **temporal specifier** (`AtStart`, `AtEnd`, or `Overall`).
     ///
     /// # Arguments

@@ -1,7 +1,7 @@
 use std::fmt;
 use crate::aiplan4rust::lang::{ObjectId, VariableId};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd,)]
 pub enum Term {
     Variable(VariableId),
     Constant(ObjectId),

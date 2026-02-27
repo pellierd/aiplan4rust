@@ -1,51 +1,58 @@
 use std::collections::HashSet;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use crate::aiplan4rust::lang::ObjectId;
 
 #[derive(Debug, Clone)]
 pub struct Relation {
     arity: usize,
-    /// Stockage à plat : [arg1, arg2, arg1, arg2, ...]
-    /// Idéal pour les itérateurs de jointure (localité du cache).
     tuples: Vec<ObjectId>,
-    /// Index de présence pour le point fixe (évite les doublons).
-    /// On stocke un Hash (u64) pour être très compact.
-    index: HashSet<u64>,
+    /// On stocke des vecteurs pour la sécurité, mais on va optimiser l'ajout.
+    index: HashSet<Vec<ObjectId>>,
+    first_arg_index: HashMap<ObjectId, Vec<usize>>,
 }
-
 impl Relation {
+    /// Initialise une nouvelle relation avec une arité fixe.
     /// Initialise une nouvelle relation avec une arité fixe.
     pub fn new(arity: usize) -> Self {
         Self {
             arity,
             tuples: Vec::new(),
             index: HashSet::new(),
+            first_arg_index: HashMap::new(),
         }
     }
 
-    /// Ajoute un fait (tuple d'ObjectIDs).
-    /// Retourne `true` si le fait est nouveau, `false` s'il existait déjà.
+    pub fn contains_tuple(&self, tuple: &[ObjectId]) -> bool {
+        // HashSet<Vec<T>> permet de chercher avec un &[T] grâce à l'implémentation de Borrow
+        // C'est O(1), Garanti sans collision, et ZÉRO allocation.
+        self.index.contains(tuple)
+    }
+
     pub fn add_fact(&mut self, tuple: &[ObjectId]) -> bool {
-        debug_assert_eq!(tuple.len(), self.arity, "L'arité du tuple ne correspond pas à la relation");
+        if !self.index.contains(tuple) {
+            let v = tuple.to_vec();
 
-        // 1. Calculer un hash rapide du tuple
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        tuple.hash(&mut hasher);
-        let h = hasher.finish();
+            // Calcul de l'offset AVANT l'insertion
+            let start_offset = self.tuples.len();
 
-        // 2. Vérifier si on l'a déjà (O(1)) via le set de hashes
-        if self.index.insert(h) {
-            // 3. Si nouveau, on l'ajoute au stockage à plat
+            // Mise à jour de l'index sur le premier argument
+            if let Some(&first_obj) = tuple.first() {
+                self.first_arg_index
+                    .entry(first_obj)
+                    .or_default()
+                    .push(start_offset);
+            }
+
             self.tuples.extend_from_slice(tuple);
-            true
-        } else {
-            false
+            self.index.insert(v);
+            return true;
         }
+        false
     }
 
-    /// Permet de consulter l'index des hashes (lecture seule)
-    pub fn index(&self) -> &HashSet<u64> {
-        &self.index
+    pub fn first_arg_index(&self) -> &HashMap<ObjectId, Vec<usize>> {
+        &self.first_arg_index
     }
 
     /// Retourne l'arité (le nombre d'arguments par fait).
@@ -83,9 +90,5 @@ impl Relation {
         self.tuples.get(start..end)
     }
 
-    pub fn contains_tuple(&self, tuple: &[ObjectId]) -> bool {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        tuple.hash(&mut hasher);
-        self.index.contains(&hasher.finish())
-    }
+
 }

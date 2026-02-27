@@ -77,46 +77,6 @@ pub fn flatten(problem: &mut LiftedProblem) -> Result<(), LirError> {
     Ok(())
 }
 
-
-/*/// Construit un mapping de TypeID vers ValueDomain.
-/// Cette fonction doit être appelée APRÈS 'flatten' pour garantir que
-/// les objets pointent vers des types atomiques/pivots.
-pub fn build_value_domains(problem: &LiftedProblem) -> Vec<ValueDomain> {
-    // 1. Pré-allocation du vecteur
-    // On utilise la taille de la table des types pour que chaque TypeID soit un index valide.
-    let n_types = problem.type_defs().len();
-    let mut domains = vec![ValueDomain::new(); n_types];
-
-    // 2. Parcours de tous les objets (Constants + Problem Objects)
-    for obj_def in problem.object_defs() {
-        let obj_id = obj_def.symbol();
-
-        // On récupère le TypeID du Pivot (le premier membre après flatten)
-        if let Some(&type_id) = obj_def.ty().members().first() {
-            let idx = type_id.as_usize();
-
-            // A. Ajout au type direct (le Pivot)@
-            domains[idx].add_object(obj_id);
-
-            // B. Propagation aux parents (Héritage)
-            if let Ok(ts) = problem.try_get_type(type_id) {
-                let ty_def = ts.ty();
-
-                // Si ty() est vide, c'est une racine -> rien à faire.
-                // Sinon, c'est un pivot -> on propage aux membres racines.
-                if !ty_def.is_empty() {
-                    for &parent_id in ty_def.members() {
-                        let p_idx = parent_id.as_usize();
-                        domains[p_idx].add_object(obj_id);
-                    }
-                }
-            }
-        }
-    }
-
-    domains
-}*/
-
 /// STEP 3: Propagate Type Changes to Problem Components
 ///
 /// Traverses all components of the `LiftedProblem` and updates their internal

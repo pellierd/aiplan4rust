@@ -360,52 +360,19 @@ impl Node for ExprNode {
         matches!(self.kind(), ExprKind::Not)
     }
 
-    /*/// Recursively pretty-prints the syntax subtree rooted at this node,
-    /// formatting the tree structure with branch graphics and displaying interned strings.
+    /// Returns `true` if this node represents a logical variable.
     ///
-    /// # Parameters
-    ///
-    /// - `f`: The formatter to write output to.
-    /// - `arena`: The syntax tree arena containing nodes.
-    /// - `interner`: The string interner for resolving interned identifiers.
+    /// This is used during the flattening and grounding process to distinguish
+    /// between lifted parameters (variables) and ground objects (constants)
+    /// within an atomic formula's arguments.
     ///
     /// # Returns
-    ///
-    /// A formatting result.
-    fn fmt_with_interner(
-        &self,
-        f: &mut Formatter<'_>,
-        arena: &SyntaxTree<Self>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-            syntax::tree::renderers::tree_rendering(self, f, arena, interner)
+    /// * `true` if the underlying node kind is a variable.
+    /// * `false` otherwise.
+    fn is_variable(&self) -> bool {
+        matches!(self.kind(), ExprKind::Variable)
     }
 
-    /// Formats the syntax subtree with indentation.
-    /// This is currently a wrapper around `fmt_with_interner`.
-    ///
-    /// # Parameters
-    ///
-    /// - `f`: The formatter to write output to.
-    /// - `arena`: The syntax tree arena containing nodes.
-    /// - `interner`: The string interner for resolving interned identifiers.
-    /// - `indent`: The number of indentation spaces (currently unused).
-    ///
-    /// # Returns
-    ///
-    /// A formatting result.
-    fn fmt_syntax_with_indent(
-        &self,
-        f: &mut Formatter<'_>,
-        arena: &SyntaxTree<Self>,
-        interner: &StringInterner,
-        _indent: usize,
-    ) -> fmt::Result
-    where
-        Self: Sized,
-    {
-        syntax::tree::renderers::syntax_rendering(self, f, arena, interner)
-    }*/
 }
 
 impl ExprNode {

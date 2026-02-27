@@ -393,6 +393,19 @@ impl Node for AstNode {
     fn is_not(&self) -> bool {
         matches!(self.kind(), AstKind::Not)
     }
+
+    /// Returns `true` if this node represents a logical variable.
+    ///
+    /// This is used during the flattening and grounding process to distinguish
+    /// between lifted parameters (variables) and ground objects (constants)
+    /// within an atomic formula's arguments.
+    ///
+    /// # Returns
+    /// * `true` if the underlying node kind is a variable.
+    /// * `false` otherwise.
+    fn is_variable(&self) -> bool {
+        matches!(self.kind(), AstKind::Variable)
+    }
 }
 
 impl RemapSymbol for AstNode {

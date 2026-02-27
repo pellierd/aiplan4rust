@@ -284,4 +284,10 @@ pub trait Node: ArenaNode + Display {
     /// This enables generic algorithms (such as literal detection)
     /// to operate independently of the specific `Kind` enum used.
     fn is_not(&self) -> bool;
+
+    /// Returns `true` if this node represents a logical variable.
+    ///
+    /// This is used during atom extraction to distinguish between parameters
+    /// of an action and constant objects.
+    fn is_variable(&self) -> bool;
 }

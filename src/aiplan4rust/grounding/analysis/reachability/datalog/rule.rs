@@ -22,6 +22,11 @@ impl Rule {
     pub fn body(&self) -> &[Atom] {
         &self.body
     }
+
+    // Retourne une référence mutable aux conditions (corps) de la règle.
+    pub fn body_mut(&mut self) -> &mut Vec<Atom> {
+        &mut self.body
+    }
 }
 
 impl fmt::Display for Rule {

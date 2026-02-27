@@ -2,13 +2,14 @@ use std::fmt;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::lang::AtomSkeletonId;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Atom {
     /// L'identifiant du squelette (signature typée : Nom + Types des paramètres).
     /// C'est la clé unique pour retrouver la Relation dans la Database.
     skeleton_id: AtomSkeletonId,
     /// Les arguments réels (Variables ou Constantes) pour cette instance.
     terms: Vec<Term>,
+    negated: bool, // Nouveau champ
 }
 
 impl Atom {
@@ -17,10 +18,20 @@ impl Atom {
         Self {
             skeleton_id,
             terms,
+            negated: false,
         }
     }
 
     // --- Getters ---
+    /// Retourne une version négative de cet atome.
+    /// Utilisé par le flattener lors de la rencontre d'un nœud Not.
+    pub fn negated(&mut self) {
+        self.negated = true;
+    }
+
+    pub fn is_negated(&self) -> bool {
+        self.negated
+    }
 
     /// Retourne l'ID du squelette (unique par signature).
     #[inline]

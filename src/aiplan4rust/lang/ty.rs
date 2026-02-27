@@ -28,6 +28,10 @@ impl<ID: Id> Type<ID> {
         Self { members: Vec::new() }
     }
 
+    pub fn root() -> Self {
+        Type::new()
+    }
+
     pub fn primitive(id: ID) -> Self {
         Self { members: vec![id] }
     }
