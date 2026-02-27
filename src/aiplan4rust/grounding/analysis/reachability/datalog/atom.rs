@@ -2,18 +2,35 @@ use std::fmt;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::lang::AtomSkeletonId;
 
+/// Represents a logical atom in a Datalog rule.
+///
+/// An `Atom` consists of a predicate (identified by its [`AtomSkeletonId`]) and
+/// a sequence of [`Term`]s (variables or constants). In the context of
+/// reachability analysis, atoms appear in the head or body of rules to define
+/// how facts are derived.
+///
+/// Atoms are the "schema" level objects that the engine uses to query or
+/// update the [`Database`](crate::aiplan4rust::grounding::analysis::reachability::datalog::database::Database).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Atom {
-    /// L'identifiant du squelette (signature typée : Nom + Types des paramètres).
-    /// C'est la clé unique pour retrouver la Relation dans la Database.
+    /// The unique identifier for the predicate signature (Name + Parameter Types).
+    /// This ID serves as the key to locate the corresponding Relation in the Database.
     skeleton_id: AtomSkeletonId,
-    /// Les arguments réels (Variables ou Constantes) pour cette instance.
+    /// The actual arguments for this instance, which can be [`Term::Variable`]
+    /// or [`Term::Constant`].
     terms: Vec<Term>,
-    negated: bool, // Nouveau champ
+    /// Indicates if the atom is part of a negative literal (e.g., `not(at(?v, ?l))`).
+    negated: bool,
 }
 
 impl Atom {
-    /// Constructeur utilisant l'ID du squelette.
+    /// Creates a new `Atom` with the given skeleton ID and terms.
+    ///
+    /// By default, the atom is not negated.
+    ///
+    /// # Arguments
+    /// * `skeleton_id` - The identifier mapping to a specific predicate in the domain.
+    /// * `terms` - The list of variables or constants associated with this predicate.
     pub fn new(skeleton_id: AtomSkeletonId, terms: Vec<Term>) -> Self {
         Self {
             skeleton_id,
@@ -22,29 +39,32 @@ impl Atom {
         }
     }
 
-    // --- Getters ---
-    /// Retourne une version négative de cet atome.
-    /// Utilisé par le flattener lors de la rencontre d'un nœud Not.
+    /// Flags this atom as negated.
+    ///
+    /// This is used by the flattener when encountering a logical `Not` node
+    /// in the lifted problem description.
     pub fn negated(&mut self) {
         self.negated = true;
     }
 
+    /// Returns `true` if this atom is negated (a negative literal).
     pub fn is_negated(&self) -> bool {
         self.negated
     }
 
-    /// Retourne l'ID du squelette (unique par signature).
+    /// Returns the unique identifier of the atom's skeleton.
     #[inline]
     pub fn skeleton_id(&self) -> AtomSkeletonId {
         self.skeleton_id
     }
 
+    /// Returns a slice containing the terms of this atom.
     #[inline]
     pub fn terms(&self) -> &[Term] {
         &self.terms
     }
 
-    /// Retourne l'arité (nombre de termes).
+    /// Returns the arity (the number of terms) of the atom.
     #[inline]
     pub fn arity(&self) -> usize {
         self.terms.len()
@@ -52,15 +72,33 @@ impl Atom {
 }
 
 impl fmt::Display for Atom {
+    /// Formats the atom for debug output and logging.
+    ///
+    /// Predicates are prefixed with `sk_` to indicate they refer to
+    /// a Skeleton ID. If the atom is negated, it is wrapped in `not(...)`.
+    ///
+    /// # Example
+    /// ```text
+    /// sk_5(?v0, c12)
+    /// not(sk_2(?v1))
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // On affiche "sk" pour "skeleton" afin de clarifier la nature de l'ID
-        write!(f, "sk_{}(", self.skeleton_id)?;
+        if self.negated {
+            write!(f, "not(")?;
+        }
+
+        write!(f, "{}(", self.skeleton_id)?;
         for (i, term) in self.terms.iter().enumerate() {
             if i > 0 {
                 write!(f, ", ")?;
             }
             write!(f, "{}", term)?;
         }
-        write!(f, ")")
+        write!(f, ")")?;
+
+        if self.negated {
+            write!(f, ")")?;
+        }
+        Ok(())
     }
 }

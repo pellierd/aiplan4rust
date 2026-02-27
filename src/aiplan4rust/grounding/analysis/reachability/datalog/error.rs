@@ -21,6 +21,10 @@ pub enum DatalogError {
     #[error("Inconsistent type definition for parameter {0:?}: expected a primitive pivot type")]
     InconsistentType(VariableId),
 
+    /// Erreur levée si un identifiant de variable dépasse la capacité du bitset (64).
+    #[error("Variable ID {0} exceeds the 64-bit capacity of the flattener")]
+    VariableLimitExceeded(u32),
+
     /// Erreur levée lors de la rencontre d'un nœud non supporté ou inattendu lors du flattening.
     /// Utile pour détecter les quantificateurs non expansés ou les types invalides.
     #[error("Unsupported node type {kind:?} at node {node_id:?}. Ensure expand() was called.")]

@@ -32,6 +32,7 @@ pub struct Database {
 
 impl Database {
     /// Creates a new, empty Datalog database.
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
@@ -50,7 +51,7 @@ impl Database {
         self.relations
             .entry(skeleton_id)
             .or_insert_with(|| Relation::new(arity))
-            .add_fact(args)
+            .insert(args)
     }
 
     /// Checks if a fact exists within the stable storage.
@@ -64,7 +65,7 @@ impl Database {
     pub fn contains_stable(&self, skeleton_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
         self.relations
             .get(&skeleton_id)
-            .map_or(false, |rel| rel.contains_tuple(args))
+            .map_or(false, |rel| rel.contains(args))
     }
 
     /// Checks if a fact exists within the delta buffer.
@@ -74,7 +75,7 @@ impl Database {
     pub fn contains_delta(&self, skeleton_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
         self.delta
             .get(&skeleton_id)
-            .map_or(false, |rel| rel.contains_tuple(args))
+            .map_or(false, |rel| rel.contains(args))
     }
 
     /// Checks if a fact exists in either the stable or delta storage.
@@ -88,6 +89,7 @@ impl Database {
     /// Calculates the total number of unique facts across all stable relations.
     ///
     /// This is typically used to monitor the growth of the knowledge base.
+    #[inline]
     pub fn get_relation(&self, skeleton_id: AtomSkeletonId) -> Option<&Relation> {
         self.relations.get(&skeleton_id)
     }
@@ -103,6 +105,7 @@ impl Database {
     /// # Usage
     /// This is primarily used by the saturation algorithm to iterate over the
     /// current knowledge base and evaluate rules during the fixed-point calculation.
+    #[inline]
     pub fn relations(&self) -> &HashMap<AtomSkeletonId, Relation> {
         &self.relations
     }
@@ -147,7 +150,7 @@ impl Database {
                 .or_insert_with(|| Relation::new(delta_rel.arity()));
 
             for tuple in delta_rel.iter() {
-                rel.add_fact(tuple);
+                rel.insert(tuple);
             }
         }
     }
@@ -170,13 +173,14 @@ impl Database {
         self.delta
             .entry(sk_id)
             .or_insert_with(|| Relation::new(arity))
-            .add_fact(args)
+            .insert(args)
     }
 
     /// Returns a reference to a specific relation in the Delta buffer.
     ///
     /// This is primarily used to access the "pivot" relation during
     /// incremental evaluation.
+    #[inline]
     pub fn get_delta_relation(&self, sk_id: AtomSkeletonId) -> Option<&Relation> {
         self.delta.get(&sk_id)
     }
@@ -194,6 +198,7 @@ impl Database {
     ///
     /// When this returns `true` after a saturation step, the fixed-point
     /// has been reached.
+    #[inline]
     pub fn is_delta_empty(&self) -> bool {
         self.delta.is_empty()
     }
@@ -214,7 +219,7 @@ impl Database {
     /// An `Option` containing a tuple of `(raw_buffer_length, arity)`.
     pub fn get_layout(&self, sk_id: AtomSkeletonId, use_delta: bool) -> Option<(usize, usize)> {
         let rel = if use_delta { self.delta.get(&sk_id) } else { self.relations.get(&sk_id) };
-        rel.map(|r| (r.raw_data().len(), r.arity()))
+        rel.map(|r| (r.data().len(), r.arity()))
     }
 
     /// Reads a tuple from the raw storage into a provided output buffer.
@@ -226,7 +231,7 @@ impl Database {
     pub fn read_tuple(&self, sk_id: AtomSkeletonId, use_delta: bool, start: usize, arity: usize, out: &mut [ObjectId]) {
         let rel_opt = if use_delta { self.delta.get(&sk_id) } else { self.relations.get(&sk_id) };
         if let Some(rel) = rel_opt {
-            let data = rel.raw_data();
+            let data = rel.data();
             // Vérification de sécurité pour éviter le out-of-bounds
             if start + arity <= data.len() {
                 out[..arity].copy_from_slice(&data[start..start + arity]);
@@ -241,73 +246,15 @@ impl Database {
     pub fn lookup_index(&self, sk_id: AtomSkeletonId, use_delta: bool, first_arg: ObjectId) -> Option<Vec<usize>> {
         let rel = if use_delta { self.delta.get(&sk_id) } else { self.relations.get(&sk_id) };
         // On clone le petit vecteur d'offsets (pas les données des faits)
-        rel.and_then(|r| r.first_arg_index().get(&first_arg).cloned())
-    }
-
-    /// Formats a specific relation's content for display.
-    ///
-    /// This helper method iterates through the raw data of a [`Relation`],
-    /// grouping elements by their arity to represent them as human-readable tuples.
-    ///
-    /// # Arguments
-    /// * `rel` - A reference to the [`Relation`] to be formatted.
-    /// * `f` - The formatter to which the output will be written.
-    ///
-    /// # Returns
-    /// A [`std::fmt::Result`] indicating whether the formatting was successful.
-    ///
-    /// # Special Cases
-    /// If the arity is 0, it represents a boolean proposition. In Datalog, a
-    /// zero-arity relation present in the database is considered logically "True".
-    fn fmt_relation(&self, rel: &Relation, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let data = rel.raw_data();
-        let arity = rel.arity();
-
-        // Arity 0 represents a boolean flag (Proposition)
-        if arity == 0 {
-            writeln!(f, "    [TRUE (Arity 0)]")?;
-            return Ok(());
-        }
-
-        // Iterate through the raw buffer in chunks of size 'arity'
-        for chunk in data.chunks(arity) {
-            write!(f, "    (")?;
-            for (i, obj_id) in chunk.iter().enumerate() {
-                write!(f, "{:?}", obj_id)?; // Using Debug for ObjectId representation
-                if i < arity - 1 {
-                    write!(f, ", ")?;
-                }
-            }
-            writeln!(f, ")")?;
-        }
-        Ok(())
+        rel.and_then(|r| r.index_by_first_arg().get(&first_arg).cloned())
     }
 }
 
 impl std::fmt::Display for Database {
     /// Formats the database state into a human-readable representation.
     ///
-    /// This implementation provides a structured view of the entire knowledge base,
-    /// clearly separating the **Stable Storage** from the **Delta Buffer**.
-    ///
-    /// Each relation is labeled with its [`AtomSkeletonId`] and arity, followed
-    /// by an indented list of all contained tuples.
-    ///
-    /// # Returns
-    /// A [`std::fmt::Result`] which is used by the `println!` and `format!` macros.
-    ///
-    /// # Output Format
-    /// ```text
-    /// === DATABASE STATE ===
-    /// --- STABLE STORAGE ---
-    ///   Relation #1 (arity 2):
-    ///     (10, 20)
-    ///     (30, 40)
-    ///
-    /// --- DELTA BUFFER ---
-    ///   Relation #2 (arity 1):
-    ///     (50)
-    /// ```
+    /// This implementation leverages the `Display` implementation of [`Relation`]
+    /// to provide a clean overview of both Stable and Delta storages.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "=== DATABASE STATE ===")?;
 
@@ -317,9 +264,8 @@ impl std::fmt::Display for Database {
             writeln!(f, "  (empty)")?;
         } else {
             for (sk_id, rel) in &self.relations {
-                // Using Debug/Display for sk_id to show its internal ID
-                writeln!(f, "  Relation #{} (arity {}):", sk_id, rel.arity())?;
-                self.fmt_relation(rel, f)?;
+                // rel est maintenant affiché via sa propre méthode fmt
+                writeln!(f, "  Relation #{} (arity {}): {}", sk_id, rel.arity(), rel)?;
             }
         }
 
@@ -329,8 +275,7 @@ impl std::fmt::Display for Database {
             writeln!(f, "  (empty)")?;
         } else {
             for (sk_id, rel) in &self.delta {
-                writeln!(f, "  Relation #{} (arity {}):", sk_id, rel.arity())?;
-                self.fmt_relation(rel, f)?;
+                writeln!(f, "  Relation #{} (arity {}): {}", sk_id, rel.arity(), rel)?;
             }
         }
         Ok(())

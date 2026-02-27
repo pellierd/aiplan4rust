@@ -2,7 +2,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::database::Database;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
-use crate::aiplan4rust::grounding::analysis::reachability::datalog::flattener::Flattener;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::lang::{AtomSkeletonId, Id, ObjectId};
@@ -36,9 +36,9 @@ impl DatalogEngine {
     }
 
 
-    pub fn setup_types(&mut self, problem: &LiftedProblem, flattener: &mut Flattener) {
+    pub fn setup_types(&mut self, problem: &LiftedProblem, flattener: &mut DatalogEncoder) {
         // 1. On enregistre le type racine à part
-        self.root_type_sk = flattener.register_type_skeleton();
+        self.root_type_sk = flattener.encode_type_as_unary_predicate();
 
         // 2. On prépare le vecteur pour les types du problème uniquement
         let num_types = problem.type_defs().len();
@@ -46,7 +46,7 @@ impl DatalogEngine {
 
         // 3. On remplit le mapping direct
         for _ in 0..num_types {
-            let sk_id = flattener.register_type_skeleton();
+            let sk_id = flattener.encode_type_as_unary_predicate();
             self.type_to_skeleton.push(sk_id);
         }
     }
@@ -130,7 +130,7 @@ impl DatalogEngine {
 
     // --- ÉTAPE 2 : COMPILATION (Le Flattening) ---
     /// Transforme toutes les actions en règles et les stocke en interne.
-    pub fn compile_domain(&mut self, problem: &LiftedProblem, flattener: &mut Flattener) -> Result<(), DatalogError> {
+    pub fn compile_domain(&mut self, problem: &LiftedProblem, flattener: &mut DatalogEncoder) -> Result<(), DatalogError> {
 
         // Premier seuil : Tout ce qui est avant ça est un TYPE
         let type_threshold = self.type_to_skeleton.len();
@@ -140,14 +140,14 @@ impl DatalogEngine {
 
         for action in problem.action_defs() {
             // 1. Aplatir la précondition
-            let precond_opt = flattener.flatten(
+            let precond_opt = flattener.encode_expr(
                 action.precondition(),
                 &mut self.rules,
                 action.parameters()
             )?;
 
             // 2. Créer l'identifiant unique pour l'action
-            let action_sk_id = flattener.register_action_skeleton(action);
+            let action_sk_id = flattener.encode_action_as_predicate(action);
 
             // 3. Préparer les termes de la tête et les TYPE GUARDS
             let mut body = Vec::new();
