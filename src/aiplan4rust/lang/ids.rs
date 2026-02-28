@@ -78,6 +78,7 @@ impl_id_type!(FunctionSymbolId);
 impl_id_type!(PreferenceSymbolId);
 impl_id_type!(TaskSymbolId);
 impl_id_type!(ActionSymbolId);
+impl_id_type!(ActionDefId);
 impl_id_type!(MethodSymbolId);
 impl_id_type!(TaskLabelSymbolId);
 
@@ -139,6 +140,7 @@ impl_display_prefix!(FunctionSymbolId, "f");
 impl_display_prefix!(TaskSymbolId, "tk");
 // a3 (Action symbol/operator name)
 impl_display_prefix!(ActionSymbolId, "a");
+impl_display_prefix!(ActionDefId, "adef");
 // m7 (Method symbol in HTN planning)
 impl_display_prefix!(MethodSymbolId, "m");
 // pr1 (Preference symbol for soft constraints)
@@ -163,15 +165,38 @@ impl_display_prefix!(TaskSkeletonId, "TS");
 // --- TRAITS INTERNER (RESOLUTION) ---
 
 impl TypeId {
-
-    /// Identifiant réservé pour le type "number" (fonctions numériques).
-    /// Correspond au SymbolId(1) dans le SymbolInterner.
+    /// Reserved identifier for the "number" type, used for numeric fluents and functions.
+    /// By convention, this corresponds to the second entry in a standard interner.
     pub const NUMBER_TYPE_ID: Self = Self::new(1);
 
-    /// Checks if this type represents a numeric value.
+    /// Reserved sentinel identifier for the PDDL root type (the implicit 'object' type).
     ///
-    /// In our system, the numeric type is globally identified
-    /// by the constant TypeId::NUMBER_TYPE_ID (index 1).
+    /// This specific ID is used because the 'object' type is inconsistently defined
+    /// in PDDL files: it can be explicitly declared, used implicitly as a parent,
+    /// or omitted entirely. In our Datalog engine, a "null" or empty type
+    /// specification always resolves to this root sentinel to ensure consistency.
+    pub const ROOT_TYPE_ID: Self = Self::new(usize::MAX);
+
+    /// Returns the sentinel value representing the PDDL root type ('object').
+    #[inline]
+    pub const fn root() -> Self {
+        Self::ROOT_TYPE_ID
+    }
+
+    /// Checks if this type represents the PDDL root type.
+    #[inline]
+    pub fn is_root(&self) -> bool {
+        self.as_usize() == Self::ROOT_TYPE_ID.as_usize()
+    }
+
+    /// Returns the reserved identifier for the "number" type.
+    #[inline]
+    pub const fn number() -> Self {
+        Self::NUMBER_TYPE_ID
+    }
+
+    /// Checks if this type represents a numeric value.
+    #[inline]
     pub fn is_number(&self) -> bool {
         self.as_usize() == Self::NUMBER_TYPE_ID.as_usize()
     }

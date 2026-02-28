@@ -3,7 +3,7 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
+use crate::aiplan4rust::lang::{ActionDefId, AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LiftedAction;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
@@ -55,6 +55,10 @@ pub struct DatalogEncoder {
     /// Prevents the redundant creation of multiple auxiliary predicates
     /// for the same logical sub-expression (Common Subexpression Elimination).
     cache: HashMap<Vec<Atom>, Atom>,
+    /// Mapping: AtomSkeletonId (Datalog) -> ActionDefId (Index dans le Vec<LiftedAction>)
+    action_map: HashMap<AtomSkeletonId, ActionDefId>,
+    /// Mapping: AtomSkeletonId (Datalog) -> TypeId
+    type_map: HashMap<AtomSkeletonId, TypeId>,
 }
 impl DatalogEncoder {
 
@@ -93,46 +97,54 @@ impl DatalogEncoder {
             // Pre-allocation strategy to handle typical PDDL domain complexity
             aux_defs: Vec::with_capacity(256),
             cache: HashMap::with_capacity(256),
+            action_map: HashMap::with_capacity(256),
+            type_map: HashMap::with_capacity(256),
         }
     }
 
-    /// Encodes a PDDL Type as a unary Datalog predicate.
+    /// Encodes a PDDL Type as a unary Datalog predicate and maintains a semantic mapping.
     ///
-    /// This function reserves a unique auxiliary ID and registers a unary signature
-    /// (arity 1) used to represent type-membership facts (e.g., `(is_truck ?x)`)
-    /// within the Datalog engine.
+    /// This function creates a bridge between PDDL types and Datalog unary relations.
+    /// It is a critical part of the **Type Guard** strategy, allowing the engine to
+    /// restrict variable bindings to valid object domains during the saturation process.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_id` - The original [`TypeId`] from the PDDL problem to be mapped.
     ///
     /// # Returns
     ///
-    /// The unique [`AtomSkeletonId`] assigned to this type's unary relation.
+    /// The unique [`AtomSkeletonId`] representing this type in the Datalog database.
     ///
     /// # Process
     ///
-    /// 1. **ID Allocation**: Increments the monotonic auxiliary counter for a new predicate ID.
-    /// 2. **Unary Signature**: Defines a [`TypedList`] with exactly one argument
-    ///    associated with the root type.
-    /// 3. **Registration**: Stores the signature in `aux_defs` to maintain
-    ///    schema awareness during grounding.
-    ///
-    /// # Performance
-    ///
-    /// - **Complexity**: $O(1)$ constant time.
-    /// - **Memory**: Minimal allocation for the single-argument [`TypedList`].
-    pub fn encode_type_as_unary_predicate(&mut self) -> AtomSkeletonId {
+    /// 1. **ID Allocation**: Assigns a new unique ID from the monotonic `next_aux_id` counter.
+    /// 2. **Signature Creation**: Defines a unary predicate schema `(type_name ?v0)`.
+    /// 3. **Semantic Mapping**: Registers the link between the Datalog `sk_id` and the
+    ///    PDDL `type_id` in the `type_map`. This prevents information loss during grounding.
+    /// 4. **Registration**: Adds the skeleton to `aux_defs` for schema-aware rule compilation.
+    pub fn encode_type_as_unary_predicate(&mut self, type_id: TypeId) -> AtomSkeletonId {
         let id = self.next_aux_id;
         self.next_aux_id += 1;
 
+        let sk_id = AtomSkeletonId::from(id);
         let predicate_id = PredicateSymbolId::from(id);
 
-        // Arity 1: Every type is represented as a unary relation
+        // Schema: type_name(?v0) where ?v0 is of type 'object' (root)
+        // We use the root type for the variable because this predicate
+        // is what defines the membership of an object to a specific type.
         let arg = TypedSymbol::new(VariableId::from(0), Type::root());
         let mut arguments = TypedList::new();
         arguments.push(arg);
 
-        // Register the skeleton for schema consistency
+        // Register auxiliary definition for schema consistency in the encoder
         self.aux_defs.push(AtomicFormulaSkeleton::new(predicate_id, arguments));
 
-        AtomSkeletonId::from(id)
+        // INTERNAL MAPPING: Link the Datalog relation ID back to the PDDL TypeId.
+        // This allows the Engine to identify type-hierarchy facts during extraction.
+        self.type_map.insert(sk_id, type_id);
+
+        sk_id
     }
 
     /// Encodes a lifted action as a Datalog predicate.
@@ -143,8 +155,10 @@ impl DatalogEncoder {
     ///
     /// # Arguments
     ///
-    /// * `action` - A reference to the [`LiftedAction`] whose signature (name and parameters)
-    ///   will be encoded.
+    /// * `action` - A reference to the [`LiftedAction`] whose parameters define the
+    ///   predicate's signature (arity and types).
+    /// * `action_def_id` - The unique [`ActionDefId`] from the problem definition, used
+    ///   to map the Datalog fact back to the original PDDL action.
     ///
     /// # Returns
     ///
@@ -154,32 +168,41 @@ impl DatalogEncoder {
     ///
     /// 1. **ID Allocation**: Reserves a unique auxiliary ID for the action.
     /// 2. **Signature Extraction**: Clones the action's typed parameters to define the
-    ///    predicate's arity and internal types.
-    /// 3. **Registration**: Stores the [`AtomicFormulaSkeleton`] in `aux_defs`. This mapping
-    ///    is essential for decoding grounded facts back into executable action instances.
+    ///    predicate's structure within the Datalog engine.
+    /// 3. **Registration**: Stores the [`AtomicFormulaSkeleton`] in `aux_defs`.
+    /// 4. **Mapping**: Associates the resulting `AtomSkeletonId` with the `ActionDefId`
+    ///    in the internal `action_map` for future decoding.
     ///
     /// # Performance
     ///
     /// - **Complexity**: $O(P)$ where $P$ is the number of parameters (cloning overhead).
-    /// - **ID Management**: $O(1)$ monotonic increment.
-    pub fn encode_action_as_predicate(&mut self, action: &LiftedAction) -> AtomSkeletonId {
+    /// - **Inlining**: Marked with `#[inline]` to allow the compiler to optimize
+    ///   the encoding loop during problem loading.
+    #[inline]
+    pub fn encode_action_as_predicate(
+        &mut self,
+        action: &LiftedAction,
+        action_def_id: ActionDefId
+    ) -> AtomSkeletonId {
         let id = self.next_aux_id;
         self.next_aux_id += 1;
 
-        // 1. Retrieve the action parameters to define the signature
-        let parameters = action.parameters().clone();
-
-        // 2. Create the virtual PredicateSymbolId
+        let sk_id = AtomSkeletonId::from(id);
         let predicate_id = PredicateSymbolId::from(id);
 
-        // 3. Register the skeleton definition
+        // 1. Retrieve the action parameters to define the signature (arity and types)
+        let parameters = action.parameters().clone();
+
+        // 2. Register the skeleton definition
         // This is vital for mapping ground facts back to meaningful action names.
         self.aux_defs.push(AtomicFormulaSkeleton::new(predicate_id, parameters));
 
-        // 4. Return the corresponding AtomSkeletonId
-        AtomSkeletonId::from(id)
-    }
+        // 3. INTERNAL MAPPING: Link the Datalog relation ID back to the Action definition.
+        // This allows the Engine to identify which action a grounded fact refers to.
+        self.action_map.insert(sk_id, action_def_id);
 
+        sk_id
+    }
 
     /// Encodes action effects into Datalog rules by propagating causality from the action to its consequences.
     ///
