@@ -143,7 +143,7 @@ fn extract_task_ids(
     for child_index in node.children() {
         let child_node = tree.try_node(*child_index)?;
         match child_node.kind() {
-            AstKind::TaskID => {
+            AstKind::TaskLabel => {
                 vec_task_id.push(child_node.try_ident()?);
             }
             _ => {

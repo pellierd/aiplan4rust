@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::ops;
-use crate::aiplan4rust::lir::LiftedMethod;
+use crate::aiplan4rust::lir::MethodDef;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::lir::passes::normalization::task_network;
 
@@ -20,7 +20,7 @@ use crate::aiplan4rust::lir::passes::normalization::task_network;
 ///
 /// Returns a `LogicError` if expr of the precondition or task network fails.
 pub fn normalize(
-    method: &mut LiftedMethod
+    method: &mut MethodDef
 ) -> Result<(), ExprOpError> {
     ops::normalize(method.precondition_mut())?;
     task_network::normalize(method.task_network_mut())?;

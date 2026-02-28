@@ -42,7 +42,7 @@ pub fn simplify(
 ) -> Result<(), ExprOpError> {
     let node = expr.try_node(node_id)?;
 
-    if node.kind() != ExprKind::Operation {
+    if node.kind() != ExprKind::Arithmetic {
         return Ok(());
     }
 
@@ -89,7 +89,7 @@ fn flatten_arithmetic_expression(
     let node = expr.try_node(node_id)?;
 
     // Only arithmetic operation nodes can be flattened
-    if node.kind() != ExprKind::Operation {
+    if node.kind() != ExprKind::Arithmetic {
         return Ok(());
     }
 
@@ -104,7 +104,7 @@ fn flatten_arithmetic_expression(
         let child = expr.try_node(child_id)?;
 
         // If child is the same arithmetic operation, pull up its children
-        if child.kind() == ExprKind::Operation {
+        if child.kind() == ExprKind::Arithmetic {
             if let Some(child_op) = child.content().as_arithmetic_op() {
                 if child_op == op {
                     new_children.extend(child.children());
@@ -144,7 +144,7 @@ fn reduce(
 ) -> Result<(), ExprOpError> {
     let node = expr.try_node(node_id)?;
 
-    if node.kind() != ExprKind::Operation {
+    if node.kind() != ExprKind::Arithmetic {
         return Ok(());
     }
 

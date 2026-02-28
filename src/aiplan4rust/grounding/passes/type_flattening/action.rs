@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::lang::{Type, TypeId};
-use crate::aiplan4rust::lir::LiftedAction;
+use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::grounding::passes::type_flattening::{expr, typed_list};
 
@@ -39,7 +39,7 @@ use crate::aiplan4rust::grounding::passes::type_flattening::{expr, typed_list};
 /// - `Ok(())` si tous les composants ont été aplatis avec succès.
 /// - `Err(LirError)` si une partie de l'action fait référence à un type d'union absent de la table.
 pub fn flatten(
-    action: &mut LiftedAction,
+    action: &mut ActionDef,
     map: &HashMap<Type<TypeId>, TypeId>,
 ) -> Result<(), LirError> {
     // 1. Aplatissement des paramètres dans l'en-tête de l'action

@@ -306,7 +306,7 @@ fn encode_content(
             let atom_skeleton_id = registry.try_resolve_atom_skeleton(atom_skeleton_declaration.node_id())?;
             Ok(ExprContent::AtomSkeleton(atom_skeleton_id))
         },
-        AstKind::FunctionTerm => {
+        AstKind::Function => {
             let function_id = ast_node.children()[0];
             let function_skeleton_declaration = registry.symbol_table()
                 .try_resolve_declaration_by_usage(function_id, SymbolKind::Function)?;
@@ -362,7 +362,7 @@ fn encode_content(
         // --- Atomic Symbols (Identities) ---
         // These nodes represent the symbols themselves. We resolve their
         // logical ID from the registry based on their declaration NodeId.
-        AstKind::Predicate => {
+        AstKind::PredicateSymbol => {
             let predicate_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Predicate)?;
             let predicate_id = registry.try_resolve_predicate(predicate_declaration.node_id())?;
             Ok(ExprContent::PredicateSymbol(predicate_id))
@@ -372,10 +372,10 @@ fn encode_content(
             let functor_id = registry.try_resolve_functor(functor_declaration.node_id())?;
             Ok(ExprContent::FunctionSymbol(functor_id))
         },
-        AstKind::Constant => {
+        AstKind::Object => {
             let constant_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Constant)?;
             let constant_id = registry.try_resolve_object(constant_declaration.node_id())?;
-            Ok(ExprContent::Constant(constant_id))
+            Ok(ExprContent::Object(constant_id))
         },
         AstKind::Variable => {
             let variable_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Variable)?;
@@ -399,7 +399,7 @@ fn encode_content(
 
             Ok(ExprContent::TaskSymbol(task_symbol_id))
         }
-        AstKind::TaskID => {
+        AstKind::TaskLabel => {
             let label_symbol_id = ast_node.try_ident()?;
             let task_label_id = registry.try_resolve_task_label(label_symbol_id)?;
             Ok(ExprContent::TaskLabelSymbol(task_label_id))
@@ -409,11 +409,11 @@ fn encode_content(
         // If the Kind is not a complex symbol, we extract the raw primitive
         // value or the operator stored within the AST content.
         _ => match ast_node.content() {
-            AstContent::Float(f) => Ok(ExprContent::Number(*f)),
-            AstContent::BinaryComp(op) => Ok(ExprContent::BinaryComp(*op)),
-            AstContent::AssignOp(op) => Ok(ExprContent::AssignOp(*op)),
+            AstContent::Number(f) => Ok(ExprContent::Number(*f)),
+            AstContent::CompareOp(op) => Ok(ExprContent::Comparison(*op)),
+            AstContent::AssignOp(op) => Ok(ExprContent::Assignment(*op)),
             AstContent::ArithmeticOp(op) => Ok(ExprContent::ArithmeticOp(*op)),
-            AstContent::Optimization(op) => Ok(ExprContent::Optimization(*op)),
+            AstContent::OptimizationOp(op) => Ok(ExprContent::OptimizationOp(*op)),
             AstContent::None => Ok(ExprContent::None),
             _ => {
                 println!("{}", ast_node);
@@ -450,18 +450,18 @@ fn encode_kind(kind: AstKind) -> Result<ExprKind, ExprError> {
         AstKind::Imply => Ok(ExprKind::Imply),
         AstKind::Forall => Ok(ExprKind::Forall),
         AstKind::Exists => Ok(ExprKind::Exists),
-        AstKind::Predicate => Ok(ExprKind::Predicate),
+        AstKind::PredicateSymbol => Ok(ExprKind::PredicateSymbol),
         AstKind::Variable => Ok(ExprKind::Variable),
-        AstKind::Constant => Ok(ExprKind::Constant),
+        AstKind::Object => Ok(ExprKind::Object),
         AstKind::FunctionSymbol => Ok(ExprKind::FunctionSymbol),
         AstKind::TaskSymbol => Ok(ExprKind::TaskSymbol),
         AstKind::PrefName => Ok(ExprKind::PrefName),
-        AstKind::FunctionTerm => Ok(ExprKind::FunctionTerm),
+        AstKind::Function => Ok(ExprKind::Function),
         AstKind::Number => Ok(ExprKind::Number),
         AstKind::AtomicFormula => Ok(ExprKind::AtomicFormula),
-        AstKind::FComp => Ok(ExprKind::FComp),
-        AstKind::Assign => Ok(ExprKind::Assign),
-        AstKind::Operation => Ok(ExprKind::Operation),
+        AstKind::Comparison => Ok(ExprKind::Comparison),
+        AstKind::Assignment => Ok(ExprKind::Assignment),
+        AstKind::Arithmetic => Ok(ExprKind::Arithmetic),
         AstKind::AtStart => Ok(ExprKind::AtStart),
         AstKind::AtEnd => Ok(ExprKind::AtEnd),
         AstKind::Overall => Ok(ExprKind::Overall),
@@ -482,8 +482,8 @@ fn encode_kind(kind: AstKind) -> Result<ExprKind, ExprError> {
         AstKind::Serial => Ok(ExprKind::Serial),
         AstKind::Parallel => Ok(ExprKind::Parallel),
         AstKind::Task => Ok(ExprKind::Task),
-        AstKind::TaskID => Ok(ExprKind::TaskID),
-        AstKind::TaggedTask => Ok(ExprKind::TaggedTask),
+        AstKind::TaskLabel => Ok(ExprKind::TaskLabel),
+        AstKind::LabeledTask => Ok(ExprKind::LabeledTask),
         AstKind::TaskOrderingConstraint => Ok(ExprKind::TaskOrderingConstraint),
         other => Err(ExprError::invalid_ast_node(other)),
     }

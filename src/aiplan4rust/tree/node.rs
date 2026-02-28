@@ -32,7 +32,7 @@
 use std::fmt::{Debug, Display};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp};
 use crate::aiplan4rust::tree::SyntaxContent;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
@@ -149,7 +149,7 @@ pub trait Node: ArenaNode + Display {
     /// # Returns
     ///
     /// An `Option<OrderedFloat<f64>>` containing the float literal if it exists, or `None` otherwise.
-    fn as_float(&self) -> Option<OrderedFloat<f64>> {
+    fn as_number(&self) -> Option<OrderedFloat<f64>> {
         self.content().as_number()
     }
 
@@ -158,8 +158,8 @@ pub trait Node: ArenaNode + Display {
     /// # Returns
     ///
     /// An `Option<BinaryComp>` containing the operator if it exists, or `None` otherwise.
-    fn as_binary_comp(&self) -> Option<BinaryComp> {
-        self.content().as_binary_comp()
+    fn as_compare_op(&self) -> Option<CompareOp> {
+        self.content().as_compare_op()
     }
 
     /// Returns the assignment operator if present in the syntax’s content.
@@ -185,8 +185,8 @@ pub trait Node: ArenaNode + Display {
     /// # Returns
     ///
     /// An `Option<Optimization>` containing the optimization directive if it exists, or `None` otherwise.
-    fn as_optimization(&self) -> Option<Optimization> {
-        self.content().as_optimization()
+    fn as_optimization(&self) -> Option<OptimizationOp> {
+        self.content().as_optimization_op()
     }
 
     /// Attempts to extract a floating-point literal from the syntax’s content.
@@ -195,7 +195,7 @@ pub trait Node: ArenaNode + Display {
     ///
     /// A `Result<OrderedFloat<f64>, SyntaxTreeError>` containing the float if successful,
     /// or an error if extraction failed.
-    fn try_float(&self) -> Result<OrderedFloat<f64>, SyntaxTreeError> {
+    fn try_number(&self) -> Result<OrderedFloat<f64>, SyntaxTreeError> {
         self.content().try_number()
     }
 
@@ -205,8 +205,8 @@ pub trait Node: ArenaNode + Display {
     ///
     /// A `Result<BinaryComp, SyntaxTreeError>` containing the operator if successful,
     /// or an error if extraction failed.
-    fn try_binary_comp(&self) -> Result<BinaryComp, SyntaxTreeError> {
-        self.content().try_binary_comp()
+    fn try_compare_op(&self) -> Result<CompareOp, SyntaxTreeError> {
+        self.content().try_compare_op()
     }
 
     /// Attempts to extract an assignment operator from the syntax’s content.
@@ -235,8 +235,8 @@ pub trait Node: ArenaNode + Display {
     ///
     /// A `Result<Optimization, SyntaxTreeError>` containing the directive if successful,
     /// or an error if extraction failed.
-    fn try_optimization(&self) -> Result<Optimization, SyntaxTreeError> {
-        self.content().try_optimization()
+    fn try_optimization(&self) -> Result<OptimizationOp, SyntaxTreeError> {
+        self.content().try_optimization_op()
     }
 
     /// Creates a shallow clone of the node.

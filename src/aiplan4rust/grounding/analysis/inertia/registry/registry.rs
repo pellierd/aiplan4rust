@@ -81,7 +81,7 @@ impl<'a> InertiaRegistry<'a> {
         let mut iter = init.preorder().values();
         while let Some(node) = iter.next() {
             match node.kind() {
-                ExprKind::AtomicFormula | ExprKind::FComp => {
+                ExprKind::AtomicFormula | ExprKind::Comparison => {
                     registry.process_init(node, init)?;
                     iter.skip_subtree();
 
@@ -101,7 +101,7 @@ impl<'a> InertiaRegistry<'a> {
     fn process_init(&mut self, node: &ExprNode, init: &Expr) -> Result<(), InertiaRegistryError> {
         match node.kind() {
             ExprKind::AtomicFormula => self.process_predicate(node, init),
-            ExprKind::FComp => self.process_function(node, init),
+            ExprKind::Comparison => self.process_function(node, init),
             _ => Ok(()),
         }
     }
@@ -162,7 +162,7 @@ impl<'a> InertiaRegistry<'a> {
 
             // 4. Extraction de la valeur (le membre de droite du '=' : children[1])
             let val_node = init.try_node(children[1])?;
-            let value = if let Ok(num) = val_node.try_float() {
+            let value = if let Ok(num) = val_node.try_number() {
                 StaticValue::Number(num)
             } else {
                 StaticValue::Object(val_node.try_constant()?)
@@ -502,7 +502,7 @@ impl<'a> StaticEvaluator for InertiaRegistry<'a> {
                     .flatten()
                     .map(StaticValue::Boolean)
             }
-            ExprKind::FunctionTerm => {
+            ExprKind::Function => {
                 self.evaluate_function_internal(node_id, expr, &mut buffer)
                     .ok()
                     .flatten()

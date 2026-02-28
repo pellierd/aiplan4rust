@@ -2,7 +2,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::AssignOp;
-use crate::aiplan4rust::lang::BinaryComp;
+use crate::aiplan4rust::lang::CompareOp;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
@@ -78,12 +78,12 @@ pub fn check_typed_expressions(
 
 /// Returns `true` if the syntax represents an equality binary comparison (`BinaryComp::Equal`).
 fn is_equal_binary_comp(node: &AstNode) -> bool {
-    matches!(node.kind(), AstKind::FComp) && node.as_binary_comp() == Some(BinaryComp::Equal)
+    matches!(node.kind(), AstKind::Comparison) && node.as_compare_op() == Some(CompareOp::Equal)
 }
 
 /// Returns `true` if the syntax represents a simple assignment (`AssignOp::Assign`).
 fn is_assign(node: &AstNode) -> bool {
-    matches!(node.kind(), AstKind::Assign) && node.as_assign_op() == Some(AssignOp::Assign)
+    matches!(node.kind(), AstKind::Assignment) && node.as_assign_op() == Some(AssignOp::Assign)
 }
 
 /// Returns `true` if the syntax is a numeric comparison or a scale assignment expr.
@@ -92,15 +92,15 @@ fn is_assign(node: &AstNode) -> bool {
 /// - Comparison operators: `Greater`, `GreaterEq`, `Less`, `LessEq`.
 /// - Assignment operators: `ScaleUp`, `ScaleDown`, `Increase`, `Decrease`.
 fn is_numeric_expression(node: &AstNode) -> bool {
-    matches!(node.kind(), AstKind::FComp)
+    matches!(node.kind(), AstKind::Comparison)
         && matches!(
-            node.as_binary_comp(),
-            Some(BinaryComp::Greater)
-                | Some(BinaryComp::GreaterEq)
-                | Some(BinaryComp::Less)
-                | Some(BinaryComp::LessEq)
+            node.as_compare_op(),
+            Some(CompareOp::Greater)
+                | Some(CompareOp::GreaterEq)
+                | Some(CompareOp::Less)
+                | Some(CompareOp::LessEq)
         )
-        || matches!(node.kind(), AstKind::Assign)
+        || matches!(node.kind(), AstKind::Assignment)
         && matches!(
             node.as_assign_op(),
             Some(AssignOp::ScaleUp)
@@ -333,18 +333,18 @@ pub fn get_type(
         AstKind::Variable => get_variable_type(index, node.content().try_ident()?, context),
 
         // Case 3: Constant
-        AstKind::Constant => get_constant_type(index, node.content().try_ident()?, context),
+        AstKind::Object => get_constant_type(index, node.content().try_ident()?, context),
 
         // Case 4: Function Term
-        AstKind::FunctionTerm => get_function_term_type(node, context),
+        AstKind::Function => get_function_term_type(node, context),
 
         // Case 5: Arithmetic Operation
-        AstKind::Operation => get_number_type(),
+        AstKind::Arithmetic => get_number_type(),
 
         // Default case: Unexpected AST syntax kind
         found_kind => Err(SemanticCheckError::unexpected_ast_kind(
             index,
-            vec![AstKind::Number, AstKind::Variable, AstKind::Constant, AstKind::FunctionTerm, AstKind::Operation],
+            vec![AstKind::Number, AstKind::Variable, AstKind::Object, AstKind::Function, AstKind::Arithmetic],
             found_kind,
         )),
     }

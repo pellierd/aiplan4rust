@@ -64,7 +64,7 @@ pub fn simplify_trivial_assignments(
     expr: &mut Expr,
 ) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
-    debug_assert!(node.kind() == ExprKind::Assign, "Node must be an Assign");
+    debug_assert!(node.kind() == ExprKind::Assignment, "Node must be an Assign");
 
     let assign_op = node.content().try_assign_op()?;
     let children = node.children();
@@ -75,7 +75,7 @@ pub fn simplify_trivial_assignments(
 
     let target = expr.try_node(target_id)?;
     debug_assert!(
-        matches!(target.kind(), ExprKind::FunctionTerm),
+        matches!(target.kind(), ExprKind::Function),
         "First child of Assign must be a function term"
     );
 
@@ -216,7 +216,7 @@ mod tests {
 
         // 3. Validation
         // The Assign node must persist because it is not an identity operation.
-        assert_eq!(expr.kind(), Some(ExprKind::Assign));
+        assert_eq!(expr.kind(), Some(ExprKind::Assignment));
 
         let root_node = expr.try_root_node()?;
         assert_eq!(root_node.children().len(), 2);
@@ -248,13 +248,13 @@ mod tests {
         let node = expr.try_root_node()?;
 
         // Correction: This should remain an Increase node, not Assign
-        assert_eq!(node.kind(), ExprKind::Assign);
+        assert_eq!(node.kind(), ExprKind::Assignment);
         assert_eq!(node.content().try_assign_op()?, AssignOp::Increase);
         assert_eq!(node.children().len(), 2);
 
         // Ensure the second child is still the function term (V)
         let val_child = expr.try_node(node.children()[1])?;
-        assert_eq!(val_child.kind(), ExprKind::FunctionTerm);
+        assert_eq!(val_child.kind(), ExprKind::Function);
 
         Ok(())
     }
@@ -279,12 +279,12 @@ mod tests {
 
         // 3. Validation
         let node = expr.try_root_node()?;
-        assert_eq!(node.kind(), ExprKind::Assign);
+        assert_eq!(node.kind(), ExprKind::Assignment);
         assert_eq!(node.content().try_assign_op()?, AssignOp::Increase);
 
         // On vérifie que le nœud ADD est toujours là
         let val_child = expr.try_node(node.children()[1])?;
-        assert_eq!(val_child.kind(), ExprKind::Operation);
+        assert_eq!(val_child.kind(), ExprKind::Arithmetic);
         assert_eq!(val_child.content().try_arithmetic_op()?, ArithmeticOp::Add);
 
         Ok(())

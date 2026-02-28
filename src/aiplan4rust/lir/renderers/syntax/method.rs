@@ -1,7 +1,7 @@
 //! This module handles the HDDL representation of methods for hierarchical planning.
 
 use std::fmt;
-use crate::aiplan4rust::lir::LiftedMethod;
+use crate::aiplan4rust::lir::MethodDef;
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::{expr, task_network, typed_list};
 
@@ -16,7 +16,7 @@ use crate::aiplan4rust::lir::renderers::syntax::{expr, task_network, typed_list}
 /// Returns [fmt::Error] if the underlying write operations fail.
 pub fn render(
     f: &mut fmt::Formatter<'_>,
-    method: &LiftedMethod,
+    method: &MethodDef,
     ctx: &RenderContext,
 ) -> fmt::Result {
     // 1. Method header and name

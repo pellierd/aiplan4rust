@@ -71,13 +71,13 @@ pub fn extract_required_requirements(
 
             // :fluents (:numeric-fluents and :object-fluents)
             AstKind::FunctionsDef
-            | AstKind::FunctionTerm
+            | AstKind::Function
             | AstKind::AtomicFunctionSkeleton
             | AstKind::FunctionSymbol
             | AstKind::Number
             | AstKind::Metric
             | AstKind::TotalTime
-            | AstKind::Operation => {
+            | AstKind::Arithmetic => {
                 needed.insert(Requirement::NumericFluents);
                 // Optional: ObjectFluents can be added if needed
                 // needed.insert(Requirement::ObjectFluents);
@@ -101,10 +101,10 @@ pub fn extract_required_requirements(
             | AstKind::TaskDef
             | AstKind::Task
             | AstKind::TaskSymbol
-            | AstKind::TaskID
+            | AstKind::TaskLabel
             | AstKind::TaskLogicalConstraintDef
             | AstKind::TaskOrderingConstraintDef
-            | AstKind::TaggedTask
+            | AstKind::LabeledTask
             | AstKind::OrderedSubtaskDef
             | AstKind::PartiallyOrderedSubtaskDef
             | AstKind::TaskOrderingConstraint
@@ -178,7 +178,7 @@ pub fn extract_required_requirements(
             | AstKind::Domain
             | AstKind::DomainName
             | AstKind::ProblemName
-            | AstKind::Predicate
+            | AstKind::PredicateSymbol
             | AstKind::ActionSymbol
             | AstKind::RequireDef
             | AstKind::ConstantsDef
@@ -195,7 +195,7 @@ pub fn extract_required_requirements(
             | AstKind::EffectDef
             | AstKind::AtomicFormula
             | AstKind::And
-            | AstKind::Constant
+            | AstKind::Object
             | AstKind::Variable
             | AstKind::Init
             | AstKind::Goal
@@ -203,8 +203,8 @@ pub fn extract_required_requirements(
             | AstKind::Serial
             | AstKind::Error
             | AstKind::Requirement
-            | AstKind::FComp
-            | AstKind::Assign
+            | AstKind::Comparison
+            | AstKind::Assignment
             | AstKind::Or => {
                 // No requirement associated
             }

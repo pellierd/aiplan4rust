@@ -78,7 +78,7 @@ pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
         1 => {
             common::checks::check_child_kind(ast, node, 0, &[
                     AstKind::PrimitiveType,
-                    AstKind::Constant,
+                    AstKind::Object,
                     AstKind::Variable,
                     AstKind::AtomicFunctionSkeleton,
                 ],
@@ -88,7 +88,7 @@ pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
         2 => {
             common::checks::check_child_kind(ast, node, 0, &[
                     AstKind::PrimitiveType,
-                    AstKind::Constant,
+                    AstKind::Object,
                     AstKind::Variable,
                     AstKind::AtomicFunctionSkeleton,
                 ],

@@ -54,13 +54,13 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
 pub enum Kind {
-    Constant,
+    Object,
     Variable,
     FunctionSymbol,
-    Predicate,
+    PredicateSymbol,
     TaskSymbol,
     PrefName,
-    FunctionTerm,
+    Function,
     Number,
     AtomicFormula,
     And,
@@ -72,9 +72,9 @@ pub enum Kind {
     Exists,
     Preference,
     When,
-    FComp,
-    Assign,
-    Operation,
+    Comparison,
+    Assignment,
+    Arithmetic,
     AtStart,
     AtEnd,
     Overall,
@@ -95,8 +95,8 @@ pub enum Kind {
     Serial,
     Parallel,
     Task,
-    TaskID,
-    TaggedTask, // check
+    TaskLabel,
+    LabeledTask, // check
     TaskOrderingConstraint, // check
 }
 
@@ -104,18 +104,18 @@ impl Kind {
     pub fn to_pddl_keyword(&self) -> &'static str {
         match self {
             // Leaves and terminals (content is handled by the Content module)
-            Kind::Constant |
+            Kind::Object |
             Kind::Variable |
             Kind::FunctionSymbol |
-            Kind::Predicate |
+            Kind::PredicateSymbol |
             Kind::TaskSymbol |
             Kind::PrefName |
-            Kind::FunctionTerm |
+            Kind::Function |
             Kind::Number |
             Kind::AtomicFormula |
             Kind::Task |
-            Kind::TaskID |
-            Kind::TaggedTask => "",
+            Kind::TaskLabel |
+            Kind::LabeledTask => "",
 
             // Logical Connectives
             Kind::And => "and",
@@ -132,9 +132,9 @@ impl Kind {
 
             // Numerical Comparisons and Operations
             // Note: Usually handled by Content (e.g., <, >, +, -)
-            Kind::FComp |
-            Kind::Operation => "",
-            Kind::Assign => "",
+            Kind::Comparison |
+            Kind::Arithmetic => "",
+            Kind::Assignment => "",
 
             // Temporal (PDDL 2.1+)
             Kind::AtStart => "at start",
@@ -169,13 +169,13 @@ impl Kind {
 impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            Kind::Constant => "Constant",
+            Kind::Object => "Constant",
             Kind::Variable => "Variable",
             Kind::FunctionSymbol => "FunctionSymbol",
-            Kind::Predicate => "Predicate",
+            Kind::PredicateSymbol => "Predicate",
             Kind::TaskSymbol => "TaskSymbol",
             Kind::PrefName => "PrefName",
-            Kind::FunctionTerm => "FunctionTerm",
+            Kind::Function => "FunctionTerm",
             Kind::Number => "Number",
             Kind::AtomicFormula => "AtomicFormula",
             Kind::And => "And",
@@ -186,9 +186,9 @@ impl fmt::Display for Kind {
             Kind::Exists => "Exists",
             Kind::Preference => "Preference",
             Kind::When => "When",
-            Kind::FComp => "FComp",
-            Kind::Assign => "Assign",
-            Kind::Operation => "Operation",
+            Kind::Comparison => "FComp",
+            Kind::Assignment => "Assign",
+            Kind::Arithmetic => "Operation",
             Kind::AtStart => "AtStart",
             Kind::AtEnd => "AtEnd",
             Kind::Overall => "Overall",
@@ -209,8 +209,8 @@ impl fmt::Display for Kind {
             Kind::Serial => "Serial",
             Kind::Parallel => "Parallel",
             Kind::Task => "Task",
-            Kind::TaskID => "TaskID",
-            Kind::TaggedTask => "TaggedTask",
+            Kind::TaskLabel => "TaskID",
+            Kind::LabeledTask => "TaggedTask",
             Kind::TaskOrderingConstraint => "TaskOrderingConstraint",
         };
         write!(f, "{}", s)
@@ -228,18 +228,18 @@ impl TryFrom<AstKind> for Kind {
             AstKind::Imply => Ok(Kind::Imply),
             AstKind::Forall => Ok(Kind::Forall),
             AstKind::Exists => Ok(Kind::Exists),
-            AstKind::Predicate => Ok(Kind::Predicate),
+            AstKind::PredicateSymbol => Ok(Kind::PredicateSymbol),
             AstKind::Variable => Ok(Kind::Variable),
-            AstKind::Constant => Ok(Kind::Constant),
+            AstKind::Object => Ok(Kind::Object),
             AstKind::FunctionSymbol => Ok(Kind::FunctionSymbol),
             AstKind::TaskSymbol => Ok(Kind::TaskSymbol),
             AstKind::PrefName => Ok(Kind::PrefName),
-            AstKind::FunctionTerm => Ok(Kind::FunctionTerm),
+            AstKind::Function => Ok(Kind::Function),
             AstKind::Number => Ok(Kind::Number),
             AstKind::AtomicFormula => Ok(Kind::AtomicFormula),
-            AstKind::FComp => Ok(Kind::FComp),
-            AstKind::Assign => Ok(Kind::Assign),
-            AstKind::Operation => Ok(Kind::Operation),
+            AstKind::Comparison => Ok(Kind::Comparison),
+            AstKind::Assignment => Ok(Kind::Assignment),
+            AstKind::Arithmetic => Ok(Kind::Arithmetic),
             AstKind::AtStart => Ok(Kind::AtStart),
             AstKind::AtEnd => Ok(Kind::AtEnd),
             AstKind::Overall => Ok(Kind::Overall),
@@ -260,8 +260,8 @@ impl TryFrom<AstKind> for Kind {
             AstKind::Serial => Ok(Kind::Serial),
             AstKind::Parallel => Ok(Kind::Parallel),
             AstKind::Task => Ok(Kind::Task),
-            AstKind::TaskID => Ok(Kind::TaskID),
-            AstKind::TaggedTask => Ok(Kind::TaggedTask),
+            AstKind::TaskLabel => Ok(Kind::TaskLabel),
+            AstKind::LabeledTask => Ok(Kind::LabeledTask),
             AstKind::TaskOrderingConstraint => Ok(Kind::TaskOrderingConstraint),
             other => Err(ExprError::invalid_ast_node(other)),
         }

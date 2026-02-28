@@ -4,8 +4,8 @@ use ordered_float::OrderedFloat;
 
 use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::lang::AssignOp;
-use crate::aiplan4rust::lang::BinaryComp;
-use crate::aiplan4rust::lang::Optimization;
+use crate::aiplan4rust::lang::CompareOp;
+use crate::aiplan4rust::lang::OptimizationOp;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -209,9 +209,9 @@ pub VarName : Result<AstContent, ()> = {
     },
 }
 
-pub Constant: Result<NodeId, ParseContextError> = {
+pub Object: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
-        Ok(name) => context.alloc_node(AstKind::Constant, name, Vec::new(), start, end),
+        Ok(name) => context.alloc_node(AstKind::Object, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     }
 }
@@ -237,7 +237,7 @@ pub FunctionSymbol: Result<NodeId, ParseContextError> = {
 
 pub Number: Result<NodeId, ParseContextError> = {
     <start:@L> <value:"number"> <end:@R> => {
-        context.alloc_node(AstKind::Number, AstContent::Float(OrderedFloat(value)), Vec::new(), start, end)
+        context.alloc_node(AstKind::Number, AstContent::Number(OrderedFloat(value)), Vec::new(), start, end)
     },
 }
 
@@ -264,7 +264,7 @@ pub PrimitiveType: Result<NodeId, ParseContextError> = {
 
 pub Predicate: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
-        Ok(name) => context.alloc_node(AstKind::Predicate, name, Vec::new(), start, end),
+        Ok(name) => context.alloc_node(AstKind::PredicateSymbol, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     },
 }
@@ -362,7 +362,7 @@ pub TypesDef: Result<NodeId, ParseContextError> = {
 }
 
 pub ConstantsDef: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" ":constants" <constants:TypedList<Constant>> ")" <end:@R> => {
+    <start:@L> "(" ":constants" <constants:TypedList<Object>> ")" <end:@R> => {
         context.alloc_node(AstKind::ConstantsDef, AstContent::None, vec![constants?], start, end)
     }
 }
@@ -490,7 +490,7 @@ pub PreGD: Result<NodeId, ParseContextError> = {
     <end:@R> => {
         context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, pre_gd?], start, end)
     },
-    <fcomp:FComp> => fcomp,
+    <comparison:Comparison> => comparison,
 }
 
 pub PrefGD: Result<NodeId, ParseContextError> = {
@@ -536,7 +536,7 @@ pub GD: Result<NodeId, ParseContextError> = {
     <end:@R> => {
         context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, gd?], start, end)
     },
-    <fcomp:FComp> => fcomp,
+    <comparison:Comparison> => comparison,
 }
 
 pub Effect: Result<NodeId, ParseContextError> = {
@@ -565,7 +565,7 @@ pub CEffect: Result<NodeId, ParseContextError> = {
 pub PEffect: Result<NodeId, ParseContextError> = {
     <literal:Literal<Term>> => literal,
     <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexp:_FExp> ")" <end:@R> => {
-        context.alloc_node(AstKind::Assign, op, vec![fhead?, fexp?], start, end)
+        context.alloc_node(AstKind::Assignment, op, vec![fhead?, fexp?], start, end)
     },
 }
 
@@ -580,7 +580,7 @@ pub CondEffect: Result<NodeId, ParseContextError> = {
 pub Term: Result<NodeId, ParseContextError> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            context.alloc_node(AstKind::Constant, AstContent::Ident(context.intern(name)), Vec::new(), start, end)
+            context.alloc_node(AstKind::Object, AstContent::Ident(context.intern(name)), Vec::new(), start, end)
         } else {
             context.alloc_node(AstKind::Variable, AstContent::Ident(context.intern(name)), Vec::new(), start, end)
         }
@@ -599,22 +599,22 @@ _FunctionTerm<T>: Result<NodeId, ParseContextError> = {
         let mut children = Vec::new();
         children.push(function_symbol?);
         children.extend(arguments);
-        context.alloc_node(AstKind::FunctionTerm, AstContent::None, children, start, end)
+        context.alloc_node(AstKind::Function, AstContent::None, children, start, end)
     }
 }
 
-pub FComp: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" <comparator:BinaryComp> <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
-        context.alloc_node(AstKind::FComp, comparator, vec![arg1?, arg2?], start, end)
+pub Comparison: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <comparator:CompareOp> <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
+        context.alloc_node(AstKind::Comparison, comparator, vec![arg1?, arg2?], start, end)
     }
 }
 
-pub BinaryComp : AstContent = {
-    ">" =>AstContent::BinaryComp(BinaryComp::Greater),
-    "<" =>AstContent::BinaryComp(BinaryComp::Less),
-    "=" =>AstContent::BinaryComp(BinaryComp::Equal),
-    ">=" =>AstContent::BinaryComp(BinaryComp::GreaterEq),
-    "<=" =>AstContent::BinaryComp(BinaryComp::LessEq),
+pub CompareOp : AstContent = {
+    ">" =>AstContent::CompareOp(CompareOp::Greater),
+    "<" =>AstContent::CompareOp(CompareOp::Less),
+    "=" =>AstContent::CompareOp(CompareOp::Equal),
+    ">=" =>AstContent::CompareOp(CompareOp::GreaterEq),
+    "<=" =>AstContent::CompareOp(CompareOp::LessEq),
 }
 
 pub AssignOp : AstContent = {
@@ -658,24 +658,24 @@ _FExp: Result<NodeId, ParseContextError> = {
         if let Some(arg2) = arg2 {
             children.push(arg2?);
         }
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
     },
     <start:@L> "(" "/" <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
     },
     <start:@L> "(" "+" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
         let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
         let mut children = Vec::new();
         children.push(arg1?);
         children.extend(next_args);
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
     },
     <start:@L> "(" "*" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1?);
         let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
         children.extend(next_args);
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
     },
 }
 
@@ -687,24 +687,24 @@ pub FExp: Result<NodeId, ParseContextError> = {
         if let Some(arg2) = arg2 {
             children.push(arg2?);
         }
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
     },
     <start:@L> "(" "/" <arg1:FExp> <arg2:FExp> ")" <end:@R> => {
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
     },
     <start:@L> "(" "+" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1?);
         let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
         children.extend(next_args);
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
     },
     <start:@L> "(" "*" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1?);
         let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
         children.extend(next_args);
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
     },
     <fhead:FHead> => fhead,
 }
@@ -717,24 +717,24 @@ pub FExpDA: Result<NodeId, ParseContextError> = {
         if let Some(arg2) = arg2 {
             children.push(arg2?);
         }
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
     },
     <start:@L> "(" "/" <arg1:FExpDA> <arg2:FExpDA> ")" <end:@R> => {
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
     },
     <start:@L> "(" "+" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1?);
         let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
         children.extend(next_args);
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
     },
     <start:@L> "(" "*" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1?);
         let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
         children.extend(next_args);
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
     },
     <fhead:FHead> => fhead, // Add to accept the good syntax
     //<fexp:FExp> => fexp, // Remove for conflict
@@ -744,7 +744,7 @@ pub FExpDA: Result<NodeId, ParseContextError> = {
 pub FHead: Result<NodeId, ParseContextError> = {
     <function:FunctionTerm> => function,
     <start:@L> <symbol:FunctionSymbol> <end:@R> => {
-        context.alloc_node(AstKind::FunctionTerm, AstContent::None, vec![symbol?], start, end)
+        context.alloc_node(AstKind::Function, AstContent::None, vec![symbol?], start, end)
     }
 }
 
@@ -838,7 +838,7 @@ pub DurationConstraint: Result<NodeId, ParseContextError> = {
 
 pub SimpleDurationConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <op:DOp> <var:DurationVariable> <value:DValue> ")" <end:@R> => {
-        context.alloc_node(AstKind::FComp, op, vec![var?, value?], start, end)
+        context.alloc_node(AstKind::Comparison, op, vec![var?, value?], start, end)
     },
     <start:@L> "at start" <constraints:SimpleDurationConstraint> <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![constraints?], start, end)
@@ -855,9 +855,9 @@ pub DurationVariable: Result<NodeId, ParseContextError> = {
 }
 
 pub DOp : AstContent = {
-    ">=" =>AstContent::BinaryComp(BinaryComp::GreaterEq),
-    "<=" =>AstContent::BinaryComp(BinaryComp::LessEq),
-    "=" =>AstContent::BinaryComp(BinaryComp::Equal),
+    ">=" =>AstContent::CompareOp(CompareOp::GreaterEq),
+    "<=" =>AstContent::CompareOp(CompareOp::LessEq),
+    "=" =>AstContent::CompareOp(CompareOp::Equal),
 }
 
 pub DValue: Result<NodeId, ParseContextError> = {
@@ -931,13 +931,13 @@ pub TimedEffect: Result<NodeId, ParseContextError> = {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![con_effect?], start, end)
     },
     <start:@L> "(" <op:AssignOpT> <fhead:FHead> <fexpt:FExpT> ")" <end:@R> => {
-        context.alloc_node(AstKind::Assign, op, vec![fhead?, fexpt?], start, end)
+        context.alloc_node(AstKind::Assignment, op, vec![fhead?, fexpt?], start, end)
     },
 }
 
 pub FAssignDA: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexpda:FExpDA> ")" <end:@R> => {
-        context.alloc_node(AstKind::Assign, op, vec![fhead?, fexpda?], start, end)
+        context.alloc_node(AstKind::Assignment, op, vec![fhead?, fexpda?], start, end)
     },
 }
 
@@ -948,10 +948,10 @@ pub AssignOpT : AstContent = {
 
 pub FExpT: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "*" <fexp:FExp> <var:ContinusVariable> ")" <end:@R> => {
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), vec![fexp?, var?], start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), vec![fexp?, var?], start, end)
     },
     <start:@L> "(" "*" <var:ContinusVariable> <fexp:FExp> ")" <end:@R> => {
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), vec![var?, fexp?], start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), vec![var?, fexp?], start, end)
     },
     <var:ContinusVariable> => var,
 }
@@ -1001,7 +1001,7 @@ pub Domain: Result<NodeId, ParseContextError> = {
 }
 
 pub ObjectsDef: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" ":objects" <objects:TypedList<Constant>> ")" <end:@R> => {
+    <start:@L> "(" ":objects" <objects:TypedList<Object>> ")" <end:@R> => {
         context.alloc_node(AstKind::ObjectsDef, AstContent::None, vec![objects?], start, end)
     }
 }
@@ -1012,15 +1012,15 @@ pub BasicFunctionTerm : Result<NodeId, ParseContextError> = {
 }
 
 pub InitEl: Result<NodeId, ParseContextError> = {
-    <literal:Literal<Constant>> => literal,
-    <start:@L> "(" "at" <number:Number> <literal:Literal<Constant>> ")" <end:@R> => {
+    <literal:Literal<Object>> => literal,
+    <start:@L> "(" "at" <number:Number> <literal:Literal<Object>> ")" <end:@R> => {
         context.alloc_node(AstKind::TimedInitialLiteral, AstContent::None, vec![number?, literal?], start, end)
     },
     <start:@L> "(" "=" <function:BasicFunctionTerm> <number:Number> ")" <end:@R> => {
-        context.alloc_node(AstKind::FComp, AstContent::BinaryComp(BinaryComp::Equal), vec![function?, number?], start, end)
+        context.alloc_node(AstKind::Comparison, AstContent::CompareOp(CompareOp::Equal), vec![function?, number?], start, end)
     },
-    <start:@L> "(" "=" <function:BasicFunctionTerm> <constant:Constant> ")" <end:@R> => {
-        context.alloc_node(AstKind::FComp, AstContent::BinaryComp(BinaryComp::Equal), vec![function?, constant?], start, end)
+    <start:@L> "(" "=" <function:BasicFunctionTerm> <constant:Object> ")" <end:@R> => {
+        context.alloc_node(AstKind::Comparison, AstContent::CompareOp(CompareOp::Equal), vec![function?, constant?], start, end)
     },
 }
 
@@ -1040,38 +1040,38 @@ pub Goal: Result<NodeId, ParseContextError> = {
     },
 }
 
-pub Optimization : AstContent = {
-    "minimize" => AstContent::Optimization(Optimization::Minimize),
-    "maximize" => AstContent::Optimization(Optimization::Maximize),
+pub OptimizationOp : AstContent = {
+    "minimize" => AstContent::OptimizationOp(OptimizationOp::Minimize),
+    "maximize" => AstContent::OptimizationOp(OptimizationOp::Maximize),
 }
 
 pub MetricFExp: Result<NodeId, ParseContextError> = {
     <number:Number> => number,
-    <function:_FunctionTerm<Constant>> => function,
+    <function:_FunctionTerm<Object>> => function,
     <start:@L> <symbol:FunctionSymbol> <end:@R> => {
-        context.alloc_node(AstKind::FunctionTerm, AstContent::None, vec![symbol?], start, end)
+        context.alloc_node(AstKind::Function, AstContent::None, vec![symbol?], start, end)
     },
     <start:@L> "(" "-" <arg1:MetricFExp> <arg2:MetricFExp?> ")" <end:@R> => {
         let mut children = vec![arg1?];
         if let Some(arg2) = arg2 {
             children.push(arg2?);
         }
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
     },
     <start:@L> "(" "/" <arg1:MetricFExp> <arg2:MetricFExp> ")" <end:@R> => {
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
     },
     <start:@L> "(" "+" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
         let mut children = vec![arg1?];
         let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
         children.extend(next_args);
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
     },
     <start:@L> "(" "*" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
         let mut children = vec![arg1?];
         let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
         children.extend(next_args);
-        context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
     },
     //<start:@L> "total-time" <end:@R> => {
     //    Context.alloc_node(AstKind::TotalTime, AstContent::None, Vec::new(), start, end)
@@ -1082,7 +1082,7 @@ pub MetricFExp: Result<NodeId, ParseContextError> = {
 }
 
 pub MetricSpec: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" ":metric" <op:Optimization> <fexp:MetricFExp> ")" <end:@R> => {
+    <start:@L> "(" ":metric" <op:OptimizationOp> <fexp:MetricFExp> ")" <end:@R> => {
         context.alloc_node(AstKind::Metric, op, vec![fexp?], start, end)
     },
 }
@@ -1096,11 +1096,11 @@ pub LengthSpec: Result<NodeId, ParseContextError> = {
     <end:@R> => {
         let mut children = Vec::new();
         if let Some(serial_value) = serial_value {
-            let serial = context.alloc_node(AstKind::Serial, AstContent::Float(OrderedFloat(serial_value)), vec![], start_serial, end_serial);
+            let serial = context.alloc_node(AstKind::Serial, AstContent::Number(OrderedFloat(serial_value)), vec![], start_serial, end_serial);
             children.push(serial?);
         }
         if let Some(parallel_value) = parallel_value {
-            let parallel = context.alloc_node(AstKind::Parallel, AstContent::Float(OrderedFloat(parallel_value)), vec![], start_parallel, end_parallel);
+            let parallel = context.alloc_node(AstKind::Parallel, AstContent::Number(OrderedFloat(parallel_value)), vec![], start_parallel, end_parallel);
             children.push(parallel?);
         }
         context.alloc_node(AstKind::Length, AstContent::None, children, start, end)
@@ -1179,7 +1179,7 @@ pub MethodSymbol: Result<NodeId, ParseContextError> = {
 
 pub TaskID: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
-        Ok(name) => context.alloc_node(AstKind::TaskID, name, Vec::new(), start, end),
+        Ok(name) => context.alloc_node(AstKind::TaskLabel, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     }
 }
@@ -1187,7 +1187,7 @@ pub TaskID: Result<NodeId, ParseContextError> = {
 pub TaskTerm: Result<NodeId, ParseContextError> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            context.alloc_node(AstKind::Constant, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end)
+            context.alloc_node(AstKind::Object, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end)
         } else {
             context.alloc_node(AstKind::Variable, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end)
         }
@@ -1211,11 +1211,11 @@ pub Subtask: Result<NodeId, ParseContextError> = {
             Ok(name_value) => {
                 match rest.first().map(|node| context.borrow_syntax_tree().get_node(*node).unwrap().kind()) {
                     Some(AstKind::TaskSymbol) => {
-                        let task_id = context.alloc_node(AstKind::TaskID, name_value, Vec::new(), start_name, end_name);
+                        let task_id = context.alloc_node(AstKind::TaskLabel, name_value, Vec::new(), start_name, end_name);
                         let task = context.alloc_node(AstKind::Task, AstContent::None, rest, end_name, end_rest);
-                        context.alloc_node(AstKind::TaggedTask, AstContent::None, vec![task_id?, task?], start_name, end_rest)
+                        context.alloc_node(AstKind::LabeledTask, AstContent::None, vec![task_id?, task?], start_name, end_rest)
                     },
-                    Some(AstKind::Constant) | Some(AstKind::Variable) => {
+                    Some(AstKind::Object) | Some(AstKind::Variable) => {
                         let task_symbol = context.alloc_node(AstKind::TaskSymbol, name_value, Vec::new(), start_name, end_name);
                         let mut children = Vec::with_capacity(1 + rest.len());
                         children.push(task_symbol?);
@@ -1277,7 +1277,7 @@ pub TaskNetworkSubtaskDef: Result<NodeId, ParseContextError> = {
 
 pub SimpleTaskOrderingConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "<" <t1:TaskID> <t2:TaskID> ")" <end:@R> => {
-        context.alloc_node(AstKind::TaskOrderingConstraint, AstContent::BinaryComp(BinaryComp::Less), vec![t1?, t2?], start, end)
+        context.alloc_node(AstKind::TaskOrderingConstraint, AstContent::CompareOp(CompareOp::Less), vec![t1?, t2?], start, end)
     }
 }
 
@@ -1305,7 +1305,7 @@ pub TaskNetworkOrderingConstraintDef: Result<NodeId, ParseContextError> = {
 
 pub SimpleTaskLogicalConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "=" <t1:Term> <t2:Term> ")" <end:@R> => {
-        context.alloc_node(AstKind::FComp, AstContent::BinaryComp(BinaryComp::Equal), vec![t1?, t2?], start, end)
+        context.alloc_node(AstKind::Comparison, AstContent::CompareOp(CompareOp::Equal), vec![t1?, t2?], start, end)
     },
     <start:@L> "(" "not" <constraint:SimpleTaskLogicalConstraint> ")" <end:@R> => {
         context.alloc_node(AstKind::Not, AstContent::None, vec![constraint?], start, end)

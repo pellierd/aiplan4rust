@@ -4,8 +4,10 @@ mod rule;
 mod database;
 mod relation;
 mod encoder;
-mod error;
-mod engine;
+pub mod error;
+pub mod engine;
+
+pub mod tuple;
+
 #[cfg(test)]
 mod tests;
-mod tuple;

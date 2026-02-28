@@ -24,7 +24,7 @@ use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedMethod};
+use crate::aiplan4rust::lir::{renderers, ActionDef, DerivedPredicateDef, MethodDef};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Wrapper around the domain view of a lifted problem.
@@ -163,14 +163,14 @@ impl<'a> DomainDef<'a> {
     ///
     /// Derived predicates are evaluated based on the current state and
     /// other predicates, rather than being modified directly by actions.
-    pub fn derived_predicates(&self) -> &[LiftedDerivedPredicate] {
+    pub fn derived_predicates(&self) -> &[DerivedPredicateDef] {
         self.problem.derived_predicate_defs()
     }
 
     /// Returns a slice of all lifted action definitions.
     ///
     /// These are the primitive operators available to the planner.
-    pub fn action_defs(&self) -> &[LiftedAction] {
+    pub fn action_defs(&self) -> &[ActionDef] {
         self.problem.action_defs()
     }
 
@@ -178,7 +178,7 @@ impl<'a> DomainDef<'a> {
     ///
     /// Methods define how an abstract task can be decomposed into
     /// sub-tasks within an HTN framework.
-    pub fn method_defs(&self) -> &[LiftedMethod] {
+    pub fn method_defs(&self) -> &[MethodDef] {
         self.problem.method_defs()
     }
 

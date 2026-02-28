@@ -17,8 +17,8 @@
 //! - [`Requirement`]: Declared requirements that affect parsing and validation.
 //! - [`ArithmeticOp`]: Arithmetic operations (`+`, `-`, `*`, `/`) used in expr.
 //! - [`AssignOp`]: Assignment-style operations for modifying fluent values.
-//! - [`BinaryComp`]: Binary comparison operators used in conditions and constraints.
-//! - [`Optimization`]: Declares whether to minimize, maximize, or ignore optimization goals.
+//! - [`CompareOp`]: Binary comparison operators used in conditions and constraints.
+//! - [`OptimizationOp`]: Declares whether to minimize, maximize, or ignore optimization goals.
 //!
 //! # Usage Scope
 //!
@@ -42,8 +42,8 @@ pub mod typed_list;
 pub mod requirement;
 pub mod arithmetic_op;
 pub mod assign_op;
-pub mod binary_comp;
-pub mod optimization;
+pub mod compare_op;
+pub mod optimization_op;
 pub mod error;
 pub mod ids;
 
@@ -53,8 +53,8 @@ pub use typed_list::TypedList;
 pub use requirement::Requirement;
 pub use arithmetic_op::ArithmeticOp;
 pub use assign_op::AssignOp;
-pub use binary_comp::BinaryComp;
-pub use optimization::Optimization;
+pub use compare_op::CompareOp;
+pub use optimization_op::OptimizationOp;
 pub use error::LangError;
 pub use crate::aiplan4rust::interner::remap_symbol::RemapSymbol;
 pub use ids::*;

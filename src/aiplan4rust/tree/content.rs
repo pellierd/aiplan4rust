@@ -32,7 +32,7 @@
 
 use std::fmt::{Debug, Display};
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Trait representing the semantic content of a syntax node.
@@ -56,7 +56,7 @@ pub trait SyntaxContent: Display + Clone + Debug  + Default {
     fn as_number(&self) -> Option<OrderedFloat<f64>>;
 
     /// Returns the content as a binary comparison operator if available.
-    fn as_binary_comp(&self) -> Option<BinaryComp>;
+    fn as_compare_op(&self) -> Option<CompareOp>;
 
     /// Returns the content as an assignment operator if available.
     fn as_assign_op(&self) -> Option<AssignOp>;
@@ -65,7 +65,7 @@ pub trait SyntaxContent: Display + Clone + Debug  + Default {
     fn as_arithmetic_op(&self) -> Option<ArithmeticOp>;
 
     /// Returns the content as an optimization directive if available.
-    fn as_optimization(&self) -> Option<Optimization>;
+    fn as_optimization_op(&self) -> Option<OptimizationOp>;
 
     /// Returns `true` if the content is semantically empty or none.
     ///
@@ -85,8 +85,8 @@ pub trait SyntaxContent: Display + Clone + Debug  + Default {
     ///
     /// Returns `Ok(BinaryComp)` if successful or
     /// `Err(SyntaxTreeError::NotABinaryComp)` if the content is not a binary comparison.
-    fn try_binary_comp(&self) -> Result<BinaryComp, SyntaxTreeError> {
-        self.as_binary_comp()
+    fn try_compare_op(&self) -> Result<CompareOp, SyntaxTreeError> {
+        self.as_compare_op()
             .ok_or_else(|| SyntaxTreeError::not_a_binary_comp())
     }
 
@@ -112,8 +112,8 @@ pub trait SyntaxContent: Display + Clone + Debug  + Default {
     ///
     /// Returns `Ok(Optimization)` if successful or
     /// `Err(SyntaxTreeError::NotAnOptimization)` if the content is not an optimization.
-    fn try_optimization(&self) -> Result<Optimization, SyntaxTreeError> {
-        self.as_optimization()
+    fn try_optimization_op(&self) -> Result<OptimizationOp, SyntaxTreeError> {
+        self.as_optimization_op()
             .ok_or_else(|| SyntaxTreeError::not_an_optimization())
     }
 }

@@ -38,7 +38,7 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Kind {
     /// A constant value in the syntax problem (literal or fixed value).
-    Constant,
+    Object,
 
     /// A variable placeholder used in actions or predicates.
     Variable,
@@ -56,7 +56,7 @@ pub enum Kind {
     ProblemName,
 
     /// A predicate symbol used in logical expr or conditions.
-    Predicate,
+    PredicateSymbol,
 
     /// An action symbol within the problem domain.
     ActionSymbol,
@@ -113,7 +113,7 @@ pub enum Kind {
     FunctionsDef,
 
     /// Represents a term in a function expr.
-    FunctionTerm,
+    Function,
 
     /// Skeleton structure of atomic functions.
     AtomicFunctionSkeleton,
@@ -173,13 +173,13 @@ pub enum Kind {
     When,
 
     /// Binary function comparison (e.g., `<`, `<=`, `=`, `!=`).
-    FComp,
+    Comparison,
 
     /// Assignment operation.
-    Assign,
+    Assignment,
 
     /// Arithmetic or logical operation.
-    Operation,
+    Arithmetic,
 
     /// Constraints defined on the problem/domain.
     Constraints,
@@ -259,8 +259,8 @@ pub enum Kind {
     /// Definition of a task in HDDL.
     TaskDef,
 
-    /// Tagged task with an ID in HDDL.
-    TaggedTask,
+    /// Tagged task with an label in HDDL.
+    LabeledTask,
 
     /// Definition of a method (task decomposition) in HDDL.
     MethodDef,
@@ -280,8 +280,8 @@ pub enum Kind {
     /// List of partially ordered subtasks (some order constraints).
     PartiallyOrderedSubtaskDef,
 
-    /// Task ID used to reference subtasks.
-    TaskID,
+    /// Task label used to reference subtasks.
+    TaskLabel,
 
     /// Collection of task ordering constraints.
     TaskOrderingConstraintDef,
@@ -304,13 +304,13 @@ impl Kind {
     /// reusing `fmt_syntax_with_interner_and_indent` to avoid duplicating the mapping.
     pub fn to_syntax_string(&self) -> String {
         let s = match self {
-            Kind::Constant => "",
+            Kind::Object => "",
             Kind::Variable => "",
             Kind::FunctionSymbol => "",
             Kind::PrimitiveType => "",
             Kind::DomainName => "",
             Kind::ProblemName => "",
-            Kind::Predicate => "",
+            Kind::PredicateSymbol => "",
             Kind::ActionSymbol => "",
             Kind::DASymbol => "",
             Kind::TaskSymbol => "",
@@ -329,7 +329,7 @@ impl Kind {
             Kind::PredicatesDef => PREDICATES,
             Kind::AtomicFormulaSkeleton => "",
             Kind::FunctionsDef => FUNCTIONS,
-            Kind::FunctionTerm => "",
+            Kind::Function => "",
             Kind::AtomicFunctionSkeleton => "",
             Kind::Number => "",
             Kind::ActionDef => ACTION,
@@ -348,9 +348,9 @@ impl Kind {
             Kind::Exists => EXISTS,
             Kind::Preference => PREFERENCE,
             Kind::When => WHEN,
-            Kind::FComp => "",
-            Kind::Assign => ASSIGN,
-            Kind::Operation => "",
+            Kind::Comparison => "",
+            Kind::Assignment => ASSIGN,
+            Kind::Arithmetic => "",
             Kind::Constraints => CONSTRAINTS,
             Kind::AtStart => AT_START,
             Kind::AtEnd => AT_END,
@@ -376,14 +376,14 @@ impl Kind {
             Kind::Error => "Error",
             Kind::Task => "",
             Kind::TaskDef => TASK,
-            Kind::TaggedTask => "",
+            Kind::LabeledTask => "",
             Kind::MethodDef => METHOD,
             Kind::MethodDefBody => "",
             Kind::MethodSymbol => "",
             Kind::MethodPreconditionDef => PRECONDITION,
             Kind::OrderedSubtaskDef => ORDERED_SUBTASKS,
             Kind::PartiallyOrderedSubtaskDef => SUBTASKS,
-            Kind::TaskID => "",
+            Kind::TaskLabel => "",
             Kind::TaskOrderingConstraintDef => ORDERED_TASKS,
             Kind::TaskOrderingConstraint => TASK,
             Kind::TaskLogicalConstraintDef => CONSTRAINTS,
@@ -408,13 +408,13 @@ impl fmt::Display for Kind {
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            Kind::Constant => "Constant",
+            Kind::Object => "Object",
             Kind::Variable => "Variable",
             Kind::FunctionSymbol => "FunctionSymbol",
             Kind::PrimitiveType => "PrimitiveType",
             Kind::DomainName => "DomainName",
             Kind::ProblemName => "ProblemName",
-            Kind::Predicate => "Predicate",
+            Kind::PredicateSymbol => "Predicate",
             Kind::ActionSymbol => "ActionSymbol",
             Kind::DASymbol => "DASymbol",
             Kind::TaskSymbol => "TaskSymbol",
@@ -433,7 +433,7 @@ impl fmt::Display for Kind {
             Kind::PredicatesDef => "PredicatesDef",
             Kind::AtomicFormulaSkeleton => "AtomicFormulaSkeleton",
             Kind::FunctionsDef => "FunctionsDef",
-            Kind::FunctionTerm => "FunctionTerm",
+            Kind::Function => "FunctionTerm",
             Kind::AtomicFunctionSkeleton => "AtomicFunctionSkeleton",
             Kind::Number => "Number",
             Kind::ActionDef => "ActionDef",
@@ -452,9 +452,9 @@ impl fmt::Display for Kind {
             Kind::Exists => "Exists",
             Kind::Preference => "Preference",
             Kind::When => "When",
-            Kind::FComp => "FComp",
-            Kind::Assign => "Assign",
-            Kind::Operation => "Operation",
+            Kind::Comparison => "FComp",
+            Kind::Assignment => "Assign",
+            Kind::Arithmetic => "Operation",
             Kind::Constraints => "Constraints",
             Kind::AtStart => "AtStart",
             Kind::AtEnd => "AtEnd",
@@ -480,14 +480,14 @@ impl fmt::Display for Kind {
             Kind::Error => "Error",
             Kind::Task => "Task",
             Kind::TaskDef => "TaskDef",
-            Kind::TaggedTask => "TaggedTask",
+            Kind::LabeledTask => "TaggedTask",
             Kind::MethodDef => "MethodDef",
             Kind::MethodDefBody => "MethodDefBody",
             Kind::MethodSymbol => "MethodSymbol",
             Kind::MethodPreconditionDef => "MethodPreconditionDef",
             Kind::OrderedSubtaskDef => "OrderedSubtaskDef",
             Kind::PartiallyOrderedSubtaskDef => "PartiallyOrderedSubtaskDef",
-            Kind::TaskID => "TaskID",
+            Kind::TaskLabel => "TaskID",
             Kind::TaskOrderingConstraintDef => "TaskOrderingConstraintDef",
             Kind::TaskOrderingConstraint => "TaskOrderingConstraint",
             Kind::TaskLogicalConstraintDef => "TaskLogicalConstraintDef",

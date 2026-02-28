@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::ops;
-use crate::aiplan4rust::lir::LiftedDerivedPredicate;
+use crate::aiplan4rust::lir::DerivedPredicateDef;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 
 /// Normalizes the logical expression of a `DerivedPredicate` using the provided `LogicEngine`.
@@ -16,7 +16,7 @@ use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 ///
 /// Returns a `LogicError` if expr of the `body` expression fails.
 pub fn normalize(
-    derived_predicate: &mut LiftedDerivedPredicate
+    derived_predicate: &mut DerivedPredicateDef
 ) -> Result<(), ExprOpError> {
     ops::normalize(derived_predicate.body_mut())
 }

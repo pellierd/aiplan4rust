@@ -2,14 +2,14 @@ use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::quantifier_expansion::expr;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
-use crate::aiplan4rust::lir::LiftedDerivedPredicate;
+use crate::aiplan4rust::lir::DerivedPredicateDef;
 
 /// Expands all logical quantifiers (`forall` and `exists`) within the predicate's body.
 ///
 /// This is a convenience wrapper around [`expand_with`] that performs expansion
 /// without any additional static simplification.
 pub fn expand(
-    predicate: &mut LiftedDerivedPredicate,
+    predicate: &mut DerivedPredicateDef,
     value_registry: &ValueRegistry,
 ) -> Result<(), GroundingError> {
     expand_with(predicate, value_registry, None)
@@ -26,7 +26,7 @@ pub fn expand(
 /// * `value_registry` - The registry containing object constants for substitution.
 /// * `evaluator` - Optional static evaluator to prune the expression tree during expansion.
 pub fn expand_with(
-    predicate: &mut LiftedDerivedPredicate,
+    predicate: &mut DerivedPredicateDef,
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), GroundingError> {

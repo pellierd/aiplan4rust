@@ -47,7 +47,7 @@ use crate::aiplan4rust::lir::problem::atomic_skeleton::{
 };
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedMethod, LirError};
+use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork, ActionDef, DerivedPredicateDef, LirError, MethodDef};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -102,13 +102,13 @@ pub struct Problem {
     domain_constraints: Expr,
 
     /// Predicates whose truth value is derived from other facts via axioms.
-    derived_predicate_defs: Vec<LiftedDerivedPredicate>,
+    derived_predicate_defs: Vec<DerivedPredicateDef>,
 
     /// Operators that can change the state of the world.
-    action_defs: Vec<LiftedAction>,
+    action_defs: Vec<ActionDef>,
 
     /// HTN Methods describing how to decompose abstract tasks into subtasks.
-    method_defs: Vec<LiftedMethod>,
+    method_defs: Vec<MethodDef>,
 
     // --- PROBLEM INSTANCE SPECIFICS ---
     /// Initial state description (facts and initial functional values).
@@ -1042,7 +1042,7 @@ impl Problem {
     ///
     /// # Returns
     /// A slice of [`LiftedDerivedPredicate`].
-    pub fn derived_predicate_defs(&self) -> &[LiftedDerivedPredicate] {
+    pub fn derived_predicate_defs(&self) -> &[DerivedPredicateDef] {
         &self.derived_predicate_defs
     }
 
@@ -1053,7 +1053,7 @@ impl Problem {
     ///
     /// # Returns
     /// A mutable slice of [`LiftedDerivedPredicate`].
-    pub fn derived_predicate_defs_mut(&mut self) -> &mut [LiftedDerivedPredicate] {
+    pub fn derived_predicate_defs_mut(&mut self) -> &mut [DerivedPredicateDef] {
         &mut self.derived_predicate_defs
     }
 
@@ -1064,7 +1064,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `predicate`: The [`LiftedDerivedPredicate`] definition to be added.
-    pub fn add_derived_predicate_def(&mut self, predicate: LiftedDerivedPredicate) {
+    pub fn add_derived_predicate_def(&mut self, predicate: DerivedPredicateDef) {
         self.derived_predicate_defs.push(predicate);
     }
 
@@ -1086,7 +1086,7 @@ impl Problem {
     ///
     /// # Returns
     /// A slice of [`LiftedAction`].
-    pub fn action_defs(&self) -> &[LiftedAction] {
+    pub fn action_defs(&self) -> &[ActionDef] {
         &self.action_defs
     }
 
@@ -1098,7 +1098,7 @@ impl Problem {
     ///
     /// # Returns
     /// A mutable slice of [`LiftedAction`].
-    pub fn action_defs_mut(&mut self) -> &mut [LiftedAction] {
+    pub fn action_defs_mut(&mut self) -> &mut [ActionDef] {
         &mut self.action_defs
     }
 
@@ -1109,7 +1109,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `action`: The [`LiftedAction`] schema to be registered.
-    pub fn add_action_def(&mut self, action: LiftedAction) {
+    pub fn add_action_def(&mut self, action: ActionDef) {
         self.action_defs.push(action);
     }
 
@@ -1131,7 +1131,7 @@ impl Problem {
     ///
     /// # Returns
     /// A slice of [`LiftedMethod`].
-    pub fn method_defs(&self) -> &[LiftedMethod] {
+    pub fn method_defs(&self) -> &[MethodDef] {
         &self.method_defs
     }
 
@@ -1143,7 +1143,7 @@ impl Problem {
     ///
     /// # Returns
     /// A mutable slice of [`LiftedMethod`].
-    pub fn method_defs_mut(&mut self) -> &mut [LiftedMethod] {
+    pub fn method_defs_mut(&mut self) -> &mut [MethodDef] {
         &mut self.method_defs
     }
 
@@ -1154,7 +1154,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `method`: The [`LiftedMethod`] definition to be added.
-    pub fn add_method_def(&mut self, method: LiftedMethod) {
+    pub fn add_method_def(&mut self, method: MethodDef) {
         self.method_defs.push(method);
     }
 

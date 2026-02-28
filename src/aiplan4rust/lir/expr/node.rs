@@ -314,7 +314,7 @@ impl Node for ExprNode {
     /// assert!(node.is_atomic_formula());
     /// ```
     fn is_atomic_formula(&self) -> bool {
-        matches!(self.kind(), ExprKind::AtomicFormula | ExprKind::FComp)
+        matches!(self.kind(), ExprKind::AtomicFormula | ExprKind::Comparison)
     }
 
     /// Returns `true` if the node is a **temporal specifier**.
@@ -378,12 +378,12 @@ impl Node for ExprNode {
 impl ExprNode {
     /// Returns the object ID if the content is `Constant`.
     pub fn as_constant(&self) -> Option<ObjectId> {
-        self.content().as_constant()
+        self.content().as_object()
     }
 
     /// Returns the object ID or an error.
     pub fn try_constant(&self) -> Result<ObjectId, ExprError> {
-        self.content().try_constant()
+        self.content().try_object()
     }
 
     /// Returns the variable ID if the content is `Variable`.

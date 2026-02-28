@@ -36,7 +36,7 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::lang::{ObjectId, Optimization, VariableId};
+use crate::aiplan4rust::lang::{ObjectId, OptimizationOp, VariableId};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
@@ -173,8 +173,8 @@ impl Expr {
         obj_id: ObjectId
     ) -> Result<(), ExprError> {
         let node_mut = self.try_node_mut(node_id)?;
-        node_mut.set_kind(ExprKind::Constant);
-        node_mut.set_content(Content::Constant(obj_id));
+        node_mut.set_kind(ExprKind::Object);
+        node_mut.set_content(Content::Object(obj_id));
         node_mut.children_mut().clear();
         Ok(())
     }
@@ -251,7 +251,7 @@ impl Expr {
         let mut expr = Expr::new();
         let root = ExprNode::new(
             ExprKind::Metric,
-            ExprContent::Optimization(Optimization::None),
+            ExprContent::OptimizationOp(OptimizationOp::None),
             None,
         );
         expr.alloc(root);

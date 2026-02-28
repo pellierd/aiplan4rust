@@ -25,7 +25,7 @@ use crate::aiplan4rust::lang::{AtomSkeletonId, ObjectId};
 #[derive(Default, Debug, Clone)]
 pub struct Database {
     /// Facts that have been fully integrated into the knowledge base.
-    relations: HashMap<AtomSkeletonId, Relation>,
+    stable: HashMap<AtomSkeletonId, Relation>,
     /// Buffer containing facts found in the latest saturation round.
     delta: HashMap<AtomSkeletonId, Relation>,
 }
@@ -48,7 +48,7 @@ impl Database {
     /// * `false` if the fact was a duplicate.
     pub fn insert_stable_fact(&mut self, skeleton_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
         let arity = args.len();
-        self.relations
+        self.stable
             .entry(skeleton_id)
             .or_insert_with(|| Relation::new(arity))
             .insert(args)
@@ -63,7 +63,7 @@ impl Database {
     /// # Returns
     /// `true` if the fact is found in the stable set.
     pub fn contains_stable(&self, skeleton_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
-        self.relations
+        self.stable
             .get(&skeleton_id)
             .map_or(false, |rel| rel.contains(args))
     }
@@ -91,7 +91,7 @@ impl Database {
     /// This is typically used to monitor the growth of the knowledge base.
     #[inline]
     pub fn get_relation(&self, skeleton_id: AtomSkeletonId) -> Option<&Relation> {
-        self.relations.get(&skeleton_id)
+        self.stable.get(&skeleton_id)
     }
 
     /// Returns a reference to the internal map of stable relations.
@@ -107,7 +107,7 @@ impl Database {
     /// current knowledge base and evaluate rules during the fixed-point calculation.
     #[inline]
     pub fn relations(&self) -> &HashMap<AtomSkeletonId, Relation> {
-        &self.relations
+        &self.stable
     }
 
     /// Calculates the total number of unique facts across all stable relations.
@@ -125,7 +125,7 @@ impl Database {
     /// information was discovered or if a **fixed-point** (saturation) has
     /// been reached.
     pub fn total_facts_count(&self) -> usize {
-        self.relations
+        self.stable
             .values()
             .map(|rel| rel.len())
             .sum()
@@ -135,7 +135,7 @@ impl Database {
     ///
     /// This removes all confirmed relations but leaves the Delta buffer intact.
     pub fn clear_stable(&mut self) {
-        self.relations.clear();
+        self.stable.clear();
     }
 
     /// Promotes all facts from the Delta buffer to Stable storage.
@@ -145,7 +145,7 @@ impl Database {
     /// the Delta buffer for the next round.
     pub fn commit_delta(&mut self) {
         for (sk_id, delta_rel) in self.delta.drain() {
-            let rel = self.relations
+            let rel = self.stable
                 .entry(sk_id)
                 .or_insert_with(|| Relation::new(delta_rel.arity()));
 
@@ -191,7 +191,7 @@ impl Database {
     /// state (PDDL `init`) as the first set of "newly discovered" facts.
     pub fn move_all_to_delta(&mut self) {
         // On échange les maps pour que relations devienne delta
-        self.delta = std::mem::take(&mut self.relations);
+        self.delta = std::mem::take(&mut self.stable);
     }
 
     /// Returns `true` if the Delta buffer is empty.
@@ -209,7 +209,7 @@ impl Database {
     /// called when transitioning between different planning problems to
     /// ensure no data leakage occurs.
     pub fn clear_all(&mut self) {
-        self.relations.clear();
+        self.stable.clear();
         self.delta.clear();
     }
 
@@ -218,7 +218,7 @@ impl Database {
     /// # Returns
     /// An `Option` containing a tuple of `(raw_buffer_length, arity)`.
     pub fn get_layout(&self, sk_id: AtomSkeletonId, use_delta: bool) -> Option<(usize, usize)> {
-        let rel = if use_delta { self.delta.get(&sk_id) } else { self.relations.get(&sk_id) };
+        let rel = if use_delta { self.delta.get(&sk_id) } else { self.stable.get(&sk_id) };
         rel.map(|r| (r.data().len(), r.arity()))
     }
 
@@ -229,7 +229,7 @@ impl Database {
     /// * `arity` - The number of elements to read.
     /// * `out` - The destination buffer (must be at least `arity` long).
     pub fn read_tuple(&self, sk_id: AtomSkeletonId, use_delta: bool, start: usize, arity: usize, out: &mut [ObjectId]) {
-        let rel_opt = if use_delta { self.delta.get(&sk_id) } else { self.relations.get(&sk_id) };
+        let rel_opt = if use_delta { self.delta.get(&sk_id) } else { self.stable.get(&sk_id) };
         if let Some(rel) = rel_opt {
             let data = rel.data();
             // Vérification de sécurité pour éviter le out-of-bounds
@@ -244,9 +244,27 @@ impl Database {
     /// # Returns
     /// A vector of memory offsets where matching tuples can be found.
     pub fn lookup_index(&self, sk_id: AtomSkeletonId, use_delta: bool, first_arg: ObjectId) -> Option<Vec<usize>> {
-        let rel = if use_delta { self.delta.get(&sk_id) } else { self.relations.get(&sk_id) };
+        let rel = if use_delta { self.delta.get(&sk_id) } else { self.stable.get(&sk_id) };
         // On clone le petit vecteur d'offsets (pas les données des faits)
         rel.and_then(|r| r.index_by_first_arg().get(&first_arg).cloned())
+    }
+
+    /// Returns the total number of unique facts (tuples) associated with a given predicate.
+    ///
+    /// This method aggregates the count from both the `stable` (fixed) and `delta` (newly discovered)
+    /// storage layers. It is a constant-time $O(1)$ operation, making it ideal for
+    /// query optimization heuristics such as join ordering.
+    ///
+    /// # Arguments
+    /// * `sk_id` - The unique identifier of the predicate (skeleton).
+    ///
+    /// # Complexity
+    /// $O(1)$ since it relies on the pre-calculated length of the underlying storage.
+    #[inline]
+    pub fn get_relation_size(&self, sk_id: AtomSkeletonId) -> usize {
+        let stable_size = self.stable.get(&sk_id).map(|r| r.len()).unwrap_or(0);
+        let delta_size = self.delta.get(&sk_id).map(|r| r.len()).unwrap_or(0);
+        stable_size + delta_size
     }
 }
 
@@ -260,10 +278,10 @@ impl std::fmt::Display for Database {
 
         // Section 1: Confirmed Facts
         writeln!(f, "--- STABLE STORAGE ---")?;
-        if self.relations.is_empty() {
+        if self.stable.is_empty() {
             writeln!(f, "  (empty)")?;
         } else {
-            for (sk_id, rel) in &self.relations {
+            for (sk_id, rel) in &self.stable {
                 // rel est maintenant affiché via sa propre méthode fmt
                 writeln!(f, "  Relation #{} (arity {}): {}", sk_id, rel.arity(), rel)?;
             }

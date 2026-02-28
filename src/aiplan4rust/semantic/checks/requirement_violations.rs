@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::Requirement::{
     ExistentialPreconditions, Fluents, NegativePreconditions, NumericFluents, ObjectFluents,
     Preferences, Typing, UniversalPreconditions,
 };
-use crate::aiplan4rust::lang::{BinaryComp, LiteralId};
+use crate::aiplan4rust::lang::{CompareOp, LiteralId};
 use crate::aiplan4rust::lang::Requirement;
 
 use std::collections::HashSet;
@@ -33,7 +33,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::FunctionsDef | AstKind::FunctionTerm => {
+            AstKind::FunctionsDef | AstKind::Function => {
                 checked &= report_warning_requirement_violation(
                     node,
                     requirements,
@@ -160,9 +160,9 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::FComp => {
-                match node.try_binary_comp()? {
-                    BinaryComp::Equal => {
+            AstKind::Comparison => {
+                match node.try_compare_op()? {
+                    CompareOp::Equal => {
                         checked &= report_warning_requirement_violation(
                             node,
                             requirements,

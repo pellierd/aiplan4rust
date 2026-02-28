@@ -1,6 +1,6 @@
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, AtomSkeletonId, BinaryComp, FunctionSkeletonId, FunctionSymbolId, ObjectId, Optimization, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
-use crate::aiplan4rust::lang::BinaryComp::Less;
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, AtomSkeletonId, CompareOp, FunctionSkeletonId, FunctionSymbolId, ObjectId, OptimizationOp, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
+use crate::aiplan4rust::lang::CompareOp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::tree::builder::SyntaxTreeBuilder;
@@ -120,8 +120,8 @@ impl ExprBuilder {
     /// The [`NodeId`] of the newly created leaf node in the expression tree.
     pub fn constant<I: Into<ObjectId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
-            ExprKind::Constant,
-            ExprContent::Constant(id.into()),
+            ExprKind::Object,
+            ExprContent::Object(id.into()),
             None
         ))
     }
@@ -177,7 +177,7 @@ impl ExprBuilder {
     /// The [`NodeId`] of the newly created `Predicate` leaf node.
     pub fn predicate<I: Into<PredicateSymbolId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
-            ExprKind::Predicate,
+            ExprKind::PredicateSymbol,
             ExprContent::PredicateSymbol(id.into()),
             None,
         ))
@@ -256,7 +256,7 @@ impl ExprBuilder {
         let mut children = vec![sym_node];
         children.extend(args);
         self.node(
-            ExprNode::new(ExprKind::FunctionTerm, content, None),
+            ExprNode::new(ExprKind::Function, content, None),
             children
         )
     }
@@ -517,17 +517,17 @@ impl ExprBuilder {
     /// (terms, fluents, or literals) using a binary operator.
     ///
     /// # Arguments
-    /// * `op` - The binary comparison operator (e.g., [`BinaryComp::GreaterEq`], [`BinaryComp::Less`]).
+    /// * `op` - The binary comparison operator (e.g., [`CompareOp::GreaterEq`], [`CompareOp::Less`]).
     /// * `left` - The [`NodeId`] of the left-hand side expression.
     /// * `right` - The [`NodeId`] of the right-hand side expression.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
-    pub fn fcomp(&mut self, op: BinaryComp, left: NodeId, right: NodeId) -> NodeId {
+    pub fn fcomp(&mut self, op: CompareOp, left: NodeId, right: NodeId) -> NodeId {
         self.node(
             ExprNode::new(
-                ExprKind::FComp,
-                ExprContent::BinaryComp(op),
+                ExprKind::Comparison,
+                ExprContent::Comparison(op),
                 None
             ),
             vec![left, right],
@@ -536,8 +536,8 @@ impl ExprBuilder {
 
     /// Creates a "less than" comparison node: (< left right)
     ///
-    /// This is a convenience helper that constructs an [`ExprKind::FComp`] node
-    /// using the [`BinaryComp::Less`] operator.
+    /// This is a convenience helper that constructs an [`ExprKind::Comparison`] node
+    /// using the [`CompareOp::Less`] operator.
     ///
     /// # Arguments
     /// * `left` - The [`NodeId`] of the left-hand numeric expression.
@@ -546,13 +546,13 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn less(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(BinaryComp::Less, left, right)
+        self.fcomp(CompareOp::Less, left, right)
     }
 
     /// Creates a "less than or equal to" comparison node: (<= left right)
     ///
-    /// This is a convenience helper that constructs an [`ExprKind::FComp`] node
-    /// using the [`BinaryComp::LessEq`] operator.
+    /// This is a convenience helper that constructs an [`ExprKind::Comparison`] node
+    /// using the [`CompareOp::LessEq`] operator.
     ///
     /// # Arguments
     /// * `left` - The [`NodeId`] of the left-hand numeric expression.
@@ -561,13 +561,13 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn less_eq(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(BinaryComp::LessEq, left, right)
+        self.fcomp(CompareOp::LessEq, left, right)
     }
 
     /// Creates a "greater than" comparison node: (> left right)
     ///
-    /// This is a convenience helper that constructs an [`ExprKind::FComp`] node
-    /// using the [`BinaryComp::Greater`] operator.
+    /// This is a convenience helper that constructs an [`ExprKind::Comparison`] node
+    /// using the [`CompareOp::Greater`] operator.
     ///
     /// # Arguments
     /// * `left` - The [`NodeId`] of the left-hand numeric expression.
@@ -576,13 +576,13 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn greater(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(BinaryComp::Greater, left, right)
+        self.fcomp(CompareOp::Greater, left, right)
     }
 
     /// Creates a "greater than or equal to" comparison node: (>= left right)
     ///
-    /// This is a convenience helper that constructs an [`ExprKind::FComp`] node
-    /// using the [`BinaryComp::GreaterEq`] operator.
+    /// This is a convenience helper that constructs an [`ExprKind::Comparison`] node
+    /// using the [`CompareOp::GreaterEq`] operator.
     ///
     /// # Arguments
     /// * `left` - The [`NodeId`] of the left-hand numeric expression.
@@ -591,12 +591,12 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn greater_eq(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(BinaryComp::GreaterEq, left, right)
+        self.fcomp(CompareOp::GreaterEq, left, right)
     }
 
     /// Creates a "numeric equality" comparison node: (= left right)
     ///
-    /// This constructs an [`ExprKind::FComp`] node using the [`BinaryComp::Equal`] operator.
+    /// This constructs an [`ExprKind::Comparison`] node using the [`CompareOp::Equal`] operator.
     /// In PDDL, this is used for comparing fluents or numeric values, and should be
     /// distinguished from logical equivalence or object identity depending on your
     /// solver's implementation.
@@ -608,7 +608,7 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn equal(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(BinaryComp::Equal, left, right)
+        self.fcomp(CompareOp::Equal, left, right)
     }
 
     /// Creates an assignment expression node: (op target value)
@@ -626,8 +626,8 @@ impl ExprBuilder {
     fn assign_expr(&mut self, op: AssignOp, target: NodeId, value: NodeId) -> NodeId {
         self.node(
             ExprNode::new(
-                ExprKind::Assign,
-                ExprContent::AssignOp(op),
+                ExprKind::Assignment,
+                ExprContent::Assignment(op),
                 None
             ),
             vec![target, value],
@@ -723,7 +723,7 @@ impl ExprBuilder {
     fn arithmetic_exp(&mut self, op: ArithmeticOp, operands: Vec<NodeId>) -> NodeId {
         self.node(
             ExprNode::new(
-                ExprKind::Operation,
+                ExprKind::Arithmetic,
                 ExprContent::ArithmeticOp(op),
                 None
             ),
@@ -733,7 +733,7 @@ impl ExprBuilder {
 
     /// Creates an addition node: (+ operands...)
     ///
-    /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Add`]
+    /// This constructs an [`ExprKind::Arithmetic`] node using the [`ArithmeticOp::Add`]
     /// operator. It can take any number of operands, representing their cumulative sum.
     ///
     /// # Arguments
@@ -747,7 +747,7 @@ impl ExprBuilder {
 
     /// Creates a subtraction node: (- operands...)
     ///
-    /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Sub`]
+    /// This constructs an [`ExprKind::Arithmetic`] node using the [`ArithmeticOp::Sub`]
     /// operator.
     ///
     /// * If one operand is provided, it represents unary negation: (- a) => -a.
@@ -765,7 +765,7 @@ impl ExprBuilder {
 
     /// Creates a multiplication node: (* operands...)
     ///
-    /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Mul`]
+    /// This constructs an [`ExprKind::Arithmetic`] node using the [`ArithmeticOp::Mul`]
     /// operator. It represents the product of all expr contained in the
     /// `operands` vector.
     ///
@@ -780,7 +780,7 @@ impl ExprBuilder {
 
     /// Creates a division node: (/ operands...)
     ///
-    /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Div`]
+    /// This constructs an [`ExprKind::Arithmetic`] node using the [`ArithmeticOp::Div`]
     /// operator.
     ///
     /// # Arguments
@@ -1005,10 +1005,10 @@ impl ExprBuilder {
     ///
     /// * `opt` - The `Optimization` directive, specifying whether to minimize or maximize the metric.
     /// * `expr` - The `NodeId` of the expression (e.g., total cost, time, or resource usage) to be optimized.
-    fn metric_exp(&mut self, opt: Optimization, expr: NodeId) -> NodeId {
+    fn metric_exp(&mut self, opt: OptimizationOp, expr: NodeId) -> NodeId {
         self.node(
             // The optimization directive is stored directly in the node's content
-            ExprNode::new(ExprKind::Metric, ExprContent::Optimization(opt), None),
+            ExprNode::new(ExprKind::Metric, ExprContent::OptimizationOp(opt), None),
             vec![expr],
         )
     }
@@ -1022,7 +1022,7 @@ impl ExprBuilder {
     ///
     /// * `expr` - The `NodeId` of the expression to be minimized.
     pub fn minimize(&mut self, expr: NodeId) -> NodeId {
-        self.metric_exp(Optimization::Minimize, expr)
+        self.metric_exp(OptimizationOp::Minimize, expr)
     }
 
     /// Creates a `Metric` node that specifies a maximization goal.
@@ -1035,7 +1035,7 @@ impl ExprBuilder {
     ///
     /// * `expr` - The `NodeId` of the expression to be maximized.
     pub fn maximize(&mut self, expr: NodeId) -> NodeId {
-        self.metric_exp(Optimization::Maximize, expr)
+        self.metric_exp(OptimizationOp::Maximize, expr)
     }
 
     /// Creates a `TotalTime` node.
@@ -1136,7 +1136,7 @@ impl ExprBuilder {
     /// * `id` - The identifier of the task label (e.g., a [`TaskLabelSymbolId`] or `usize`).
     pub fn task_id<I: Into<TaskLabelSymbolId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
-            ExprKind::TaskID,
+            ExprKind::TaskLabel,
             ExprContent::TaskLabelSymbol(id.into()),
             None,
         ))
@@ -1153,7 +1153,7 @@ impl ExprBuilder {
     /// * `task` - The `NodeId` of the task expression being tagged.
     pub fn tagged_task<I: Into<TaskLabelSymbolId>>(&mut self, id: I, task: NodeId) -> NodeId {
         let task_id_node = self.task_id(id);
-        self.binary(ExprKind::TaggedTask, task_id_node, task)
+        self.binary(ExprKind::LabeledTask, task_id_node, task)
     }
 
     /// Creates a `TaskOrderingConstraint` node representing a strictly sequential relationship.
@@ -1171,7 +1171,7 @@ impl ExprBuilder {
         task2: NodeId,
     ) -> NodeId {
         self.node(
-            ExprNode::new(ExprKind::TaskOrderingConstraint, ExprContent::BinaryComp(Less), None),
+            ExprNode::new(ExprKind::TaskOrderingConstraint, ExprContent::Comparison(Less), None),
             vec![task1, task2],
         )
     }

@@ -2,13 +2,13 @@ use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::quantifier_expansion::expr;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
-use crate::aiplan4rust::lir::LiftedMethod;
+use crate::aiplan4rust::lir::MethodDef;
 
 /// Expands all logical quantifiers (`forall` and `exists`) within a Method's expressions.
 ///
 /// This is a convenience wrapper around [`expand_with`] without a static evaluator.
 pub fn expand(
-    method: &mut LiftedMethod,
+    method: &mut MethodDef,
     value_registry: &ValueRegistry,
 ) -> Result<(), GroundingError> {
     expand_with(method, value_registry, None)
@@ -20,7 +20,7 @@ pub fn expand(
 /// 1. **Preconditions**: Logical requirements for the method to be applicable.
 /// 2. **Task Network**: Subtasks and constraints (ordering, timing, and logical constraints).
 pub fn expand_with(
-    method: &mut LiftedMethod,
+    method: &mut MethodDef,
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), GroundingError> {

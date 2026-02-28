@@ -140,7 +140,7 @@ fn finalize_task_network(
 
     // On parcourt tous les nœuds de l'expression LIR
     for node in tasks.preorder().values() {
-        if node.kind() == ExprKind::TaggedTask {
+        if node.kind() == ExprKind::LabeledTask {
             let task_label_node_id = node.try_child(0)?;
             let task_label_node = tasks.try_node(task_label_node_id)?;
 

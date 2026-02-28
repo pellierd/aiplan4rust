@@ -6,10 +6,10 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::Datal
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-use crate::aiplan4rust::grounding::problem::Fluent;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::tuple::Tuple;
 use crate::aiplan4rust::lang::{ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::LiftedAction;
+use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 // pre requis les types doivent faltten et les quantfier remove pas d'imply
@@ -30,8 +30,6 @@ pub struct DatalogEngine {
 
 impl DatalogEngine {
 
-    /// The index in `type_to_skeleton` where the universal 'object' type is stored.
-    const ROOT_TYPE_SKELETON_INDEX: usize = 0;
 
     pub fn new() -> Self {
         Self {
@@ -48,44 +46,78 @@ impl DatalogEngine {
         }
     }
 
-    /*pub fn get_reachable_actions(&self) -> Vec<Atom> {
-        let mut actions = Vec::new();
+    pub fn get_reachable_fluents(&self) -> Vec<Tuple<AtomSkeletonId>> {
+        let mut fluents = Vec::new();
 
-        // On parcourt toutes les relations stockées dans la base
+        // On parcourt les relations de la DB (le stockage Datalog)
         for (&sk_id, rel) in self.db.relations().iter() {
-            // On vérifie si le SkeletonId appartient au segment des Actions
+
+            // On ne garde que ce qui appartient aux Fluents (Prédicats)
+            if self.is_fluent(sk_id.as_usize()) {
+
+                // Le sk_id est déjà notre AtomSkeletonId interne
+                let skeleton_id = AtomSkeletonId::from(sk_id);
+
+                for tuple_data in rel.iter() {
+                    // On crée un Tuple pour chaque ligne de la relation
+                    fluents.push(Tuple::new(
+                        skeleton_id,
+                        tuple_data.to_vec()
+                    ));
+                }
+            }
+        }
+        fluents
+    }
+
+    pub fn get_reachable_actions(&self) -> Vec<Tuple<ActionDefId>> {
+        // On peut pré-allouer un peu d'espace pour éviter les premières réallocations
+        let mut actions = Vec::with_capacity(self.db.relations().len());
+
+        for (&sk_id, rel) in self.db.relations().iter() {
+            // 1. Utilisation de la méthode de segment optimisée
             if self.is_action(sk_id.as_usize()) {
-                // Pour chaque tuple (liste d'objets) dans cette relation
-                for tuple in rel.iter() {
-                    actions.push(Atom::new(sk_id, tuple.to_vec()));
+
+                // 2. Traduction arithmétique inline (O(1))
+                let action_def_id = self.atom_id_to_action_def_id(sk_id);
+
+                for tuple_data in rel.iter() {
+                    // 3. Création du Tuple avec clone des arguments
+                    actions.push(Tuple::new(
+                        action_def_id,
+                        tuple_data.to_vec()
+                    ));
                 }
             }
         }
         actions
     }
 
-    pub fn get_reachable_fluents(&self) -> Vec<Fluent> {
-        let mut fluents = Vec::new();
+    pub fn get_type_extensions(&self) -> Vec<Tuple<TypeId>> {
+        // On pré-alloue par rapport au nombre de relations, comme pour les actions
+        let mut types = Vec::with_capacity(self.db.relations().len());
 
         for (&sk_id, rel) in self.db.relations().iter() {
-            // 1. On filtre toujours par segment (Segment 1 = Fluents)
-            if self.is_fluent(sk_id.as_usize()) {
+            let id_val = sk_id.as_usize();
 
-                // 2. On récupère le symbole original via l'encodeur
-                // Je suppose que ton encoder a une méthode pour ça
-                let symbol = self.encoder.get_symbol(sk_id);
+            // 1. Utilisation de la méthode de segment pour les Types
+            if self.is_type(id_val) {
 
-                for tuple in rel.iter() {
-                    // tuple est un &[ObjectId], on le clone pour le Fluent
-                    let parameters = tuple.to_vec();
+                // 2. Traduction arithmétique inline (O(1))
+                // On soustrait le fluence_threshold pour retrouver l'index du type
+                let type_id = self.atom_id_to_type_id(sk_id);
 
-                    // 3. On crée le Fluent avec le VRAI PredicateSymbolId
-                    fluents.push(Fluent::new(symbol, parameters));
+                for tuple_data in rel.iter() {
+                    // 3. Création du Tuple (souvent unaire pour les types)
+                    types.push(Tuple::new(
+                        type_id,
+                        tuple_data.to_vec()
+                    ));
                 }
             }
         }
-        fluents
-    }*/
+        types
+    }
 
     /// Prépare le moteur pour un nouveau problème.
     /// Configure la base de faits, définit les types et compile le domaine en règles Datalog.
@@ -100,9 +132,15 @@ impl DatalogEngine {
         self.fluence_threshold = problem.predicate_defs().len();
         self.encoder = DatalogEncoder::new(self.fluence_threshold);
 
-        // 2. Type Schema Declaration
-        // Segment 2: Reserve IDs for unary predicates representing types.
+
         self.declare_types_as_unary_predicates(problem.type_defs());
+        // We use self.type_to_skeleton.len() instead of problem.type_defs().len()
+        // as the source of truth for the type_threshold.
+        //
+        // WHY: Our internal vector includes BOTH the PDDL domain types AND
+        // the sentinel ROOT type. Relying on the PDDL definition count alone
+        // would ignore the root type we just injected, leading to a collision
+        // where the first Action ID would overwrite the Root type ID.
         self.type_threshold = self.fluence_threshold + self.type_to_skeleton.len();
 
         // 3. Action Signature Declaration
@@ -142,11 +180,28 @@ impl DatalogEngine {
         id >= self.fluence_threshold && id < self.type_threshold
     }
 
+    #[inline]
+    pub fn atom_id_to_type_id(&self, sk_id: AtomSkeletonId) -> TypeId {
+        let id_val = sk_id.as_usize();
+        debug_assert!(self.is_type(id_val));
+        TypeId::from(id_val - self.fluence_threshold)
+    }
+
     /// Vérifie si un ID appartient au segment des Actions.
     #[inline]
     pub fn is_action(&self, id: usize) -> bool {
         // Dépend du seuil des types et de celui des actions
         id >= self.type_threshold && id < self.action_threshold
+    }
+
+    /// Convertit un `AtomSkeletonId` en `ActionDefId` via arithmétique de segment.
+    /// L'attribut #[inline] permet au compilateur d'éliminer l'overhead de l'appel.
+    #[inline]
+    pub fn atom_id_to_action_def_id(&self, sk_id: AtomSkeletonId) -> ActionDefId {
+        let id_val = sk_id.as_usize();
+        // Le check reste en debug, mais disparaît en release
+        debug_assert!(id_val >= self.type_threshold && id_val < self.action_threshold);
+        ActionDefId::from(id_val - self.type_threshold)
     }
 
     /// Vérifie si un ID est un prédicat auxiliaire (créé lors de la compilation).
@@ -159,42 +214,42 @@ impl DatalogEngine {
     fn declare_types_as_unary_predicates(&mut self, type_defs: &[TypedSymbol<TypeId, TypeId>]) {
         let num_types = type_defs.len();
 
-        // On réserve N + 1 places (Racine + Types du domaine)
+        // Capacity for N domain types + 1 sentinel Root type
         self.type_to_skeleton = Vec::with_capacity(num_types + 1);
 
-        // 1. Encode the ROOT type (sentinel ID)
-        // It will be stored at index 0 of our internal vector by convention.
-        let root_type_sk = self.encoder.encode_type_as_unary_predicate(TypeId::root());
-        self.type_to_skeleton.push(root_type_sk);
-
-        // 2. Encode all other domain types
-        for id in 0..num_types {
-            let type_id = TypeId::from(id);
-            let sk_id = self.encoder.encode_type_as_unary_predicate(type_id);
+        // 1. Encode domain types first to ensure a 1:1 mapping with PDDL indices.
+        // By keeping domain types at the start of the segment [0..num_types[,
+        // we avoid a +1 offset in translation functions like `atom_id_to_type_id`.
+        // Example: PDDL Type index 0 maps directly to Datalog ID (fluence_threshold + 0).
+        for _ in 0..num_types {
+            let sk_id = self.encoder.encode_type_as_unary_predicate();
             self.type_to_skeleton.push(sk_id);
         }
+
+        // 2. Encode the ROOT type as a sentinel in the LAST slot.
+        // This places the Root ID at the very end of the type segment (or start of auxiliary).
+        // It remains accessible for internal rules but does not shift the domain indices.
+        let root_type_sk = self.encoder.encode_type_as_unary_predicate();
+        self.type_to_skeleton.push(root_type_sk);
     }
 
     fn fill_db_from_objects(&mut self, object_defs: &[TypedSymbol<ObjectId, TypeId>]) -> Result<(), DatalogError> {
 
-        // On extrait l'ID une seule fois avant de commencer la boucle
-        let root_sk_id = self.type_to_skeleton[Self::ROOT_TYPE_SKELETON_INDEX];
+        let root_sk_id = *self.type_to_skeleton.last().ok_or_else(|| {
+            DatalogError::InternalState("Root type skeleton is missing from type_to_skeleton".to_string())
+        })?;
 
         for object in object_defs {
             let obj_id = object.symbol();
-            let obj_type = object.ty();
+            let obj_types = object.ty();
 
-            if !obj_type.is_empty() {
-                // Le type_def contient maintenant tous les parents terminaux
-                for &parent_type_id in obj_type {
-                    // On récupère le skeleton ID pour ce type parent
-                    let sk_id = self.type_to_skeleton[parent_type_id.as_usize()];
-                    // On ajoute le fait : l'objet appartient à ce type racine
-                    self.db.insert_stable_fact(sk_id, &[obj_id]);
-                }
-            } else {
-                // Cas particulier : si members est vide, c'est l'objet racine (object)
-                self.db.insert_stable_fact(root_sk_id, &[obj_id]);
+            // 1. Unification universelle : Tout est un "object"
+            self.db.insert_stable_fact(root_sk_id, &[obj_id]);
+
+            // 2. Unification spécifique : L'objet appartient à ses types et leurs parents
+            for &parent_type_id in obj_types {
+                let sk_id = self.type_to_skeleton[parent_type_id.as_usize()];
+                self.db.insert_stable_fact(sk_id, &[obj_id]);
             }
         }
         Ok(())
@@ -222,7 +277,7 @@ impl DatalogEngine {
                         // On récupère le noeud enfant
                         let child_node = init.try_node(arg_id)?;
                         // On extrait la constante (l'ObjectId)
-                        let object_id = child_node.content().try_constant()?;
+                        let object_id = child_node.content().try_object()?;
                         // On l'ajoute à notre liste d'arguments
                         args.push(object_id);
                     }
@@ -233,7 +288,7 @@ impl DatalogEngine {
                     // On a traité l'atome, on saute ses enfants
                     iter.skip_subtree();
                 }
-                ExprKind::FComp | ExprKind::Not => {
+                ExprKind::Comparison | ExprKind::Not => {
                     // Optionnel : Gestion des fonctions numériques si ton domaine en a
                     // Pour l'instant, on peut skip si on se concentre sur le logique
                     iter.skip_subtree();
@@ -246,17 +301,17 @@ impl DatalogEngine {
 
     /// Crée les squelettes de prédicats pour chaque action du problème.
     /// Cela permet de fixer les IDs des actions avant de générer les auxiliaires.
-    fn declare_action_as_predicates(&mut self, action_defs: &[LiftedAction]) {
+    fn declare_action_as_predicates(&mut self, action_defs: &[ActionDef]) {
         for (id, action) in action_defs.iter().enumerate() {
             // Cette méthode dans ton encoder doit simplement créer l'ID
             // et l'ajouter à son mapping interne (ex: action_to_skeleton).
-            self.encoder.encode_action_as_predicate(action, ActionDefId::from(id));
+            self.encoder.encode_action_as_predicate(action);
         }
     }
 
     fn compile_domain_actions_as_rules(
         &mut self,
-        action_defs: &[LiftedAction] // On ne passe que les définitions d'actions
+        action_defs: &[ActionDef] // On ne passe que les définitions d'actions
     ) -> Result<(), DatalogError> {
         for (id, action) in action_defs.iter().enumerate() {
             // L'ID est toujours basé sur le threshold + l'index dans la liste
@@ -286,7 +341,7 @@ impl DatalogEngine {
 
     fn compile_action_as_rules(
         &mut self,
-        action: &LiftedAction,
+        action: &ActionDef,
         action_sk_id: AtomSkeletonId
     ) -> Result<(), DatalogError> {
         // A. Générer l'atome de nom (Pivot : action(?p1, ?p2...))
@@ -309,7 +364,7 @@ impl DatalogEngine {
     /// Génère l'atome de tête représentant l'action avec ses paramètres.
     fn compile_action_name_as_rules(
         &self,
-        action: &LiftedAction,
+        action: &ActionDef,
         action_sk_id: AtomSkeletonId,
     ) -> Atom {
         let head_terms: Vec<Term> = action
@@ -324,7 +379,7 @@ impl DatalogEngine {
     /// Compile la règle : Action :- Types, Preconditions.
     fn compile_action_body_as_rules(
         &mut self,
-        action: &LiftedAction,
+        action: &ActionDef,
         head: Atom,
     ) -> Result<(), DatalogError> {
         // 1. Aplatir la précondition (Génère les AUXILIAIRES > action_threshold)
@@ -583,5 +638,59 @@ impl DatalogEngine {
         } else {
             3 // Les auxiliaires sont évalués en dernier (coût potentiel élevé).
         }
+    }
+
+
+    fn optimize_body_optimize(&self, body: &mut Vec<Atom>) {
+        if body.len() <= 1 { return; }
+
+        let mut optimized = Vec::with_capacity(body.len());
+        // Utilisation d'un bitmask pour les variables liées (beaucoup plus rapide qu'un HashSet)
+        let mut bound_vars_mask: u64 = 0;
+        let mut remaining = std::mem::take(body);
+
+        while !remaining.is_empty() {
+            let best_idx = remaining.iter().enumerate().min_by_key(|(_, atom)| {
+                let sk_id = atom.skeleton_id();
+                let id_val = sk_id.as_usize();
+
+                // 1. Priorité par segment (Types > Fluents > Actions > Aux)
+                let priority = self.get_predicate_priority(id_val);
+
+                // 2. Bound count : Variables déjà liées + Constantes
+                let mut bound_count = 0;
+                for term in atom.terms() {
+                    match term {
+                        Term::Constant(_) => bound_count += 1,
+                        Term::Variable(v) => {
+                            if (bound_vars_mask & (1 << v.as_usize())) != 0 {
+                                bound_count += 1;
+                            }
+                        }
+                    }
+                }
+
+                // 3. Cardinalité : On récupère la taille réelle de la relation dans la DB
+                // Si la relation est vide, le score sera très bas, ce qui est parfait.
+                let rel_size = self.db.get_relation_size(sk_id);
+
+                // Le critère de tri (tuple de comparaison) :
+                // a) Priorité de segment d'abord.
+                // b) Plus de variables liées ensuite (on veut réduire l'éventail de recherche).
+                // c) Plus petite taille de relation enfin (pour minimiser les itérations).
+                (priority, -(bound_count as i32), rel_size)
+            }).map(|(idx, _)| idx).unwrap();
+
+            let best_atom = remaining.remove(best_idx);
+
+            // Mise à jour du bitmask des variables liées
+            for term in best_atom.terms() {
+                if let Term::Variable(v) = term {
+                    bound_vars_mask |= 1 << v.as_usize();
+                }
+            }
+            optimized.push(best_atom);
+        }
+        *body = optimized;
     }
 }

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::{LiftedAction};
+use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::expr::ops;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 
@@ -16,7 +16,7 @@ use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 ///
 /// Returns a `LogicError` if expr of either the precondition or
 /// the effect fails.
-pub fn normalize(action: &mut LiftedAction) -> Result<(), ExprOpError> {
+pub fn normalize(action: &mut ActionDef) -> Result<(), ExprOpError> {
     // 1. Normalisation de la durée (uniquement si elle existe)
     if let Some(duration_mut) = action.duration_mut() {
         ops::normalize(duration_mut)?;

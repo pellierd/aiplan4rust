@@ -1,7 +1,7 @@
 //! This module handles the rendering of PDDL derived predicates.
 
 use std::fmt;
-use crate::aiplan4rust::lir::LiftedDerivedPredicate;
+use crate::aiplan4rust::lir::DerivedPredicateDef;
 use crate::aiplan4rust::lir::renderers::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::{atomic_formula_skeleton, expr};
 
@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::renderers::syntax::{atomic_formula_skeleton, expr};
 /// Format: (:derived (head) (body))
 pub fn render(
     f: &mut fmt::Formatter<'_>,
-    derived: &LiftedDerivedPredicate,
+    derived: &DerivedPredicateDef,
     ctx: &RenderContext,
 ) -> fmt::Result {
     // 1. Début du bloc et "head" (le nom du prédicat et ses arguments)

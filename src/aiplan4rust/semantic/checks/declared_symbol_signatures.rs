@@ -126,12 +126,12 @@ fn match_declaration_with_usage(
 
         let kind = match argument.kind() {
             AstKind::Variable => SymbolKind::Variable,
-            AstKind::Constant => SymbolKind::Constant,
-            AstKind::FunctionTerm => SymbolKind::Function,
+            AstKind::Object => SymbolKind::Constant,
+            AstKind::Function => SymbolKind::Function,
             found => {
                 return Err(SemanticCheckError::unexpected_ast_kind(
                     usage.node_id(),
-                    vec![AstKind::Variable, AstKind::Constant, AstKind::FunctionTerm], // tous les attendus
+                    vec![AstKind::Variable, AstKind::Object, AstKind::Function], // tous les attendus
                     found,
                 ));
             }

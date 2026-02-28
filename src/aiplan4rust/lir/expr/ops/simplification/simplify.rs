@@ -126,11 +126,11 @@ fn is_simplifiable(kind: ExprKind, has_evaluator: bool) -> bool {
         // Nœuds avec une logique de réduction active
         ExprKind::And | ExprKind::Or | ExprKind::Not |
         ExprKind::Forall | ExprKind::Exists | ExprKind::When |
-        ExprKind::Assign | ExprKind::FComp | ExprKind::Operation |
+        ExprKind::Assignment | ExprKind::Comparison | ExprKind::Arithmetic |
         ExprKind::Imply => true, // Most
 
         // Atomes (Prédicats/Fonctions) : seulement si on a un évaluateur
-        ExprKind::AtomicFormula | ExprKind::FunctionTerm => has_evaluator,
+        ExprKind::AtomicFormula | ExprKind::Function => has_evaluator,
 
         // Feuilles inertes (Number, Constant, Variable, etc.)
         _ => false,
@@ -176,15 +176,15 @@ fn simplify_node(
         ExprKind::And | ExprKind::Or => and_or::simplify(node_id, expr)?,
         ExprKind::Not => not::simplify(node_id, expr)?,
         ExprKind::Forall | ExprKind::Exists => quantifier::simplify(node_id, expr)?,
-        ExprKind::Assign => assign::simplify(node_id, expr)?,
-        ExprKind::FComp => comparison::simplify(node_id, expr)?,
-        ExprKind::Operation => arithmetic::simplify(node_id, expr)?,
+        ExprKind::Assignment => assign::simplify(node_id, expr)?,
+        ExprKind::Comparison => comparison::simplify(node_id, expr)?,
+        ExprKind::Arithmetic => arithmetic::simplify(node_id, expr)?,
         ExprKind::When => when::simplify(node_id, expr)?,
 
         ExprKind::Imply => return Err(ExprOpError::invalid_expr_node(node_id, ExprKind::Imply)),
 
         // Unification du traitement AtomicFormula (Prédicats) et FunctionTerm
-        ExprKind::AtomicFormula | ExprKind::FunctionTerm => {
+        ExprKind::AtomicFormula | ExprKind::Function => {
             if let Some(eval) = evaluator {
                 // On utilise la méthode unique du trait
                 if let Some(static_val) = eval.evaluate(node_id, expr) {

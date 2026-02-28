@@ -3,7 +3,7 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-use crate::aiplan4rust::lang::{AtomSkeletonId, BinaryComp, ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
+use crate::aiplan4rust::lang::{AtomSkeletonId, CompareOp, ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 
 /// Initialize a standardized execution environment for Datalog encoding tests.
@@ -287,7 +287,7 @@ fn test_empty_or_ignored_logic() -> Result<(), DatalogError> {
     let cons = builder.constant(10);
 
     // Greater-than-or-equal (FComp) is valid in a precondition
-    let n1 = builder.fcomp(BinaryComp::Greater, var, cons);
+    let n1 = builder.fcomp(CompareOp::Greater, var, cons);
     let root = builder.or(vec![n1]);
 
     builder.set_root(root)?;
@@ -330,7 +330,7 @@ fn test_ignored_and_logic() -> Result<(), DatalogError> {
     let cons = builder.constant(10);
 
     // (>= ?v0 10)
-    let n1 = builder.fcomp(BinaryComp::GreaterEq, var, cons);
+    let n1 = builder.fcomp(CompareOp::GreaterEq, var, cons);
     let root = builder.and(vec![n1]);
 
     builder.set_root(root)?;

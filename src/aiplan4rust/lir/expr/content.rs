@@ -50,7 +50,7 @@
 //! The [`Content::remap_idents`] method allows in-place remapping of interned identifiers
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, TypedList, VariableId, ObjectId, PredicateSymbolId, FunctionSymbolId, FunctionSkeletonId, AtomSkeletonId, TaskSkeletonId, TypeId, TaskSymbolId, PreferenceSymbolId, TaskLabelSymbolId};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp, TypedList, VariableId, ObjectId, PredicateSymbolId, FunctionSymbolId, FunctionSkeletonId, AtomSkeletonId, TaskSkeletonId, TypeId, TaskSymbolId, PreferenceSymbolId, TaskLabelSymbolId};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::tree::SyntaxContent;
@@ -73,7 +73,7 @@ pub enum Content {
     None,
     //Ident(StringID),
     Variable(VariableId),     // Variables liées (Forall/Exists)
-    Constant(ObjectId),     // Objets/Constantes du domaine
+    Object(ObjectId),     // Objets/Constantes du domaine
 
     // --- Symboles de Définition ---
     PredicateSymbol(PredicateSymbolId),
@@ -97,16 +97,16 @@ pub enum Content {
     Number(OrderedFloat<f64>),
 
     /// Binary comparison operator (e.g. `=`, `<`, `>`, etc.).
-    BinaryComp(BinaryComp),
+    Comparison(CompareOp),
 
     /// Assignment operator (e.g. `assign`, `increase`, etc.).
-    AssignOp(AssignOp),
+    Assignment(AssignOp),
 
     /// Arithmetic operator (e.g. `+`, `-`, `*`, `/`).
     ArithmeticOp(ArithmeticOp),
 
     /// Optimization directive (e.g. `maximize`, `minimize`).
-    Optimization(Optimization),
+    OptimizationOp(OptimizationOp),
 
     /// The bound variables for a quantifier (Forall or Exists) stored as a `TypedList`.
     QuantifierVariables(TypedList<VariableId, TypeId>),
@@ -116,16 +116,16 @@ pub enum Content {
 impl Content {
 
     /// Returns the object ID if the content is `Constant`.
-    pub fn as_constant(&self) -> Option<ObjectId> {
+    pub fn as_object(&self) -> Option<ObjectId> {
         match self {
-            ExprContent::Constant(id) => Some(*id),
+            ExprContent::Object(id) => Some(*id),
             _ => None,
         }
     }
 
     /// Returns the object ID or an error.
-    pub fn try_constant(&self) -> Result<ObjectId, ExprError> {
-        self.as_constant().ok_or_else(ExprError::not_constant)
+    pub fn try_object(&self) -> Result<ObjectId, ExprError> {
+        self.as_object().ok_or_else(ExprError::not_constant)
     }
 
     /// Returns the variable ID if the content is `Variable`.
@@ -318,16 +318,16 @@ impl SyntaxContent for Content {
         }
     }
 
-    fn as_binary_comp(&self) -> Option<BinaryComp> {
+    fn as_compare_op(&self) -> Option<CompareOp> {
         match self {
-            Content::BinaryComp(bc) => Some(*bc),
+            Content::Comparison(bc) => Some(*bc),
             _ => None,
         }
     }
 
     fn as_assign_op(&self) -> Option<AssignOp> {
         match self {
-            Content::AssignOp(op) => Some(*op),
+            Content::Assignment(op) => Some(*op),
             _ => None,
         }
     }
@@ -339,9 +339,9 @@ impl SyntaxContent for Content {
         }
     }
 
-    fn as_optimization(&self) -> Option<Optimization> {
+    fn as_optimization_op(&self) -> Option<OptimizationOp> {
         match self {
-            Content::Optimization(opt) => Some(*opt),
+            Content::OptimizationOp(opt) => Some(*opt),
             _ => None,
         }
     }

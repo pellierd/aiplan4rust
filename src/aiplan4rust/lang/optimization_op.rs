@@ -39,7 +39,7 @@ use std::fmt::Formatter;
 ///     storage or transmission in formats like JSON.
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub enum Optimization {
+pub enum OptimizationOp {
     /// No optimization specified (default value).
     #[default]
     None,
@@ -70,7 +70,7 @@ pub enum Optimization {
 /// let opt = Optimization::Minimize;
 /// assert_eq!(format!("{}", opt), "minimize");
 /// ```
-impl fmt::Display for Optimization {
+impl fmt::Display for OptimizationOp {
     /// Formats the `Optimization` as a string representation.
     ///
     /// Matches each variant to its corresponding string:
@@ -87,9 +87,9 @@ impl fmt::Display for Optimization {
     /// A `fmt::Result` indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Optimization::Minimize => write!(f, "{}", MINIMIZE),
-            Optimization::Maximize => write!(f, "{}", MAXIMIZE),
-            Optimization::None => write!(f, "{}", "NONE"),
+            OptimizationOp::Minimize => write!(f, "{}", MINIMIZE),
+            OptimizationOp::Maximize => write!(f, "{}", MAXIMIZE),
+            OptimizationOp::None => write!(f, "{}", "NONE"),
         }
     }
 }
@@ -110,7 +110,7 @@ impl fmt::Display for Optimization {
 /// let s = opt.to_string_with_interner(&interner);
 /// assert_eq!(s, "Enabled");
 /// ```
-impl InternerDisplay for Optimization {
+impl InternerDisplay for OptimizationOp {
     /// Formats the `Optimization` using the given formatter and interner.
     ///
     /// # Parameters
@@ -143,7 +143,7 @@ impl InternerDisplay for Optimization {
 /// let s = opt.to_string_syntax(&interner);
 /// assert_eq!(s, "Enabled");
 /// ```
-impl SyntaxInternerDisplay for Optimization {
+impl SyntaxInternerDisplay for OptimizationOp {
     /// Formats the `Optimization` for syntax syntax display.
     ///
     /// Delegates to the `Display` trait implementation.

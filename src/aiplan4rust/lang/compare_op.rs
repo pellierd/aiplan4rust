@@ -53,7 +53,7 @@ use std::fmt::Formatter;
 /// - `GreaterEq` (`>=`): Represents a "greater than or equal to" comparison.
 /// - `LessEq` (`<=`): Represents a "less than or equal to" comparison.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum BinaryComp {
+pub enum CompareOp {
     /// Represents a "greater than" comparison (`>`).
     Greater,
     /// Represents a "less than" comparison (`<`).
@@ -77,7 +77,7 @@ pub enum BinaryComp {
 /// let comp = BinaryComp::GreaterEq;
 /// assert_eq!(comp.to_string(), ">=");
 /// ```
-impl fmt::Display for BinaryComp {
+impl fmt::Display for CompareOp {
     /// Formats the `BinaryComp` as a string representing the operator.
     ///
     /// Converts the variant into its corresponding symbol:
@@ -96,11 +96,11 @@ impl fmt::Display for BinaryComp {
     /// A `fmt::Result` indicating success or failure of the formatting operation.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            BinaryComp::Greater => write!(f, "{}", GREATER),
-            BinaryComp::Less => write!(f, "{}", LESS),
-            BinaryComp::Equal => write!(f, "{}", EQUAL),
-            BinaryComp::GreaterEq => write!(f, "{}", GREATER_EQ),
-            BinaryComp::LessEq => write!(f, "{}", LESS_EQ),
+            CompareOp::Greater => write!(f, "{}", GREATER),
+            CompareOp::Less => write!(f, "{}", LESS),
+            CompareOp::Equal => write!(f, "{}", EQUAL),
+            CompareOp::GreaterEq => write!(f, "{}", GREATER_EQ),
+            CompareOp::LessEq => write!(f, "{}", LESS_EQ),
         }
     }
 }
@@ -119,7 +119,7 @@ impl fmt::Display for BinaryComp {
 /// let comp = BinaryComp::Eq;
 /// let s = format!("{}", comp); // Uses the Display implementation
 /// ```
-impl InternerDisplay for BinaryComp {
+impl InternerDisplay for CompareOp {
     /// Formats the `BinaryComp` using the given formatter.
     ///
     /// # Arguments
@@ -148,7 +148,7 @@ impl InternerDisplay for BinaryComp {
 /// let comp = BinaryComp::Eq;
 /// let s = comp.to_string_with_interner(&interner); // Delegates to Display
 /// ```
-impl SyntaxInternerDisplay for BinaryComp {
+impl SyntaxInternerDisplay for CompareOp {
     /// Formats the `BinaryComp` using the provided formatter.
     ///
     /// # Arguments

@@ -80,7 +80,7 @@ pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError
                 let new_not_id = apply_quantifier_negation(node_id, expr)?;
                 stack.push(new_not_id);
             }
-            ExprKind::Not | ExprKind::FComp | ExprKind::AtomicFormula => {
+            ExprKind::Not | ExprKind::Comparison | ExprKind::AtomicFormula => {
                 continue;
             }
             _ => {

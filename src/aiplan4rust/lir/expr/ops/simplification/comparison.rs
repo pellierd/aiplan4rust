@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lang::BinaryComp;
+use crate::aiplan4rust::lang::CompareOp;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 
@@ -41,7 +41,7 @@ pub fn simplify(
 ) -> Result<(), ExprOpError> {
     let node = expr.try_node(node_id)?;
 
-    if node.kind() != ExprKind::FComp {
+    if node.kind() != ExprKind::Comparison {
         return Ok(());
     }
 
@@ -73,19 +73,19 @@ fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOp
     let node = expr.try_node(node_id)?;
 
     // We only handle FComp nodes
-    if node.kind() != ExprKind::FComp {
+    if node.kind() != ExprKind::Comparison {
         return Ok(false);
     }
 
-    let op = match node.content().as_binary_comp() {
+    let op = match node.content().as_compare_op() {
         Some(op) => op,
         None => return Ok(false), // should not happen normally
     };
 
     // Only > and >= need expr
     let new_op = match op {
-        BinaryComp::Greater => Some(BinaryComp::Less),
-        BinaryComp::GreaterEq => Some(BinaryComp::LessEq),
+        CompareOp::Greater => Some(CompareOp::Less),
+        CompareOp::GreaterEq => Some(CompareOp::LessEq),
         _ => None,
     };
 
@@ -105,7 +105,7 @@ fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOp
 
     // Apply modification
     let node_mut = expr.try_node_mut(node_id)?;
-    node_mut.set_content(Content::BinaryComp(new_op.unwrap()));
+    node_mut.set_content(Content::Comparison(new_op.unwrap()));
     node_mut.set_children(vec![right, left]); // swap operands
 
     Ok(true)
@@ -118,17 +118,17 @@ fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOp
 fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
 
-    if node.kind() != ExprKind::FComp {
+    if node.kind() != ExprKind::Comparison {
         return Ok(false);
     }
 
-    let op = match node.content().as_binary_comp() {
+    let op = match node.content().as_compare_op() {
         Some(op) => op,
         None => return Ok(false),
     };
 
     // Only = is commutative
-    if op != BinaryComp::Equal {
+    if op != CompareOp::Equal {
         return Ok(false);
     }
 
@@ -180,11 +180,11 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
     let node = expr.try_node(node_id)?;
 
     // Ensure the node is of type FComp
-    if node.kind() != ExprKind::FComp {
+    if node.kind() != ExprKind::Comparison {
         return Ok(false);
     }
 
-    let op = match node.content().as_binary_comp() {
+    let op = match node.content().as_compare_op() {
         Some(op) => op,
         None => {
             debug_assert!(false, "FComp node without BinaryComp content");
@@ -207,11 +207,11 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
     // 1. Tenter l'évaluation sur des nombres (Flottants / Ints)
     if let (Some(left_val), Some(right_val)) = (left_node.content().as_number(), right_node.content().as_number()) {
         let result = match op {
-            BinaryComp::Equal => left_val == right_val,
-            BinaryComp::Greater => left_val > right_val,
-            BinaryComp::Less => left_val < right_val,
-            BinaryComp::GreaterEq => left_val >= right_val,
-            BinaryComp::LessEq => left_val <= right_val,
+            CompareOp::Equal => left_val == right_val,
+            CompareOp::Greater => left_val > right_val,
+            CompareOp::Less => left_val < right_val,
+            CompareOp::GreaterEq => left_val >= right_val,
+            CompareOp::LessEq => left_val <= right_val,
         };
         // Replace the node using set_to_bool
         expr.set_to_bool(node_id, result)?;
@@ -219,9 +219,9 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
     }
 
     // 2. Tenter l'évaluation sur des objets (ExprKind::Constant)
-    if left_node.kind() == ExprKind::Constant && right_node.kind() == ExprKind::Constant {
+    if left_node.kind() == ExprKind::Object && right_node.kind() == ExprKind::Object {
         // La seule comparaison valide sur des objets est l'égalité
-        if op == BinaryComp::Equal {
+        if op == CompareOp::Equal {
             // Si les sous-expressions sont identiques structurellement, c'est vrai, sinon faux.
             let is_eq = expr.deep_sub_expr_eq(left_id, right_id)?;
             expr.set_to_bool(node_id, is_eq)?;
@@ -274,7 +274,7 @@ fn simplify_comparison_trivial_identity(
     let node = expr.try_node(node_id)?;
 
     // Only operate on FComp nodes
-    if node.kind() != ExprKind::FComp {
+    if node.kind() != ExprKind::Comparison {
         return Ok(false);
     }
 
@@ -289,12 +289,12 @@ fn simplify_comparison_trivial_identity(
 
     // Use deep_sub_expr_eq to check if the two children are structurally identical
     if expr.deep_sub_expr_eq(left_id, right_id)? {
-        let op = node.content().as_binary_comp();
+        let op = node.content().as_compare_op();
         let is_true = matches!(
             op,
-            Some(BinaryComp::Equal)
-                | Some(BinaryComp::GreaterEq)
-                | Some(BinaryComp::LessEq)
+            Some(CompareOp::Equal)
+                | Some(CompareOp::GreaterEq)
+                | Some(CompareOp::LessEq)
         );
         expr.set_to_bool(node_id, is_true)?;
         return Ok(true);
@@ -439,14 +439,14 @@ mod tests {
         // On ne peut pas simplifier car on ne connaît pas les valeurs futures des variables
         assert_eq!(
             root_node.kind(),
-            ExprKind::FComp,
+            ExprKind::Comparison,
             "L'égalité entre deux variables distinctes ne doit pas être simplifiée"
         );
         // Vérification du contenu (l'opérateur doit être Equal)
         assert_eq!(
-            root_node.content().try_binary_comp()?,
-            BinaryComp::Equal,
-                "L'opérateur de comparaison doit toujours être 'Equal'"
+            root_node.content().try_compare_op()?,
+            CompareOp::Equal,
+            "L'opérateur de comparaison doit toujours être 'Equal'"
         );
         assert_eq!(root_node.children().len(), 2);
 
@@ -473,7 +473,7 @@ mod tests {
         let f2 = builder.function_term(func_symbol_id, vec![x2, y2]);
 
         // 4. Création du prédicat d'égalité : f(?x, ?y) == f(?x, ?y)
-        let equality_node = builder.fcomp(BinaryComp::Equal, f1, f2);
+        let equality_node = builder.fcomp(CompareOp::Equal, f1, f2);
 
         // Définition de la racine de l'expression
         builder.set_root(equality_node)?;
@@ -638,7 +638,7 @@ mod tests {
 
         // On vérifie que le nœud est resté une comparaison (FComp / Equal)
         // et n'a pas été transformé en (and) ou (or)
-        assert_eq!(root_node.kind(), ExprKind::FComp);
+        assert_eq!(root_node.kind(), ExprKind::Comparison);
         assert_eq!(root_node.children().len(), 2);
 
         Ok(())

@@ -33,9 +33,9 @@ pub const EXPRESSION: &[AstKind] = &[
     AstKind::AtomicFormula,
     AstKind::Preference,
     AstKind::When,
-    AstKind::FComp,
-    AstKind::Assign,
-    AstKind::Operation,
+    AstKind::Comparison,
+    AstKind::Assignment,
+    AstKind::Arithmetic,
     AstKind::AtStart,
     AstKind::AtEnd,
     AstKind::Overall,
@@ -49,7 +49,7 @@ pub const EXPRESSION: &[AstKind] = &[
     AstKind::HoldDuring,
     AstKind::HoldAfter,
     AstKind::TimedInitialLiteral,
-    AstKind::TaggedTask,
+    AstKind::LabeledTask,
     AstKind::Task,
     AstKind::TaskOrderingConstraint,
 ];
@@ -217,12 +217,12 @@ pub fn check_content(node: &AstNode, expected: ContentKind) -> Result<(), WellFo
     match (node.content(), expected) {
         (AstContent::None, ContentKind::None) => Ok(()),
         (AstContent::Ident(_), ContentKind::Ident) => Ok(()),
-        (AstContent::Float(_), ContentKind::Float) => Ok(()),
+        (AstContent::Number(_), ContentKind::Float) => Ok(()),
         (AstContent::Requirement(_), ContentKind::Requirement) => Ok(()),
-        (AstContent::BinaryComp(_), ContentKind::BinaryComp) => Ok(()),
+        (AstContent::CompareOp(_), ContentKind::BinaryComp) => Ok(()),
         (AstContent::AssignOp(_), ContentKind::AssignOp) => Ok(()),
         (AstContent::ArithmeticOp(_), ContentKind::ArithmeticOp) => Ok(()),
-        (AstContent::Optimization(_), ContentKind::Optimization) => Ok(()),
+        (AstContent::OptimizationOp(_), ContentKind::Optimization) => Ok(()),
 
         (found, _) => Err(WellFormedError::unexpected_node_content(
             found.clone(),

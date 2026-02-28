@@ -161,20 +161,20 @@ pub fn apply_in_place_with(
 fn is_atomic_block(kind: ExprKind) -> bool {
     matches!(kind,
         ExprKind::AtomicFormula |
-        ExprKind::FunctionTerm  |
-        ExprKind::Assign        |
-        ExprKind::FComp         |
-        ExprKind::Operation     |
+        ExprKind::Function  |
+        ExprKind::Assignment        |
+        ExprKind::Comparison         |
+        ExprKind::Arithmetic     |
         ExprKind::Task          |
         ExprKind::Variable      |
-        ExprKind::Constant      |
+        ExprKind::Object      |
         ExprKind::Number
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::{VariableId, ObjectId, BinaryComp};
+    use crate::aiplan4rust::lang::{VariableId, ObjectId, CompareOp};
     use crate::aiplan4rust::grounding::binding::{apply, Bindings};
     use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
     use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent, ExprBuilder};
@@ -215,7 +215,7 @@ mod tests {
         let arg_id = children[1];
         let arg_node = expr.try_node(arg_id)?;
 
-        if let ExprContent::Constant(id) = arg_node.content() {
+        if let ExprContent::Object(id) = arg_node.content() {
             assert_eq!(*id, obj_1, "L'ID de l'objet substitué est incorrect");
         } else {
             panic!("L'argument est resté une Variable ou n'est pas une constante. Content: {:?}", arg_node.content());
@@ -241,7 +241,7 @@ mod tests {
         let var_node = builder.variable(var_x);
         let func_term = builder.function_term(10, vec![var_node]); // vitesse(?x)
         let num_node = builder.number(10.0);
-        let root = builder.fcomp(BinaryComp::Equal, func_term, num_node);
+        let root = builder.fcomp(CompareOp::Equal, func_term, num_node);
 
         // On définit explicitement la racine avant de finir le builder
         builder.set_root(root)?;
@@ -258,19 +258,19 @@ mod tests {
 
         // 4. Validation récursive
         let fcomp_node = expr.try_node(new_root)?;
-        assert_eq!(fcomp_node.kind(), ExprKind::FComp);
+        assert_eq!(fcomp_node.kind(), ExprKind::Comparison);
 
         // Le premier enfant de FComp est le FunctionTerm : (vitesse ?x)
         let func_term_id = fcomp_node.children()[0];
         let func_term_node = expr.try_node(func_term_id)?;
-        assert_eq!(func_term_node.kind(), ExprKind::FunctionTerm);
+        assert_eq!(func_term_node.kind(), ExprKind::Function);
 
         // Dans FunctionTerm, l'argument est à l'index 1 (si l'index 0 est le symbole de fonction)
         // Vérifie cet index selon ton implémentation de function_term
         let arg_id = func_term_node.children()[1];
         let arg_node = expr.try_node(arg_id)?;
 
-        if let ExprContent::Constant(id) = arg_node.content() {
+        if let ExprContent::Object(id) = arg_node.content() {
             assert_eq!(*id, obj_truck, "L'objet substitué dans le terme fonctionnel est incorrect");
         } else {
             panic!("La variable ?x n'a pas été substituée par l'objet 500. Contenu actuel : {:?}", arg_node.content());
@@ -312,7 +312,7 @@ mod tests {
         // Une comparaison qui est toujours FAUSSE (1.0 == 2.0)
         let n1 = builder.number(1.0);
         let n2 = builder.number(2.0);
-        let false_comp = builder.fcomp(BinaryComp::Equal, n1, n2);
+        let false_comp = builder.fcomp(CompareOp::Equal, n1, n2);
 
         let root = builder.and(vec![at_node, false_comp]);
         builder.set_root(root)?; // On fixe la racine
@@ -415,7 +415,7 @@ mod tests {
         let p_args = p_node.children();
         let p_val_node = expr.try_node(p_args[1])?;
 
-        if let ExprContent::Constant(id) = p_val_node.content() {
+        if let ExprContent::Object(id) = p_val_node.content() {
             assert_eq!(*id, ObjectId::from(100), "L'atome P devrait avoir l'objet 100");
         } else {
             panic!("Le premier enfant du AND n'a pas été substitué en Constant");
@@ -428,7 +428,7 @@ mod tests {
         let q_args = q_node.children();
         let q_val_node = expr.try_node(q_args[1])?;
 
-        if let ExprContent::Constant(id) = q_val_node.content() {
+        if let ExprContent::Object(id) = q_val_node.content() {
             assert_eq!(*id, ObjectId::from(200), "L'atome Q devrait avoir l'objet 200");
         } else {
             panic!("Le second enfant du AND n'a pas été substitué en Constant");
@@ -448,7 +448,7 @@ mod tests {
 
         let n1 = builder.number(1.0);
         let n2 = builder.number(2.0);
-        let false_comp = builder.fcomp(BinaryComp::Equal, n1, n2);
+        let false_comp = builder.fcomp(CompareOp::Equal, n1, n2);
 
         let and_node = builder.and(vec![at_node, false_comp]);
         let root = builder.not(and_node);
@@ -512,7 +512,7 @@ mod tests {
         // On vérifie que la variable a été clonée PUIS substituée en constante
         assert_ne!(new_root, root, "Le root ID doit être différent (clone)");
 
-        if let ExprContent::Constant(id) = node.content() {
+        if let ExprContent::Object(id) = node.content() {
             assert_eq!(*id, ObjectId::from(100), "La variable racine aurait dû devenir l'objet 100");
         } else {
             panic!("La racine devrait être une Constant après binding, mais c'est un {:?}", node.kind());
@@ -556,7 +556,7 @@ mod tests {
         // Note: On utilise l'index 1 car l'index 0 est souvent réservé au symbole
         let arg_x_id = children[1];
         let arg_x_node = expr.try_node(arg_x_id)?;
-        if let ExprContent::Constant(id) = arg_x_node.content() {
+        if let ExprContent::Object(id) = arg_x_node.content() {
             assert_eq!(*id, ObjectId::from(100), "La variable ?x aurait dû être remplacée par 100");
         } else {
             panic!("Le premier argument devrait être une Constant");

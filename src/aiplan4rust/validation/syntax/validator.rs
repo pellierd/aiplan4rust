@@ -146,19 +146,19 @@ fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellFormedErr
 pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellFormedError> {
 
     match node.kind() {
-        AstKind::Constant
+        AstKind::Object
         | AstKind::Variable
         | AstKind::FunctionSymbol
         | AstKind::PrimitiveType
         | AstKind::DomainName
         | AstKind::ProblemName
-        | AstKind::Predicate
+        | AstKind::PredicateSymbol
         | AstKind::ActionSymbol
         | AstKind::DASymbol
         | AstKind::MethodSymbol
         | AstKind::TaskSymbol
         | AstKind::PrefName
-        | AstKind::TaskID => {
+        | AstKind::TaskLabel => {
             syntax::checks::check_symbol(node)
         }
         AstKind::Number => {
@@ -227,7 +227,7 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         AstKind::EffectDef => {
             syntax::checks::check_effect_def(ast, node)
         }
-        AstKind::FunctionTerm => {
+        AstKind::Function => {
             syntax::checks::check_function_term(ast, node)
         }
         AstKind::AtomicFormula => {
@@ -258,13 +258,13 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         AstKind::Preference => {
             syntax::checks::check_preference_expression(ast, node)
         }
-        AstKind::FComp => {
+        AstKind::Comparison => {
             syntax::checks::check_fcomp_expression(ast, node)
         }
-        AstKind::Assign => {
+        AstKind::Assignment => {
             syntax::checks::check_assign_expression(ast, node)
         }
-        AstKind::Operation => {
+        AstKind::Arithmetic => {
             syntax::checks::check_arithmetic_expression(ast, node)
         }
         AstKind::Within | AstKind::HoldAfter => {
@@ -288,7 +288,7 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
             syntax::checks::check_ordered_subtask_def(ast, node)
         }
-        AstKind::TaggedTask => {
+        AstKind::LabeledTask => {
             syntax::checks::check_tagged_task(ast, node)
         }
         AstKind::TaskOrderingConstraintDef => {

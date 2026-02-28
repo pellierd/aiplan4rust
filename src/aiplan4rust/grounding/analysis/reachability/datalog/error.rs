@@ -33,6 +33,11 @@ pub enum DatalogError {
         node_id: NodeId,
     },
 
+    /// Erreur levée lorsqu'un segment attendu (comme les Types ou le Root)
+    /// n'a pas été initialisé avant son utilisation.
+    #[error("Internal engine state inconsistency: {0}")]
+    InternalState(String),
+
     /// Erreur de passage lors de l'extraction d'atomes ou de la manipulation d'identifiants.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),

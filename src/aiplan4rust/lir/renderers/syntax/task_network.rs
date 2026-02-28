@@ -2,7 +2,7 @@
 
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::{InitialTaskNetwork, TaskNetwork};
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::{expr, typed_list};
 
@@ -14,7 +14,7 @@ use crate::aiplan4rust::lir::renderers::syntax::{expr, typed_list};
 /// - `ctx`: The rendering context.
 pub fn render_task_network(
     f: &mut fmt::Formatter<'_>,
-    network: &LiftedTaskNetwork,
+    network: &TaskNetwork,
     ctx: &RenderContext,
 ) -> fmt::Result {
     // 1. Subtasks
@@ -44,7 +44,7 @@ pub fn render_task_network(
 
 
 /// Rendu du réseau de tâches initial (HDDL)
-pub fn render_init_task_network(
+pub fn render_initial_task_network(
     f: &mut Formatter<'_>,
     itn: &InitialTaskNetwork,
     ctx: &RenderContext

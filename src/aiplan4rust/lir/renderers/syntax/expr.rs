@@ -53,7 +53,7 @@ pub fn render(
                 match node.kind() {
                     // --- FORMULES ATOMIQUES / TÂCHES ---
                     // Résultat attendu : (pointing ?x3 ?x3)
-                    ExprKind::AtomicFormula | ExprKind::FunctionTerm | ExprKind::Task => {
+                    ExprKind::AtomicFormula | ExprKind::Function | ExprKind::Task => {
                         stack.push(RenderOp::Write(RPAREN)); // )
 
                         for (i, &child_id) in children.iter().enumerate().rev() {
@@ -130,7 +130,7 @@ pub fn render(
                         stack.push(RenderOp::Indent(indent));
                     }
                     // --- COMPARISONS & ASSIGNMENTS (= x y) ---
-                    ExprKind::FComp | ExprKind::Assign | ExprKind::Operation => {
+                    ExprKind::Comparison | ExprKind::Assignment | ExprKind::Arithmetic => {
                         stack.push(RenderOp::Write(RPAREN));
                         for (_, &child_id) in children.iter().enumerate().rev() {
                             stack.push(RenderOp::Process(child_id, 0));
@@ -184,7 +184,7 @@ pub fn render(
                     }
 
                     // --- HTN & CONSTRAINTS ---
-                    ExprKind::TaggedTask => {
+                    ExprKind::LabeledTask => {
                         stack.push(RenderOp::Write(RPAREN));
                         if let Some(&task_id) = children.get(1) {
                             stack.push(RenderOp::Process(task_id, 0));
@@ -232,14 +232,14 @@ pub fn render(
                         stack.push(RenderOp::Write(LPAREN));
                         stack.push(RenderOp::Indent(indent));
                     }
-                    Kind::Constant
+                    Kind::Object
                     | Kind::Variable
                     | Kind::FunctionSymbol
-                    | Kind::Predicate
+                    | Kind::PredicateSymbol
                     | Kind::TaskSymbol
                     | Kind::PrefName
                     | Kind::Preference
-                    | Kind::TaskID
+                    | Kind::TaskLabel
                     | Kind::Number => {
                         stack.push(RenderOp::WriteContent(id));
                     }
@@ -267,7 +267,7 @@ fn render_exp_content(
         Content::Variable(id) => {
             write!(f, "?x{}", id.as_usize())
         },
-        Content::Constant(id) => {
+        Content::Object(id) => {
             write!(f, "{}", ctx.resolve_object(*id))
         },
         Content::PredicateSymbol(id) => {
@@ -291,10 +291,10 @@ fn render_exp_content(
 
         // --- Valeurs et Opérateurs (Inchangés car techniques) ---
         Content::Number(val)        => write!(f, "{}", val),
-        Content::BinaryComp(op)    => write!(f, "{}", op),
-        Content::AssignOp(op)      => write!(f, "{}", op),
+        Content::Comparison(op)    => write!(f, "{}", op),
+        Content::Assignment(op)      => write!(f, "{}", op),
         Content::ArithmeticOp(op)  => write!(f, "{}", op),
-        Content::Optimization(opt) => write!(f, "{}", opt),
+        Content::OptimizationOp(opt) => write!(f, "{}", opt),
 
         // --- Listes typées ---
         Content::QuantifierVariables(vars) =>

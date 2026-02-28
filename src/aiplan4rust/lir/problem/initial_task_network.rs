@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use crate::aiplan4rust::grounding::problem::SymbolRegistry;
-use crate::aiplan4rust::lir::{renderers, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::{renderers, TaskNetwork};
 
 /// Represents the initial task network, containing parameters and a lifted task network.
 ///
@@ -21,7 +21,7 @@ pub struct InitialTaskNetwork {
     parameters: TypedList<VariableId, TypeId>,
 
     /// The lifted task network describing the initial tasks.
-    task_network: LiftedTaskNetwork,
+    task_network: TaskNetwork,
 
     variable_symbols: SymbolRegistry<VariableId>,
     task_label_symbols: SymbolRegistry<TaskLabelSymbolId>,
@@ -36,7 +36,7 @@ impl InitialTaskNetwork {
     ///
     /// # Returns
     /// A new instance of `InitialTaskNetwork`.
-    pub fn new(parameters: TypedList<VariableId, TypeId>, task_network: LiftedTaskNetwork) -> Self {
+    pub fn new(parameters: TypedList<VariableId, TypeId>, task_network: TaskNetwork) -> Self {
         Self {
             parameters,
             task_network,
@@ -73,17 +73,17 @@ impl InitialTaskNetwork {
     }
 
     /// Returns an immutable reference to the task network.
-    pub fn task_network(&self) -> &LiftedTaskNetwork {
+    pub fn task_network(&self) -> &TaskNetwork {
         &self.task_network
     }
 
     /// Returns a mutable reference to the task network.
-    pub fn task_network_mut(&mut self) -> &mut LiftedTaskNetwork {
+    pub fn task_network_mut(&mut self) -> &mut TaskNetwork {
         &mut self.task_network
     }
 
     /// Sets the task network to a new `LiftedTaskNetwork`.
-    pub fn set_task_network(&mut self, task_network: LiftedTaskNetwork) {
+    pub fn set_task_network(&mut self, task_network: TaskNetwork) {
         self.task_network = task_network;
     }
 

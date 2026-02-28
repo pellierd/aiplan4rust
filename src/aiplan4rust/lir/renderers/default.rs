@@ -1,7 +1,7 @@
 use std::fmt;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode};
-use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedMethod, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::{InitialTaskNetwork, ActionDef, DerivedPredicateDef, TaskNetwork, MethodDef};
 use crate::aiplan4rust::lir::renderers::common::{render_labeled_expr, render_labeled_typed_list, writeln_centered};
 use crate::aiplan4rust::lir::problem::{DomainDef, LiftedProblem, ProblemDef};
 
@@ -557,7 +557,7 @@ pub fn render_problem_def(f: &mut fmt::Formatter<'_>, problem: &ProblemDef) -> s
 /// # Paramètres
 /// - `f`: Le formateur où écrire la sortie.
 /// - `action`: L'instance d'Action à rendre.
-pub fn render_action(f: &mut fmt::Formatter<'_>, action: &LiftedAction) -> std::fmt::Result {
+pub fn render_action(f: &mut fmt::Formatter<'_>, action: &ActionDef) -> std::fmt::Result {
     // Détermination du titre et du style de bordure
     let is_durative = action.is_durative();
     let title = if is_durative {
@@ -620,7 +620,7 @@ pub fn render_action(f: &mut fmt::Formatter<'_>, action: &LiftedAction) -> std::
 /// let _ = render_method(&mut std::fmt::Formatter::new(&mut output), &method);
 /// println!("{}", output);
 /// ```
-pub fn render_method(f: &mut fmt::Formatter<'_>, method: &LiftedMethod) -> std::fmt::Result {
+pub fn render_method(f: &mut fmt::Formatter<'_>, method: &MethodDef) -> std::fmt::Result {
     let params = method
         .parameters()
         .iter()
@@ -668,7 +668,7 @@ pub fn render_method(f: &mut fmt::Formatter<'_>, method: &LiftedMethod) -> std::
 /// let _ = render_task_network(&mut std::fmt::Formatter::new(&mut output), &network);
 /// println!("{}", output);
 /// ```
-pub fn render_task_network(f: &mut fmt::Formatter<'_>, network: &LiftedTaskNetwork) -> std::fmt::Result {
+pub fn render_task_network(f: &mut fmt::Formatter<'_>, network: &TaskNetwork) -> std::fmt::Result {
     writeln!(f, "TASKS:\n  {}", network.tasks())?;
     writeln!(f, "ORDERING:\n  {}", network.ordering_constraints())?;
     writeln!(f, "CONSTRAINTS:\n  {}", network.logical_constraints())?;
@@ -741,7 +741,7 @@ pub fn render_initial_task_network(f: &mut fmt::Formatter<'_>, network: &Initial
 /// ```
 pub fn render_derived_predicate(
     f: &mut fmt::Formatter<'_>,
-    derived_predicate: &LiftedDerivedPredicate,
+    derived_predicate: &DerivedPredicateDef,
 ) -> std::fmt::Result {
     writeln_centered(f, "DERIVED PREDICATE", 80, '-')?;
     writeln!(f, "HEAD: {}", derived_predicate.head())?;
@@ -813,7 +813,7 @@ pub fn render_node_expr_content(
 
         // --- Identifiants (Délégation à tes impl_display_prefix) ---
         Content::Variable(id)   => write!(f, "{}", id), // Sortie ex: v#1
-        Content::Constant(id)   => write!(f, "{}", id), // Sortie ex: o#12
+        Content::Object(id)   => write!(f, "{}", id), // Sortie ex: o#12
         Content::PredicateSymbol(id)  => write!(f, "{}", id), // Sortie ex: P#5
         Content::FunctionSymbol(id)    => write!(f, "{}", id), // Sortie ex: f#2
         Content::TaskSymbol(id) => write!(f, "{}", id), // Sortie ex: tk#3
@@ -827,10 +827,10 @@ pub fn render_node_expr_content(
 
         // --- Valeurs et Opérateurs ---
         Content::Number(val)        => write!(f, "Float({})", val),
-        Content::BinaryComp(op)    => write!(f, "BinaryComp({:?})", op),
-        Content::AssignOp(op)      => write!(f, "AssignOp({:?})", op),
+        Content::Comparison(op)    => write!(f, "BinaryComp({:?})", op),
+        Content::Assignment(op)      => write!(f, "AssignOp({:?})", op),
         Content::ArithmeticOp(op)  => write!(f, "ArithmeticOp({:?})", op),
-        Content::Optimization(opt) => write!(f, "Optimization({:?})", opt),
+        Content::OptimizationOp(opt) => write!(f, "Optimization({:?})", opt),
 
         // --- Listes ---
         Content::QuantifierVariables(vars) => {

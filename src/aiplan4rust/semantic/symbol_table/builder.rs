@@ -252,7 +252,7 @@ impl SymbolTableBuilder {
             }
 
             // For primitive types, constants, and variables, record symbol usages
-            AstKind::PrimitiveType | AstKind::Constant | AstKind::Variable => {
+            AstKind::PrimitiveType | AstKind::Object | AstKind::Variable => {
                 self.add_symbol_usage(node_ref, ast, scope.clone())?;
             }
 
@@ -272,7 +272,7 @@ impl SymbolTableBuilder {
             }
 
             // For atomic formulas and function terms, recurse into their structure
-            AstKind::AtomicFormula | AstKind::FunctionTerm => {
+            AstKind::AtomicFormula | AstKind::Function => {
                 self.init_from_atomic_formula(node_ref, ast, scope.clone())?;
             }
 
@@ -297,7 +297,7 @@ impl SymbolTableBuilder {
             }
 
             // For tagged HTN tasks, handle extended metadata
-            AstKind::TaggedTask => {
+            AstKind::LabeledTask => {
                 self.init_from_tagged_task(node_ref, ast, scope.clone())?;
             }
 
@@ -451,7 +451,7 @@ impl SymbolTableBuilder {
         // On factorise l'accès pour éviter de chercher deux fois dans l'AST
         let (target_id, symbol_ref) = if matches!(
         node_ref.node().kind(),
-        AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
+        AstKind::AtomicFormula | AstKind::Function | AstKind::Task
     ) {
             let first_child_id = node_ref.node().children()[0];
             (first_child_id, ast.syntax_tree().try_node(first_child_id)?.try_symbol()?)
@@ -659,7 +659,7 @@ impl SymbolTableBuilder {
     ) -> Result<(), SymbolTableError> {
         // Match on the AST node kind to determine processing ops
         match node_ref.node().kind() {
-            AstKind::PrimitiveType | AstKind::Constant | AstKind::Variable => {
+            AstKind::PrimitiveType | AstKind::Object | AstKind::Variable => {
                 // Add a declaration symbol with the provided types for simple typed elements
                 self.add_declaration_symbol(
                     node_ref,
@@ -686,7 +686,7 @@ impl SymbolTableBuilder {
                     node_ref.id(),
                     vec![
                         AstKind::PrimitiveType,
-                        AstKind::Constant,
+                        AstKind::Object,
                         AstKind::Variable,
                         AstKind::AtomicFunctionSkeleton,
                     ],
@@ -1212,10 +1212,10 @@ impl SymbolTableBuilder {
         let predicate_id = node.try_child(0)?;
         let predicate = &syntax_tree.try_node_ref(predicate_id)?;
 
-        if predicate.node().kind() != AstKind::Predicate {
+        if predicate.node().kind() != AstKind::PredicateSymbol {
             return Err(SymbolTableError::unexpected_node_kind(
                 predicate.id(),
-                vec![AstKind::Predicate],
+                vec![AstKind::PredicateSymbol],
                 predicate.node().kind(),
             ));
         }
@@ -1344,7 +1344,7 @@ impl SymbolTableBuilder {
         let mut typed_arguments = TypedList::new();
 
         match elt.node().kind() {
-            AstKind::Constant | AstKind::Variable => {
+            AstKind::Object | AstKind::Variable => {
                 // 1. Extract the symbol reference directly from the AstNode.
                 // We use the node() method to access the underlying AstNode which
                 // now holds the try_symbol semantic ops.
@@ -1358,7 +1358,7 @@ impl SymbolTableBuilder {
                 // Handle cases where the node kind does not match expected symbol types for TypedItem.
                 return Err(SymbolTableError::unexpected_node_kind(
                     elt.id(),
-                    vec![AstKind::Constant, AstKind::Variable],
+                    vec![AstKind::Object, AstKind::Variable],
                     found,
                 ));
             }

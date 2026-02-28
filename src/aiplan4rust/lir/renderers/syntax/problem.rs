@@ -48,7 +48,7 @@ pub fn render(f: &mut Formatter<'_>, problem: &ProblemDef<'_>, ctx: &RenderConte
     // 6. Initial Task Network (:htn - Spécifique HDDL)
     // On vérifie si le réseau contient des tâches avant de l'afficher
     write!(f, "\n  ")?;
-    task_network::render_init_task_network(f, problem.initial_task_network(), ctx)?;
+    task_network::render_initial_task_network(f, problem.initial_task_network(), ctx)?;
 
     // 7. Constraints (Problem level)
     if !problem.constraints().is_empty() {

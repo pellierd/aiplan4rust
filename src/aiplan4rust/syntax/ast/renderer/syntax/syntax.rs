@@ -497,7 +497,7 @@ pub fn render_with_indent(
             Ok(())
         }
 
-        AstKind::AtomicFormula | AstKind::FunctionTerm => {
+        AstKind::AtomicFormula | AstKind::Function => {
             // Write the opening parenthesis with current indentation
             write_indent(f, indent)?;
             write!(f, "(")?;
@@ -521,7 +521,7 @@ pub fn render_with_indent(
             write!(f, ")")
         }
 
-        AstKind::Assign | AstKind::FComp => {
+        AstKind::Assignment | AstKind::Comparison => {
             // Write the opening parenthesis with current indentation
             write_indent(f, indent)?;
             write!(f, "(")?;
@@ -695,7 +695,7 @@ pub fn render_with_indent(
                                         task::render(task_node, f, arena, interner, false, 0)?;
                                         writeln!(f)?;
                                     }
-                                    AstKind::TaggedTask => {
+                                    AstKind::LabeledTask => {
                                         // Print tagged task using fmt_planning with indentation
                                         write_indent(f, indent + 2)?;
                                         task_node.fmt_syntax(f, arena, interner)?;
@@ -728,7 +728,7 @@ pub fn render_with_indent(
             Ok(())
         }
 
-        AstKind::TaggedTask => {
+        AstKind::LabeledTask => {
             let children = node.children();
 
             // Validate that there are exactly 2 children for TaggedTask
@@ -1164,21 +1164,21 @@ pub fn render_with_indent(
             write!(f, ")")
         }
 
-        AstKind::Constant
+        AstKind::Object
         | AstKind::Variable
         | AstKind::FunctionSymbol
         | AstKind::PrimitiveType
         | AstKind::DomainName
         | AstKind::ProblemName
         | AstKind::Number
-        | AstKind::Predicate
+        | AstKind::PredicateSymbol
         | AstKind::ActionSymbol
         | AstKind::DASymbol
         | AstKind::MethodSymbol
         | AstKind::TaskSymbol
         | AstKind::PrefName
         | AstKind::Requirement
-        | AstKind::TaskID => {
+        | AstKind::TaskLabel => {
             write_indent(f, indent)?;
             write!(f, "{}", node.content().to_syntax_string_with_interner(interner))
         }
@@ -1192,7 +1192,7 @@ pub fn render_with_indent(
             write_indent(f, indent)?;
             write!(f, "<error>")
         }
-        AstKind::Operation => {
+        AstKind::Arithmetic => {
             let children = node.children();
 
             // Write opening parenthesis with current indentation

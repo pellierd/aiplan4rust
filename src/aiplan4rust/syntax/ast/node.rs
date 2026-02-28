@@ -131,15 +131,15 @@ impl AstNode {
             AstKind::DomainName => SymbolKind::DomainName,
             AstKind::PrimitiveType => SymbolKind::PrimitiveType,
             AstKind::ProblemName => SymbolKind::ProblemName,
-            AstKind::Constant => SymbolKind::Constant,
+            AstKind::Object => SymbolKind::Constant,
             AstKind::Variable => SymbolKind::Variable,
             AstKind::FunctionSymbol => SymbolKind::Function,
-            AstKind::Predicate => SymbolKind::Predicate,
+            AstKind::PredicateSymbol => SymbolKind::Predicate,
             AstKind::ActionSymbol => SymbolKind::Action,
             AstKind::DASymbol => SymbolKind::DASymbol,
             AstKind::MethodSymbol => SymbolKind::Method,
             AstKind::TaskSymbol => SymbolKind::Task,
-            AstKind::TaskID => SymbolKind::TaskID,
+            AstKind::TaskLabel => SymbolKind::TaskID,
             _ => return Ok(None),
         };
 
@@ -348,7 +348,7 @@ impl Node for AstNode {
     /// assert!(node.is_atomic_formula());
     /// ```
     fn is_atomic_formula(&self) -> bool {
-        matches!(self.kind(), AstKind::AtomicFormula | AstKind::FComp)
+        matches!(self.kind(), AstKind::AtomicFormula | AstKind::Comparison)
     }
 
     /// Returns `true` if the node is a **temporal specifier**.

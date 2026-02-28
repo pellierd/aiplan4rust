@@ -2,7 +2,7 @@ use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::quantifier_expansion::expr;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
-use crate::aiplan4rust::lir::LiftedAction;
+use crate::aiplan4rust::lir::ActionDef;
 
 /// Expands all logical quantifiers (`forall` and `exists`) within an action's expressions.
 ///
@@ -17,7 +17,7 @@ use crate::aiplan4rust::lir::LiftedAction;
 /// Returns [`GroundingError`] if a quantifier references an unknown type or if
 /// the expansion exceeds system limits.
 pub fn expand(
-    action: &mut LiftedAction,
+    action: &mut ActionDef,
     value_registry: &ValueRegistry,
 ) -> Result<(), GroundingError> {
     expand_with(action, value_registry, None)
@@ -41,7 +41,7 @@ pub fn expand(
 /// # Errors
 /// Returns [`GroundingError`] if the expansion fails at any expression level.
 pub fn expand_with(
-    action: &mut LiftedAction,
+    action: &mut ActionDef,
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), GroundingError> {

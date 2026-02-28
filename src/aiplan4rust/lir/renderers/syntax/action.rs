@@ -1,7 +1,7 @@
 //! This module handles the PDDL/HDDL representation of lifted actions.
 
 use std::fmt;
-use crate::aiplan4rust::lir::LiftedAction;
+use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::{expr, typed_list};
 
@@ -18,7 +18,7 @@ use crate::aiplan4rust::lir::renderers::syntax::{expr, typed_list};
 /// like `"<unknown_id>"` instead of returning an error.
 pub fn render(
     f: &mut fmt::Formatter<'_>,
-    action: &LiftedAction,
+    action: &ActionDef,
     ctx: &RenderContext,
 ) -> std::fmt::Result {
     let is_durative = action.is_durative();

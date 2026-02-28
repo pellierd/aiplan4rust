@@ -32,7 +32,7 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, SymbolId, Optimization, RemapSymbol, Requirement};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, SymbolId, OptimizationOp, RemapSymbol, Requirement};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use ordered_float::OrderedFloat;
@@ -58,13 +58,13 @@ pub enum Content {
         serialize_with = "serialize_ordered_float",
         deserialize_with = "deserialize_ordered_float"
     )]
-    Float(OrderedFloat<f64>),
+    Number(OrderedFloat<f64>),
 
     /// A requirement flag such as `:typing` or `:equality`.
     Requirement(Requirement),
 
     /// A comparison operator, e.g. `=`, `<`, `>`.
-    BinaryComp(BinaryComp),
+    CompareOp(CompareOp),
 
     /// An assignment operator, e.g. `assign`, `increase`.
     AssignOp(AssignOp),
@@ -73,7 +73,7 @@ pub enum Content {
     ArithmeticOp(ArithmeticOp),
 
     /// An optimization directive such as `maximize` or `minimize`.
-    Optimization(Optimization),
+    OptimizationOp(OptimizationOp),
 }
 
 impl Content {
@@ -153,12 +153,12 @@ impl fmt::Display for Content {
         match self {
             Content::None => write!(f, ""),
             Content::Ident(idx) => write!(f, "{}", idx),
-            Content::Float(val) => write!(f, "{}", val),
+            Content::Number(val) => write!(f, "{}", val),
             Content::Requirement(req) => write!(f, "{}", req),
-            Content::BinaryComp(comp) => write!(f, "{}", comp),
-            Content::AssignOp(assign) => write!(f, "{}", assign),
+            Content::CompareOp(op) => write!(f, "{}", op),
+            Content::AssignOp(op) => write!(f, "{}", op),
             Content::ArithmeticOp(op) => write!(f, "{}", op),
-            Content::Optimization(opt) => write!(f, "{}", opt),
+            Content::OptimizationOp(op) => write!(f, "{}", op),
         }
     }
 }
@@ -262,7 +262,7 @@ impl SyntaxContent for Content {
     /// - `None` otherwise.
     fn as_number(&self) -> Option<OrderedFloat<f64>> {
         match self {
-            Content::Float(f) => Some(*f),
+            Content::Number(f) => Some(*f),
             _ => None,
         }
     }
@@ -273,9 +273,9 @@ impl SyntaxContent for Content {
     ///
     /// - `Some(BinaryComp)` if the content is a binary comparison operator.
     /// - `None` otherwise.
-    fn as_binary_comp(&self) -> Option<BinaryComp> {
+    fn as_compare_op(&self) -> Option<CompareOp> {
         match self {
-            Content::BinaryComp(bc) => Some(*bc),
+            Content::CompareOp(bc) => Some(*bc),
             _ => None,
         }
     }
@@ -312,9 +312,9 @@ impl SyntaxContent for Content {
     ///
     /// - `Some(Optimization)` if the content is an optimization directive.
     /// - `None` otherwise.
-    fn as_optimization(&self) -> Option<Optimization> {
+    fn as_optimization_op(&self) -> Option<OptimizationOp> {
         match self {
-            Content::Optimization(opt) => Some(*opt),
+            Content::OptimizationOp(opt) => Some(*opt),
             _ => None,
         }
     }

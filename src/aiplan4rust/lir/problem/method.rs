@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::grounding::problem::SymbolRegistry;
-use crate::aiplan4rust::lir::{renderers, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::{renderers, TaskNetwork};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -49,7 +49,7 @@ pub struct Method {
     precondition: Expr,
 
     /// The lifted task network describing the subtasks for decomposition.
-    task_network: LiftedTaskNetwork,
+    task_network: TaskNetwork,
 
     variable_symbols: SymbolRegistry<VariableId>,
     task_label_symbols: SymbolRegistry<TaskLabelSymbolId>,
@@ -73,7 +73,7 @@ impl Method {
         parameters: TypedList<VariableId, TypeId>,
         task: Expr,
         precondition: Expr,
-        task_network: LiftedTaskNetwork,
+        task_network: TaskNetwork,
     ) -> Self {
         Self {
             header: NamedTypedList::new(name, parameters),
@@ -162,17 +162,17 @@ impl Method {
     }
 
     /// Sets the task network representing subtasks and constraints.
-    pub fn set_task_network(&mut self, task_network: LiftedTaskNetwork) {
+    pub fn set_task_network(&mut self, task_network: TaskNetwork) {
         self.task_network = task_network;
     }
 
     /// Returns an immutable reference to the task network.
-    pub fn task_network(&self) -> &LiftedTaskNetwork {
+    pub fn task_network(&self) -> &TaskNetwork {
         &self.task_network
     }
 
     /// Returns a mutable reference to the task network.
-    pub fn task_network_mut(&mut self) -> &mut LiftedTaskNetwork {
+    pub fn task_network_mut(&mut self) -> &mut TaskNetwork {
         &mut self.task_network
     }
 
