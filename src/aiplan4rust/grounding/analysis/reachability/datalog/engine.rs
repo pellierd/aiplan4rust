@@ -43,9 +43,9 @@ impl DatalogEngine {
         Self {
             db: Database::new(),
             rules: Vec::new(),
-            current_env: [None; 64],
-            trailing_indices: Vec::with_capacity(64),
-            discovered_facts: Vec::with_capacity(128),
+            current_env: [None; MAX_VARS],
+            trailing_indices: Vec::with_capacity(MAX_VARS),
+            discovered_facts: Vec::with_capacity(1024),
             type_to_skeleton: Vec::new(),
             head_buffer: Vec::with_capacity(16),
             encoder: DatalogEncoder::new(0),
@@ -128,6 +128,15 @@ impl DatalogEngine {
         types
     }
 
+    pub fn get_rule_for_action(&self, action_index: usize) -> &Rule {
+        // L'ID interne est calculé directement ici
+        let target_sk_id = AtomSkeletonId::from(self.type_threshold + action_index);
+
+        self.rules.iter()
+            .find(|r| r.head().skeleton_id() == target_sk_id)
+            .expect("Aucune règle trouvée pour cet index d'action")
+    }
+
     /// Prépare le moteur pour un nouveau problème.
     /// Configure la base de faits, définit les types et compile le domaine en règles Datalog.
     pub fn load_problem(&mut self, problem: &LiftedProblem) -> Result<(), DatalogError> {
@@ -162,7 +171,7 @@ impl DatalogEngine {
         // Populate the Database with concrete facts.
 
         // 4.1. Type Instantiation (Facts: Type(Object))
-        self.fill_db_from_objects(problem.object_defs())?;
+        self.fill_db_from_objects(problem.object_defs(), problem.type_defs())?;
 
         // 4.2. Initial State Instantiation (Facts: Predicate(Objects))
         self.fill_db_from_init(problem.init())?;
@@ -242,23 +251,38 @@ impl DatalogEngine {
         self.type_to_skeleton.push(root_type_sk);
     }
 
-    fn fill_db_from_objects(&mut self, object_defs: &[TypedSymbol<ObjectId, TypeId>]) -> Result<(), DatalogError> {
-
+    fn fill_db_from_objects(
+        &mut self,
+        object_defs: &[TypedSymbol<ObjectId, TypeId>],
+        type_defs: &[TypedSymbol<TypeId, TypeId>], // Ajouté pour voir la hiérarchie
+    ) -> Result<(), DatalogError> {
         let root_sk_id = *self.type_to_skeleton.last().ok_or_else(|| {
-            DatalogError::InternalState("Root type skeleton is missing from type_to_skeleton".to_string())
+            DatalogError::InternalState("Root type skeleton missing".to_string())
         })?;
 
         for object in object_defs {
             let obj_id = object.symbol();
-            let obj_types = object.ty();
 
-            // 1. Unification universelle : Tout est un "object"
+            // 1. Toujours dans ROOT
             self.db.insert_delta_fact(root_sk_id, &[obj_id]);
 
-            // 2. Unification spécifique : L'objet appartient à ses types et leurs parents
-            for &parent_type_id in obj_types {
-                let sk_id = self.type_to_skeleton[parent_type_id.as_usize()];
+            // 2. Propagation dans la hiérarchie
+            for &type_id in object.ty() {
+                // Insertion du type direct (ex: location)
+                let sk_id = self.type_to_skeleton[type_id.as_usize()];
                 self.db.insert_delta_fact(sk_id, &[obj_id]);
+
+                // RESOLUTION DES PARENTS (C'est ça qui manquait !)
+                if let Some(ty_def) = type_defs.get(type_id.as_usize()) {
+                    // On parcourt les membres (pivots ou parents) pour remplir les tables
+                    for &parent_id in ty_def.ty().members() {
+                        let parent_sk_id = self.type_to_skeleton[parent_id.as_usize()];
+                        self.db.insert_delta_fact(parent_sk_id, &[obj_id]);
+
+                        // Si ton flattening est très profond, on pourrait même
+                        // récurser ici, mais normalement les pivots sont déjà plats.
+                    }
+                }
             }
         }
         Ok(())
@@ -435,29 +459,46 @@ impl DatalogEngine {
     }
 
     fn saturate_semi_naive(&mut self) {
-        self.db.move_all_to_delta();
+        // 1. BOOTSTRAP : On ne déplace vers delta que si le delta est vide
+        // et qu'on a des choses en stable (cas d'un moteur qu'on relancerait).
+        if self.db.is_delta_empty() && !self.db.relations().is_empty() {
+            self.db.move_all_to_delta();
+        }
 
+        // 2. BOUCLE PRINCIPALE
         while !self.db.is_delta_empty() {
+
+            // On récupère les règles pour éviter les problèmes de borrow checker
             let rules = std::mem::take(&mut self.rules);
 
             for rule in &rules {
                 let body_len = rule.body().len();
 
+                // On traite chaque atome de la règle comme un pivot
                 for pivot_idx in 0..body_len {
-                    // RESET TOTAL pour chaque nouveau pivot
-                    self.current_env = [None; 64];
-                    self.trailing_indices.clear(); // Vital avec le nouveau système
-                    self.discovered_facts.clear();
+                    self.current_env = [None; MAX_VARS];
+                    self.trailing_indices.clear();
 
+                    // On explore les combinaisons
                     self.process_incremental(rule, 0, pivot_idx);
-
-                    for (sk_id, args) in self.discovered_facts.drain(..) {
-                        self.db.insert_delta_fact(sk_id, &args);
-                    }
                 }
             }
+
+            // On remet les règles en place
             self.rules = rules;
+
+            // 3. PHASE DE TRANSITION
+            // On stabilise le Delta qui vient d'être utilisé
             self.db.commit_delta();
+
+            // On injecte les découvertes accumulées dans discovered_facts
+            // pendant les appels à evaluate_head
+            for (sk_id, args) in self.discovered_facts.drain(..) {
+                // insert_delta_fact vérifie déjà les doublons dans stable + delta
+                self.db.insert_delta_fact(sk_id, &args);
+            }
+
+            // La boucle continue si insert_delta_fact a ajouté de nouveaux éléments au Delta
         }
     }
 
@@ -487,30 +528,41 @@ impl DatalogEngine {
     }
 
     fn match_relation(&mut self, rule: &Rule, body_idx: usize, pivot_idx: usize, sk_id: AtomSkeletonId, use_delta: bool) {
-
         let atom = &rule.body()[body_idx];
         let terms = atom.terms();
 
-        // On récupère le layout (taille, arité) pour la table choisie (Stable ou Delta)
         let Some((total_len, arity)) = self.db.get_layout(sk_id, use_delta) else { return; };
-        assert!(arity <= MAX_VARS, "Arité {} excède la limite MAX_VARS ({})", arity, MAX_VARS);
         let mut tuple_buffer = [ObjectId::from(0); MAX_VARS];
 
-        // --- STRATÉGIE D'INDEXATION ---
+        // 1. CAS ARITÉ 0 : On traite la proposition si elle est présente dans la table demandée
+        if arity == 0 {
+            // Si total_len est 0 mais que la table (Delta ou Stable selon use_delta)
+            // contient la proposition, on déclenche l'unification une fois.
+            let is_present = if use_delta { self.db.contains_delta(sk_id, &[]) }
+            else { self.db.contains_stable(sk_id, &[]) };
+
+            if is_present {
+                self.process_tuple(rule, body_idx, pivot_idx, sk_id, use_delta, 0, 0, &mut tuple_buffer);
+            }
+            return;
+        }
+
+        // 2. CAS ARITÉ > 0 : Stratégie d'indexation classique
         let first_arg_binding = match &terms[0] {
             Term::Constant(c) => Some(*c),
             Term::Variable(v) => self.current_env[v.as_usize()],
         };
 
         if let Some(obj_id) = first_arg_binding {
-            // MODE INDEXÉ : Utilise l'index de la table choisie
+            // MODE INDEXÉ
             if let Some(offsets) = self.db.lookup_index(sk_id, use_delta, obj_id) {
-                for start in offsets { // On itère sur les offsets indexés
+                for start in offsets {
                     self.process_tuple(rule, body_idx, pivot_idx, sk_id, use_delta, start, arity, &mut tuple_buffer);
                 }
             }
         } else {
             // MODE SCAN COMPLET
+            // step_by(arity) avec arity > 0 est sûr ici.
             for start in (0..total_len).step_by(arity) {
                 self.process_tuple(rule, body_idx, pivot_idx, sk_id, use_delta, start, arity, &mut tuple_buffer);
             }
@@ -628,34 +680,41 @@ impl DatalogEngine {
         if body.len() <= 1 { return; }
 
         let mut optimized = Vec::with_capacity(body.len());
-        let mut bound_vars = std::collections::HashSet::new();
+        let mut bound_vars_mask: u64 = 0;
         let mut remaining = std::mem::take(body);
 
         while !remaining.is_empty() {
             let best_idx = remaining.iter().enumerate().min_by_key(|(_, atom)| {
-                let sk_id = atom.skeleton_id().as_usize();
+                let sk_id = atom.skeleton_id();
+                let priority = self.get_predicate_priority(sk_id.as_usize());
 
-                // 1. Priority calculation based on Engine segments
-                // Segment 2 (Types) > Segment 1 (Fluents) > Segment 3 (Actions) > Segment 4 (Aux)
-                let priority = self.get_predicate_priority(sk_id);
+                let mut bound_count = 0;
+                for term in atom.terms() {
+                    match term {
+                        Term::Constant(_) => bound_count += 1,
+                        Term::Variable(v) => {
+                            let v_idx = v.as_usize();
+                            if v_idx < 64 && (bound_vars_mask & (1 << v_idx)) != 0 {
+                                bound_count += 1;
+                            }
+                        }
+                    }
+                }
 
-                // 2. Calcul du nombre de termes fixés (Constantes + Variables déjà liées)
-                let bound_count = atom.terms().iter().filter(|t| match t {
-                    Term::Variable(v) => bound_vars.contains(v),
-                    Term::Constant(_) => true,
-                }).count();
+                let rel_size = self.db.get_relation_size(sk_id);
 
-                // On trie d'abord par catégorie (priority),
-                // puis par le plus grand nombre de variables liées (via le signe négatif)
-                (priority, -(bound_count as i32))
+                // CHANGEMENT ICI : Le bound_count est le critère ROI
+                (-(bound_count as i32), priority, rel_size)
             }).map(|(idx, _)| idx).unwrap();
 
             let best_atom = remaining.remove(best_idx);
 
-            // Mise à jour des variables liées pour les prochains atomes de la boucle
             for term in best_atom.terms() {
                 if let Term::Variable(v) = term {
-                    bound_vars.insert(*v);
+                    let v_idx = v.as_usize();
+                    if v_idx < 64 {
+                        bound_vars_mask |= 1 << v_idx;
+                    }
                 }
             }
             optimized.push(best_atom);
@@ -677,59 +736,6 @@ impl DatalogEngine {
         }
     }
 
-
-    fn optimize_body_optimize(&self, body: &mut Vec<Atom>) {
-        if body.len() <= 1 { return; }
-
-        let mut optimized = Vec::with_capacity(body.len());
-        // Utilisation d'un bitmask pour les variables liées (beaucoup plus rapide qu'un HashSet)
-        let mut bound_vars_mask: u64 = 0;
-        let mut remaining = std::mem::take(body);
-
-        while !remaining.is_empty() {
-            let best_idx = remaining.iter().enumerate().min_by_key(|(_, atom)| {
-                let sk_id = atom.skeleton_id();
-                let id_val = sk_id.as_usize();
-
-                // 1. Priorité par segment (Types > Fluents > Actions > Aux)
-                let priority = self.get_predicate_priority(id_val);
-
-                // 2. Bound count : Variables déjà liées + Constantes
-                let mut bound_count = 0;
-                for term in atom.terms() {
-                    match term {
-                        Term::Constant(_) => bound_count += 1,
-                        Term::Variable(v) => {
-                            if (bound_vars_mask & (1 << v.as_usize())) != 0 {
-                                bound_count += 1;
-                            }
-                        }
-                    }
-                }
-
-                // 3. Cardinalité : On récupère la taille réelle de la relation dans la DB
-                // Si la relation est vide, le score sera très bas, ce qui est parfait.
-                let rel_size = self.db.get_relation_size(sk_id);
-
-                // Le critère de tri (tuple de comparaison) :
-                // a) Priorité de segment d'abord.
-                // b) Plus de variables liées ensuite (on veut réduire l'éventail de recherche).
-                // c) Plus petite taille de relation enfin (pour minimiser les itérations).
-                (priority, -(bound_count as i32), rel_size)
-            }).map(|(idx, _)| idx).unwrap();
-
-            let best_atom = remaining.remove(best_idx);
-
-            // Mise à jour du bitmask des variables liées
-            for term in best_atom.terms() {
-                if let Term::Variable(v) = term {
-                    bound_vars_mask |= 1 << v.as_usize();
-                }
-            }
-            optimized.push(best_atom);
-        }
-        *body = optimized;
-    }
 }
 
 #[cfg(test)]

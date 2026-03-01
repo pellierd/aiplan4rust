@@ -523,7 +523,7 @@ impl ExprBuilder {
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
-    pub fn fcomp(&mut self, op: CompareOp, left: NodeId, right: NodeId) -> NodeId {
+    pub fn comparison(&mut self, op: CompareOp, left: NodeId, right: NodeId) -> NodeId {
         self.node(
             ExprNode::new(
                 ExprKind::Comparison,
@@ -546,7 +546,7 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn less(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(CompareOp::Less, left, right)
+        self.comparison(CompareOp::Less, left, right)
     }
 
     /// Creates a "less than or equal to" comparison node: (<= left right)
@@ -561,7 +561,7 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn less_eq(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(CompareOp::LessEq, left, right)
+        self.comparison(CompareOp::LessEq, left, right)
     }
 
     /// Creates a "greater than" comparison node: (> left right)
@@ -576,7 +576,7 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn greater(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(CompareOp::Greater, left, right)
+        self.comparison(CompareOp::Greater, left, right)
     }
 
     /// Creates a "greater than or equal to" comparison node: (>= left right)
@@ -591,7 +591,7 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn greater_eq(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(CompareOp::GreaterEq, left, right)
+        self.comparison(CompareOp::GreaterEq, left, right)
     }
 
     /// Creates a "numeric equality" comparison node: (= left right)
@@ -608,7 +608,7 @@ impl ExprBuilder {
     /// # Returns
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn equal(&mut self, left: NodeId, right: NodeId) -> NodeId {
-        self.fcomp(CompareOp::Equal, left, right)
+        self.comparison(CompareOp::Equal, left, right)
     }
 
     /// Creates an assignment expression node: (op target value)

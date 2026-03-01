@@ -241,7 +241,7 @@ mod tests {
         let var_node = builder.variable(var_x);
         let func_term = builder.function_term(10, vec![var_node]); // vitesse(?x)
         let num_node = builder.number(10.0);
-        let root = builder.fcomp(CompareOp::Equal, func_term, num_node);
+        let root = builder.comparison(CompareOp::Equal, func_term, num_node);
 
         // On définit explicitement la racine avant de finir le builder
         builder.set_root(root)?;
@@ -312,7 +312,7 @@ mod tests {
         // Une comparaison qui est toujours FAUSSE (1.0 == 2.0)
         let n1 = builder.number(1.0);
         let n2 = builder.number(2.0);
-        let false_comp = builder.fcomp(CompareOp::Equal, n1, n2);
+        let false_comp = builder.comparison(CompareOp::Equal, n1, n2);
 
         let root = builder.and(vec![at_node, false_comp]);
         builder.set_root(root)?; // On fixe la racine
@@ -448,7 +448,7 @@ mod tests {
 
         let n1 = builder.number(1.0);
         let n2 = builder.number(2.0);
-        let false_comp = builder.fcomp(CompareOp::Equal, n1, n2);
+        let false_comp = builder.comparison(CompareOp::Equal, n1, n2);
 
         let and_node = builder.and(vec![at_node, false_comp]);
         let root = builder.not(and_node);

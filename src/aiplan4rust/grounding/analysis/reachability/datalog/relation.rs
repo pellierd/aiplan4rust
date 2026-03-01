@@ -113,6 +113,11 @@ impl Relation {
 
     /// Returns an iterator yielding each fact as a slice of size [`arity`].
     pub fn iter(&self) -> std::slice::ChunksExact<'_, ObjectId> {
+        if self.arity == 0 {
+            // On renvoie un itérateur sur du vide avec un chunk size de 1 (autorisé)
+            // pour éviter le panic.
+            return [].chunks_exact(1);
+        }
         self.tuples.chunks_exact(self.arity)
     }
 

@@ -473,7 +473,7 @@ mod tests {
         let f2 = builder.function_term(func_symbol_id, vec![x2, y2]);
 
         // 4. Création du prédicat d'égalité : f(?x, ?y) == f(?x, ?y)
-        let equality_node = builder.fcomp(CompareOp::Equal, f1, f2);
+        let equality_node = builder.comparison(CompareOp::Equal, f1, f2);
 
         // Définition de la racine de l'expression
         builder.set_root(equality_node)?;

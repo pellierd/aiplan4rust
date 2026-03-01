@@ -145,12 +145,22 @@ impl Database {
     /// the Delta buffer for the next round.
     pub fn commit_delta(&mut self) {
         for (sk_id, delta_rel) in self.delta.drain() {
+            let arity = delta_rel.arity();
             let rel = self.stable
                 .entry(sk_id)
-                .or_insert_with(|| Relation::new(delta_rel.arity()));
+                .or_insert_with(|| Relation::new(arity));
 
-            for tuple in delta_rel.iter() {
-                rel.insert(tuple);
+            if arity == 0 {
+                // CAS ARITÉ 0 : Si le delta n'est pas vide, la proposition est vraie.
+                // On l'insère dans le stable via un tuple vide.
+                if !delta_rel.is_empty() {
+                    rel.insert(&[]);
+                }
+            } else {
+                // CAS NORMAL : On itère sur les tuples de taille > 0.
+                for tuple in delta_rel.iter() {
+                    rel.insert(tuple);
+                }
             }
         }
     }

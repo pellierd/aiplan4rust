@@ -64,6 +64,16 @@ impl Atom {
         &self.terms
     }
 
+    /// Returns a mutable slice of the atom's terms.
+    ///
+    /// This is primarily used during the encoding phase for variable aliasing,
+    /// normalization, or grounding, allowing in-place modification of terms
+    /// without reallocating the underlying vector.
+    #[inline]
+    pub fn terms_mut(&mut self) -> &mut [Term] {
+        &mut self.terms
+    }
+
     /// Returns the arity (the number of terms) of the atom.
     #[inline]
     pub fn arity(&self) -> usize {

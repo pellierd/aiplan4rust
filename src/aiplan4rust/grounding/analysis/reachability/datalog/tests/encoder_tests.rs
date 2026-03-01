@@ -287,7 +287,7 @@ fn test_empty_or_ignored_logic() -> Result<(), DatalogError> {
     let cons = builder.constant(10);
 
     // Greater-than-or-equal (FComp) is valid in a precondition
-    let n1 = builder.fcomp(CompareOp::Greater, var, cons);
+    let n1 = builder.comparison(CompareOp::Greater, var, cons);
     let root = builder.or(vec![n1]);
 
     builder.set_root(root)?;
@@ -330,7 +330,7 @@ fn test_ignored_and_logic() -> Result<(), DatalogError> {
     let cons = builder.constant(10);
 
     // (>= ?v0 10)
-    let n1 = builder.fcomp(CompareOp::GreaterEq, var, cons);
+    let n1 = builder.comparison(CompareOp::GreaterEq, var, cons);
     let root = builder.and(vec![n1]);
 
     builder.set_root(root)?;
@@ -1106,5 +1106,266 @@ fn test_final_boss_encoding() -> Result<(), DatalogError> {
     assert!(condition_rule.body().len() >= 2, "La règle de condition doit avoir au moins (at) et (can_fly)");
 
     println!("Victoire ! L'encodeur a produit une chaîne de règles ultra-optimisée.");
+    Ok(())
+}
+
+/// # Objective
+/// Verify that an explicit equality `(= ?v1 ?v0)` in a conjunction causes
+/// all instances of `?v1` to be replaced by `?v0` in the resulting Datalog atoms.
+#[test]
+fn test_variable_aliasing_unification() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // Logic: (AND (P10 ?v1) (= ?v0 ?v1))
+    let v0 = builder.variable(0);
+    let v1 = builder.variable(1);
+
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![v1], 10);
+    let eq = builder.comparison(CompareOp::Equal, v0, v1);
+    let root = builder.and(vec![p10, eq]);
+
+    builder.set_root(root)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+
+    // Requirement: The equality node itself is ignored, but it influences other atoms.
+    // The resulting atom for (P10 ?v1) should now be (P10 ?v0).
+    let atom = result.expect("Should return the flattened P10 atom");
+
+    if let Term::Variable(id) = atom.terms()[0] {
+        assert_eq!(id.as_usize(), 0, "Variable ?v1 should have been aliased to ?v0");
+    } else {
+        panic!("Term should be a variable");
+    }
+
+    Ok(())
+}
+
+/// # Objective
+/// Verify that equality constraints reduce the arity of auxiliary predicates.
+/// If `?v0 = ?v1`, an auxiliary predicate for `(P10 ?v0) (P11 ?v1)` should
+/// only have 1 parameter, not 2.
+#[test]
+fn test_aliasing_arity_reduction() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // Logic: (AND (P10 ?v0) (P11 ?v1) (= ?v0 ?v1))
+    let v0 = builder.variable(0);
+    let v1 = builder.variable(1);
+
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
+    let p11 = builder.atomic_formula_with_skeleton(11, vec![v1], 11);
+    let eq = builder.comparison(CompareOp::Equal, v0, v1);
+    let root = builder.and(vec![p10, p11, eq]);
+
+    builder.set_root(root)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+
+    let head = result.expect("Should return an auxiliary head");
+
+    // Industrial Requirement: Arity reduction.
+    // Without aliasing, arity would be 2 (?v0, ?v1).
+    // With aliasing, it must be 1 (?v0).
+    assert_eq!(
+        head.terms().len(),
+        1,
+        "Auxiliary predicate should only have 1 term due to ?v0 = ?v1 aliasing"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_aliasing_propagation_to_effects() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+
+    // 1. Setup Preconditions with Alias: (AND (P10 ?v1) (= ?v0 ?v1))
+    let mut b_pre = ExprBuilder::new();
+    let v0 = b_pre.variable(0);
+    let v1 = b_pre.variable(1);
+    let p10 = b_pre.atomic_formula_with_skeleton(10, vec![v1], 10);
+    let eq = b_pre.comparison(CompareOp::Equal, v0, v1);
+    let pre_logic = b_pre.and(vec![p10, eq]);
+    b_pre.set_root(pre_logic)?;
+
+    // Trigger aliasing by encoding preconditions first
+    let action_atom = Atom::new(AtomSkeletonId::from(100), vec![Term::Variable(VariableId::from(0))]);
+    encoder.encode_preconditions(&b_pre.finish(), &mut Vec::new(), &params)?;
+
+    // 2. Setup Effect: (P20 ?v1)
+    let mut b_eff = ExprBuilder::new();
+    let v1_eff = b_eff.variable(1);
+    let eff_logic = b_eff.atomic_formula_with_skeleton(20, vec![v1_eff], 20);
+    b_eff.set_root(eff_logic)?;
+
+    // 3. Encode Effects
+    encoder.encode_effects(&b_eff.finish(), &action_atom, &mut rules, &params)?;
+
+    // Requirement: The effect rule should be P20(?v0) :- Action(?v0)
+    // even though the effect was defined with ?v1.
+    let effect_rule = &rules[0];
+    if let Term::Variable(id) = effect_rule.head().terms()[0] {
+        assert_eq!(id.as_usize(), 0, "Effect variable ?v1 should have been resolved to ?v0");
+    } else {
+        panic!("Effect term should be a variable");
+    }
+
+    Ok(())
+}
+
+/// # Objective
+/// Verify that aliasing is transitive: if ?v2 = ?v1 and ?v1 = ?v0,
+/// then ?v2 should resolve to ?v0.
+#[test]
+fn test_aliasing_transitivity() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // Logic: (AND (P10 ?v2) (= ?v1 ?v2) (= ?v0 ?v1))
+    let v0 = builder.variable(0);
+    let v1 = builder.variable(1);
+    let v2 = builder.variable(2);
+
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![v2], 10);
+    let eq1 = builder.comparison(CompareOp::Equal, v1, v2);
+    let eq2 = builder.comparison(CompareOp::Equal, v0, v1);
+    let root = builder.and(vec![p10, eq1, eq2]);
+
+    builder.set_root(root)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+
+    // Requirement: ?v2 -> ?v1 -> ?v0. The final atom should be P10(?v0).
+    let atom = result.expect("Should return the flattened atom");
+    if let Term::Variable(id) = atom.terms()[0] {
+        assert_eq!(id.as_usize(), 0, "Variable ?v2 should have been transitively aliased to ?v0");
+    } else {
+        panic!("Term should be a variable");
+    }
+
+    Ok(())
+}
+
+/// # Objective
+/// Verify that equality between a variable and a constant (= ?v0 c99)
+/// correctly replaces the variable with the constant in other atoms.
+#[test]
+fn test_aliasing_variable_to_constant() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // Logic: (AND (P10 ?v0) (= ?v0 c99))
+    let v0 = builder.variable(0);
+    let c99 = builder.constant(99);
+
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
+    let eq = builder.comparison(CompareOp::Equal, v0, c99);
+    let root = builder.and(vec![p10, eq]);
+
+    builder.set_root(root)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+
+    let atom = result.expect("Should return the flattened atom");
+
+    // Requirement: ?v0 should be replaced by Constant(99)
+    match &atom.terms()[0] {
+        Term::Constant(id) => assert_eq!(id.as_usize(), 99),
+        _ => panic!("Variable ?v0 should have been replaced by Constant 99"),
+    }
+
+    Ok(())
+}
+
+/// # Objective
+/// Verify that trivial equalities like (= ?v0 ?v0) are gracefully ignored
+/// and don't affect the encoding logic or produce errors.
+#[test]
+fn test_trivial_self_equality() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // Logic: (AND (P10 ?v0) (= ?v0 ?v0))
+    let v0 = builder.variable(0);
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
+    let eq = builder.comparison(CompareOp::Equal, v0, v0);
+    let root = builder.and(vec![p10, eq]);
+
+    builder.set_root(root)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+
+    assert!(result.is_some(), "Should encode correctly despite trivial equality");
+    let atom = result.unwrap();
+    assert_eq!(atom.skeleton_id().as_usize(), 10);
+    assert_eq!(rules.len(), 0, "No extra rules should be generated for trivial logic");
+
+    Ok(())
+}
+
+#[test]
+fn test_aliasing_transitive_to_constant() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // Logic: (AND (P10 ?v2) (= ?v2 ?v1) (= ?v1 ?v0) (= ?v0 c99))
+    let v0 = builder.variable(0);
+    let v1 = builder.variable(1);
+    let v2 = builder.variable(2);
+    let c99 = builder.constant(99);
+
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![v2], 10);
+    let eq1 = builder.comparison(CompareOp::Equal, v2, v1);
+    let eq2 = builder.comparison(CompareOp::Equal, v1, v0);
+    let eq3 = builder.comparison(CompareOp::Equal, v0, c99);
+    let root = builder.and(vec![p10, eq1, eq2, eq3]);
+
+    builder.set_root(root)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+
+    let atom = result.expect("Should return the flattened atom");
+
+    // Requirement: ?v2 -> ?v1 -> ?v0 -> Constant(99)
+    match &atom.terms()[0] {
+        Term::Constant(id) => assert_eq!(id.as_usize(), 99, "Transitivity should reach the constant"),
+        _ => panic!("Variable ?v2 should have been transitively resolved to Constant 99"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_aliasing_constant_conflict() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut rules = Vec::new();
+    let mut builder = ExprBuilder::new();
+
+    // Logic: (AND (P10 ?v0) (= ?v0 c1) (= ?v0 c2))
+    // Sémantiquement, cette action est IMPOSSIBLE (v0 ne peut pas être c1 ET c2).
+    let v0 = builder.variable(0);
+    let c1 = builder.constant(1);
+    let c2 = builder.constant(2);
+
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
+    let eq1 = builder.comparison(CompareOp::Equal, v0, c1);
+    let eq2 = builder.comparison(CompareOp::Equal, v0, c2);
+    let root = builder.and(vec![p10, eq1, eq2]);
+
+    builder.set_root(root)?;
+    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+
+    let atom = result.expect("Should return an atom");
+
+    // Observation du comportement actuel :
+    if let Term::Constant(id) = &atom.terms()[0] {
+        println!("Comportement actuel : ?v0 est résolu en Constant({})", id.as_usize());
+        // Probablement 2 si c'est la dernière insertion qui gagne.
+    }
+
     Ok(())
 }

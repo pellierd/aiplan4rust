@@ -7,7 +7,10 @@ use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, Type, TypeId, 
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::lang::CompareOp;
+use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
+
+////// ATENTION JE NE GERE PAS LE NOT EQUAL jsute le EQUAL ni les AXIOMS
 
 /// A transformation engine that encodes complex PDDL formulas into Datalog rules.
 ///
@@ -49,6 +52,10 @@ pub struct DatalogEncoder {
     /// Prevents the redundant creation of multiple auxiliary predicates
     /// for the same logical sub-expression (Common Subexpression Elimination).
     cache: HashMap<Vec<Atom>, Atom>,
+
+    // Ajout du champ interne
+    // On utilise un champ membre pour éviter de le passer partout
+    current_aliases: HashMap<VariableId, Term>,
 }
 
 impl DatalogEncoder {
@@ -82,6 +89,7 @@ impl DatalogEncoder {
             // Pre-allocation strategy to handle typical PDDL domain complexity
             aux_defs: Vec::with_capacity(256),
             cache: HashMap::with_capacity(256),
+            current_aliases: HashMap::with_capacity(256),
         }
     }
 
@@ -229,7 +237,19 @@ impl DatalogEncoder {
             match kind {
                 // 1. Fact Production: Create the rule Effect :- Cause
                 ExprKind::AtomicFormula => {
-                    let effect_atom = self.extract_atom(root_effect, node)?;
+                    let mut effect_atom = self.extract_atom(root_effect, node)?;
+                    // --- AJOUT POUR L'ALIASING ---
+                        // On doit transformer les variables de l'effet pour qu'elles correspondent
+                        // aux représentants canoniques décidés dans les préconditions.
+                    for term in effect_atom.terms_mut() {
+                        // 1. On récupère l'ID si c'est une variable
+                        if let Term::Variable(v) = *term {
+                            // 2. resolve_var(v) nous donne le nouveau Term (Variable ou Constant)
+                            // 3. On remplace le Term pointé par le résultat
+                            *term = self.resolve_var(v);
+                        }
+                    }
+                    // -----------------------------
                     rules_sink.push(Rule::new(effect_atom, vec![current_cause]));
                 }
 
@@ -252,7 +272,7 @@ impl DatalogEncoder {
                         let available_mask = self.collect_mask(&[current_cause.clone(), cond_atom.clone()]);
 
                         // 2. Les variables dont on a BESOIN (le futur de l'effet)
-                        let required_mask = self.scan_required_vars_mask(root_effect, sub_effect_id);
+                        let required_mask = self.scan_required_terms_mask(root_effect, sub_effect_id);
 
                         // 3. LA PROJECTION : Intersection bit à bit
                         let final_mask = available_mask & required_mask;
@@ -332,7 +352,18 @@ impl DatalogEncoder {
         rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
     ) -> Result<Option<Atom>, DatalogError> {
+        // 1. On nettoie les alias de l'action précédente pour repartir à neuf
+        self.current_aliases.clear();
+
+        // 2. On extrait la fermeture transitive des égalités (= ?x ?y)
+        // Cette fonction (que tu as ajoutée) remplit la HashMap interne.
+        self.current_aliases = self.extract_variable_aliases(expr)?;
+
+        // 3. On récupère la racine de l'expression
         if let Some(root_id) = expr.root_id() {
+            // 4. On lance l'encodage récursif.
+            // Note : encode_expr va maintenant utiliser self.current_aliases
+            // via la méthode resolve_var() que nous allons intégrer.
             self.encode_expr(expr, root_id, rules_sink, parameters)
         } else {
             Ok(None)
@@ -413,7 +444,19 @@ impl DatalogEncoder {
                 let num_children = node.children().len();
                 let result = match kind {
                     // Basic leaf node: extract the predicate and its terms
-                    ExprKind::AtomicFormula => Some(self.extract_atom(expr, node)?),
+                    ExprKind::AtomicFormula => {
+                        let mut atom = self.extract_atom(expr, node)?;
+
+                        // APPLICATION DES ALIASES : On remplace chaque variable par son "chef de file"
+                        for term in atom.terms_mut() {
+                            if let Term::Variable(v) = *term {
+                                // resolve_var renvoie un Term (Variable ou Constant)
+                                // On remplace le Term actuel par le nouveau Term résolu
+                                *term = self.resolve_var(v);
+                            }
+                        }
+                        Some(atom)
+                    },
 
                     ExprKind::And | ExprKind::Or => {
                         // Safety check: Ensure the results stack contains all child results
@@ -666,8 +709,7 @@ impl DatalogEncoder {
         Ok(self.mask_to_vars(mask))
     }
 
-
-    fn scan_required_vars_mask(&self, expr: &Expr, start_node_id: NodeId) -> u64 {
+    fn scan_required_terms_mask(&self, expr: &Expr, start_node_id: NodeId) -> u64 {
         let mut mask: u64 = 0;
         let mut stack = vec![start_node_id];
 
@@ -675,17 +717,23 @@ impl DatalogEncoder {
             if let Ok(node) = expr.try_node(node_id) {
                 match node.kind() {
                     ExprKind::AtomicFormula => {
-                        // --- CORRECTION ICI ---
-                        // On utilise extract_atom pour obtenir l'objet qui possède la méthode .terms()
                         if let Ok(atom) = self.extract_atom(expr, node) {
                             for term in atom.terms() {
-                                if let Term::Variable(v) = term {
+                                // On résout le terme immédiatement
+                                let resolved_term = match term {
+                                    Term::Variable(v) => self.resolve_var(*v),
+                                    Term::Constant(_) => term.clone(),
+                                };
+
+                                // On ne marque le masque QUE si c'est encore une variable
+                                if let Term::Variable(v) = resolved_term {
                                     mask |= 1 << v.as_usize();
                                 }
+                                // Si c'est une Constant, on ne fait rien :
+                                // elle ne compte plus dans l'arité de la règle !
                             }
                         }
                     }
-                    // On continue de descendre dans les enfants pour trouver tous les atomes
                     ExprKind::And | ExprKind::When | ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                         for &child_id in node.children() {
                             stack.push(child_id);
@@ -718,5 +766,80 @@ impl DatalogEncoder {
             mask &= mask - 1;
         }
         vars
+    }
+
+    /// Résout une variable vers son représentant canonique (le plus petit ID du groupe d'égalité)
+    #[inline(always)]
+    fn resolve_var(&self, v: VariableId) -> Term {
+        self.current_aliases.get(&v).cloned().unwrap_or(Term::Variable(v))
+    }
+
+    pub fn extract_variable_aliases(&self, expr: &Expr) -> Result<HashMap<VariableId, Term>, DatalogError> {
+        let mut aliases = HashMap::new();
+
+        for node in expr.preorder().values() {
+            if node.kind() == ExprKind::Comparison && node.content().try_compare_op()? == CompareOp::Equal {
+                let children = node.children();
+                if children.len() == 2 {
+                    let t1 = self.node_to_term(expr, children[0])?;
+                    let t2 = self.node_to_term(expr, children[1])?;
+
+                    match (t1, t2) {
+                        (Some(Term::Variable(v1)), Some(Term::Variable(v2))) if v1 != v2 => {
+                            aliases.insert(v1.max(v2), Term::Variable(v1.min(v2)));
+                        }
+                        (Some(Term::Variable(v)), Some(Term::Constant(c))) |
+                        (Some(Term::Constant(c)), Some(Term::Variable(v))) => {
+                            aliases.insert(v, Term::Constant(c));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        // Une fois la collecte finie, on applique la fermeture
+        self.compute_transitive_closure(&mut aliases);
+        Ok(aliases)
+    }
+
+
+
+    /// Helper pour transformer un Node en Term atomique
+    fn node_to_term(&self, expr: &Expr, node_id: NodeId) -> Result<Option<Term>, DatalogError> {
+        let n = expr.try_node(node_id)?;
+        Ok(match n.kind() {
+            ExprKind::Variable => Some(Term::Variable(n.content().try_variable()?)),
+            ExprKind::Object   => Some(Term::Constant(n.content().try_object()?)),
+            _ => None,
+        })
+    }
+
+    fn compute_transitive_closure(&self, aliases: &mut HashMap<VariableId, Term>) {
+        let keys: Vec<VariableId> = aliases.keys().cloned().collect();
+
+        for start_var in keys {
+            // On récupère le terme cible initial
+            let mut current_term = aliases.get(&start_var).unwrap().clone();
+            let mut visited = std::collections::HashSet::new();
+            visited.insert(start_var);
+
+            // On suit la chaîne des variables aliasées
+            while let Term::Variable(v) = current_term {
+                if let Some(next_term) = aliases.get(&v) {
+                    // Sécurité anti-cycle (ex: v1 = v2 et v2 = v1)
+                    if !visited.insert(v) {
+                        break;
+                    }
+                    current_term = next_term.clone();
+                } else {
+                    break;
+                }
+            }
+
+            // On "aplatit" la structure (Path Compression)
+            if let Some(alias) = aliases.get_mut(&start_var) {
+                *alias = current_term;
+            }
+        }
     }
 }
