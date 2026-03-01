@@ -12,11 +12,19 @@ use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
+/// Maximum number of variables (parameters) allowed per action or rule.
+///
+/// This limit is set to 64 to allow high-performance variable tracking
+/// using a single CPU register (u64 bitset).
+pub const MAX_VARS: usize = 64;
+
 // pre requis les types doivent faltten et les quantfier remove pas d'imply
 pub struct DatalogEngine {
     db: Database,
     rules: Vec<Rule>,
-    current_env: [Option<ObjectId>; 64],
+    current_env: [Option<ObjectId>; MAX_VARS],
+    /// Pile de traçage pour le rollback des variables (Undo Stack)
+    trailing_indices: Vec<usize>,
     // Buffer temporaire pour stocker les faits trouvés pour une règle
     discovered_facts: Vec<(AtomSkeletonId, Vec<ObjectId>)>,
     type_to_skeleton: Vec<AtomSkeletonId>,
@@ -36,6 +44,7 @@ impl DatalogEngine {
             db: Database::new(),
             rules: Vec::new(),
             current_env: [None; 64],
+            trailing_indices: Vec::with_capacity(64),
             discovered_facts: Vec::with_capacity(128),
             type_to_skeleton: Vec::new(),
             head_buffer: Vec::with_capacity(16),
@@ -244,12 +253,12 @@ impl DatalogEngine {
             let obj_types = object.ty();
 
             // 1. Unification universelle : Tout est un "object"
-            self.db.insert_stable_fact(root_sk_id, &[obj_id]);
+            self.db.insert_delta_fact(root_sk_id, &[obj_id]);
 
             // 2. Unification spécifique : L'objet appartient à ses types et leurs parents
             for &parent_type_id in obj_types {
                 let sk_id = self.type_to_skeleton[parent_type_id.as_usize()];
-                self.db.insert_stable_fact(sk_id, &[obj_id]);
+                self.db.insert_delta_fact(sk_id, &[obj_id]);
             }
         }
         Ok(())
@@ -273,7 +282,7 @@ impl DatalogEngine {
                     let children = node.children();
                     let mut args = Vec::with_capacity(children.len());
 
-                    for &arg_id in children {
+                    for &arg_id in children.iter().skip(1) {
                         // On récupère le noeud enfant
                         let child_node = init.try_node(arg_id)?;
                         // On extrait la constante (l'ObjectId)
@@ -426,36 +435,28 @@ impl DatalogEngine {
     }
 
     fn saturate_semi_naive(&mut self) {
-        // 1. Amorçage : on déplace l'état initial (Init) dans le delta
         self.db.move_all_to_delta();
 
-        // Tant qu'il y a de nouveaux faits à traiter
         while !self.db.is_delta_empty() {
-            // Astuce pour contourner le borrow checker : on extrait les règles temporairement
             let rules = std::mem::take(&mut self.rules);
 
             for rule in &rules {
                 let body_len = rule.body().len();
 
-                // Le semi-naïf impose de tester chaque atome du corps comme "pivot"
                 for pivot_idx in 0..body_len {
+                    // RESET TOTAL pour chaque nouveau pivot
                     self.current_env = [None; 64];
+                    self.trailing_indices.clear(); // Vital avec le nouveau système
                     self.discovered_facts.clear();
 
-                    // On lance l'exploration incrémentale
                     self.process_incremental(rule, 0, pivot_idx);
 
-                    // On stocke les découvertes dans le delta du PROCHAIN tour
                     for (sk_id, args) in self.discovered_facts.drain(..) {
                         self.db.insert_delta_fact(sk_id, &args);
                     }
                 }
             }
-
-            // On remet les règles en place
             self.rules = rules;
-
-            // 2. Fin de tour : les nouveaux faits deviennent anciens
             self.db.commit_delta();
         }
     }
@@ -472,40 +473,44 @@ impl DatalogEngine {
         let sk_id = rule.body()[body_idx].skeleton_id();
 
         if body_idx < pivot_idx {
-            // On cherche dans le STABLE
+            // Avant le pivot : Uniquement dans le STABLE
             self.match_relation(rule, body_idx, pivot_idx, sk_id, false);
         } else if body_idx == pivot_idx {
-            // On cherche dans le DELTA
+            // Le pivot : Uniquement dans le DELTA
             self.match_relation(rule, body_idx, pivot_idx, sk_id, true);
         } else {
-            // On cherche dans les DEUX
-            self.match_relation(rule, body_idx, pivot_idx, sk_id, false);
-            self.match_relation(rule, body_idx, pivot_idx, sk_id, true);
+            // Après le pivot : Dans les DEUX (Stable ET Delta)
+            // On fait deux appels successifs pour couvrir toute la connaissance actuelle
+            self.match_relation(rule, body_idx, pivot_idx, sk_id, false); // Stable
+            self.match_relation(rule, body_idx, pivot_idx, sk_id, true);  // Delta
         }
     }
 
     fn match_relation(&mut self, rule: &Rule, body_idx: usize, pivot_idx: usize, sk_id: AtomSkeletonId, use_delta: bool) {
+
         let atom = &rule.body()[body_idx];
         let terms = atom.terms();
+
+        // On récupère le layout (taille, arité) pour la table choisie (Stable ou Delta)
         let Some((total_len, arity)) = self.db.get_layout(sk_id, use_delta) else { return; };
-        let mut tuple_buffer = [ObjectId::from(0); 12];
+        assert!(arity <= MAX_VARS, "Arité {} excède la limite MAX_VARS ({})", arity, MAX_VARS);
+        let mut tuple_buffer = [ObjectId::from(0); MAX_VARS];
 
         // --- STRATÉGIE D'INDEXATION ---
-        // On regarde si le premier argument est déjà "fixé"
         let first_arg_binding = match &terms[0] {
             Term::Constant(c) => Some(*c),
             Term::Variable(v) => self.current_env[v.as_usize()],
         };
 
         if let Some(obj_id) = first_arg_binding {
-            // MODE INDEXÉ : On ne récupère que les offsets où le premier argument match
+            // MODE INDEXÉ : Utilise l'index de la table choisie
             if let Some(offsets) = self.db.lookup_index(sk_id, use_delta, obj_id) {
-                for start in offsets {
+                for start in offsets { // On itère sur les offsets indexés
                     self.process_tuple(rule, body_idx, pivot_idx, sk_id, use_delta, start, arity, &mut tuple_buffer);
                 }
             }
         } else {
-            // MODE SCAN COMPLET : On parcourt tout (quand le premier argument est une variable libre)
+            // MODE SCAN COMPLET
             for start in (0..total_len).step_by(arity) {
                 self.process_tuple(rule, body_idx, pivot_idx, sk_id, use_delta, start, arity, &mut tuple_buffer);
             }
@@ -513,26 +518,35 @@ impl DatalogEngine {
     }
 
     // Petite fonction utilitaire pour éviter la duplication de code
-    fn process_tuple(&mut self, rule: &Rule, body_idx: usize, pivot_idx: usize, sk_id: AtomSkeletonId, use_delta: bool, start: usize, arity: usize, buffer: &mut [ObjectId; 12]) {
+    fn process_tuple(&mut self, rule: &Rule, body_idx: usize, pivot_idx: usize, sk_id: AtomSkeletonId, use_delta: bool, start: usize, arity: usize, buffer: &mut [ObjectId; MAX_VARS]) {
         self.db.read_tuple(sk_id, use_delta, start, arity, buffer);
-        let prev_env = self.current_env;
+
+        // On n'utilise PLUS prev_env (trop lent). On utilise le rollback sélectif.
+        // On note combien de variables étaient liées AVANT cet atome
+        let trail_split = self.trailing_indices.len();
+
         if self.unify_and_bind(rule.body()[body_idx].terms(), &buffer[..arity]) {
             self.process_incremental(rule, body_idx + 1, pivot_idx);
         }
-        self.current_env = prev_env;
+
+        // ROLLBACK CHIRURGICAL :
+        // On n'annule que ce que unify_and_bind a ajouté,
+        // sans toucher aux variables liées par les atomes précédents de la règle.
+        self.undo_to_savepoint(trail_split);
     }
 
     fn evaluate_head(&mut self, rule: &Rule) {
         let head = rule.head();
         let head_sk = head.skeleton_id();
 
-        // On vide le buffer sans désallouer la mémoire (capacity conservée)
+        // 1. On prépare le tuple de la tête dans le buffer réutilisable
         self.head_buffer.clear();
 
         for term in head.terms() {
             match term {
                 Term::Constant(c) => self.head_buffer.push(*c),
                 Term::Variable(v) => {
+                    // Si ton grounding est correct, toute variable en tête doit être liée dans le corps
                     let val = self.current_env[v.as_usize()]
                         .expect("Variable non liée dans la tête");
                     self.head_buffer.push(val);
@@ -540,9 +554,21 @@ impl DatalogEngine {
             }
         }
 
-        // On ne clone que si le fait est VRAIMENT nouveau et va être inséré
-        if !self.db.contains_stable(head_sk, &self.head_buffer) {
-            // Ici le clone est nécessaire car on stocke le fait pour le futur
+        // 2. FILTRAGE : On ne veut pas stocker de doublons.
+        // On vérifie dans la DB (Stable + Delta)
+        if self.db.contains_stable(head_sk, &self.head_buffer) ||
+            self.db.contains_delta(head_sk, &self.head_buffer) {
+            return;
+        }
+
+        // 3. On vérifie aussi dans les découvertes du pivot en cours
+        // pour éviter de cloner inutilement si le même fait est trouvé 100 fois de suite.
+        let is_already_in_buffer = self.discovered_facts
+            .iter()
+            .any(|(sk, args)| *sk == head_sk && args == &self.head_buffer);
+
+        if !is_already_in_buffer {
+            // Le clone n'arrive qu'ici, au dernier moment possible.
             self.discovered_facts.push((head_sk, self.head_buffer.clone()));
         }
     }
@@ -553,37 +579,48 @@ impl DatalogEngine {
     /// Retourne `true` si l'unification réussit, `false` sinon.
     /// Met à jour `self.current_env` avec les nouvelles liaisons de variables.
     fn unify_and_bind(&mut self, atom_terms: &[Term], tuple: &[ObjectId]) -> bool {
-        // Sécurité : l'arité doit correspondre (normalement garanti par le flattener)
         if atom_terms.len() != tuple.len() {
             return false;
         }
+
+        // On ne vide plus la pile, on note le point de départ (le "savepoint")
+        let savepoint = self.trailing_indices.len();
 
         for (i, term) in atom_terms.iter().enumerate() {
             let val_in_db = tuple[i];
 
             match term {
-                // 1. Si c'est une constante dans la règle, elle doit être égale à la valeur en DB
                 Term::Constant(c) => {
                     if *c != val_in_db {
+                        // Échec : on annule uniquement ce que CET atome a lié
+                        self.undo_to_savepoint(savepoint);
                         return false;
                     }
                 }
-                // 2. Si c'est une variable
                 Term::Variable(v) => {
                     let idx = v.as_usize();
                     if let Some(existing_val) = self.current_env[idx] {
-                        // Si la variable est déjà liée, elle doit pointer vers le même objet
                         if existing_val != val_in_db {
+                            self.undo_to_savepoint(savepoint);
                             return false;
                         }
                     } else {
-                        // Sinon, on crée une nouvelle liaison
                         self.current_env[idx] = Some(val_in_db);
+                        self.trailing_indices.push(idx);
                     }
                 }
             }
         }
         true
+    }
+
+    /// Nettoie les variables liées depuis le savepoint donné
+    fn undo_to_savepoint(&mut self, savepoint: usize) {
+        while self.trailing_indices.len() > savepoint {
+            if let Some(idx) = self.trailing_indices.pop() {
+                self.current_env[idx] = None;
+            }
+        }
     }
 
 
@@ -694,3 +731,7 @@ impl DatalogEngine {
         *body = optimized;
     }
 }
+
+#[cfg(test)]
+#[path = "tests/engine_tests.rs"]
+mod engine_tests;

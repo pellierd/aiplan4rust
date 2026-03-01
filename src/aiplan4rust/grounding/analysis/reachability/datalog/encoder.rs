@@ -9,12 +9,6 @@ use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::tree::NodeId;
 
-/// Maximum number of variables (parameters) allowed per action or rule.
-///
-/// This limit is set to 64 to allow high-performance variable tracking
-/// using a single CPU register (u64 bitset).
-const MAX_VARS: usize = 64;
-
 /// A transformation engine that encodes complex PDDL formulas into Datalog rules.
 ///
 /// The `DatalogEncoder` is responsible for **Normalization** and the final flattening
@@ -58,12 +52,6 @@ pub struct DatalogEncoder {
 }
 
 impl DatalogEncoder {
-
-    /// Maximum number of variables (parameters) allowed per action or rule.
-    ///
-    /// This limit is set to 64 to allow high-performance variable tracking
-    /// using a single CPU register (u64 bitset).
-    pub const MAX_VARS: usize = 64;
 
     /// Initializes a new Datalog Encoder.
     ///
