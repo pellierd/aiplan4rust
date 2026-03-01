@@ -24,6 +24,13 @@ pub struct Atom {
 }
 
 impl Atom {
+
+    /// Le début de la zone réservée aux built-ins (tout en haut des u32).
+    pub const BUILTIN_ZONE_START: usize = usize::MAX - 1024;
+
+    /// ID immuable pour l'égalité
+    pub const EQUALITY_ID: usize = Self::BUILTIN_ZONE_START;
+
     /// Creates a new `Atom` with the given skeleton ID and terms.
     ///
     /// By default, the atom is not negated.
@@ -39,12 +46,27 @@ impl Atom {
         }
     }
 
+    pub fn equality(t1: Term, t2: Term) -> Self {
+        Self {
+            skeleton_id: AtomSkeletonId::from(Self::EQUALITY_ID),
+            terms: vec![t1, t2],
+            negated: false,
+        }
+    }
+
     /// Flags this atom as negated.
     ///
     /// This is used by the flattener when encountering a logical `Not` node
     /// in the lifted problem description.
     pub fn negated(&mut self) {
         self.negated = true;
+    }
+
+    /// Vérifie si cet atome est une égalité (ou une inégalité si negated est vrai).
+    /// Utilise la constante de la "Zone Haute" pour une vérification O(1).
+    #[inline(always)]
+    pub fn is_equality(&self) -> bool {
+        self.skeleton_id.as_usize() == Self::EQUALITY_ID
     }
 
     /// Returns `true` if this atom is negated (a negative literal).

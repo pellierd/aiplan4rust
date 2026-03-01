@@ -4,7 +4,7 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::Dat
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::lang::{AtomSkeletonId, CompareOp, ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
-use crate::aiplan4rust::lir::expr::ExprBuilder;
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind};
 
 /// Initialize a standardized execution environment for Datalog encoding tests.
 ///
@@ -1250,33 +1250,52 @@ fn test_aliasing_transitivity() -> Result<(), DatalogError> {
     Ok(())
 }
 
-/// # Objective
-/// Verify that equality between a variable and a constant (= ?v0 c99)
-/// correctly replaces the variable with the constant in other atoms.
 #[test]
 fn test_aliasing_variable_to_constant() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
 
-    // Logic: (AND (P10 ?v0) (= ?v0 c99))
+    // Logique: (AND (P10 ?v0) (= ?v0 c99))
     let v0 = builder.variable(0);
     let c99 = builder.constant(99);
 
+    // On crée le prédicat P10(?v0)
     let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
+    // On crée l'égalité (= ?v0 c99)
     let eq = builder.comparison(CompareOp::Equal, v0, c99);
+
+    // On groupe dans un AND
     let root = builder.and(vec![p10, eq]);
-
     builder.set_root(root)?;
-    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
-    let atom = result.expect("Should return the flattened atom");
+    // --- EXÉCUTION ---
+    // 1. extract_variable_aliases va trouver {v0 -> Constant(99)}
+    // 2. compute_transitive_closure va stabiliser la map
+    // 3. encode_expr va résoudre v0 en Constant(99) lors de la visite de P10
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?;
 
-    // Requirement: ?v0 should be replaced by Constant(99)
+    // --- VÉRIFICATIONS ---
+
+    // 1. Le résultat doit être Some car l'unification est possible
+    let atom = result.expect("Should return an atom, not None (False)");
+
+    // 2. L'ID du prédicat doit être 10 (P10)
+    // L'égalité (= ?v0 c99) a dû être filtrée par le AND car elle est devenue triviale
+    // (ou consommée par l'aliasing) et il ne reste qu'un seul atome.
+    assert_eq!(atom.skeleton_id().as_usize(), 10);
+
+    // 3. LE POINT CLÉ : ?v0 doit avoir été remplacé par Constant(99)
+    // On vérifie que resolve_var() a bien injecté la constante dans l'atome P10
     match &atom.terms()[0] {
         Term::Constant(id) => assert_eq!(id.as_usize(), 99),
-        _ => panic!("Variable ?v0 should have been replaced by Constant 99"),
+        Term::Variable(v) => panic!("Should be Constant(99), but found Variable({:?})", v),
     }
+
+    // 4. Aucune règle auxiliaire ne doit être créée
+    // Puisqu'il ne reste qu'un atome (P10) après filtrage de l'égalité,
+    // le AND renvoie directement l'atome sans créer de règle "Aux :- P10".
+    assert_eq!(rules.len(), 0, "Should not create auxiliary rules for a single atom");
 
     Ok(())
 }
@@ -1292,16 +1311,34 @@ fn test_trivial_self_equality() -> Result<(), DatalogError> {
 
     // Logic: (AND (P10 ?v0) (= ?v0 ?v0))
     let v0 = builder.variable(0);
+    // On crée l'atome P10(?v0)
     let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
+    // On crée l'égalité triviale ?v0 = ?v0
     let eq = builder.comparison(CompareOp::Equal, v0, v0);
+
+    // On regroupe dans un AND
     let root = builder.and(vec![p10, eq]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?;
 
-    assert!(result.is_some(), "Should encode correctly despite trivial equality");
-    let atom = result.unwrap();
-    assert_eq!(atom.skeleton_id().as_usize(), 10);
+    // 1. Le résultat doit être Some(Atom).
+    // Si le AND avait échoué à cause de l'égalité, il aurait renvoyé None.
+    let atom = result.expect("Should encode correctly despite trivial equality");
+
+    // 2. L'atome retourné doit être P10 (ID 10).
+    // Ton bloc ExprKind::And filtre les égalités où terms[0] == terms[1].
+    // Comme il ne reste que P10, le AND renvoie cet atome directement sans créer d'auxiliaire.
+    assert_eq!(atom.skeleton_id().as_usize(), 10, "The trivial equality should have been filtered out by the AND");
+
+    // 3. On vérifie les termes de l'atome restant pour être sûr que c'est bien P10(?v0)
+    match &atom.terms()[0] {
+        Term::Variable(v) => assert_eq!(v.as_usize(), 0),
+        _ => panic!("The remaining atom should be P10(?v0)"),
+    }
+
+    // 4. Aucune règle auxiliaire ne doit être créée.
+    // L'égalité (?v0 = ?v0) est True, elle disparait, il reste 1 seul atome, donc 0 règle.
     assert_eq!(rules.len(), 0, "No extra rules should be generated for trivial logic");
 
     Ok(())
@@ -1313,7 +1350,7 @@ fn test_aliasing_transitive_to_constant() -> Result<(), DatalogError> {
     let mut rules = Vec::new();
     let mut builder = ExprBuilder::new();
 
-    // Logic: (AND (P10 ?v2) (= ?v2 ?v1) (= ?v1 ?v0) (= ?v0 c99))
+    // Logique: (AND (P10 ?v2) (= ?v2 ?v1) (= ?v1 ?v0) (= ?v0 c99))
     let v0 = builder.variable(0);
     let v1 = builder.variable(1);
     let v2 = builder.variable(2);
@@ -1323,18 +1360,41 @@ fn test_aliasing_transitive_to_constant() -> Result<(), DatalogError> {
     let eq1 = builder.comparison(CompareOp::Equal, v2, v1);
     let eq2 = builder.comparison(CompareOp::Equal, v1, v0);
     let eq3 = builder.comparison(CompareOp::Equal, v0, c99);
+
+    // Le root est un AND de 4 éléments
     let root = builder.and(vec![p10, eq1, eq2, eq3]);
 
     builder.set_root(root)?;
-    let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
+    // L'encodeur va :
+    // 1. Extraire les alias : {v2: v1, v1: v0, v0: 99}
+    // 2. Résoudre transitivement : v2 -> 99
+    // 3. Encoder P10(?v2) qui devient P10(c99)
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?;
 
-    let atom = result.expect("Should return the flattened atom");
+    // --- VÉRIFICATIONS ---
 
-    // Requirement: ?v2 -> ?v1 -> ?v0 -> Constant(99)
+    // 1. Le résultat doit être Some(Atom). Si une étape avait échoué, on aurait None.
+    let atom = result.expect("Should return the flattened atom after transitive resolution");
+
+    // 2. Vérification de l'ID du prédicat (P10)
+    assert_eq!(atom.skeleton_id().as_usize(), 10);
+
+    // 3. VÉRIFICATION DE LA TRANSITIVITÉ : ?v2 doit être devenu Constant(99)
+    // C'est ici qu'on valide que resolve_var() est récursive ou que la map d'alias est complète.
     match &atom.terms()[0] {
-        Term::Constant(id) => assert_eq!(id.as_usize(), 99, "Transitivity should reach the constant"),
-        _ => panic!("Variable ?v2 should have been transitively resolved to Constant 99"),
+        Term::Constant(id) => {
+            assert_eq!(id.as_usize(), 99, "Transitivity v2 -> v1 -> v0 -> 99 failed");
+        },
+        Term::Variable(v) => {
+            panic!("Variable {:?} was not resolved. Resolve_var might be missing transitive steps.", v);
+        }
     }
+
+    // 4. Vérification de la propreté : aucune règle auxiliaire ne doit être créée.
+    // Les 3 égalités (eq1, eq2, eq3) deviennent toutes (c99 = c99) après résolution.
+    // Ton filtre dans le AND doit les supprimer toutes, ne laissant que P10.
+    // Comme il n'y a qu'un seul atome restant, le AND ne crée pas de règle "Aux :- P10".
+    assert_eq!(rules.len(), 0, "All equalities should be absorbed by aliasing, no aux rules needed");
 
     Ok(())
 }
@@ -1346,12 +1406,13 @@ fn test_aliasing_constant_conflict() -> Result<(), DatalogError> {
     let mut builder = ExprBuilder::new();
 
     // Logic: (AND (P10 ?v0) (= ?v0 c1) (= ?v0 c2))
-    // Sémantiquement, cette action est IMPOSSIBLE (v0 ne peut pas être c1 ET c2).
+    // Sémantiquement, c'est IMPOSSIBLE.
+    // ?v0 ne peut pas être unifié avec c1 ET c2 simultanément.
     let v0 = builder.variable(0);
     let c1 = builder.constant(1);
     let c2 = builder.constant(2);
 
-    let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
+    let p10 = builder.atomic_formula_with_skeleton(PredicateSymbolId::from(10), vec![v0], AtomSkeletonId::from(10));
     let eq1 = builder.comparison(CompareOp::Equal, v0, c1);
     let eq2 = builder.comparison(CompareOp::Equal, v0, c2);
     let root = builder.and(vec![p10, eq1, eq2]);
@@ -1359,13 +1420,270 @@ fn test_aliasing_constant_conflict() -> Result<(), DatalogError> {
     builder.set_root(root)?;
     let result = encoder.encode_preconditions(&builder.finish(), &mut rules, &params)?;
 
-    let atom = result.expect("Should return an atom");
+    // --- CORRECTION ICI ---
+    // Si ton encodeur détecte le conflit, il renvoie None.
+    // C'est un comportement valide pour une précondition impossible.
+    assert!(result.is_none(), "Un conflit de constantes doit retourner None (logique fausse)");
+    assert!(rules.is_empty(), "Aucune règle ne doit être générée pour une précondition impossible");
 
-    // Observation du comportement actuel :
-    if let Term::Constant(id) = &atom.terms()[0] {
-        println!("Comportement actuel : ?v0 est résolu en Constant({})", id.as_usize());
-        // Probablement 2 si c'est la dernière insertion qui gagne.
+    Ok(())
+}
+
+#[test]
+fn test_not_atomic_formula_triggers_error() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    // Logique : (NOT (P10 ?v0)) -> Doit échouer car pas en Positive Normal Form
+    let v0 = builder.variable(0);
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
+    let root = builder.not(p10);
+    builder.set_root(root)?;
+
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params);
+
+    match result {
+        Err(DatalogError::UnsupportedNode { kind, .. }) => {
+            assert_eq!(kind, ExprKind::AtomicFormula, "L'erreur doit pointer sur l'atome sous le NOT");
+        },
+        _ => panic!("Le NOT sur une formule atomique devrait être rejeté en descente"),
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_not_equal_becomes_inequality() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    // Logique : (NOT (= ?v0 ?v1))
+    let v0 = builder.variable(0);
+    let v1 = builder.variable(1);
+    let eq = builder.comparison(CompareOp::Equal, v0, v1);
+    let root = builder.not(eq);
+    builder.set_root(root)?;
+
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?;
+
+    let atom = result.expect("Devrait retourner un atome d'inégalité");
+    assert!(atom.is_equality(), "Doit être une égalité");
+    assert!(atom.is_negated(), "Le flag negated doit être true (représentant !=)");
+
+    Ok(())
+}
+
+#[test]
+fn test_not_of_constant_conflict_is_true() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    // Logique : (NOT (= c1 c2)) où c1 != c2  => Toujours Vrai
+    let c1 = builder.constant(1);
+    let c2 = builder.constant(2);
+    let eq = builder.comparison(CompareOp::Equal, c1, c2);
+    let root = builder.not(eq);
+    builder.set_root(root)?;
+
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?;
+
+    let atom = result.expect("Le NOT d'un faux constant est vrai");
+    // Ton code renvoie une tautologie (v0 = v0) pour signifier "True"
+    assert!(atom.is_equality());
+    let terms = atom.terms();
+    assert_eq!(terms[0], terms[1], "Doit être une tautologie (v0=v0) pour marquer le succès");
+
+    Ok(())
+}
+
+#[test]
+fn test_not_ignored_in_effects() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    // Cause : Action A
+    let action_atom = Atom::new(AtomSkeletonId::from(100), vec![]);
+
+    // Effet : (AND (P10) (NOT (P20)))
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![], 10);
+    let p20 = builder.atomic_formula_with_skeleton(20, vec![], 20);
+    let not_p20 = builder.not(p20);
+    let root = builder.and(vec![p10, not_p20]);
+    builder.set_root(root)?;
+
+    encoder.encode_effects(&builder.finish(), &action_atom, &mut rules, &params)?;
+
+    // On ne doit avoir qu'une seule règle : P10 :- ActionA
+    // Le (NOT P20) doit avoir été sauté par le match kind { ExprKind::Not => continue }
+    assert_eq!(rules.len(), 1, "Seul l'effet positif P10 doit produire une règle");
+    assert_eq!(rules[0].head().skeleton_id().as_usize(), 10);
+
+    Ok(())
+}
+
+#[test]
+fn test_and_preserves_inequality_but_filters_tautology() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    // Logique : (AND (P10) (= ?v0 ?v0) (NOT (= ?v0 ?v1)))
+    // 1. P10 -> Gardé
+    // 2. ?v0 = ?v0 -> Tautologie -> Filtré
+    // 3. ?v0 != ?v1 -> Inégalité -> Gardé
+    let v0 = builder.variable(0);
+    let v1 = builder.variable(1);
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![], 10);
+    let eq_triv = builder.comparison(CompareOp::Equal, v0, v0);
+    let eq = builder.comparison(CompareOp::Equal, v0, v1);
+    let ineq = builder.not(eq);
+
+    let root = builder.and(vec![p10, eq_triv, ineq]);
+    builder.set_root(root)?;
+
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?;
+
+    // Le résultat sera un prédicat auxiliaire car il reste 2 atomes (P10 et !=)
+    let head = result.expect("Devrait produire une règle auxiliaire");
+    assert_eq!(rules.len(), 1);
+
+    let body = &rules[0].body();
+    assert_eq!(body.len(), 2, "Doit contenir P10 et l'inégalité. La tautologie a dû être filtrée.");
+
+    let has_inequality = body.iter().any(|a| a.is_negated());
+    assert!(has_inequality, "L'inégalité (!=) doit être présente dans le corps de la règle");
+
+    Ok(())
+}
+
+#[test]
+fn test_or_with_not_conflict_ignored() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    // Construction des composants
+    let c1 = builder.constant(1);
+    let p10 = builder.atomic_formula_with_skeleton(10, vec![], 10);
+    let eq_triv = builder.comparison(CompareOp::Equal, c1, c1);
+    let not_true = builder.not(eq_triv);
+
+    // On crée les deux racines possibles
+    let root_and = builder.and(vec![p10, not_true]);
+    let root_or = builder.or(vec![p10, not_true]);
+
+    // On finalise l'expression (contient les deux arbres)
+    let expr = builder.finish();
+
+    // A. Test du bloc AND : le NOT(True) doit faire échouer tout le bloc
+    let result_and = encoder.encode_expr(&expr, root_and, &mut rules, &params)?;
+    assert!(result_and.is_none(), "Le AND devrait être None car une branche est NOT(True)");
+
+    // B. Test du bloc OR : la branche NOT(True) est ignorée, P10 survit
+    let result_or = encoder.encode_expr(&expr, root_or, &mut rules, &params)?;
+
+    let atom = result_or.expect("Le OR devrait survivre grâce à P10");
+    assert_eq!(atom.skeleton_id().as_usize(), 10);
+    assert_eq!(rules.len(), 0, "Pas de règle auxiliaire car une seule branche est restée valide");
+
+    Ok(())
+}
+
+#[test]
+fn test_not_equal_variable_constant() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    let v0 = builder.variable(0);
+    let c1 = builder.constant(1);
+    let eq = builder.comparison(CompareOp::Equal, v0, c1);
+    let root = builder.not(eq);
+    builder.set_root(root)?;
+
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?;
+
+    let atom = result.expect("Devrait retourner Some");
+    assert!(atom.is_negated(), "Doit être une inégalité (?v0 != c1)");
+    let terms = atom.terms();
+    assert!(matches!(terms[0], Term::Variable(_)));
+    assert!(matches!(terms[1], Term::Constant(_)));
+
+    Ok(())
+}
+
+#[test]
+fn test_double_not_is_rejected_as_non_pnf() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    let v0 = builder.variable(0);
+    let v1 = builder.variable(1);
+    let eq = builder.comparison(CompareOp::Equal, v0, v1);
+
+    // Construction de NOT(NOT(= ?v0 ?v1))
+    let not_inner = builder.not(eq);
+    let root = builder.not(not_inner);
+    builder.set_root(root)?;
+
+    // On exécute l'encodage
+    let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params);
+
+    // On vérifie que cela produit bien une erreur UnsupportedNode pour le type 'Not'
+    // car le premier NOT s'attend à une Comparison, pas à un autre NOT.
+    match result {
+        Err(DatalogError::UnsupportedNode { kind, .. }) => {
+            assert_eq!(kind, ExprKind::Not, "L'erreur doit porter sur le nœud Not imbriqué");
+        },
+        _ => panic!("L'encodeur devrait rejeter le double NOT comme non-PNF"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_not_does_not_create_aliases() -> Result<(), DatalogError> {
+    let (mut encoder, params) = setup_env();
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
+
+    // 1. On crée les IDs de variables (ceux qu'on passera à resolve_var)
+    let var_id0 = VariableId::from(0);
+    let var_id1 = VariableId::from(1);
+    let var_id2 = VariableId::from(2);
+
+    // 2. On crée les nœuds pour l'expression
+    let v0 = builder.variable(var_id0);
+    let v1 = builder.variable(var_id1);
+    let v2 = builder.variable(var_id2);
+
+    // Expression : (AND (= ?v1 ?v2) (NOT (= ?v1 ?v0)))
+    let alias = builder.comparison(CompareOp::Equal, v1, v2);
+    let eq = builder.comparison(CompareOp::Equal, v1, v0);
+    let ineq = builder.not(eq);
+    let root = builder.and(vec![alias, ineq]);
+    builder.set_root(root)?;
+
+    // 3. On lance l'encodage (qui va remplir encoder.current_aliases)
+    let _ = encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?;
+
+    // 4. On vérifie en utilisant les VariableId directs
+    assert_eq!(
+        encoder.resolve_var(var_id1),
+        encoder.resolve_var(var_id2),
+        "v1 et v2 doivent être liés car ils sont dans une égalité positive"
+    );
+
+    assert_ne!(
+        encoder.resolve_var(var_id1),
+        encoder.resolve_var(var_id0),
+        "v1 et v0 ne doivent PAS être liés car leur égalité est sous un NOT"
+    );
 
     Ok(())
 }

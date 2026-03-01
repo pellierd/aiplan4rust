@@ -8,6 +8,3 @@ pub mod error;
 pub mod engine;
 
 pub mod tuple;
-
-#[cfg(test)]
-mod tests;

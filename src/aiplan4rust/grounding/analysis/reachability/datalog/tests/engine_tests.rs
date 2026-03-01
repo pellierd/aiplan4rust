@@ -1,12 +1,12 @@
 use std::error::Error;
 use std::collections::HashSet;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
-use crate::aiplan4rust::grounding::analysis::reachability::datalog::engine::{DatalogEngine, MAX_VARS};
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::engine::DatalogEngine;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-// Ajuste ces imports selon tes chemins réels
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{Requirement, Type, TypedSymbol, VariableId, TypedList, AtomSkeletonId, ObjectId, ActionSymbolId};
+use crate::aiplan4rust::lang::{Requirement, Type, TypedSymbol, VariableId, TypedList, AtomSkeletonId, ObjectId, ActionSymbolId, CompareOp, TypeId};
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
@@ -663,34 +663,132 @@ fn test_diamond_join_consistency() {
     assert!(engine.db.contains_stable(sk_res, &[obj1, obj3]), "Le join en diamant a échoué");
 }
 
-/*#[test]
-fn test_engine_saturation_minimal() {
+#[test]
+fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
     let mut engine = DatalogEngine::new();
+    let problem = create_mock_problem_with_init()?;
 
-    // Config manuelle des segments pour le test
-    engine.fluence_threshold = 2; // 0: At, 1: Connected
+    // 1. Initialisation (Reset, Fluence Threshold, Encoder)
+    engine.load_problem(&problem)?;
+
+    // 2. Récupération des IDs réels du mock
+    // Note: Utilise les méthodes de ton LiftedProblem ou du SymbolInterner
+    let id_at = 0; // Dans ton mock, 'at' est le premier prédicat ajouté
     let sk_at = AtomSkeletonId::from(0);
-    let sk_conn = AtomSkeletonId::from(1);
+    let type_loc_id = 3; // Selon tes tests précédents (fluence_threshold=2 + types)
+    let id_robot = ObjectId::from(0);
+    let id_room_a = ObjectId::from(1);
+    let id_room_b = ObjectId::from(2);
 
-    let robot = ObjectId::from(100);
-    let loc_a = ObjectId::from(1);
-    let loc_b = ObjectId::from(2);
+    // 3. Construction de la règle de test via l'ExprBuilder
+    let mut builder = ExprBuilder::new();
+    let mut rules = Vec::new();
 
-    // 1. État Initial
-    engine.db.insert_stable_fact(sk_at, &[robot, loc_a]);
-    engine.db.insert_stable_fact(sk_conn, &[loc_a, loc_b]);
+    let v0 = builder.variable(VariableId::from(0));
+    let v1 = builder.variable(VariableId::from(1));
+    let c_robot = builder.constant(id_robot);
 
-    // 2. Création de la règle : At(?r, ?to) :- At(?r, ?from), Connected(?from, ?to)
-    let head = Atom::new(sk_at, vec![Term::Variable(VariableId::from(0)), Term::Variable(VariableId::from(2))]);
-    let body = vec![
-        Atom::new(sk_at, vec![Term::Variable(VariableId::from(0)), Term::Variable(VariableId::from(1))]),
-        Atom::new(sk_conn, vec![Term::Variable(VariableId::from(1)), Term::Variable(VariableId::from(2))]),
-    ];
-    engine.rules.push(Rule::new(head, body));
+    // (AND (at robot ?v0) (NOT (= ?v0 ?v1)))
+    // (AND (at robot ?v0) (location ?v1) (NOT (= ?v0 ?v1)))
+    let type_loc_id = 3;
+    let atom_at = builder.atomic_formula_with_skeleton(id_at, vec![c_robot, v0], sk_at);
+    let atom_type_v1 = builder.atomic_formula_with_skeleton(
+        type_loc_id,
+        vec![v1],
+        AtomSkeletonId::from(type_loc_id)
+    ); // Borne v1 !
+    let eq = builder.comparison(CompareOp::Equal, v0, v1);
+    let not_eq = builder.not(eq);
 
-    // 3. Exécution
+    let root = builder.and(vec![atom_at, atom_type_v1, not_eq]);
+    builder.set_root(root)?;
+
+    // 4. Encodage via l'encodeur de l'engine (qui connaît déjà le threshold)
+    let mut params = TypedList::new();
+    params.push(TypedSymbol::new(VariableId::from(0), Type::primitive(TypeId::from(type_loc_id))));
+    params.push(TypedSymbol::new(VariableId::from(1), Type::primitive(TypeId::from(type_loc_id))));
+
+    let head_atom = engine.encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?.unwrap();
+    engine.rules.extend(rules);
+
+    // 5. Injection des faits de test dans la Database
+    // On place le robot en Room_A
+    engine.db.insert_delta_fact(sk_at, &[id_robot, id_room_a]);
+
+    // On déclare Room_A et Room_B comme étant des locations (TypeId 3)
+    let sk_loc = AtomSkeletonId::from(type_loc_id);
+    engine.db.insert_delta_fact(sk_loc, &[id_room_a]);
+    engine.db.insert_delta_fact(sk_loc, &[id_room_b]);
+
+    // 6. Run !
     engine.run();
 
-    // 4. Vérification : Le fait At(Robot, LocB) doit exister
-    assert!(engine.db.contains_stable(sk_at, &[robot, loc_b]), "Le robot aurait dû se déplacer vers LocB");
-}*/
+    // 7. Vérification finale
+    let aux_sk = head_atom.skeleton_id();
+
+    // Le moteur doit trouver (Room_A, Room_B)
+    assert!(
+        engine.db.contains_stable(aux_sk, &[id_room_a, id_room_b]),
+        "L'inégalité v0 != v1 aurait dû permettre de déduire (room_a, room_b)"
+    );
+
+    // Le moteur ne doit PAS trouver (Room_A, Room_A)
+    assert!(
+        !engine.db.contains_stable(aux_sk, &[id_room_a, id_room_a]),
+        "L'inégalité v0 != v1 aurait dû bloquer la déduction de (room_a, room_a)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_ground_action_extraction() -> Result<(), Box<dyn Error>> {
+    let mut engine = DatalogEngine::new();
+    let problem = create_mock_problem_with_init()?;
+
+    // 1. Chargement et exécution
+    engine.load_problem(&problem)?;
+    engine.run();
+
+    // 2. Extraction des actions que le moteur a jugé "atteignables"
+    // Cette méthode utilise ton action_threshold pour filtrer les faits
+    let reachable_actions = engine.get_reachable_actions();
+
+    // 3. VÉRIFICATIONS ÉLÉMENTAIRES
+    // Dans le mock, on a : (at robot room_a) et (connected room_a room_b)
+    // L'action move(robot, room_a, room_b) DOIT être là.
+    assert!(!reachable_actions.is_empty(), "Le moteur aurait dû trouver au moins une action valide");
+
+    // 4. VÉRIFICATION PRÉCISE DES PARAMÈTRES
+    let id_robot = {
+        let sym = problem.interner().lookup_symbol("robot").ok_or("Symbol robot not found")?;
+        problem.object_symbol().try_get_id(&sym)? // C'est déjà un Result !
+    };
+
+    let id_room_a = {
+        let sym = problem.interner().lookup_symbol("room_a").ok_or("Symbol room_a not found")?;
+        problem.object_symbol().try_get_id(&sym)?
+    };
+
+    let id_room_b = {
+        let sym = problem.interner().lookup_symbol("room_b").ok_or("Symbol room_b not found")?;
+        problem.object_symbol().try_get_id(&sym)?
+    };
+
+    let found_move = reachable_actions.iter().any(|action| {
+        // L'ordre des paramètres dans ton mock est : [robot, from, to]
+        action.args() == &[id_robot, id_room_a, id_room_b]
+    });
+
+    assert!(found_move, "L'action instanciée move(robot, room_a, room_b) est manquante");
+
+    // 5. VÉRIFICATION DU "NOT" (Inégalité)
+    let invalid_move = reachable_actions.iter().any(|action| {
+        // move(robot, room_a, room_a) ne doit jamais être généré
+        action.args() == &[id_robot, id_room_a, id_room_a]
+    });
+
+    assert!(!invalid_move, "Le grounder a généré une action move(a, a) malgré l'inégalité");
+
+    Ok(())
+}

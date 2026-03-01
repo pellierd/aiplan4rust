@@ -33,7 +33,7 @@ pub struct DatalogEngine {
     fluence_threshold: usize,
     type_threshold: usize,
     action_threshold: usize,
-
+    builtin_threshold: usize
 }
 
 impl DatalogEngine {
@@ -52,6 +52,7 @@ impl DatalogEngine {
             fluence_threshold: 0,
             type_threshold: 0,
             action_threshold: 0,
+            builtin_threshold: 0,
         }
     }
 
@@ -167,6 +168,15 @@ impl DatalogEngine {
         self.declare_action_as_predicates(problem.action_defs());
         self.action_threshold = self.type_threshold + problem.action_defs().len();
 
+        // 4. Seuil des Auxiliaires (Nouveau & Simplifié)
+        // Puisque l'égalité est une constante (0xFFFF_FC00),
+        // les auxiliaires peuvent commencer immédiatement après les actions.
+        self.builtin_threshold = self.action_threshold;
+
+        // On informe l'encodeur de ce point de départ pour ses IDs générés.
+        // L'encodeur utilisera Atom::EQUALITY_ID pour les comparaisons de manière autonome.
+        self.encoder.reset_with_start_id(self.builtin_threshold);
+
         // 4. Problem Data Ingestion
         // Populate the Database with concrete facts.
 
@@ -222,11 +232,15 @@ impl DatalogEngine {
         ActionDefId::from(id_val - self.type_threshold)
     }
 
-    /// Vérifie si un ID est un prédicat auxiliaire (créé lors de la compilation).
+    #[inline]
+    pub fn is_builtin(&self, id: usize) -> bool {
+        id >= Atom::BUILTIN_ZONE_START
+    }
+
     #[inline]
     pub fn is_auxiliary(&self, id: usize) -> bool {
-        // Tout ce qui dépasse le dernier seuil fixé
-        id >= self.action_threshold
+        // Un auxiliaire est entre le seuil des actions et la zone réservée
+        id >= self.builtin_threshold && id < Atom::BUILTIN_ZONE_START
     }
 
     fn declare_types_as_unary_predicates(&mut self, type_defs: &[TypedSymbol<TypeId, TypeId>]) {
@@ -511,19 +525,57 @@ impl DatalogEngine {
             return;
         }
 
-        let sk_id = rule.body()[body_idx].skeleton_id();
+        let atom = &rule.body()[body_idx];
+        let sk_id = atom.skeleton_id();
 
+        // --- NOUVEAU : Gestion des Built-ins (Filtres) ---
+        if self.is_builtin(sk_id.as_usize()) {
+            // L'égalité n'est jamais un pivot car elle n'est pas dans la DB.
+            // On l'exécute simplement comme un test.
+            if self.execute_builtin(atom) {
+                self.process_incremental(rule, body_idx + 1, pivot_idx);
+            }
+            return;
+        }
+
+        // --- Logique existante pour les relations standards ---
         if body_idx < pivot_idx {
-            // Avant le pivot : Uniquement dans le STABLE
             self.match_relation(rule, body_idx, pivot_idx, sk_id, false);
         } else if body_idx == pivot_idx {
-            // Le pivot : Uniquement dans le DELTA
             self.match_relation(rule, body_idx, pivot_idx, sk_id, true);
         } else {
-            // Après le pivot : Dans les DEUX (Stable ET Delta)
-            // On fait deux appels successifs pour couvrir toute la connaissance actuelle
-            self.match_relation(rule, body_idx, pivot_idx, sk_id, false); // Stable
-            self.match_relation(rule, body_idx, pivot_idx, sk_id, true);  // Delta
+            self.match_relation(rule, body_idx, pivot_idx, sk_id, false);
+            self.match_relation(rule, body_idx, pivot_idx, sk_id, true);
+        }
+    }
+
+    fn execute_builtin(&self, atom: &Atom) -> bool {
+        // On suppose que l'ID de l'égalité est Atom::EQUALITY_ID
+        if atom.skeleton_id().as_usize() == Atom::EQUALITY_ID {
+            let terms = atom.terms();
+            let val_a = self.get_term_value(&terms[0]);
+            let val_b = self.get_term_value(&terms[1]);
+
+            match (val_a, val_b) {
+                (Some(a), Some(b)) => {
+                    let is_equal = a == b;
+                    // Si l'atome est négatif (NOT =), on retourne true si les valeurs sont différentes
+                    if atom.is_negated() { !is_equal } else { is_equal }
+                }
+                _ => {
+                    // Si les variables ne sont pas encore liées, le filtre échoue (Datalog est strict)
+                    false
+                }
+            }
+        } else {
+            true
+        }
+    }
+
+    fn get_term_value(&self, term: &Term) -> Option<ObjectId> {
+        match term {
+            Term::Constant(c) => Some(*c),
+            Term::Variable(v) => self.current_env[v.as_usize()],
         }
     }
 
@@ -724,15 +776,18 @@ impl DatalogEngine {
 
     /// Retourne la priorité de tri pour l'optimisation (plus bas = plus prioritaire).
     #[inline(always)]
-    fn get_predicate_priority(&self, id: usize) -> u8 {
-        if self.is_type(id) {
-            0 // Les types filtrent le plus, on les veut en premier.
+    pub fn get_predicate_priority(&self, id: usize) -> u8 {
+        // On teste d'abord si c'est un Built-in car c'est un ID très spécifique
+        if self.is_builtin(id) {
+            3
+        } else if self.is_type(id) {
+            0
         } else if self.is_fluent(id) {
-            1 // Les fluents (At, On) sont la base de l'état.
+            1
         } else if self.is_action(id) {
-            2 // L'action elle-même sert de pivot.
+            2
         } else {
-            3 // Les auxiliaires sont évalués en dernier (coût potentiel élevé).
+            4 // Forcément un auxiliaire (puisque id < BUILTIN_ZONE_START)
         }
     }
 

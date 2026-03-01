@@ -309,3 +309,7 @@ impl std::fmt::Display for Database {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/database_tests.rs"]
+mod database_tests;
