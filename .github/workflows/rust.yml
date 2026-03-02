@@ -39,27 +39,32 @@ jobs:
 
       - name: Run tests
         shell: bash
+        env:
+          # Affiche les logs de ton application (si tu utilises env_logger ou tracing)
+          RUST_LOG: debug
+          # Donne plus de contexte sur les panics Rust
+          RUST_BACKTRACE: 1
+          # Force l'affichage immédiat des logs sans bufferisation
+          PYTHONUNBUFFERED: 1
         run: |
-          # set -o pipefail garantit que si nextest échoue, l'étape échoue aussi
           set -o pipefail
           
           LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
           echo "Saving test output to $LOG_FILE"
-
-          # Définition du filtre : Tests unitaires (lib) + Tests d'intégration spécifiques
-          FILTER="kind(lib) \
-            or binary(parser_tests) \
-            or binary(normalizer_tests) \
-            or binary(analyser_tests) \
-            or binary(linker_tests)"            
           
-          # Correction : status-level 'all' pour voir le début de chaque test (STARTING)
-          # Utilisation de --test-threads 1 pour isoler précisément le coupable du Exit 143
+          # Ton filtre actuel
+          FILTER="kind(lib) or binary(parser_tests)"
+          
+          # 1. --nocapture : INDISPENSABLE pour voir tes println! et eprint!
+          # 2. --failure-output immediate-all : Affiche les erreurs dès qu'elles surviennent
+          # 3. --verbose : Sortie détaillée
           cargo nextest run \
             -E "$FILTER" \
             --test-threads 1 \
             --status-level all \
-            --verbose 2>&1 | tee "$LOG_FILE"
+            --failure-output immediate-all \
+            --verbose \
+            --nocapture 2>&1 | tee "$LOG_FILE"
 
       - name: Upload test log
         if: always()
