@@ -1,81 +1,75 @@
 use std::path::Path;
 use test_case::test_case;
 
-use aiplan4rust::LirEncoder;
 mod common;
-use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, get_file_stem_as_string};
+use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, find_associated_domain, get_test_files_for_mode, print_test_status};
 use crate::common::pipeline::{analyze_file, encode, link};
 
 /// Test the LIR Builder on all problems in a domain directory
 pub fn test_lir_builder_all_files(domain_dir: &Path) -> bool {
-    // 1. Nettoyage des anciens fichiers de diagnostic
+    let mut success = true;
+
+    // 1. Nettoyage global (ast, diag, linking et lir)
+    delete_all_files_with_extension(domain_dir, "diag");
+    delete_all_files_with_extension(domain_dir, "ast");
     delete_all_files_with_extension(domain_dir, "linking.diag");
     delete_all_files_with_extension(domain_dir, "lir.diag");
-    delete_all_files_with_extension(domain_dir, "ast");
-    delete_all_files_with_extension(domain_dir, "diag");
 
-    // 2. Collecte et tri des fichiers problèmes
+    // 2. Collecte & Filtrage via common (Swallow/Full)
     let all_files = collect_domain_files(domain_dir);
-    let mut problem_files = filter_problem_files(&all_files);
-    problem_files.sort_by_key(|p| p.file_name().map(|f| f.to_os_string()));
+    let all_problems = filter_problem_files(&all_files);
+    let total_problems_available = all_problems.len();
 
-    let mut errors = Vec::new();
+    // Sélection selon le mode via ta fonction commune
+    let problems_to_process = get_test_files_for_mode(all_problems);
 
-    for problem_path in problem_files {
-        let problem_stem = get_file_stem_as_string(&problem_path);
-        let mut success_flag = true; // Pour satisfaire la signature de analyze_file
+    for problem_path in &problems_to_process {
+        // Identification du domaine (gère .hddl et .pddl automatiquement)
+        let domain_path = match find_associated_domain(problem_path) {
+            Some(path) => path,
+            None => {
+                eprintln!("\x1b[1;31mError:\x1b[0m No domain found for {}", problem_path.display());
+                success = false;
+                continue;
+            }
+        };
 
-        // 3. Identification du domaine correspondant
-        let domain_path1 = domain_dir.join("domain.hddl");
-        let domain_path2 = domain_dir.join(format!("{}-domain.hddl", problem_stem));
-        let domain_path = if domain_path2.exists() { domain_path2 } else { domain_path1 };
+        // --- PIPELINE JUSQU'AU LIR ---
 
-        if !domain_path.exists() {
-            errors.push(format!("No domain file found for {}", problem_path.display()));
-            continue;
-        }
-
-        // --- DÉBUT DE LA PIPELINE ---
-
-        // Stage 1: Analyse Sémantique (Domain & Problem)
-        let domain_ana = analyze_file(&domain_path, "domain", &mut success_flag);
-        let problem_ana = analyze_file(&problem_path, "problem", &mut success_flag);
+        // Stage 1: Analyse Sémantique
+        // On passe &mut success pour que l'échec soit marqué si l'analyse échoue
+        let domain_ana = analyze_file(&domain_path, "domain", &mut success);
+        let problem_ana = analyze_file(problem_path, "problem", &mut success);
 
         let (d_res, p_res) = match (domain_ana, problem_ana) {
             (Some(d), Some(p)) => (d, p),
             _ => {
-                errors.push(format!("Analysis failed for domain/problem pair: {}", problem_stem));
+                success = false;
                 continue;
             }
         };
 
         // Stage 2: Linking
-        let linking_result = match link(d_res, p_res, &domain_path, &problem_path) {
+        let linking_result = match link(d_res, p_res, &domain_path, problem_path) {
             Some(res) => res,
             None => {
-                errors.push(format!("Linking failed for problem: {}", problem_path.display()));
+                eprintln!("\x1b[1;31mLinking failed\x1b[0m for {}", problem_path.display());
+                success = false;
                 continue;
             }
         };
 
         // Stage 3: LIR Encoding
-        match encode(linking_result, &domain_path, &problem_path) {
-            Some(_) => {
-                // Succès : le fichier .lir.diag a été écrit par encode()
-            }
-            None => {
-                errors.push(format!("LIR Encoding produced no result for {}", problem_path.display()));
-            }
+        if encode(linking_result, &domain_path, problem_path).is_none() {
+            eprintln!("\x1b[1;31mLIR Encoding failed\x1b[0m for {}", problem_path.display());
+            success = false;
         }
     }
 
-    // 4. Rapport final
-    if errors.is_empty() {
-        true
-    } else {
-        eprintln!("\n==== LIR BUILDER ERRORS ====\n{}\n============================\n", errors.join("\n\n"));
-        false
-    }
+    // 4. Rapport de statut unifié (Cyan en Swallow, Vert en Full)
+    print_test_status(problems_to_process.len(), total_problems_available, domain_dir);
+
+    success
 }
 
 /// Integration test for LIR Builder on benchmark directories

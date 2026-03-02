@@ -630,3 +630,74 @@ pub fn write_linking_diag_to_file(
         .write_all(&buffer)
         .unwrap_or_else(|_| panic!("Failed to write linking diagnostics to file: {}", diag_path.display()));
 }
+
+/// Writes LIR encoding diagnostics to a `.lir.diag` file next to the given problem file.
+///
+/// This function collects diagnostics from the [`DiagnosticManager`] during the LIR
+/// (Low-level Intermediate Representation) encoding phase and writes them to a
+/// human-readable text file. The output file is named after the problem file
+/// with the suffix `.lir.diag`.
+///
+/// # Parameters
+///
+/// - `diagnostic_manager`: A reference to the [`DiagnosticManager`] holding the diagnostics to output.
+/// - `interner`: A reference to the [`SymbolInterner`] used to resolve symbol identifiers.
+/// - `domain_path`: Path to the domain file (for display purposes).
+/// - `problem_path`: Path to the problem file. The output file will be written in the same directory.
+/// - `context`: A user-defined label or description (e.g., "LIR Encoding Stage").
+///
+/// # Output
+///
+/// A file named `<problem_stem>.lir.diag` will be created.
+pub fn write_lir_diag_to_file(
+    diagnostic_manager: &DiagnosticManager,
+    interner: &SymbolInterner,
+    domain_path: &Path,
+    problem_path: &Path,
+    context: &str,
+) {
+    // Build a filename like "<problem>.lir.diag"
+    let problem_stem = problem_path.file_stem().unwrap_or_default();
+
+    let file_name = format!(
+        "{}.lir.diag",
+        problem_stem.to_string_lossy()
+    );
+
+    let diag_path = problem_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(file_name);
+
+    let mut diag_file = File::create(&diag_path)
+        .unwrap_or_else(|_| panic!("Failed to create LIR diagnostic file: {}", diag_path.display()));
+
+    let timestamp = Utc::now();
+    let header = format!(
+        "********************************************************************************\n\
+         *                               LIR DIAGNOSTICS                                *\n\
+         ********************************************************************************\n\
+         Context:      {}\n\
+         Domain file:  {}\n\
+         Problem file: {}\n\
+         UTC:          {}\n\
+         ********************************************************************************\n\n",
+        context,
+        domain_path.display(),
+        problem_path.display(),
+        timestamp.to_rfc3339(),
+    );
+
+    diag_file
+        .write_all(header.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write header to LIR diagnostic file: {}", diag_path.display()));
+
+    // Convert diagnostics to a string using the Renderer
+    let mut buffer = Vec::new();
+    Renderer::write_to(diagnostic_manager, interner, &mut buffer, false)
+        .expect("Failed to write diagnostics");
+
+    diag_file
+        .write_all(&buffer)
+        .unwrap_or_else(|_| panic!("Failed to write LIR diagnostics to file: {}", diag_path.display()));
+}

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::common::io::{get_file_stem_as_string, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_symbol_table_to_file};
+use crate::common::io::{write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_lir_diag_to_file, write_symbol_table_to_file};
 use aiplan4rust::aiplan4rust::linking::LinkerResult;
 use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
 use aiplan4rust::aiplan4rust::syntax::{ParserResult, SyntaxDisplay};
@@ -522,25 +522,37 @@ pub fn encode(
     // 3. Execute encoding
     match lir_builder.encode(linked_context) {
         Ok(result) => {
-            let problem_stem = get_file_stem_as_string(problem_path);
-            let domain_dir = problem_path.parent().expect("Failed to get problem directory");
-            let diag_path = domain_dir.join(format!("{}.lir.diag", problem_stem));
+            // Utilisation de la nouvelle fonction de diagnostic factorisée
+            write_lir_diag_to_file(
+                result.diagnostic_manager(),
+                result.interner(),
+                domain_path,
+                problem_path,
+                "LIR Encoding Stage",
+            );
 
-            // Write LIR diagnostics to file
-            if let Err(e) = std::fs::write(&diag_path, result.diagnostic_manager().to_string()) {
-                eprintln!("Failed to write LIR diagnostics for {}: {}", problem_path.display(), e);
+            // Vérification de la présence d'erreurs critiques
+            if result.diagnostic_manager().has_diagnostics_of_severity(Severity::Error) {
+                eprintln!(
+                    "LIR Encoding reported errors for file {}",
+                    problem_path.display()
+                );
+                return None;
             }
 
             // Ensure a lifted problem was actually produced
             if result.lifted_problem().is_none() {
-                eprintln!("LIR Builder produced no lifted problem for {}", problem_path.display());
+                eprintln!(
+                    "LIR Builder produced no lifted problem for {}",
+                    problem_path.display()
+                );
                 return None;
             }
 
             Some(result)
         }
         Err(e) => {
-            eprintln!("LIR Builder error for {}: {}", problem_path.display(), e);
+            eprintln!("LIR Builder fatal error for {}: {}", problem_path.display(), e);
             None
         }
     }
