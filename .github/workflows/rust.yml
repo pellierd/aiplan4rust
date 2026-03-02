@@ -53,12 +53,12 @@ jobs:
             or binary(analyser_tests) \
             or binary(linker_tests)"            
           
-          # Utilisation de --status-level extreme pour voir quel test "STARTING" ne finit jamais
+          # Correction : status-level 'all' pour voir le début de chaque test (STARTING)
           # Utilisation de --test-threads 1 pour isoler précisément le coupable du Exit 143
           cargo nextest run \
             -E "$FILTER" \
             --test-threads 1 \
-            --status-level extreme \
+            --status-level all \
             --verbose 2>&1 | tee "$LOG_FILE"
 
       - name: Upload test log
