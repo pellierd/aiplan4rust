@@ -53,7 +53,7 @@ pub mod encoding;
 mod passes;
 
 pub use encoder::LirEncoder;
-pub use result::Result as LirBuilderResult;
+pub use result::Result as LirEncoderResult;
 pub use error::LirError;
 use problem::{action, atomic_skeleton, initial_task_network, method, task_network};
 pub use problem::action::Action as ActionDef;

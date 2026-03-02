@@ -17,7 +17,7 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::linking::Linker;
-use crate::aiplan4rust::lir::{LirEncoder, LirBuilderResult};
+use crate::aiplan4rust::lir::{LirEncoder, LirEncoderResult};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::{Analyzer, AnalyzerResult};
 use crate::aiplan4rust::syntax::Parser;
@@ -145,7 +145,7 @@ impl Frontend {
         &self,
         domain_source: &Source,
         problem_source: &Source,
-    ) -> Result<LirBuilderResult, AiplanError> {
+    ) -> Result<LirEncoderResult, AiplanError> {
         // Step 1: Parse, normalize, and analyze both domain and problem files
         let domain = self.parse_from_raw_input(&domain_source)?;
         let problem = self.parse_from_raw_input(&problem_source)?;
@@ -166,7 +166,7 @@ impl Frontend {
             // Linking failed: return diagnostics and interner only
             let diagnostic_manager = linker_result.take_diagnostic_manager();
             let interner = linker_result.take_interner();
-            Ok(LirBuilderResult::failure(diagnostic_manager, interner))
+            Ok(LirEncoderResult::failure(diagnostic_manager, interner))
         }
     }
 
@@ -207,7 +207,7 @@ impl Frontend {
         &self,
         domain: &Source,
         problem: &Source,
-    ) -> Result<LirBuilderResult, AiplanError> {
+    ) -> Result<LirEncoderResult, AiplanError> {
         let lifted_domain = domain.parsed_content_owned()?;
         let lifted_problem = problem.parsed_content_owned()?;
 
@@ -228,7 +228,7 @@ impl Frontend {
             Ok(lir_result)
         } else {
             // Linking failed → return diagnostics
-            Ok(LirBuilderResult::failure(
+            Ok(LirEncoderResult::failure(
                 linker_result.take_diagnostic_manager(),
                 linker_result.take_interner(),
             ))

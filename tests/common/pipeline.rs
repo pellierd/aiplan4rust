@@ -466,3 +466,45 @@ pub fn link(
 
     Some(linker_result)
 }
+
+/*/// Transforme le résultat du linking en un artefact LIR (Datalog Encoding).
+pub fn encode_lir(
+    linker_result: LinkerResult,
+    domain_path: &Path,
+    problem_path: &Path,
+) -> Option<> {
+    // 1. On récupère le problème lifté (nécessaire pour l'encodage)
+    let lifted_problem = linker_result.lifted_problem()?;
+
+    // 2. Initialisation de l'encodeur LIR
+    let mut encoder = LirEncoder::new();
+
+    // 3. Tentative d'encodage
+    match encoder.encode(lifted_problem) {
+        Ok(lir_artefact) => {
+            // Optionnel : tu pourrais ici écrire le LIR dans un fichier .lir pour le debug
+            println!(
+                "\x1b[1;32mSuccess:\x1b[0m LIR encoded for {} ({} rules)",
+                problem_path.display(),
+                lir_artefact.rules().len()
+            );
+            Some(lir_artefact)
+        }
+        Err(e) => {
+            eprintln!(
+                "LIR Encoding failed for {} and {}: {}",
+                domain_path.display(),
+                problem_path.display(),
+                e
+            );
+            // On réutilise ta logique de log d'erreur
+            write_error_diagnostic_file_for_domain_and_problem(
+                domain_path,
+                problem_path,
+                "LIR Encoding Error",
+                &e.to_string(),
+            );
+            None
+        }
+    }
+}*/

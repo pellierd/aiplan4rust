@@ -18,4 +18,4 @@ pub use aiplan4rust::diagnostic::Severity;
 pub use aiplan4rust::validation::common::WellFormedError;
 pub use aiplan4rust::validation::syntax::check_well_formed;
 pub use aiplan4rust::lir::LirEncoder;
-pub use aiplan4rust::lir::LirBuilderResult;
+pub use aiplan4rust::lir::LirEncoderResult;

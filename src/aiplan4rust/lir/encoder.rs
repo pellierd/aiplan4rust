@@ -39,7 +39,7 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::{encoding, LirBuilderResult, LirError};
+use crate::aiplan4rust::lir::{encoding, LirEncoderResult, LirError};
 use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
 use crate::aiplan4rust::lir::passes::normalization;
 
@@ -127,13 +127,13 @@ impl LirEncoder {
     pub fn encode(
         &mut self,
         context: LinkedSemanticContext,
-    ) -> Result<LirBuilderResult, LirError> {
+    ) -> Result<LirEncoderResult, LirError> {
         // 1. Create a LiftedProblem from the linked semantic context
         let lifted_problem = encode_lifted_problem(context)?;
 
         // 2. Return the successful result containing the constructed LiftedProblem
         //    and the diagnostics collected during the build process
-        Ok(LirBuilderResult::success(
+        Ok(LirEncoderResult::success(
             lifted_problem,
             std::mem::take(&mut self.diagnostic_manager),
         ))
@@ -143,7 +143,7 @@ impl LirEncoder {
         &mut self,
         context: LinkedSemanticContext,
         diagnostic_manager: DiagnosticManager,
-    ) -> Result<LirBuilderResult, LirError> {
+    ) -> Result<LirEncoderResult, LirError> {
         self.diagnostic_manager = diagnostic_manager;
         self.encode(context)
     }
