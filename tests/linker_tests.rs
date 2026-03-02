@@ -3,7 +3,7 @@ use test_case::test_case;
 use std::path::{Path};
 
 mod common;
-use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, get_file_stem_as_string};
+use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, find_associated_domain, get_test_files_for_mode, print_test_status};
 use crate::common::pipeline::{link, analyze_file};
 
 /// Tests the linker on all problem files found in the given domain directory.
@@ -42,60 +42,44 @@ use crate::common::pipeline::{link, analyze_file};
 /// }
 /// ```
 pub fn test_linker_all_files(domain_dir: &Path) -> bool {
-    // Remove old diagnostic and AST files
-    delete_all_files_with_extension(domain_dir, "diag");
-    delete_all_files_with_extension(domain_dir, "ast");
-    common::io::delete_all_files_with_extension(domain_dir, "linking.diag");
-
-    // Collect all domain files
-    let all_files = collect_domain_files(domain_dir);
-    let mut problem_files = filter_problem_files(&all_files);
-    problem_files.sort_by_key(|p| p.file_name().map(|f| f.to_os_string()));
-
     let mut success = true;
 
-    for problem_path in problem_files {
-        let problem_stem = get_file_stem_as_string(&problem_path);
+    // 1. Nettoyage
+    delete_all_files_with_extension(domain_dir, "diag");
+    delete_all_files_with_extension(domain_dir, "linking.diag");
 
-        // Select domain file: either <problem>-domain.hddl or domain.hddl
-        let domain_path1 = domain_dir.join("domain.hddl");
-        let domain_path2 = domain_dir.join(format!("{}-domain.hddl", problem_stem));
-        let domain_path = if domain_path2.exists() {
-            domain_path2
-        } else if domain_path1.exists() {
-            domain_path1
-        } else {
-            eprintln!("No domain file found for problem: {}", problem_path.display());
-            success = false;
-            continue;
+    // 2. Collecte & Filtrage via common
+    let all_files = collect_domain_files(domain_dir);
+    let all_problems = filter_problem_files(&all_files);
+    let problems_to_process = get_test_files_for_mode(all_problems);
+
+    for problem_path in &problems_to_process {
+        let domain_path = match find_associated_domain(problem_path) {
+            Some(path) => path,
+            None => {
+                eprintln!("\x1b[1;31mError:\x1b[0m No domain found for {}", problem_path.display());
+                success = false;
+                continue;
+            }
         };
 
-        // Analyze domain file
-        let domain = match analyze_file(&domain_path, "domain", &mut success) {
+        // 3. Pipeline
+        let domain_ana = match analyze_file(&domain_path, "domain", &mut success) {
             Some(res) => res,
             None => continue,
         };
 
-        // Analyze problem file
-        let problem = match analyze_file(&problem_path, "problem", &mut success) {
+        let problem_ana = match analyze_file(problem_path, "problem", &mut success) {
             Some(res) => res,
             None => continue,
         };
 
-        // Perform linking (this function writes its own diagnostics)
-        let linking_result = link(domain, problem, &domain_path, &problem_path);
-
-        // Check for linking errors
-        if linking_result.is_none() {
-            eprintln!(
-                "Linking failed for problem {} and domain {}",
-                problem_path.display(),
-                domain_path.display()
-            );
+        if link(domain_ana, problem_ana, &domain_path, problem_path).is_none() {
             success = false;
         }
     }
 
+    print_test_status(problems_to_process.len(), filter_problem_files(&all_files).len(), domain_dir);
     success
 }
 

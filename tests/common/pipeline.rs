@@ -1,16 +1,12 @@
 #![allow(dead_code)]
 
-use crate::common::io::{
-    write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file,
-    write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file,
-    write_symbol_table_to_file,
-};
+use crate::common::io::{get_file_stem_as_string, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_symbol_table_to_file};
 use aiplan4rust::aiplan4rust::linking::LinkerResult;
 use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
 use aiplan4rust::aiplan4rust::syntax::{ParserResult, SyntaxDisplay};
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
-use aiplan4rust::{check_well_formed, Normalizer, Parser, Severity, AnalyzerResult};
+use aiplan4rust::{check_well_formed, Normalizer, Parser, Severity, AnalyzerResult, LirEncoderResult, LirEncoder};
 use std::path::Path;
 use aiplan4rust::aiplan4rust::artefact::Source;
 
@@ -467,44 +463,85 @@ pub fn link(
     Some(linker_result)
 }
 
-/*/// Transforme le résultat du linking en un artefact LIR (Datalog Encoding).
-pub fn encode_lir(
-    linker_result: LinkerResult,
+/// Performs LIR (Low-level Intermediate Representation) encoding from a linked context.
+///
+/// This function extracts the linked semantic context from a [`LinkerResult`],
+/// initializes the [`LirEncoder`], and generates the Datalog-based encoding
+/// required for the grounding engine.
+///
+/// # Parameters
+///
+/// - `linker_result`: The result of the semantic linking phase (contains the linked context).
+/// - `domain_path`: Path to the domain source file. Used for diagnostics and file resolution.
+/// - `problem_path`: Path to the problem source file. Used to name output diagnostic files.
+///
+/// # Returns
+///
+/// - `Some(LirEncoderResult)`: If encoding completes successfully and produces a valid
+///   lifted problem, even if warnings were reported.
+/// - `None`: If encoding fails, if the linker result contains no context, or if
+///   no lifted problem was produced.
+///
+/// # Behavior
+///
+/// - Takes ownership of the semantic context via [`LinkerResult::take_linked_semantic_context`].
+/// - All diagnostics generated during encoding are written to a `.lir.diag` file.
+/// - Verifies the presence of the lifted problem within the result; returns `None` if missing.
+///
+/// # Side Effects
+///
+/// Writes a diagnostic file to disk in the same directory as the problem:
+/// - `<problem>.lir.diag`: Contains all diagnostics from the LIR encoding process.
+///
+/// # Example
+///
+/// ```ignore
+/// let linker_result = link(domain_ana, prob_ana, &d_path, &p_path)?;
+/// let lir_result = encode(linker_result, &d_path, &p_path);
+///
+/// if let Some(res) = lir_result {
+///     println!("LIR encoding successful with {} rules.", res.rules().len());
+/// }
+/// ```
+///
+/// # See Also
+/// - [`LirEncoder`]
+/// - [`LirEncoderResult`]
+/// - [`LinkerResult`]
+pub fn encode(
+    mut linker_result: LinkerResult,
     domain_path: &Path,
     problem_path: &Path,
-) -> Option<> {
-    // 1. On récupère le problème lifté (nécessaire pour l'encodage)
-    let lifted_problem = linker_result.lifted_problem()?;
+) -> Option<LirEncoderResult> {
+    // 1. Extract the semantic context (consumes the linker success)
+    let linked_context = linker_result.take_linked_semantic_context()?;
 
-    // 2. Initialisation de l'encodeur LIR
-    let mut encoder = LirEncoder::new();
+    // 2. Initialize the LIR encoder
+    let mut lir_builder = LirEncoder::new();
 
-    // 3. Tentative d'encodage
-    match encoder.encode(lifted_problem) {
-        Ok(lir_artefact) => {
-            // Optionnel : tu pourrais ici écrire le LIR dans un fichier .lir pour le debug
-            println!(
-                "\x1b[1;32mSuccess:\x1b[0m LIR encoded for {} ({} rules)",
-                problem_path.display(),
-                lir_artefact.rules().len()
-            );
-            Some(lir_artefact)
+    // 3. Execute encoding
+    match lir_builder.encode(linked_context) {
+        Ok(result) => {
+            let problem_stem = get_file_stem_as_string(problem_path);
+            let domain_dir = problem_path.parent().expect("Failed to get problem directory");
+            let diag_path = domain_dir.join(format!("{}.lir.diag", problem_stem));
+
+            // Write LIR diagnostics to file
+            if let Err(e) = std::fs::write(&diag_path, result.diagnostic_manager().to_string()) {
+                eprintln!("Failed to write LIR diagnostics for {}: {}", problem_path.display(), e);
+            }
+
+            // Ensure a lifted problem was actually produced
+            if result.lifted_problem().is_none() {
+                eprintln!("LIR Builder produced no lifted problem for {}", problem_path.display());
+                return None;
+            }
+
+            Some(result)
         }
         Err(e) => {
-            eprintln!(
-                "LIR Encoding failed for {} and {}: {}",
-                domain_path.display(),
-                problem_path.display(),
-                e
-            );
-            // On réutilise ta logique de log d'erreur
-            write_error_diagnostic_file_for_domain_and_problem(
-                domain_path,
-                problem_path,
-                "LIR Encoding Error",
-                &e.to_string(),
-            );
+            eprintln!("LIR Builder error for {}: {}", problem_path.display(), e);
             None
         }
     }
-}*/
+}

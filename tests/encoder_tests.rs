@@ -4,17 +4,17 @@ use test_case::test_case;
 use aiplan4rust::LirEncoder;
 mod common;
 use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, get_file_stem_as_string};
-use crate::common::pipeline::{analyze_file, link};
+use crate::common::pipeline::{analyze_file, encode, link};
 
 /// Test the LIR Builder on all problems in a domain directory
 pub fn test_lir_builder_all_files(domain_dir: &Path) -> bool {
-    // Cleanup
-
+    // 1. Nettoyage des anciens fichiers de diagnostic
     delete_all_files_with_extension(domain_dir, "linking.diag");
     delete_all_files_with_extension(domain_dir, "lir.diag");
     delete_all_files_with_extension(domain_dir, "ast");
     delete_all_files_with_extension(domain_dir, "diag");
 
+    // 2. Collecte et tri des fichiers problèmes
     let all_files = collect_domain_files(domain_dir);
     let mut problem_files = filter_problem_files(&all_files);
     problem_files.sort_by_key(|p| p.file_name().map(|f| f.to_os_string()));
@@ -23,75 +23,53 @@ pub fn test_lir_builder_all_files(domain_dir: &Path) -> bool {
 
     for problem_path in problem_files {
         let problem_stem = get_file_stem_as_string(&problem_path);
+        let mut success_flag = true; // Pour satisfaire la signature de analyze_file
 
-        // Domain file
+        // 3. Identification du domaine correspondant
         let domain_path1 = domain_dir.join("domain.hddl");
         let domain_path2 = domain_dir.join(format!("{}-domain.hddl", problem_stem));
-        let domain_path = if domain_path2.exists() {
-            domain_path2
-        } else if domain_path1.exists() {
-            domain_path1
-        } else {
+        let domain_path = if domain_path2.exists() { domain_path2 } else { domain_path1 };
+
+        if !domain_path.exists() {
             errors.push(format!("No domain file found for {}", problem_path.display()));
             continue;
-        };
+        }
 
-        // Analyze domain
-        let domain = match analyze_file(&domain_path, "domain", &mut true) {
-            Some(r) => r,
-            None => {
-                errors.push(format!("Domain analysis failed for {}", domain_path.display()));
+        // --- DÉBUT DE LA PIPELINE ---
+
+        // Stage 1: Analyse Sémantique (Domain & Problem)
+        let domain_ana = analyze_file(&domain_path, "domain", &mut success_flag);
+        let problem_ana = analyze_file(&problem_path, "problem", &mut success_flag);
+
+        let (d_res, p_res) = match (domain_ana, problem_ana) {
+            (Some(d), Some(p)) => (d, p),
+            _ => {
+                errors.push(format!("Analysis failed for domain/problem pair: {}", problem_stem));
                 continue;
             }
         };
 
-        // Analyze problem
-        let problem = match analyze_file(&problem_path, "problem", &mut true) {
-            Some(r) => r,
+        // Stage 2: Linking
+        let linking_result = match link(d_res, p_res, &domain_path, &problem_path) {
+            Some(res) => res,
             None => {
-                errors.push(format!("Problem analysis failed for {}", problem_path.display()));
+                errors.push(format!("Linking failed for problem: {}", problem_path.display()));
                 continue;
             }
         };
 
-        // Linking
-        let mut linker_result = match link(domain, problem, &domain_path, &problem_path) {
-            Some(ctx) => ctx,
+        // Stage 3: LIR Encoding
+        match encode(linking_result, &domain_path, &problem_path) {
+            Some(_) => {
+                // Succès : le fichier .lir.diag a été écrit par encode()
+            }
             None => {
-                errors.push(format!("Linking failed for problem {} and domain {}", problem_path.display(), domain_path.display()));
-                continue;
-            }
-        };
-
-        // Extraire le LinkedSemanticContext du LinkerResult
-        let linked_context = match linker_result.take_linked_semantic_context() {
-            Some(ctx) => ctx,
-            None => {
-                errors.push(format!("Linking produced no LinkedSemanticContext for problem {}", problem_path.display()));
-                continue;
-            }
-        };
-
-        // LIR Builder
-        let mut lir_builder = LirEncoder::new();
-        match lir_builder.encode(linked_context) {
-            Ok(result) => {
-                if result.lifted_problem().is_none() {
-                    errors.push(format!("LIR Builder produced no lifted problem for {}", problem_path.display()));
-                }
-
-                // Optional: write diagnostics to a file
-                let diag_path = domain_dir.join(format!("{}.lir.diag", problem_stem));
-                if let Err(e) = std::fs::write(&diag_path, result.diagnostic_manager().to_string()) {
-                    eprintln!("Failed to write LIR diagnostics for {}: {}", problem_path.display(), e);
-                }
-            }
-            Err(e) => {
-                errors.push(format!("LIR Builder error for {}: {}", problem_path.display(), e));
+                errors.push(format!("LIR Encoding produced no result for {}", problem_path.display()));
             }
         }
     }
 
+    // 4. Rapport final
     if errors.is_empty() {
         true
     } else {
@@ -137,7 +115,7 @@ pub fn test_lir_builder_all_files(domain_dir: &Path) -> bool {
 #[test_case("tests/integration/hddl/ipc23/partial-order/ultralight-cockpit"; "ipc23_partial_order_ultralight_cockpit")]
 #[test_case("tests/integration/hddl/ipc23/partial-order/colouring"; "ipc23_partial_order_colouring")]
 #[test_case("tests/integration/hddl/ipc23/total-order/lamps"; "ipc23_total_order_lamps")]
-pub fn test_hddl_lir_builder(domain_path: &str) {
+pub fn test_hddl_encoder(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
         test_lir_builder_all_files(path),

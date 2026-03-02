@@ -182,6 +182,101 @@ pub fn delete_all_files_with_extension(root_dir: &Path, extension: &str) {
     }
 }
 
+/// Returns a filtered list of files based on the `FULL_TESTS` environment variable.
+/// In "Swallow" mode (default), it returns only the domain and the first problem.
+/// In "Full" mode, it returns all collected files.
+pub fn filter_files_by_mode(all_files: Vec<PathBuf>) -> Vec<PathBuf> {
+    let full_mode = std::env::var("FULL_TESTS").is_ok();
+
+    if full_mode {
+        all_files
+    } else {
+        let mut selection = Vec::new();
+
+        // 1. Identify the domain file (anything not starting with 'pb')
+        if let Some(df) = all_files.iter().find(|f| {
+            let name = f.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            !name.starts_with("pb")
+        }) {
+            selection.push(df.clone());
+        }
+
+        // 2. Identify the first problem file (starts with 'pb')
+        if let Some(pf) = all_files.iter().find(|f| {
+            let name = f.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            name.starts_with("pb")
+        }) {
+            selection.push(pf.clone());
+        }
+
+        selection
+    }
+}
+
+// Centralise la sélection des fichiers pour tous les tests d'intégration.
+/// - Mode Swallow (par défaut) : 1 domaine + 1 problème.
+/// - Mode Full (FULL_TESTS=1) : Tous les fichiers du répertoire.
+pub fn get_test_files_for_mode(all_files: Vec<PathBuf>) -> Vec<PathBuf> {
+    let full_mode = std::env::var("FULL_TESTS").is_ok();
+
+    if full_mode {
+        all_files
+    } else {
+        let mut selection = Vec::new();
+
+        // 1. Trouver le domaine (tout ce qui n'est pas un problème 'pb*')
+        if let Some(df) = all_files.iter().find(|f| {
+            let name = f.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            !name.starts_with("pb")
+        }) {
+            selection.push(df.clone());
+        }
+
+        // 2. Trouver le premier problème (commence par 'pb')
+        if let Some(pf) = all_files.iter().find(|f| {
+            let name = f.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            name.starts_with("pb")
+        }) {
+            selection.push(pf.clone());
+        }
+
+        selection
+    }
+}
+
+/// Helper to print a consistent status message in the console.
+pub fn print_test_status(count: usize, total: usize, dir: &Path) {
+    let full_mode = std::env::var("FULL_TESTS").is_ok();
+    if full_mode {
+        println!("\x1b[1;32m[Full Test]\x1b[0m Processed {} files in {}", count, dir.display());
+    } else {
+        println!("\x1b[1;36m[Swallow Test]\x1b[0m Tested {}/{} files in {}", count, total, dir.display());
+    }
+}
+
+/// Trouve le chemin du fichier domaine associé à un fichier problème.
+/// Supporte les extensions .hddl, .pddl, etc.
+/// Priorité : 1. <nom_du_pb>-domain.<ext> | 2. domain.<ext>
+pub fn find_associated_domain(problem_path: &Path) -> Option<PathBuf> {
+    let domain_dir = problem_path.parent()?;
+    let problem_stem = problem_path.file_stem()?.to_str()?;
+    let ext = problem_path.extension()?.to_str()?;
+
+    // 1. Essayer le domaine spécifique : "pb01-domain.hddl"
+    let specific_domain = domain_dir.join(format!("{}-domain.{}", problem_stem, ext));
+    if specific_domain.exists() {
+        return Some(specific_domain);
+    }
+
+    // 2. Essayer le domaine générique : "domain.hddl"
+    let generic_domain = domain_dir.join(format!("domain.{}", ext));
+    if generic_domain.exists() {
+        return Some(generic_domain);
+    }
+
+    None
+}
+
 /// Writes the diagnostics to a `.diag` file next to the given path,
 /// including a prominent header indicating which test produced it and the timestamp.
 ///

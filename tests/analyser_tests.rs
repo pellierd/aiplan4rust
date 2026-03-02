@@ -1,7 +1,7 @@
 mod common;
 
 use std::path::Path;
-use crate::common::io::{collect_domain_files};
+use crate::common::io::{collect_domain_files, filter_files_by_mode, print_test_status};
 use crate::common::io::delete_all_files_with_extension;
 use crate::common::pipeline::{analyze, normalize_and_check_ast, parse_and_check_ast};
 use test_case::test_case;
@@ -9,43 +9,49 @@ use test_case::test_case;
 pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
     let mut success = true;
 
-    // Clean up old .diag and .ast files
+    // 1. Nettoyage des fichiers de diagnostic et d'AST
     delete_all_files_with_extension(domain_dir, "diag");
     delete_all_files_with_extension(domain_dir, "ast");
 
-    // Collect all domain files
-    let files = collect_domain_files(domain_dir);
+    // 2. Collecte et tri pour le déterminisme
+    let mut all_files = collect_domain_files(domain_dir);
+    all_files.sort();
+    let total_available = all_files.len();
 
-    for file_path in files {
-        // Parse and validate the raw AST from the file
-        let parser_result = match parse_and_check_ast(&file_path) {
+    // 3. Sélection du mode via l'utilitaire commun (Swallow par défaut)
+    let files_to_process = filter_files_by_mode(all_files);
+
+    for file_path in &files_to_process {
+        // --- ÉTAPE 1 : PARSING ---
+        let parser_result = match parse_and_check_ast(file_path) {
             Some(result) => result,
             None => {
-                eprintln!("Parsing failed for file {}", file_path.display());
                 success = false;
-                continue; // Skip to the next file if parsing failed
+                continue;
             }
         };
 
-        // Normalize and validate the AST (note: normalize_and_check_ast expects a ParserResult)
-        let normalizer_result = match normalize_and_check_ast(parser_result, &file_path) {
+        // --- ÉTAPE 2 : NORMALISATION ---
+        let normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
             Some(result) => result,
             None => {
-                eprintln!("Normalization failed for file {}", file_path.display());
+                eprintln!("\x1b[1;31mNormalization failed\x1b[0m for {}", file_path.display());
                 success = false;
-                continue; // Skip to the next file if expr failed
+                continue;
             }
         };
 
-        // Analyze AST
-        if analyze(normalizer_result, &file_path).is_none() {
-            eprintln!("Échec de l’analyse sémantique de {}", file_path.display());
+        // --- ÉTAPE 3 : ANALYSE SÉMANTIQUE ---
+        // On suit la même logique : si l'analyse renvoie None, c'est un échec
+        if analyze(normalizer_result, file_path).is_none() {
+            eprintln!("\x1b[1;31mSemantic Analysis failed\x1b[0m for {}", file_path.display());
             success = false;
             continue;
         }
-
-        // All steps succeeded
     }
+
+    // 4. Affichage du statut (Cyan ou Vert selon FULL_TESTS)
+    print_test_status(files_to_process.len(), total_available, domain_dir);
 
     success
 }

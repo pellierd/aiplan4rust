@@ -2,7 +2,7 @@ use std::path::Path;
 use test_case::test_case;
 
 mod common;
-use crate::common::io::collect_domain_files;
+use crate::common::io::{collect_domain_files, filter_files_by_mode, print_test_status};
 use crate::common::pipeline::parse_and_check_ast;
 use crate::common::io::write_diagnostics_to_file;
 use crate::common::io::delete_all_files_with_extension;
@@ -25,44 +25,55 @@ use crate::common::io::delete_all_files_with_extension;
 pub fn test_parse_all_files(domain_dir: &Path) -> bool {
     let mut success = true;
 
-    // Clean up old diagnostic and AST files before testing
+    // 1. Nettoyage des anciens fichiers de diagnostic et d'AST
     delete_all_files_with_extension(domain_dir, "diag");
     delete_all_files_with_extension(domain_dir, "ast");
 
-    // Collect all domain files to be parsed
-    let files = collect_domain_files(domain_dir);
+    // 2. Collecte de tous les fichiers disponibles et tri
+    let mut all_files = collect_domain_files(domain_dir);
+    all_files.sort();
+    let total_available = all_files.len();
 
-    for file_path in files {
-        match parse_and_check_ast(&file_path) {
+    // 3. Sélection des fichiers selon le mode (Swallow par défaut / Full si FULL_TESTS est mis)
+    // Cette fonction 'filter_files_by_mode' est celle que nous avons isolée dans common
+    let files_to_process = filter_files_by_mode(all_files);
+
+    // 4. Boucle d'exécution du parsing
+    for file_path in &files_to_process {
+        match parse_and_check_ast(file_path) {
             Some(parser_result) => {
                 let diag_mgr = parser_result.diagnostic_manager();
+                let interner = parser_result.interner();
 
                 if parser_result.is_success() {
-                    // Parsing succeeded with AST and no errors
+                    // Succès : on écrit le diagnostic de réussite
                     write_diagnostics_to_file(
-                        &diag_mgr,
-                        parser_result.interner(),
-                        &file_path,
+                        diag_mgr,
+                        interner,
+                        file_path,
                         "Parser Tests: parsing success",
                     );
                 } else {
-                    // AST is missing or errors present in diagnostics → consider failure
-                    eprintln!("Parsing produced no AST or had errors for file {}", file_path.display());
+                    // Échec sémantique ou syntaxique : log et marquage de l'échec
+                    eprintln!("\x1b[1;31mParsing Error:\x1b[0m {}", file_path.display());
                     write_diagnostics_to_file(
-                        &diag_mgr,
-                        parser_result.interner(),
-                        &file_path,
+                        diag_mgr,
+                        interner,
+                        file_path,
                         "Parser Tests: parsing incomplete or errors found",
                     );
                     success = false;
                 }
             }
             None => {
-                // Fatal error: parse_and_check_ast returned None and already reported
+                // Erreur fatale (déjà rapportée par le pipeline)
                 success = false;
             }
         }
     }
+
+    // 5. Affichage du statut final (Swallow vs Full) via l'utilitaire commun
+    print_test_status(files_to_process.len(), total_available, domain_dir);
 
     success
 }

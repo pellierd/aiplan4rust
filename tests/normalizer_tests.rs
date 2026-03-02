@@ -2,7 +2,7 @@ use std::path::Path;
 use test_case::test_case;
 
 mod common;
-use crate::common::io::{collect_domain_files, delete_all_files_with_extension};
+use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_files_by_mode, print_test_status};
 use crate::common::pipeline::{normalize_and_check_ast, parse_and_check_ast};
 
 /// Integration test for parser + simplification on all files in a directory.
@@ -35,34 +35,40 @@ use crate::common::pipeline::{normalize_and_check_ast, parse_and_check_ast};
 pub fn test_normalizer_all_files(domain_dir: &Path) -> bool {
     let mut success = true;
 
-    // Delete all existing .diag files
+    // 1. Nettoyage des anciens fichiers
     delete_all_files_with_extension(domain_dir, "diag");
-    // Delete all existing .ast files
     delete_all_files_with_extension(domain_dir, "ast");
 
-    // Collect all domain files to test
-    let files = collect_domain_files(domain_dir);
+    // 2. Collecte et tri
+    let mut all_files = collect_domain_files(domain_dir);
+    all_files.sort();
+    let total_available = all_files.len();
 
-    for file_path in files {
-        // Parse and validate the raw AST from the file
-        let parser_result = match parse_and_check_ast(&file_path) {
+    // 3. Sélection intelligente (Swallow par défaut / Full si FULL_TESTS=1)
+    let files_to_process = filter_files_by_mode(all_files);
+
+    for file_path in &files_to_process {
+        // Étape 1 : Parsing
+        let parser_result = match parse_and_check_ast(file_path) {
             Some(result) => result,
             None => {
-                eprintln!("Parsing failed for file {}", file_path.display());
+                eprintln!("\x1b[1;31mParsing failed\x1b[0m for file {}", file_path.display());
                 success = false;
-                continue; // Skip to the next file if parsing failed
+                continue;
             }
         };
 
-        // Normalize and validate the AST (note: normalize_and_check_ast now expects a ParserResult)
-        if normalize_and_check_ast(parser_result, &file_path).is_none() {
-            eprintln!("Normalization failed for file {}", file_path.display());
+        // Étape 2 : Normalisation
+        // On utilise la même logique : si ça renvoie None, c'est un échec
+        if normalize_and_check_ast(parser_result, file_path).is_none() {
+            eprintln!("\x1b[1;31mNormalization failed\x1b[0m for file {}", file_path.display());
             success = false;
-            continue; // Skip to the next file if expr failed
+            continue;
         }
-
-        // If we reach here, the file passed expr test successfully
     }
+
+    // 4. Rapport de statut uniforme
+    print_test_status(files_to_process.len(), total_available, domain_dir);
 
     success
 }
