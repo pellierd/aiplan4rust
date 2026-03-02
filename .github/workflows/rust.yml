@@ -10,6 +10,8 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: false
   RUSTFLAGS: "-C debuginfo=0"
+  RUST_LOG: debug
+  RUST_BACKTRACE: 1
 
 jobs:
   build:
@@ -23,7 +25,7 @@ jobs:
       - name: Install nextest
         uses: taiki-e/install-action@nextest
 
-      - name: Cache Cargo registry and build
+      - name: Cache Cargo
         uses: actions/cache@v3
         with:
           path: |
@@ -39,32 +41,26 @@ jobs:
 
       - name: Run tests
         shell: bash
-        env:
-          # Affiche les logs de ton application (si tu utilises env_logger ou tracing)
-          RUST_LOG: debug
-          # Donne plus de contexte sur les panics Rust
-          RUST_BACKTRACE: 1
-          # Force l'affichage immédiat des logs sans bufferisation
-          PYTHONUNBUFFERED: 1
         run: |
           set -o pipefail
           
           LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
           echo "Saving test output to $LOG_FILE"
+
+          # FILTRE : On prend tout SAUF parser_tests
+          FILTER="all() and not binary(parser_tests)"
           
-          # Ton filtre actuel
-          FILTER="kind(lib) or binary(parser_tests)"
-          
-          # 1. --nocapture : INDISPENSABLE pour voir tes println! et eprint!
-          # 2. --failure-output immediate-all : Affiche les erreurs dès qu'elles surviennent
-          # 3. --verbose : Sortie détaillée
+          echo "Lancement de tous les tests sauf parser_tests..."
+
+          # Options optimisées pour le debug sur GitHub Actions
           cargo nextest run \
             -E "$FILTER" \
             --test-threads 1 \
             --status-level all \
-            --failure-output immediate-all \
-            --verbose \
-            --nocapture 2>&1 | tee "$LOG_FILE"
+            --failure-output immediate \
+            --success-output immediate \
+            --nocapture \
+            --verbose 2>&1 | tee "$LOG_FILE"
 
       - name: Upload test log
         if: always()

@@ -1,2 +1,2 @@
 pub mod inertia;
-mod reachability;
+pub mod reachability;

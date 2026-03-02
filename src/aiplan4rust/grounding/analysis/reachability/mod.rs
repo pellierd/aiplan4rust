@@ -1,2 +1,1 @@
-mod reachability;
-mod datalog;
+pub mod datalog;

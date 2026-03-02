@@ -6,6 +6,7 @@ use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistryError;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::binding::BindingError;
 use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
 use crate::aiplan4rust::lir::expr::ExprError;
@@ -19,6 +20,8 @@ pub enum GroundingError {
     #[error(transparent)]
     InertiaRegistry(#[from] InertiaRegistryError),
 
+    #[error(transparent)]
+    Datalog(#[from] DatalogError),
 
     #[error(transparent)]
     BindingEngine(#[from] BindingError),

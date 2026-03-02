@@ -2,9 +2,10 @@ pub mod grounder;
 pub mod error;
 mod result;
 pub mod problem;
-pub(crate) mod analysis;
-mod passes;
-mod binding;
+pub mod analysis;
+pub mod passes;
+pub mod binding;
+
 pub use result::Result as GroundingResult;
 pub use grounder::Grounder;
 pub use problem::Problem;

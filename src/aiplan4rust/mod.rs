@@ -14,7 +14,7 @@ pub mod validation;
 pub mod error;
 
 pub mod artefact;
-mod grounding;
+pub mod grounding;
 pub mod arena;
 pub mod tree;
 

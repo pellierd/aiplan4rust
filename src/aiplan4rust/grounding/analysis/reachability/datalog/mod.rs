@@ -8,3 +8,5 @@ pub mod error;
 pub mod engine;
 
 pub mod tuple;
+
+pub use engine::DatalogEngine;
