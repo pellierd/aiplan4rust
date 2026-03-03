@@ -7,7 +7,7 @@
 //! match its signature.
 //!
 //! This module specializes a generic [`NamedTypedList`] into a [`Task`]
-//! skeleton, stores it in the LIR, and updates the registry to map the
+//! skeleton, stores it in the LIR, and updates the evaluator to map the
 //! task's symbol node to its internal ID.
 
 use crate::aiplan4rust::arena::ArenaNode;
@@ -32,7 +32,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the task (e.g., `(transport ?p - package)`).
-/// * `registry` - The mutable registry for symbol resolution and ID mapping.
+/// * `evaluator` - The mutable evaluator for symbol resolution and ID mapping.
 /// * `ir` - The mutable [`LiftedProblem`] where the task is stored.
 ///
 /// # Errors

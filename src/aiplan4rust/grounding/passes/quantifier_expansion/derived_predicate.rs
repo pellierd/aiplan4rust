@@ -23,7 +23,7 @@ pub fn expand(
 ///
 /// # Arguments
 /// * `predicate` - A mutable reference to the derived predicate to transform.
-/// * `value_registry` - The registry containing object constants for substitution.
+/// * `value_registry` - The evaluator containing object constants for substitution.
 /// * `evaluator` - Optional static evaluator to prune the expression tree during expansion.
 pub fn expand_with(
     predicate: &mut DerivedPredicateDef,

@@ -5,7 +5,7 @@ use crate::aiplan4rust::lir::problem::symbol_registry::IndexTableError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
-use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistryError;
+use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaRegistryError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::binding::BindingError;
 use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;

@@ -36,31 +36,38 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build
-        run: cargo build --verbose --jobs 2
+      - name: Build (Trace)
+        run: |
+          echo "=== DÉBUT DE LA COMPILATION (Mode 1 Job) ==="
+          cargo build --verbose --jobs 1
+          echo "=== COMPILATION TERMINÉE ==="
 
-      - name: Run tests
+      - name: Run tests (Trace)
         shell: bash
         run: |
           set -o pipefail
           
           LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
-          echo "Saving test output to $LOG_FILE"
+          echo "Log file created: $LOG_FILE"
 
-          # FILTRE : On prend tout SAUF parser_tests
           FILTER="all() and not binary(parser_tests)"
           
-          echo "Lancement de tous les tests sauf parser_tests..."
+          echo "=== LANCEMENT DES TESTS AVEC NEXTEST ==="
+          echo "Configuration: 1 thread de test, 1 job de compilation."
 
-          # Options optimisées pour le debug sur GitHub Actions
+          # --status-level pass : Affiche chaque test réussi immédiatement
+          # --failure-output immediate-all : Affiche les erreurs dès qu'elles arrivent
           cargo nextest run \
+            -j 1 \
             -E "$FILTER" \
             --test-threads 1 \
-            --status-level all \
-            --failure-output immediate \
+            --status-level pass \
+            --failure-output immediate-all \
             --success-output immediate \
             --nocapture \
             --verbose 2>&1 | tee "$LOG_FILE"
+          
+          echo "=== FIN DES TESTS ==="
 
       - name: Upload test log
         if: always()

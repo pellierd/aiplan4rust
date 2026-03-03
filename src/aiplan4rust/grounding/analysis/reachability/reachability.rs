@@ -1,8 +1,8 @@
 /*use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::registry::fluent::FluentRegistry;
+use crate::aiplan4rust::grounding::evaluator::fluent::FluentRegistry;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::grounding::iter::DomainIterator;
-use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
+use crate::aiplan4rust::grounding::evaluator::value::ValueRegistry;
 use crate::aiplan4rust::lang::ConstantId;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;

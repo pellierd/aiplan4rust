@@ -22,7 +22,7 @@ pub enum InertiaRegistryError {
     #[error(transparent)]
     InertiaTable(#[from] InertiaTableError),
 
-    /// The number of arguments in a predicate exceeds the registry's indexing capacity.
+    /// The number of arguments in a predicate exceeds the evaluator's indexing capacity.
     #[error("Arity too high for indexing: predicate {pred_id:?} has {arity} arguments")]
     PredicateArityTooHigh {
         /// The identifier of the offending predicate.
@@ -31,7 +31,7 @@ pub enum InertiaRegistryError {
         arity: usize,
     },
 
-    /// The number of arguments in a function exceeds the registry's indexing capacity.
+    /// The number of arguments in a function exceeds the evaluator's indexing capacity.
     #[error("Arity too high for indexing: function {func_id:?} has {arity} arguments")]
     FunctionArityTooHigh {
         /// The identifier of the offending function.
@@ -45,7 +45,7 @@ impl InertiaRegistryError {
     /// Creates a new [`InertiaRegistryError::PredicateArityTooHigh`] error.
     ///
     /// This error is raised when the grounding engine encounters a predicate whose
-    /// arity exceeds the `max_arity` configured in the registry builder.
+    /// arity exceeds the `max_arity` configured in the evaluator builder.
     ///
     /// # Arguments
     ///
@@ -59,7 +59,7 @@ impl InertiaRegistryError {
     /// Creates a new [`InertiaRegistryError::FunctionArityTooHigh`] error.
     ///
     /// This error is raised when the grounding engine encounters a function whose
-    /// arity exceeds the `max_arity` configured in the registry builder.
+    /// arity exceeds the `max_arity` configured in the evaluator builder.
     ///
     /// # Arguments
     ///

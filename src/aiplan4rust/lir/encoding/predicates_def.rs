@@ -3,7 +3,7 @@
 //! This module orchestrates the extraction of predicate signatures (skeletons)
 //! from the domain AST and registers them within the LIR.
 //!
-//! It ensures a dual mapping in the registry:
+//! It ensures a dual mapping in the evaluator:
 //! 1. **Logical Identity**: The predicate's name node is mapped to a [`PredicateID`].
 //! 2. **Structural Signature**: The same node is mapped to an [`AtomSkeletonId`].
 //!
@@ -29,7 +29,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `PredicatesDef` node.
-/// * `registry` - The mutable registry for node-to-ID mapping.
+/// * `evaluator` - The mutable evaluator for node-to-ID mapping.
 /// * `ir` - The mutable Lifted Problem storage.
 ///
 /// # Returns

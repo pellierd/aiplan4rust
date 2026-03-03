@@ -13,7 +13,8 @@ use aiplan4rust::DatalogEngine;
 use aiplan4rust::type_flattening::problem::flatten as flatten_types;
 use aiplan4rust::quantifier_expansion::problem::{expand as expand_quantifiers, expand_with};
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
-use aiplan4rust::analysis::inertia::registry::InertiaRegistry;
+use aiplan4rust::aiplan4rust::lir::expr::ExprKind::Comparison;
+use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
 
 pub fn test_datalog_reachability(domain_dir: &Path) -> bool {
     let mut success = true;
@@ -74,12 +75,14 @@ pub fn test_datalog_reachability(domain_dir: &Path) -> bool {
 
         // 4. CONSTRUCTION DE L'INERTIA REGISTRY (L'évaluateur statique)
         // On décompose l'appel pour extraire les définitions et l'état initial
-        let inertia_registry = match InertiaRegistry::build(
+        let evaluator = match InertiaEvaluator::build(
             lifted_problem.predicate_defs(),
             lifted_problem.function_defs(),
             lifted_problem.init(),
             &table,
-            &registry
+            &registry,
+            config::DEFAULT_MAX_ARITY,
+            config::DEFAULT_MAX_PROJ,
         ) {
             Ok(r) => r,
             Err(e) => {
@@ -91,8 +94,8 @@ pub fn test_datalog_reachability(domain_dir: &Path) -> bool {
 
         let mut pb = lifted_problem.clone();
         // 5. QUANTIFIER EXPANSION (Utilise l'évaluateur pour simplifier l'arbre)
-        // On passe &registry et Some(&inertia_registry) pour matcher la signature de ground
-        if let Err(e) = expand_with(&mut pb, &registry, Some(&inertia_registry)) {
+        // On passe &evaluator et Some(&inertia_registry) pour matcher la signature de ground
+        if let Err(e) = expand_with(&mut pb, &registry, Some(&evaluator)) {
             eprintln!("Quantifier expansion failed: {}", e);
             success = false; continue;
         }

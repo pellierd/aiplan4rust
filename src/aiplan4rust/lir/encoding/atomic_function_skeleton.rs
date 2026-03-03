@@ -22,7 +22,7 @@ use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the predicate (e.g., `(at ?r - robot ?l - location)`).
-/// * `registry` - The symbol registry for type resolution.
+/// * `evaluator` - The symbol evaluator for type resolution.
 ///
 /// # Returns
 ///

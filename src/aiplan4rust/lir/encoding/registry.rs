@@ -72,8 +72,8 @@ impl EncodingRegistry {
     /// # Arguments
     ///
     /// * `symbol_table` - The table used to resolve local variables and symbols.
-    /// * `ast_pred_to_idx` - The global registry of predicate indices.
-    /// * `ast_func_to_idx` - The global registry of function indices.
+    /// * `ast_pred_to_idx` - The global evaluator of predicate indices.
+    /// * `ast_func_to_idx` - The global evaluator of function indices.
     pub fn new(
         symbol_table: SymbolTable,
     ) -> Self {
@@ -98,7 +98,7 @@ impl EncodingRegistry {
         }
     }
 
-    /// Ensures that the PDDL 'number' type is registered in the registry.
+    /// Ensures that the PDDL 'number' type is registered in the evaluator.
     ///
     /// If the type is not yet registered, it maps the `NUMBER_SYMBOL_ID`
     /// to the reserved `TypeId::NUMBER_TYPE_ID` (1).

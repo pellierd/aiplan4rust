@@ -1,6 +1,6 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::{config, GroundingResult};
-use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistry;
+use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaEvaluator;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::DatalogEngine;
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::grounding::passes::{quantifier_expansion, type_flattening};
@@ -75,18 +75,20 @@ impl Grounder {
         )?;
 
 
-        let inertia_registry = InertiaRegistry::build(
+        let evaluator = InertiaEvaluator::build(
             lifted_problem.predicate_defs(),
             lifted_problem.function_defs(),
             lifted_problem.init(),
             &table,
-            &registry
+            &registry,
+            config::DEFAULT_MAX_ARITY,
+            config::DEFAULT_MAX_PROJ,
         )?;
 
         // 5. QUANTIFIER EXPANSION : On déploie les forall/exists.
         // Il doit arriver APRES le flattening des types pour que le forall
         // sache exactement sur quels objets itérer.
-        quantifier_expansion::problem::expand_with(&mut lifted_problem, &registry, Some(&inertia_registry))?;
+        quantifier_expansion::problem::expand_with(&mut lifted_problem, &registry, Some(&evaluator))?;
 
         let mut datalog = DatalogEngine::new();
         datalog.load_problem(&lifted_problem)?;

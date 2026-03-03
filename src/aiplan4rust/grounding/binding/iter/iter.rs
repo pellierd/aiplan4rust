@@ -39,7 +39,7 @@ impl<'a> BindingsIterator<'a> {
     ///
     /// # Parameters
     /// - `variables`: The list of typed variables to instantiate.
-    /// - `value_registry`: The registry used to retrieve domains for each variable.
+    /// - `value_registry`: The evaluator used to retrieve domains for each variable.
     ///
     /// # Returns
     /// - A new `BindingsIterator` instance or a `BindingsIteratorError` if an overflow occurs.
@@ -307,7 +307,7 @@ mod tests {
     use super::*;
     use crate::aiplan4rust::lang::{Type, TypedSymbol, VariableId, TypeId, ObjectId, TypedList};
 
-    /// Helper to create a list of typed objects and populate the value registry.
+    /// Helper to create a list of typed objects and populate the value evaluator.
     ///
     /// This function generates a sequence of object identifiers, wraps them
     /// as [`TypedSymbol`]s with a primitive type, and registers them into
@@ -342,7 +342,7 @@ mod tests {
     //
     // INPUT:
     //         - 2 variables sharing the same TypeId.
-    //         - A registry containing 2 objects for that TypeId.
+    //         - A evaluator containing 2 objects for that TypeId.
     //
     // EXPECTED OUTPUT:
     //         - A total count of 4 combinations (2 objects ^ 2 variables).
@@ -358,7 +358,7 @@ mod tests {
             TypedSymbol::new(VariableId::from(1), Type::primitive(tid)),
         ]);
 
-        // 3. Create a registry with 2 objects for this type.
+        // 3. Create a evaluator with 2 objects for this type.
         // The domain for 'tid' will be [Obj0, Obj1].
         let registry = create_registry_with_objects(tid, 2);
 
@@ -391,7 +391,7 @@ mod tests {
     //
     // INPUT:
     //         - 1 variable of type 'tid'.
-    //         - A registry containing 2 objects: [ObjectId(0), ObjectId(1)].
+    //         - A evaluator containing 2 objects: [ObjectId(0), ObjectId(1)].
     //
     // EXPECTED OUTPUT:
     //         - The first call to next() must bind the variable to ObjectId(0).
@@ -406,7 +406,7 @@ mod tests {
             TypedSymbol::new(VariableId::from(0), Type::primitive(tid)),
         ]);
 
-        // 2. Populate the registry with exactly 2 objects
+        // 2. Populate the evaluator with exactly 2 objects
         let registry = create_registry_with_objects(tid, 2);
 
         // 3. Initialize the iterator
@@ -435,7 +435,7 @@ mod tests {
     //
     // INPUT:
     //         - 2 variables [Var0, Var1] sharing the same type.
-    //         - A registry with 2 objects [Obj0, Obj1] (Domain size 2x2 = 4).
+    //         - A evaluator with 2 objects [Obj0, Obj1] (Domain size 2x2 = 4).
     //
     // EXPECTED OUTPUT:
     //         - Initial state: [Var0:0, Var1:0].
@@ -483,7 +483,7 @@ mod tests {
     //
     // INPUT:
     //         - 1 variable of type 'tid'.
-    //         - A registry with 3 objects [Obj0, Obj1, Obj2].
+    //         - A evaluator with 3 objects [Obj0, Obj1, Obj2].
     //
     // EXPECTED OUTPUT:
     //         - After advancing and calling reset(), the next value must be
@@ -498,7 +498,7 @@ mod tests {
             TypedSymbol::new(VariableId::from(0), Type::primitive(tid)),
         ]);
 
-        // 2. Populate the registry with 3 objects
+        // 2. Populate the evaluator with 3 objects
         let registry = create_registry_with_objects(tid, 3);
 
         let mut it = BindingsIterator::new(&vars, &registry).unwrap();

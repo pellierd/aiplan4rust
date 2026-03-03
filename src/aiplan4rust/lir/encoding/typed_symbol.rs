@@ -22,7 +22,7 @@ use crate::aiplan4rust::lir::encoding::{ty, EncodingRegistry};
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the symbol and its optional type.
-/// * `registry` - The encoding context used to resolve type identifiers.
+/// * `evaluator` - The encoding context used to resolve type identifiers.
 ///
 /// # Returns
 ///

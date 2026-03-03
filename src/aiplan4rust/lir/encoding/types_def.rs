@@ -1,7 +1,7 @@
 //! PDDL Type Definition Encoding
 //!
 //! This module implements the two-pass encoding process for PDDL types:
-//! 1. **Phase 1 (Discovery):** Scans all type names to populate the registry with unique `TypeID`s.
+//! 1. **Phase 1 (Discovery):** Scans all type names to populate the evaluator with unique `TypeID`s.
 //! 2. **Phase 2 (Definition):** Resolves inheritance relationships and adds full type declarations to the LIR.
 
 use crate::aiplan4rust::arena::ArenaNode;
@@ -18,7 +18,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 ///
 /// # Arguments
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `registry` - The encoding context used to map symbols to unique `TypeID`s.
+/// * `evaluator` - The encoding context used to map symbols to unique `TypeID`s.
 /// * `ir` - The Lifted Problem where the final type declarations are stored.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
@@ -36,7 +36,7 @@ pub fn encode(
 }
 
 /// Phase 1: Collects all type identifiers (types and their supertypes)
-/// and assigns them unique IDs in the registry.
+/// and assigns them unique IDs in the evaluator.
 ///
 /// This pass performs an initial scan of the `:types` block to register
 /// every type name before inheritance resolution occurs. It ensures
@@ -49,7 +49,7 @@ pub fn encode(
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `registry` - The mutable encoding context where type symbols are mapped to `TypeID`s.
+/// * `evaluator` - The mutable encoding context where type symbols are mapped to `TypeID`s.
 ///
 /// # Returns
 ///
@@ -96,13 +96,13 @@ fn collect_type_ids(
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `registry` - The encoding context where `TypeIDs` were registered in Phase 1.
+/// * `evaluator` - The encoding context where `TypeIDs` were registered in Phase 1.
 /// * `ir` - The mutable reference to the `LiftedProblem` where declarations are stored.
 ///
 /// # Returns
 ///
 /// * `Ok(())` - If all type definitions were successfully resolved and added to the LIR.
-/// * `Err(LirError)` - If a type reference cannot be found in the registry or the AST is invalid.
+/// * `Err(LirError)` - If a type reference cannot be found in the evaluator or the AST is invalid.
 ///
 /// # Errors
 ///
@@ -122,7 +122,7 @@ fn encode_definitions(
         let typed_symbol_node = tree.try_node(typed_symbol_id)?;
         let child_subtree = SyntaxSubtree::new(typed_symbol_node, typed_symbol_id, tree);
 
-        // Encode the TypedSymbol which now can resolve its parent TypeIDs from the registry
+        // Encode the TypedSymbol which now can resolve its parent TypeIDs from the evaluator
         let typed_type = typed_symbol::encode_typed_type(&child_subtree, registry)?;
 
         // Store the final declaration in the LIR;

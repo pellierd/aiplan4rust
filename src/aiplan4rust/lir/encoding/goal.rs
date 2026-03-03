@@ -20,7 +20,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree corresponding to the `Goal` node.
-/// * `registry` - The registry used for symbol lookup and scoping.
+/// * `evaluator` - The evaluator used for symbol lookup and scoping.
 /// * `ir` - The mutable lifted problem where goal-related bindings are registered.
 ///
 /// # Returns

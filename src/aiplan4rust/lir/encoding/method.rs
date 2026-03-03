@@ -16,7 +16,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the method definition.
-/// * `registry` - The registry for symbol and parameter resolution.
+/// * `evaluator` - The evaluator for symbol and parameter resolution.
 /// * `ir` - The mutable `LiftedProblem` where the method is registered.
 ///
 /// # Returns

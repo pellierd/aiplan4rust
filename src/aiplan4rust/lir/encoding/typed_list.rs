@@ -19,7 +19,7 @@ use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingRegistry};
 /// # Arguments
 ///
 /// * `subtree` - The AST subtree containing a sequence of typed symbols.
-/// * `registry` - The symbol registry used to resolve type identifiers.
+/// * `evaluator` - The symbol evaluator used to resolve type identifiers.
 ///
 /// # Returns
 ///
@@ -54,7 +54,7 @@ pub fn encode_variable_list(
 }
 /*pub fn encode_type_list(
     subtree: &SyntaxSubtree<AstNode>,
-    registry: &EncodingRegistry,
+    evaluator: &EncodingRegistry,
 ) -> Result<TypedList<TypeID, TypeID>, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
@@ -66,7 +66,7 @@ pub fn encode_variable_list(
         let child_subtree = SyntaxSubtree::new(child_node, id, ast);
 
         // On appelle la version "Type" du symbole
-        let symbol = typed_symbol::encode_typed_type(&child_subtree, registry)?;
+        let symbol = typed_symbol::encode_typed_type(&child_subtree, evaluator)?;
         typed_list.push(symbol);
     }
 

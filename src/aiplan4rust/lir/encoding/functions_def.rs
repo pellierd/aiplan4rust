@@ -3,7 +3,7 @@
 //! This module handles the extraction of numeric function signatures (fluents)
 //! from the domain AST and registers them within the LIR.
 //!
-//! It ensures a dual mapping in the registry:
+//! It ensures a dual mapping in the evaluator:
 //! 1. **Functor Identity**: The function's name node is mapped to a [`StringID`] (Functor).
 //! 2. **Structural Signature**: The same node is mapped to a [`FunctionSkeletonID`].
 //!
@@ -29,7 +29,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `FunctionsDef` node.
-/// * `registry` - The mutable registry for node-to-ID mapping.
+/// * `evaluator` - The mutable evaluator for node-to-ID mapping.
 /// * `ir` - The mutable Lifted Problem storage.
 ///
 /// # Returns

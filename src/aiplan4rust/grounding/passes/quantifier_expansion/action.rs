@@ -11,7 +11,7 @@ use crate::aiplan4rust::lir::ActionDef;
 ///
 /// # Arguments
 /// * `action` - A mutable reference to the lifted action to transform.
-/// * `value_registry` - The registry containing all object constants used for variable substitution.
+/// * `value_registry` - The evaluator containing all object constants used for variable substitution.
 ///
 /// # Errors
 /// Returns [`GroundingError`] if a quantifier references an unknown type or if
@@ -35,7 +35,7 @@ pub fn expand(
 ///
 /// # Arguments
 /// * `action` - A mutable reference to the lifted action to transform.
-/// * `value_registry` - The registry containing the domain's object information.
+/// * `value_registry` - The evaluator containing the domain's object information.
 /// * `evaluator` - An optional reference to a static evaluator for immediate simplification.
 ///
 /// # Errors

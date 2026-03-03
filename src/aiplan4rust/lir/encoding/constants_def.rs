@@ -20,7 +20,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `:constants` block.
-/// * `registry` - The mutable encoding context for symbol-to-ID mapping.
+/// * `evaluator` - The mutable encoding context for symbol-to-ID mapping.
 /// * `ir` - The mutable Lifted Problem where constants are stored.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,

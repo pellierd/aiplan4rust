@@ -313,7 +313,7 @@ impl DatalogEngine {
             match node.kind() {
                 ExprKind::AtomicFormula => {
                     // 1. Obtenir le SkeletonId correspondant à cet atome
-                    // On demande au registry de nous donner l'ID de la signature (Nom + Types)
+                    // On demande au evaluator de nous donner l'ID de la signature (Nom + Types)
                     let sk_id = node.content().try_atom_skeleton()?;
 
                     // 2. Extraction des ObjectIds avec une boucle explicite

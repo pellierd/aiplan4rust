@@ -1,7 +1,7 @@
 pub mod table;
 pub mod inertia;
 
-pub mod registry;
+pub mod evaluator;
 pub mod error;
 
 pub use error::InertiaError;

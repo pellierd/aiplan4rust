@@ -57,7 +57,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 /// # Arguments
 ///
 /// * `subtree` - The source [`SyntaxSubtree`] containing the AST nodes to be encoded.
-/// * `registry` - The mutable [`EncodingRegistry`] used for symbol resolution,
+/// * `evaluator` - The mutable [`EncodingRegistry`] used for symbol resolution,
 ///   skeleton lookups, and managing local variable scopes.
 ///
 /// # Returns
@@ -130,7 +130,7 @@ pub fn encode(
 /// * `subtree` - The context of the current AST subtree, used for recursive lookups.
 /// * `parent_id` - The identifier of the parent node in the **LIR** (not the AST).
 ///   If `None`, this node is treated as the root.
-/// * `registry` - The registry used for symbol resolution and tracking local scopes.
+/// * `evaluator` - The evaluator used for symbol resolution and tracking local scopes.
 ///
 /// # Returns
 ///
@@ -230,7 +230,7 @@ fn push_children_to_stack<'a>(
 ///   to resolve symbol usages against the global symbol table.
 /// * `parent_id` - The identifier of the parent node in the **LIR** expression (not the AST).
 /// * `subtree` - The syntax subtree context, used for navigating children or sibling data.
-/// * `registry` - The central registry used for symbol resolution and state management.
+/// * `evaluator` - The central evaluator used for symbol resolution and state management.
 ///
 /// # Returns
 ///
@@ -262,14 +262,14 @@ fn encode_node(
 /// Resolves and encodes the semantic content of an AST node into LIR [`ExprContent`].
 ///
 /// This function is the semantic heart of the encoder. It performs symbol resolution by
-/// bridging the gap between raw AST identifiers and the internal LIR registry.
+/// bridging the gap between raw AST identifiers and the internal LIR evaluator.
 ///
 /// # Arguments
 ///
 /// * `ast_node` - The current node being processed from the AST.
 /// * `ast_node_id` - The unique identifier of the node in the source AST (used for symbol lookups).
 /// * `subtree` - The context of the current AST subtree for navigating children (e.g., signatures).
-/// * `registry` - The mutable encoding registry used for symbol table lookups and variable registration.
+/// * `evaluator` - The mutable encoding evaluator used for symbol table lookups and variable registration.
 ///
 /// # Returns
 ///
@@ -282,7 +282,7 @@ fn encode_node(
 /// # Resolution Logic
 ///
 /// 1. **Complex Terms**: For nodes like `AtomicFormula`, it resolves the first child (the predicate)
-///    to find its corresponding structural skeleton in the registry.
+///    to find its corresponding structural skeleton in the evaluator.
 /// 2. **Quantifiers**: It extracts variable signatures, encodes them via [`typed_list`],
 ///    and registers them in the local scope of the [`EncodingRegistry`].
 /// 3. **Atomic Symbols**: It uses the `ast_node_id` to query the symbol table and retrieve
@@ -328,7 +328,7 @@ fn encode_content(
                     .try_resolve_declaration_by_usage(task_id, SymbolKind::Action)?
             };
 
-            // 3. Retrieve the unique Skeleton ID from the registry.
+            // 3. Retrieve the unique Skeleton ID from the evaluator.
             // This ID was generated during the first pass (Collection Phase).
             let task_skeleton_id = registry.try_resolve_task_skeleton(declaration.node_id())?;
 
@@ -346,7 +346,7 @@ fn encode_content(
 
             // 2. Register variables in the local scope.
             // Since we use an iterative traversal, variables are registered in the
-            // registry using their unique NodeId. This ensures children nodes
+            // evaluator using their unique NodeId. This ensures children nodes
             // can resolve these variables even without a recursive call stack.
             for &typed_variable_node_id in typed_list_node.children() {
                 let typed_variable_node = subtree.tree().try_node(typed_variable_node_id)?;
@@ -361,7 +361,7 @@ fn encode_content(
 
         // --- Atomic Symbols (Identities) ---
         // These nodes represent the symbols themselves. We resolve their
-        // logical ID from the registry based on their declaration NodeId.
+        // logical ID from the evaluator based on their declaration NodeId.
         AstKind::PredicateSymbol => {
             let predicate_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Predicate)?;
             let predicate_id = registry.try_resolve_predicate(predicate_declaration.node_id())?;

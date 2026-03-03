@@ -20,7 +20,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree corresponding to the `Init` node.
-/// * `registry` - The registry for symbol and index resolution.
+/// * `evaluator` - The evaluator for symbol and index resolution.
 /// * `ir` - The mutable lifted problem where the initial state is registered.
 ///
 /// # Returns

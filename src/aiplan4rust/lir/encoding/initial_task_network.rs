@@ -18,7 +18,7 @@ use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 ///
 /// # Arguments
 /// * `subtree` - The AST subtree for the initial task network.
-/// * `registry` - The registry for resolving task names and types.
+/// * `evaluator` - The evaluator for resolving task names and types.
 /// * `ir` - The mutable lifted problem.
 ///
 /// # Returns
@@ -62,7 +62,7 @@ pub fn encode(
     let tw_node_id = node.try_child(child_index)?;
     let tw_node = ast.try_node(tw_node_id)?;
 
-    // Le task_network::encoding pourra maintenant utiliser registry.try_resolve_variable
+    // Le task_network::encoding pourra maintenant utiliser evaluator.try_resolve_variable
     // pour lier les tâches aux paramètres définis ci-dessus.
     let tw = task_network::encode(&SyntaxSubtree::new(tw_node, tw_node_id, ast), registry)?;
     let variable_symbols = registry.get_variable_symbols();

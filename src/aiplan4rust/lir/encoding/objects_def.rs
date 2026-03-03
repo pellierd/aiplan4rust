@@ -22,7 +22,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the typed list (e.g., from `:objects` or `:constants`).
-/// * `registry` - The mutable encoding context used for symbol-to-ID binding.
+/// * `evaluator` - The mutable encoding context used for symbol-to-ID binding.
 /// * `ir` - The mutable Lifted Problem where the objects are stored.
 ///
 /// # Returns
@@ -41,7 +41,7 @@ pub fn encode(
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
 
-    // Phase 1: Register all object names to generate their ObjectIDs in the registry
+    // Phase 1: Register all object names to generate their ObjectIDs in the evaluator
     collect_object_ids(subtree, registry, ir)?;
 
     // Phase 2: Resolve types and finalize the object definitions in the LIR
@@ -50,10 +50,10 @@ pub fn encode(
     Ok(())
 }
 
-/// Phase 1: Collects all object identifiers and assigns them unique IDs in the registry.
+/// Phase 1: Collects all object identifiers and assigns them unique IDs in the evaluator.
 ///
 /// This ensures that even if an object is referenced elsewhere, its ID is already
-/// known to the registry.
+/// known to the evaluator.
 fn collect_object_ids(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,

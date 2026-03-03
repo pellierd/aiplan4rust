@@ -4,7 +4,7 @@ use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
-/// A central registry managing value domains for every type within a planning problem.
+/// A central evaluator managing value domains for every type within a planning problem.
 ///
 /// The `ValueRegistry` handles the collection, deduplication, and sorting of objects
 /// from a [`LiftedProblem`]. It is optimized for the grounding phase, providing
@@ -26,7 +26,7 @@ impl ValueRegistry {
 
     /// Creates a valid but empty `ValueRegistry`.
     ///
-    /// This is primarily intended for unit testing or scenarios where a registry
+    /// This is primarily intended for unit testing or scenarios where a evaluator
     /// is required but no type/object data is available yet. It bypasses the
     /// collection and optimization logic.
     pub fn empty() -> Self {
@@ -36,7 +36,7 @@ impl ValueRegistry {
         }
     }
 
-    /// Builds and finalizes the registry from decoupled type and object definitions.
+    /// Builds and finalizes the evaluator from decoupled type and object definitions.
     ///
     /// Unique point d'entrée pour construire un registre validé et optimisé.
     /// Cette fonction combine la collecte, le tri et le dédoublonnage.
@@ -150,7 +150,7 @@ impl ValueRegistry {
     /// Direct $O(1)$ access to a type domain via its [`TypeId`].
     ///
     /// # Panics
-    /// Panics if the `type_id` is out of bounds for this registry.
+    /// Panics if the `type_id` is out of bounds for this evaluator.
     pub fn get_primitive_type_domain(&self, type_id: TypeId) -> &ValueDomain {
         &self.type_domains[type_id.as_usize()]
     }
@@ -187,7 +187,7 @@ impl  ValueRegistry {
         self
     }*/
 
-    /// Helper for unit tests to build a registry directly from a list of objects.
+    /// Helper for unit tests to build a evaluator directly from a list of objects.
     ///
     /// This bypasses the standard `build` pipeline and is intended ONLY for
     /// testing isolated logic where a full `LiftedProblem` is not available.

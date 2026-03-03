@@ -21,7 +21,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `:derived` definition.
-/// * `registry` - The registry for resolving identifiers within the ops.
+/// * `evaluator` - The evaluator for resolving identifiers within the ops.
 /// * `ir` - The mutable `LiftedProblem` where the derived predicate is registered.
 ///
 /// # Returns

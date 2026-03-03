@@ -36,7 +36,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 /// - **Structural Deduplication**: Uses a cache to ensure that logically identical
 ///   sub-formulas within the same context are mapped to the same auxiliary predicate,
 ///   minimizing the number of rules.
-/// - **Schema Tracking**: Maintains a monotonic registry of generated signatures
+/// - **Schema Tracking**: Maintains a monotonic evaluator of generated signatures
 ///   ([`AtomicFormulaSkeleton`]), allowing the grounded results to be mapped back
 ///   to human-readable names after saturation.
 pub struct DatalogEncoder {

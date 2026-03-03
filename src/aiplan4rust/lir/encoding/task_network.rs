@@ -21,7 +21,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the task network definition.
-/// * `registry` - The registry used for symbol and identifier resolution.
+/// * `evaluator` - The evaluator used for symbol and identifier resolution.
 /// * `ir` - The mutable lifted problem used to register or reference LIR elements.
 ///
 /// # Returns
@@ -50,7 +50,7 @@ pub fn encode(
     encode_task_network_content(subtree, registry)
 }
 
-/// PASS 1: Scans the network to register task labels into the registry using a match pattern.
+/// PASS 1: Scans the network to register task labels into the evaluator using a match pattern.
 fn collect_task_labels(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,

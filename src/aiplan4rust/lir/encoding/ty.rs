@@ -21,12 +21,12 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// It is responsible for:
 /// - Resolving single parent types (e.g., in `:types` declarations).
 /// - Resolving complex types in typed lists (e.g., `?obj - (either type1 type2)`).
-/// - Linking AST symbols to their internal LIR [`TypeId`] via the registry.
+/// - Linking AST symbols to their internal LIR [`TypeId`] via the evaluator.
 ///
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the type definition.
-/// * `registry` - The encoding registry containing the resolved symbol-to-type mapping.
+/// * `evaluator` - The encoding evaluator containing the resolved symbol-to-type mapping.
 ///
 /// # Returns
 ///
