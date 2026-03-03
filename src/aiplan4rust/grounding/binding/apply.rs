@@ -196,7 +196,7 @@ mod tests {
         let mut sub = Bindings::new();
         sub.insert(var_x, obj_1);
 
-        let value_reg = ValueRegistry::new();
+        let value_reg = ValueRegistry::empty();
 
         // 3. Exécution du Grounding
         // On récupère explicitement le nouvel ID.
@@ -251,7 +251,7 @@ mod tests {
         let mut substitution = Bindings::new();
         substitution.insert(var_x, obj_truck);
 
-        let value_reg = ValueRegistry::new();
+        let value_reg = ValueRegistry::empty();
 
         // 3. Exécution via ground_from (Option A : On récupère le nouvel ID)
         let new_root = apply::apply_in_place(&mut expr, root, &substitution)?;
@@ -322,7 +322,7 @@ mod tests {
         let mut sub = Bindings::new();
         sub.insert(var_x, ObjectId::from(100));
 
-        let value_reg = ValueRegistry::new();
+        let value_reg = ValueRegistry::empty();
 
         // 3. Appel du grounding
         // Rappel : ground_from parcourt les enfants, simplifie le (= 1 2) en False,
@@ -385,7 +385,7 @@ mod tests {
         sub.insert(y_id, ObjectId::from(200));
 
         // 3. Initialisation du moteur
-        let value_reg = ValueRegistry::new();
+        let value_reg = ValueRegistry::empty();
 
         // 4. Exécution du grounding (Option A : on récupère le nouveau NodeId)
         let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
@@ -460,7 +460,7 @@ mod tests {
         let mut sub = Bindings::new();
         sub.insert(var_x, ObjectId::from(100));
 
-        let value_reg = ValueRegistry::new();
+        let value_reg = ValueRegistry::empty();
 
         // 3. Exécution
         // Processus attendu :
@@ -501,7 +501,7 @@ mod tests {
         sub.insert(x_id, ObjectId::from(100));
 
         // 3. Moteur
-        let value_reg = ValueRegistry::new();
+        let value_reg = ValueRegistry::empty();
 
         // 4. Appel
         let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
@@ -543,7 +543,7 @@ mod tests {
         sub.insert(x_id, ObjectId::from(100));
 
         // 3. Moteur
-        let value_reg = ValueRegistry::new();
+        let value_reg = ValueRegistry::empty();
 
         // 4. Appel
         let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
@@ -597,7 +597,7 @@ mod tests {
 
         // 2. Paramètres neutres (Substitution vide)
         let sub = Bindings::new();
-        let value_reg = ValueRegistry::new();
+        let value_reg = ValueRegistry::empty();
 
         // 3. Appel de la fonction
         let new_root = apply::apply_in_place(&mut expr, root, &sub)?;

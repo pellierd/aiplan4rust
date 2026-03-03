@@ -329,7 +329,8 @@ mod tests {
             })
             .collect();
 
-        ValueRegistry::new().with_typed_list(TypedList::from(objects))
+        // Utilisation du constructeur statique de test
+        ValueRegistry::from_objects(objects)
     }
 
     #[test]
@@ -537,7 +538,7 @@ mod tests {
     fn test_iterator_empty_vars_is_none_immediately() {
         // 1. Setup with no variables
         let vars = TypedList::empty();
-        let registry = ValueRegistry::new();
+        let registry = ValueRegistry::empty();
 
         // 2. Initialize the iterator
         let mut it = BindingsIterator::new(&vars, &registry).expect("Init failed");

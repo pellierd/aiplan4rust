@@ -70,7 +70,7 @@ impl Grounder {
         let registry = ValueRegistry::build(
             lifted_problem.type_defs(),
             lifted_problem.object_defs(),
-            config::DEFAULT_VALUE_REGISTRY_SIZE, // Your centralized constant
+            config::DEFAULT_VALUE_REGISTRY_SIZE,
         )?;
 
 

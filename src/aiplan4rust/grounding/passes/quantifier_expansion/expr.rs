@@ -189,7 +189,7 @@ mod tests {
         object_list.push(TypedSymbol::new(obj_r1, Type::primitive(type_robot)));
         object_list.push(TypedSymbol::new(obj_r2, Type::primitive(type_robot)));
 
-        let registry = ValueRegistry::new().with_typed_list(object_list);
+        let registry = ValueRegistry::from_objects(object_list);
 
         // 3. Construct: (forall (?x - robot) (predicate_1 ?x))
         let mut typed_vars = TypedList::new();
@@ -237,17 +237,15 @@ mod tests {
         let type_autre = TypeId::from(1); // Type auxiliaire pour forcer l'allocation
         let var_x = VariableId::from(1);
 
-        let mut registry = ValueRegistry::new();
-
-        // On crée une liste qui contient un objet dans 'type_autre'
-        // mais rien dans 'type_vide'. Cela force `with_typed_list` à
-        // allouer un vecteur de taille 2 (indices 0 et 1).
+        // 1. On prépare la liste d'objets
         let mut objects = TypedList::new();
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 
-        // Maintenant grouped n'est plus vide, max_id sera 1,
-        // et type_domains sera [ValueDomain(vide), ValueDomain(999)]
-        registry = registry.with_typed_list(objects);
+        // 2. On construit le registre directement.
+        // Comme l'objet 999 appartient au type 1, from_objects va créer :
+        // index 0 -> ValueDomain vide (ton type_vide)
+        // index 1 -> ValueDomain avec [999] (ton type_autre)
+        let registry = ValueRegistry::from_objects(objects);
 
         let mut variables_typees = TypedList::new();
         variables_typees.push(TypedSymbol::new(var_x, Type::primitive(type_vide)));
@@ -274,7 +272,6 @@ mod tests {
     #[test]
     fn test_expand_nested_forall_with_binary_predicate() -> Result<(), Box<dyn std::error::Error>> {
         let mut builder = ExprBuilder::new();
-        let mut registry = ValueRegistry::new();
 
         // 1. Définition des types et des domaines
         let type_u = TypeId::from(0);
@@ -288,8 +285,7 @@ mod tests {
         objects.push(TypedSymbol::new(obj_1, Type::primitive(type_u)));
         objects.push(TypedSymbol::new(obj_2, Type::primitive(type_u)));
         objects.push(TypedSymbol::new(obj_3, Type::primitive(type_other)));
-
-        registry = registry.with_typed_list(objects);
+        let registry = ValueRegistry::from_objects(objects);
 
         // 2. Variables et Prédicats
         let var_x = VariableId::from(10);
@@ -339,7 +335,7 @@ mod tests {
         typed_objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(TypeId::from(0))));
         typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
 
-        let registry = ValueRegistry::new().with_typed_list(typed_objects);
+        let registry = ValueRegistry::from_objects(typed_objects);
 
         let var_x = VariableId::from(1);
         let type_0 = TypeId::from(0);
@@ -374,7 +370,7 @@ mod tests {
         let mut objects = TypedList::new();
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 
-        let registry = ValueRegistry::new().with_typed_list(objects);
+        let registry = ValueRegistry::from_objects(objects);
 
         let v_x = builder.variable(var_x);
         let atom = builder.atomic_formula(PredicateSymbolId::from(10), vec![v_x]);
@@ -404,7 +400,7 @@ mod tests {
         let mut objects = TypedList::new();
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 
-        let registry = ValueRegistry::new().with_typed_list(objects);
+        let registry = ValueRegistry::from_objects(objects);
 
         let mut variables_typees = TypedList::new();
         variables_typees.push(TypedSymbol::new(var_x, Type::primitive(type_vide)));
@@ -428,7 +424,7 @@ mod tests {
         typed_objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(TypeId::from(0))));
         typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
 
-        let registry = ValueRegistry::new().with_typed_list(typed_objects);
+        let registry = ValueRegistry::from_objects(typed_objects);
 
         let var_x = VariableId::from(1);
         let var_y = VariableId::from(2);
@@ -471,7 +467,7 @@ mod tests {
         typed_objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(TypeId::from(0))));
         typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
 
-        let registry = ValueRegistry::new().with_typed_list(typed_objects);
+        let registry = ValueRegistry::from_objects(typed_objects);
 
         let var_x = VariableId::from(1);
         let type_0 = TypeId::from(0);
@@ -505,7 +501,7 @@ mod tests {
         objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(type_u)));
         objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(type_u)));
 
-        let registry = ValueRegistry::new().with_typed_list(objects);
+        let registry = ValueRegistry::from_objects(objects);
 
         // Construct: (exists (?x ?y - type_u) (P ?x ?y))
         let mut vars = TypedList::new();
@@ -537,7 +533,7 @@ mod tests {
         let mut objects = TypedList::new();
         objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(type_u)));
 
-        let registry = ValueRegistry::new().with_typed_list(objects);
+        let registry = ValueRegistry::from_objects(objects);
 
         // Structure: (forall (?x) (exists (?y) (x == y)))
         // Pour x=1, il existe y=1 tel que 1==1 (True).
@@ -580,7 +576,7 @@ mod tests {
         objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(type_u)));
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 
-        let registry = ValueRegistry::new().with_typed_list(objects);
+        let registry = ValueRegistry::from_objects(objects);
 
         // Structure: (forall (?x - type_u) (exists (?y - type_vide) P(x,y)))
         // L'Exists sur un domaine vide devient False.

@@ -2,10 +2,11 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, ObjectId};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, ObjectId, TypeId, TypedSymbol};
 use crate::aiplan4rust::grounding::analysis::inertia::registry::{InertiaRegistryBuilder, InertiaRegistryError};
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
+use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::ops::{StaticEvaluator, StaticValue};
 use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
@@ -510,7 +511,11 @@ impl<'a> StaticEvaluator for InertiaRegistry<'a> {
             _ => None,
         }
     }
+
+
+
 }
+
 
 
 #[cfg(test)]
@@ -617,7 +622,7 @@ mod tests {
         // On crée 2 définitions pour que l'index [1] soit valide
         let p_defs = mock_predicate_defs(2);
         let f_defs = vec![];
-        let v_reg = ValueRegistry::new();
+        let v_reg = ValueRegistry::empty();
         let mut i_table = InertiaTable::new();
 
         // On marque le squelette 1 comme Inerte Positif
@@ -657,7 +662,7 @@ mod tests {
         // --- PRÉPARATION DES DÉPENDANCES (Lifetimes 'a) ---
         let p_defs = mock_predicate_defs(0);
         let f_defs = mock_function_defs(6); // Index 5 inclus
-        let v_reg = ValueRegistry::new();
+        let v_reg = ValueRegistry::empty();
         let mut i_table = InertiaTable::new();
 
         // Configuration de l'inertie sur la table (avant l'emprunt par le registre)
@@ -699,7 +704,7 @@ mod tests {
         // On crée 2 définitions pour que l'index 1 soit valide
         let p_defs = mock_predicate_defs(2);
         let f_defs = mock_function_defs(0);
-        let v_reg = ValueRegistry::new();
+        let v_reg = ValueRegistry::empty();
         let mut i_table = InertiaTable::new();
 
         // On définit le prédicat comme Inerte Positif
@@ -733,7 +738,7 @@ mod tests {
         // --- SETUP DU CONTEXTE (Lifetimes 'a) ---
         let p_defs = mock_predicate_defs(2);
         let f_defs = mock_function_defs(0);
-        let v_reg = ValueRegistry::new();
+        let v_reg = ValueRegistry::empty();
         let mut i_table = InertiaTable::new();
 
         // On définit le prédicat comme Inerte Négatif
@@ -782,7 +787,7 @@ mod tests {
         // --- SETUP DU CONTEXTE (Lifetimes 'a) ---
         let p_defs = mock_predicate_defs(3); // On a besoin d'index jusqu'à 2
         let f_defs = mock_function_defs(0);
-        let v_reg = ValueRegistry::new();
+        let v_reg = ValueRegistry::empty();
         let mut i_table = InertiaTable::new();
 
         // On définit les deux prédicats comme Inertes Positifs
@@ -820,7 +825,7 @@ mod tests {
         let obj_11 = ObjectId::from(11);
 
         // 1. On peuple le ValueRegistry avec 2 objets (MAX = 2)
-        let v_reg = ValueRegistry::new().with_typed_list(TypedList::from_iter(vec![
+        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(obj_10, Type::either(vec![type_id])),
             TypedSymbol::new(obj_11, Type::either(vec![type_id])),
         ]));
@@ -875,7 +880,7 @@ mod tests {
         let obj_101 = ObjectId::from(101);
 
         // 1. Setup du ValueRegistry (Domaine de taille 2)
-        let v_reg = ValueRegistry::new().with_typed_list(TypedList::from_iter(vec![
+        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(obj_100, Type::either(vec![type_id])),
             TypedSymbol::new(obj_101, Type::either(vec![type_id])),
         ]));
@@ -932,7 +937,7 @@ mod tests {
 
         let p_defs = mock_predicate_defs(2);
         let f_defs = Vec::new();
-        let v_reg = ValueRegistry::new();
+        let v_reg = ValueRegistry::empty();
         let mut i_table = InertiaTable::new();
         i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Negative);
 
@@ -958,7 +963,7 @@ mod tests {
         let obj21 = ObjectId::from(21); // Second objet pour que MAX = 2
 
         // 1. Setup du ValueRegistry (pour que le type de ?y ait 2 objets)
-        let v_reg = ValueRegistry::new().with_typed_list(TypedList::from_iter(vec![
+        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(obj10, Type::either(vec![type_id])),
             TypedSymbol::new(obj20, Type::either(vec![type_id])),
             TypedSymbol::new(obj21, Type::either(vec![type_id])),
@@ -1023,7 +1028,7 @@ mod tests {
         let obj51 = ObjectId::from(51); // Zone 51 (Second argument)
 
         // 1. Setup du ValueRegistry
-        let v_reg = ValueRegistry::new().with_typed_list(TypedList::from_iter(vec![
+        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(obj10, Type::either(vec![type_id])),
             TypedSymbol::new(obj51, Type::either(vec![type_id])),
         ]));
@@ -1104,7 +1109,7 @@ mod tests {
 
         // 1. Setup du ValueRegistry :
         // ?x (type_robot) n'aura qu'un seul objet possible dans son domaine : obj10.
-        let v_reg = ValueRegistry::new().with_typed_list(TypedList::from_iter(vec![
+        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(obj10, Type::either(vec![type_robot])),
             TypedSymbol::new(obj51, Type::either(vec![type_room])),
         ]));
@@ -1179,7 +1184,7 @@ mod tests {
         ];
 
         // 2. ValueRegistry : indispensable pour calculate_max_instances
-        let v_reg = ValueRegistry::new().with_typed_list(TypedList::from_iter(vec![
+        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(ObjectId::from(100), Type::either(vec![type_id])),
         ]));
 
@@ -1238,7 +1243,7 @@ mod tests {
         // 3. Initialisation du ValueRegistry
         // On utilise la méthode de test pour s'assurer que le vecteur interne
         // est au moins initialisé, évitant le panic si le code cherche un TypeId.
-        let value_registry = ValueRegistry::new().with_typed_list(TypedList::new());
+        let value_registry = ValueRegistry::from_objects(TypedList::new());
 
         let f_defs = Vec::new();
         let mut registry = InertiaRegistry::mock(&p_defs, &f_defs, &value_registry, &i_table);
@@ -1289,7 +1294,7 @@ mod tests {
         ];
 
         // 2. Setup du ValueRegistry (Indispensable pour que le type soit connu)
-        let v_reg = ValueRegistry::new().with_typed_list(TypedList::from_iter(vec![
+        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(obj10, Type::either(vec![type_id])),
             TypedSymbol::new(obj99, Type::either(vec![type_id])),
         ]));
@@ -1386,7 +1391,7 @@ mod tests {
 
         // 3. Setup the registry and inject initial state: f(obj_10) = 42.5 🔢
         let p_defs = Vec::new();
-        let value_registry = ValueRegistry::new();
+        let value_registry = ValueRegistry::empty();
         let mut registry = InertiaRegistry::mock(&p_defs, &f_defs, &value_registry, &i_table);
         registry.generate_function_masks(skel_id, 1, &[obj_a], StaticValue::Number(OrderedFloat::from(val)));
 
@@ -1426,13 +1431,13 @@ mod tests {
 
         // 3. Setup registry and inject TWO different values
         let p_defs = Vec::new();
-        let value_registry = ValueRegistry::new();
+        let value_registry = ValueRegistry::empty();
         let mut registry = InertiaRegistry::mock(&p_defs, &f_defs, &value_registry, &i_table);
 
         registry.generate_function_masks(skel_id, 1, &[obj_10], StaticValue::Number(OrderedFloat::from(42.5)));
         registry.generate_function_masks(skel_id, 1, &[obj_20], StaticValue::Number(OrderedFloat::from(100.0)));
 
-        // 4. Build expression with a variable: f(?var0) ❓
+        // 4. Build expression with a variable: f(?var0)
         let var_node = builder.variable(0);
         let node_id = builder.function_term_with_skeleton(skel_id_val, vec![var_node], skel_id_val);
         let expr = builder.finish();
@@ -1464,7 +1469,7 @@ mod tests {
         let obj_10 = ObjectId::from(10);
         let val = 42.5;
 
-        // 1. Inertia: Mark the function as static 🧊
+        // 1. Inertia: Mark the function as static
         let mut i_table = InertiaTable::new();
         i_table.insert_function(skel_id, Inertia::Positive);
 
@@ -1477,9 +1482,9 @@ mod tests {
             ),
         ];
 
-        // 3. Setup registry and inject data for ONE specific object 🔢
+        // 3. Setup registry and inject data for ONE specific object
         let p_defs = Vec::new();
-        let value_registry = ValueRegistry::new();
+        let value_registry = ValueRegistry::empty();
         let mut registry = InertiaRegistry::mock(&p_defs, &f_defs, &value_registry, &i_table);
         registry.generate_function_masks(skel_id, 1, &[obj_10], StaticValue::Number(OrderedFloat::from(val)));
 

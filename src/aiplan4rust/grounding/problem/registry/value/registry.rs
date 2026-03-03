@@ -24,6 +24,18 @@ pub struct ValueRegistry {
 
 impl ValueRegistry {
 
+    /// Creates a valid but empty `ValueRegistry`.
+    ///
+    /// This is primarily intended for unit testing or scenarios where a registry
+    /// is required but no type/object data is available yet. It bypasses the
+    /// collection and optimization logic.
+    pub fn empty() -> Self {
+        Self {
+            type_domains: Vec::new(),
+            init_size: 0,
+        }
+    }
+
     /// Builds and finalizes the registry from decoupled type and object definitions.
     ///
     /// Unique point d'entrée pour construire un registre validé et optimisé.
@@ -146,7 +158,7 @@ impl ValueRegistry {
 
 #[cfg(test)]
 impl  ValueRegistry {
-    pub fn with_typed_list(mut self, objects: TypedList<ObjectId, TypeId>) -> Self {
+    /*pub fn with_typed_list(mut self, objects: TypedList<ObjectId, TypeId>) -> Self {
         let mut grouped: HashMap<TypeId, Vec<ObjectId>> = HashMap::new();
 
         for ts in objects {
@@ -173,5 +185,43 @@ impl  ValueRegistry {
         }
 
         self
+    }*/
+
+    /// Helper for unit tests to build a registry directly from a list of objects.
+    ///
+    /// This bypasses the standard `build` pipeline and is intended ONLY for
+    /// testing isolated logic where a full `LiftedProblem` is not available.
+    pub fn from_objects<I>(objects: I) -> Self
+    where
+        I: IntoIterator<Item = TypedSymbol<ObjectId, TypeId>>
+    {
+        use std::collections::HashMap;
+
+        let mut grouped: HashMap<TypeId, Vec<ObjectId>> = HashMap::new();
+        let mut max_id = 0;
+
+        for ts in objects {
+            for tid in ts.ty().members() {
+                let id_idx = usize::from(*tid);
+                if id_idx > max_id {
+                    max_id = id_idx;
+                }
+                grouped.entry(*tid).or_default().push(ts.symbol());
+            }
+        }
+
+        // Initialize domains up to the highest TypeId found.
+        let mut type_domains = vec![ValueDomain::new(Vec::new()); max_id + 1];
+
+        for (tid, mut objs) in grouped {
+            objs.sort_unstable();
+            objs.dedup();
+            type_domains[usize::from(tid)] = ValueDomain::new(objs);
+        }
+
+        Self {
+            type_domains,
+            init_size: 0, // No pre-allocation needed for static test lists
+        }
     }
 }
