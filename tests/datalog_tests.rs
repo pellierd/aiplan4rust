@@ -12,7 +12,7 @@ use crate::common::pipeline::{analyze_file, encode, link};
 use aiplan4rust::DatalogEngine;
 use aiplan4rust::type_flattening::problem::flatten as flatten_types;
 use aiplan4rust::quantifier_expansion::problem::{expand as expand_quantifiers, expand_with};
-use aiplan4rust::analysis::inertia::analyze::analyze as analyze_inertia;
+use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::analysis::inertia::registry::InertiaRegistry;
 
 pub fn test_datalog_reachability(domain_dir: &Path) -> bool {

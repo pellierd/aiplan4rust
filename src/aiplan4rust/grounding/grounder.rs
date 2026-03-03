@@ -1,11 +1,12 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::{analysis, config, GroundingResult};
+use crate::aiplan4rust::grounding::{config, GroundingResult};
 use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::DatalogEngine;
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::grounding::passes::{quantifier_expansion, type_flattening};
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::analysis::inertia::InertiaTable;
 use crate::DiagnosticManager;
 
 /// The `Grounder` is responsible for converting a lifted planning problem
@@ -64,7 +65,7 @@ impl Grounder {
         // TO DO
 
         // 3. ANALYSE D'INERTIE : On identifie ce qui ne change jamais.
-        let table = analysis::inertia::analyze::analyze(&lifted_problem)?;
+        let table = InertiaTable::build(&lifted_problem)?;
         // 3. VALUE REGISTRY CONSTRUCTION
         // We pass type/object definitions separately and inject the initial size config.
         let registry = ValueRegistry::build(

@@ -13,9 +13,13 @@ use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::analysis::inertia::table::InertiaTableError;
 
 #[derive(Debug, Error)]
 pub enum GroundingError {
+
+    #[error(transparent)]
+    InertiaTable(#[from] InertiaTableError),
 
     #[error(transparent)]
     InertiaRegistry(#[from] InertiaRegistryError),

@@ -10,6 +10,8 @@ use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::grounding::analysis::inertia::table::builder::build;
 
 /// A lookup table for inertia, covering both Predicates and Numeric Functions.
 ///
@@ -28,11 +30,17 @@ pub struct InertiaTable {
 }
 
 impl InertiaTable {
-    /// Initializes a new, empty `InertiaTable`.
+
+    /// Builds the inertia table by analyzing the provided problem.
     ///
-    /// By default, all mappings are empty. Any lookup for a symbol not
-    /// explicitly inserted will return `None`.
-    pub fn new() -> Self {
+    /// This is the standard entry point for determining which predicates
+    /// and functions are constant (Inert) versus fluent.
+    pub fn build(problem: &LiftedProblem) -> Result<Self, InertiaTableError> {
+        Ok(build(problem)?)
+    }
+
+    /// Returns an empty table for testing or edge cases.
+    pub fn empty() -> Self {
         Self::default()
     }
 

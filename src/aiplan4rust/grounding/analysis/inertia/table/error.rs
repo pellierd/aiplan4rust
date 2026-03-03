@@ -1,5 +1,6 @@
 use thiserror::Error;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Errors encountered while interacting with the inertia analysis table.
 ///
@@ -7,6 +8,11 @@ use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 /// and the pre-computed inertia analysis, often due to an incomplete scanning pass.
 #[derive(Error, Debug)]
 pub enum InertiaTableError {
+
+    /// An error originating from the syntax tree system.
+    #[error(transparent)]
+    SyntaxTree(#[from] SyntaxTreeError),
+
     /// Inertia information for a specific predicate is missing from the table.
     #[error("Inertia missing for predicate: {id:?}")]
     MissingPredicateInertia {

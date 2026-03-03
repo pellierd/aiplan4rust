@@ -25,6 +25,7 @@ use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::analysis::inertia::table::InertiaTableError;
 
 /// Analyzes a lifted planning problem to determine the inertia of all predicates and functions.
 ///
@@ -47,7 +48,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 ///
 /// Returns a [`LirError`] if any expression tree traversal (actions or initial state) fails,
 /// typically due to a malformed AST or an inaccessible node.
-pub fn analyze(problem: &LiftedProblem) -> Result<InertiaTable, InertiaError> {
+pub fn build(problem: &LiftedProblem) -> Result<InertiaTable, InertiaTableError> {
     let mut fluent_predicates = HashSet::new();
     let mut fluent_functions = HashSet::new();
     let mut static_predicates = HashSet::new();
@@ -94,7 +95,7 @@ fn collect_all_action_fluents(
     problem: &LiftedProblem,
     fluent_predicates: &mut HashSet<AtomSkeletonId>,
     fluent_functions: &mut HashSet<FunctionSkeletonId>,
-) -> Result<(), InertiaError> {
+) -> Result<(), InertiaTableError> {
     // Collect fluents from standard instantaneous actions
     for action in problem.action_defs() {
         collect_fluents_from_effect(
@@ -131,7 +132,7 @@ fn build_inertia_table(
     static_predicates: HashSet<AtomSkeletonId>,
     static_functions: HashSet<FunctionSkeletonId>,
 ) -> InertiaTable {
-    let mut table = InertiaTable::new();
+    let mut table = InertiaTable::empty();
 
     // Derived predicates are computed via axioms, so they are always treated as Fluents.
     let derived_ids: HashSet<_> = problem
@@ -192,7 +193,7 @@ pub fn collect_fluents_from_effect(
     expr: &Expr,
     fluent_predicates: &mut HashSet<AtomSkeletonId>,
     fluent_functions: &mut HashSet<FunctionSkeletonId>,
-) -> Result<(), InertiaError> {
+) -> Result<(), InertiaTableError> {
     // Early exit if the expression is empty
     if expr.is_empty() {
         return Ok(());
@@ -258,7 +259,7 @@ pub fn collect_initial_facts(
     static_functions: &mut HashSet<FunctionSkeletonId>,
     fluent_predicates: &mut HashSet<AtomSkeletonId>,
     fluent_functions: &mut HashSet<FunctionSkeletonId>,
-) -> Result<(), InertiaError> {
+) -> Result<(), InertiaTableError> {
     // Early exit if the expression tree is empty
     if init_expr.is_empty() {
         return Ok(());

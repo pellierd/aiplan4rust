@@ -11,10 +11,6 @@ pub enum InertiaError {
     #[error(transparent)]
     Arena(#[from] ArenaError),
 
-    /// An error originating from the syntax tree system.
-    #[error(transparent)]
-    SyntaxTree(#[from] SyntaxTreeError),
-
     /// An error originating from the expr.
     #[error(transparent)]
     Expr(#[from] ExprError),
