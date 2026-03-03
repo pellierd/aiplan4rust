@@ -5,6 +5,7 @@ pub mod problem;
 pub mod analysis;
 pub mod passes;
 pub mod binding;
+pub mod config;
 
 pub use result::Result as GroundingResult;
 pub use grounder::Grounder;

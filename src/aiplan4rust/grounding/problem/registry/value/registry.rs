@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
-use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// A central registry managing value domains for every type within a planning problem.
@@ -23,82 +23,86 @@ pub struct ValueRegistry {
 }
 
 impl ValueRegistry {
-    /// Default pre-allocation size (16) for each type's object list.
-    const DEFAULT_INIT_SIZE: usize = 16;
 
-    /// Creates a new, empty `ValueRegistry` with default configuration.
+    /// Builds and finalizes the registry from decoupled type and object definitions.
     ///
-    /// The registry must be populated using [`Self::with_problem`] before use.
-    pub fn new() -> Self {
-        Self {
-            type_domains: Vec::new(),
-            init_size: Self::DEFAULT_INIT_SIZE,
-        }
-    }
-
-    /// Sets the initial capacity for object collection (Builder Pattern).
+    /// Unique point d'entrée pour construire un registre validé et optimisé.
+    /// Cette fonction combine la collecte, le tri et le dédoublonnage.
     ///
-    /// If the problem is known to have a high number of objects per type, 
-    /// increasing this value can significantly reduce the number of memory 
-    /// reallocations during the initialization phase.
+    /// # Process
+    /// 1. **Collection**: Extracting objects and mapping them to all applicable types
+    ///    in the hierarchy using [`Self::collect_objects`].
+    /// 2. **Optimization**: Sorting and deduplicating each domain to ensure $O(\log n)$
+    ///    search speed and deterministic grounding results.
+    /// 3. **Finalization**: Encapsulating data into immutable [`ValueDomain`]s.
     ///
-    /// # Example
-    /// ```rust
-    /// let registry = ValueRegistry::new()
-    ///     .with_init_size(128)
-    ///     .from_problem(&problem)?;
-    /// ```
-    pub fn with_init_size(mut self, size: usize) -> Self {
-        self.init_size = size;
-        self
-    }
-
-    /// Builds and finalizes the registry from a [`LiftedProblem`].
-    ///
-    /// This process involves:
-    /// 1. Collecting all objects defined in the problem.
-    /// 2. Organizing them by type (handling type hierarchies).
-    /// 3. **Sorting** and **deduplicating** each domain to ensure deterministic grounding.
-    ///
-    /// This method consumes `self` to take ownership of the configuration.
+    /// # Arguments
+    /// * `type_defs` - The complete list of type declarations.
+    /// * `object_defs` - The objects (constants and problem objects) to be registered.
+    /// * `init_size` - The initial capacity for each type bucket to minimize reallocations.
     ///
     /// # Errors
-    /// Returns a [`GroundingError`] if the problem structure is inconsistent or 
-    /// if type definitions are missing.
-    pub fn with_problem(self, problem: &LiftedProblem) -> Result<Self, GroundingError> {
-        // 1. Raw data collection
-        let raw_objects = self.collect_objects(problem);
+    /// Returns a [`GroundingError`] if the type hierarchy is inconsistent.
+    pub fn build(
+        type_defs: &[TypedSymbol<TypeId, TypeId>],
+        object_defs: &[TypedSymbol<ObjectId, TypeId>],
+        init_size: usize,
+    ) -> Result<Self, GroundingError> {
 
-        // 2. Transformation into optimized domains (Sort + Dedup)
-        // We use into_iter to move the raw vectors without deep-copying data.
+        // 1. COLLECTION: Call the bucket distribution logic.
+        // We pass init_size explicitly as we don't have an instance yet.
+        let raw_objects = Self::collect_objects(type_defs, object_defs, init_size);
+
+        // 2. OPTIMIZATION: Sort and Deduplicate each domain.
+        // We use into_iter to move the raw vectors into the domains without deep-copying.
         let type_domains = raw_objects
             .into_iter()
             .map(|mut objs| {
-                objs.sort_unstable(); // Fast sorting for primitive IDs
-                objs.dedup();         // Linear deduplication on sorted vector
+                objs.sort_unstable();
+                objs.dedup();
                 ValueDomain::new(objs)
             })
             .collect();
 
+        // 3. ASSEMBLY: Return the finalized object.
         Ok(Self {
             type_domains,
-            init_size: self.init_size
+            init_size,
         })
     }
-    
-    /// Scans the problem to extract raw objects categorized by type.
+
+    /// Scans the provided definitions to extract and categorize objects by their types.
     ///
-    /// Uses `init_size` to pre-allocate internal buckets, minimizing the 
-    /// memory management overhead.
-    fn collect_objects(&self, problem: &LiftedProblem) -> Vec<Vec<ObjectId>> {
-        let num_types = problem.type_defs().len();
+    /// This method performs a "decoupled" collection, meaning it does not require
+    /// a full `LiftedProblem` but only the relevant slices of type and object definitions.
+    ///
+    /// # Memory Management
+    /// To minimize reallocations, this method uses `init_size` to pre-allocate internal
+    /// buckets for each type. This is particularly efficient for problems with a
+    /// large number of objects (e.g., logistics or satellite domains).
+    ///
+    /// # Type Hierarchy
+    /// PDDL/HDDL objects can belong to multiple types via inheritance. This method
+    /// respects that hierarchy by iterating over all `members()` of an object's type
+    /// and pushing the [`ObjectId`] into every corresponding type bucket.
+    ///
+    /// # Arguments
+    /// * `type_defs` - The complete list of type declarations to determine the number of buckets.
+    /// * `object_defs` - The objects (constants or problem-specific objects) to be registered.
+    /// * `init_size` - The initial capacity allocated for each type bucket.
+    fn collect_objects(
+        type_defs: &[TypedSymbol<TypeId, TypeId>],
+        object_defs: &[TypedSymbol<ObjectId, TypeId>],
+        init_size: usize,
+    ) -> Vec<Vec<ObjectId>> {
+        let num_types = type_defs.len();
 
         // repeat_with ensures each inner Vec is initialized with its own capacity.
-        let mut tmp_objects: Vec<Vec<ObjectId>> = std::iter::repeat_with(|| Vec::with_capacity(self.init_size))
+        let mut tmp_objects: Vec<Vec<ObjectId>> = std::iter::repeat_with(|| Vec::with_capacity(init_size))
             .take(num_types)
             .collect();
 
-        for typed_object in problem.object_defs() {
+        for typed_object in object_defs {
             let obj_id = typed_object.symbol();
             // An object can belong to multiple types in a hierarchy.
             for &ty_id in typed_object.ty().members() {

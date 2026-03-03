@@ -1,5 +1,6 @@
 use std::path::Path;
 use test_case::test_case;
+use aiplan4rust::aiplan4rust::grounding::config;
 use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 
 mod common;
@@ -56,20 +57,35 @@ pub fn test_datalog_reachability(domain_dir: &Path) -> bool {
             }
         };
 
-        let registry = match ValueRegistry::new().with_problem(&lifted_problem) {
+        // --- CONSTRUCTION DU VALUE REGISTRY ---
+        // On utilise la nouvelle méthode statique build()
+        let registry = match ValueRegistry::build(
+            lifted_problem.type_defs(),
+            lifted_problem.object_defs(),
+            config::DEFAULT_VALUE_REGISTRY_SIZE, // Injection de la config centralisée
+        ) {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("ValueRegistry build failed: {:?}", e);
-                success = false; continue;
+                eprintln!("\x1b[1;31mValueRegistry build failed\x1b[0m: {:?}", e);
+                success = false;
+                continue;
             }
         };
 
         // 4. CONSTRUCTION DE L'INERTIA REGISTRY (L'évaluateur statique)
-        let inertia_registry = match InertiaRegistry::build(&lifted_problem, &table, &registry) {
+        // On décompose l'appel pour extraire les définitions et l'état initial
+        let inertia_registry = match InertiaRegistry::build(
+            lifted_problem.predicate_defs(),
+            lifted_problem.function_defs(),
+            lifted_problem.init(),
+            &table,
+            &registry
+        ) {
             Ok(r) => r,
             Err(e) => {
                 eprintln!("InertiaRegistry build failed: {:?}", e);
-                success = false; continue;
+                success = false;
+                continue; // Ou handle l'erreur selon la logique de ton test
             }
         };
 
@@ -93,6 +109,8 @@ pub fn test_datalog_reachability(domain_dir: &Path) -> bool {
         } else {
             println!("\x1b[1;32mDatalog OK\x1b[0m for {}", problem_path.display());
         }
+
+        datalog.run()
     }
 
     print_test_status(problems_to_process.len(), filter_problem_files(&all_files).len(), domain_dir);
@@ -100,7 +118,7 @@ pub fn test_datalog_reachability(domain_dir: &Path) -> bool {
 }
 
 #[test_case("tests/integration/hddl/ipc20/total-order/transport"; "ipc20_transport")]
-#[test_case("tests/integration/hddl/ipc20/total-order/blocks-world"; "ipc20_blocks")]
+#[test_case("tests/integration/hddl/ipc20/total-order/depots"; "ipc20_depots")]
 // ... Ajoute tes autres test_case ici
 pub fn test_hddl_datalog(domain_path: &str) {
     let path = Path::new(domain_path);

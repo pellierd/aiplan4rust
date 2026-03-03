@@ -1,5 +1,5 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::{analysis, GroundingResult};
+use crate::aiplan4rust::grounding::{analysis, config, GroundingResult};
 use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::DatalogEngine;
 use crate::aiplan4rust::grounding::problem::Problem;
@@ -65,15 +65,22 @@ impl Grounder {
 
         // 3. ANALYSE D'INERTIE : On identifie ce qui ne change jamais.
         let table = analysis::inertia::analyze::analyze(&lifted_problem)?;
-        let registry = ValueRegistry::new().with_problem(&lifted_problem)?;
+        // 3. VALUE REGISTRY CONSTRUCTION
+        // We pass type/object definitions separately and inject the initial size config.
+        let registry = ValueRegistry::build(
+            lifted_problem.type_defs(),
+            lifted_problem.object_defs(),
+            config::DEFAULT_VALUE_REGISTRY_SIZE, // Your centralized constant
+        )?;
 
-        // 4. OBJECT FLUENT FLATTENING (Si tu l'implémentes) :
-        // C'est ici qu'il intervient. Maintenant qu'on connaît les types
-        // et l'inertie, on peut transformer les "object fluents" constants
-        // en prédicats classiques ou simplifier les accès.
-        // object_fluent_flattening::process(&mut lifted_problem, &table)?;
-        let clone_lifted_problem = lifted_problem.clone();
-        let inertia_registry = InertiaRegistry::build(&clone_lifted_problem, &table, &registry)?;
+
+        let inertia_registry = InertiaRegistry::build(
+            lifted_problem.predicate_defs(),
+            lifted_problem.function_defs(),
+            lifted_problem.init(),
+            &table,
+            &registry
+        )?;
 
         // 5. QUANTIFIER EXPANSION : On déploie les forall/exists.
         // Il doit arriver APRES le flattening des types pour que le forall

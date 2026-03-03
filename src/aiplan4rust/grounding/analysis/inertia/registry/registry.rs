@@ -27,8 +27,8 @@ pub struct InertiaRegistry<'a> {
     inertia: &'a InertiaTable,
 
     // --- RÉFÉRENCES EMPRUNTÉES (Context) ---
-    predicate_defs: &'a [AtomicFormulaSkeleton],
-    function_defs: &'a [AtomicFunctionSkeleton], // Pour les signatures des fonctions
+    predicate_defs: Box<[AtomicFormulaSkeleton]>,
+    function_defs: Box<[AtomicFunctionSkeleton]>,// Pour les signatures des fonctions
     value_registry: &'a ValueRegistry,
 
     consensus_values: HashMap<FunctionSkeletonId, StaticValue>,
@@ -40,56 +40,56 @@ impl<'a> InertiaRegistry<'a> {
     /// Interface simplifiée : utilise les valeurs par défaut (Arity 15, Proj 3).
     /// C'est celle que tu utiliseras 90% du temps.
     pub fn build(
-        problem: &'a LiftedProblem,
+        predicate_defs: &[AtomicFormulaSkeleton],
+        function_defs: &[AtomicFunctionSkeleton],
+        init: &Expr,
         inertia: &'a InertiaTable,
         value_registry: &'a ValueRegistry,
     ) -> Result<Self, InertiaRegistryError> {
-        // On délègue à la fonction expert avec les constantes par défaut
-        Self::build_with_config(problem, inertia, value_registry, DEFAULT_MAX_ARITY, DEFAULT_MAX_PROJ)
+        Self::build_with_config(
+            predicate_defs,
+            function_defs,
+            init,
+            inertia,
+            value_registry,
+            DEFAULT_MAX_ARITY,
+            DEFAULT_MAX_PROJ
+        )
     }
 
-    /// Point d'entrée pour une configuration fluide (Pattern Builder).
-    pub fn builder(problem: &'a LiftedProblem, inertia: &'a InertiaTable, value_registry: &'a ValueRegistry) -> InertiaRegistryBuilder<'a> {
-        InertiaRegistryBuilder::new(problem, inertia, value_registry)
-    }
-
-    /// Interface "Expert" : permet de régler précisément les limites.
-    /// Utile pour les tests ou les domaines avec des prédicats hors-normes.
     pub(crate) fn build_with_config(
-        problem: &'a LiftedProblem,
+        predicate_defs: &[AtomicFormulaSkeleton],
+        function_defs: &[AtomicFunctionSkeleton],
+        init: &Expr,
         inertia: &'a InertiaTable,
         value_registry: &'a ValueRegistry,
         max_arity: usize,
         max_proj: usize,
     ) -> Result<Self, InertiaRegistryError> {
-        // 1. Vérifications d'arité dynamiques
-        Self::check_limits(max_arity, problem)?;
 
+        // 1. On CLONE les définitions dans des Box (Zéro lifetime 'a sur Problem)
         let mut registry = Self {
+            predicate_defs: predicate_defs.to_vec().into_boxed_slice(),
+            function_defs: function_defs.to_vec().into_boxed_slice(),
+            inertia,
+            value_registry,
             counting_predicates: HashMap::new(),
             static_functions: HashMap::new(),
-            inertia,
-            predicate_defs: problem.predicate_defs(),
-            function_defs: problem.function_defs(),
-            consensus_values: HashMap::new(),
-            value_registry,
+            consensus_values: Default::default(),
             max_arity,
             max_proj,
+
         };
 
-        let init = problem.init();
+        // 2. Traitement de l'init (on utilise init_expr passé en argument)
         let mut iter = init.preorder().values();
         while let Some(node) = iter.next() {
             match node.kind() {
                 ExprKind::AtomicFormula | ExprKind::Comparison => {
                     registry.process_init(node, init)?;
                     iter.skip_subtree();
-
                 }
                 ExprKind::Not => {
-                    // C'est un fait négatif (not (at x y))
-                    // On skip TOUT le sous-arbre (incluant l'AtomicFormula à l'intérieur)
-                    // car un fait négatif ne doit pas être compté dans N(p, a)
                     iter.skip_subtree();
                 }
                 _ => {}
@@ -519,17 +519,18 @@ impl<'a> InertiaRegistry<'a> {
     /// Note : l'InertiaTable doit être créée à l'extérieur (dans le test)
     /// pour garantir la durée de vie 'a.
     pub fn mock(
-        predicate_defs: &'a [AtomicFormulaSkeleton],
-        function_defs: &'a [AtomicFunctionSkeleton],
-        value_registry: &'a ValueRegistry,
+        predicate_defs: &[AtomicFormulaSkeleton], // Plus besoin de 'a ici pour ces deux-là
+        function_defs: &[AtomicFunctionSkeleton],
+        value_registry: &'a ValueRegistry,        // On garde 'a pour les objets externes
         inertia: &'a InertiaTable,
     ) -> Self {
         Self {
             counting_predicates: HashMap::new(),
             static_functions: HashMap::new(),
             inertia,
-            predicate_defs,
-            function_defs,
+            // On convertit les slices en Box possédées
+            predicate_defs: predicate_defs.into(),
+            function_defs: function_defs.into(),
             value_registry,
             consensus_values: HashMap::new(),
             max_arity: DEFAULT_MAX_ARITY,
@@ -538,8 +539,8 @@ impl<'a> InertiaRegistry<'a> {
     }
 
     pub fn mock_with_config(
-        predicate_defs: &'a [AtomicFormulaSkeleton],
-        function_defs: &'a [AtomicFunctionSkeleton],
+        predicate_defs: &[AtomicFormulaSkeleton],
+        function_defs: &[AtomicFunctionSkeleton],
         value_registry: &'a ValueRegistry,
         inertia: &'a InertiaTable,
         max_arity: usize,
@@ -549,8 +550,8 @@ impl<'a> InertiaRegistry<'a> {
             counting_predicates: HashMap::new(),
             static_functions: HashMap::new(),
             inertia,
-            predicate_defs,
-            function_defs,
+            predicate_defs: predicate_defs.into(),
+            function_defs: function_defs.into(),
             value_registry,
             consensus_values: HashMap::new(),
             max_arity,
