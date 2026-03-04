@@ -328,10 +328,7 @@ impl DatalogEncoder {
 
                 // 6. Safety: Any other node kind triggers an error (e.g., Forall, Exists)
                 _ => {
-                    return Err(DatalogError::UnsupportedNode {
-                        kind: kind.clone(),
-                        node_id,
-                    });
+                    return Err(DatalogError::unsupported_node(kind.clone(), node_id));
                 }
             }
         }
@@ -426,7 +423,7 @@ impl DatalogEncoder {
 
                         // 1. Vérification de l'arité (1 seul enfant)
                         if children.len() != 1 {
-                            return Err(DatalogError::UnsupportedNode { kind: kind.clone(), node_id });
+                            return Err(DatalogError::unsupported_node(kind.clone(), node_id));
                         }
 
                         let child_id = children[0];
@@ -442,10 +439,7 @@ impl DatalogEncoder {
                         };
 
                         if !is_valid_comparison {
-                            return Err(DatalogError::UnsupportedNode {
-                                kind: child_kind.clone(),
-                                node_id: child_id,
-                            });
+                            return Err(DatalogError::unsupported_node(child_kind.clone(), child_id));
                         }
 
                         // Si c'est bon, on continue la visite
@@ -689,7 +683,7 @@ impl DatalogEncoder {
                     Term::Constant(cons_id)
                 }
                 // Datalog atoms must only contain terminals (Variables or Constants)
-                _ => return Err(DatalogError::InvalidAtomArgument(arg_id)),
+                _ => return Err(DatalogError::invalid_atom_argument(arg_id)),
             };
 
             terms.push(term);

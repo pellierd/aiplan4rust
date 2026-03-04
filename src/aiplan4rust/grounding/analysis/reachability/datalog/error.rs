@@ -1,52 +1,67 @@
 use thiserror::Error;
 use crate::aiplan4rust::lang::VariableId;
-use crate::aiplan4rust::lir::expr::ExprError;
-use crate::aiplan4rust::lir::expr::ExprKind;
+use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::error::Traceable;
 
+/// Errors encountered during the Datalog grounding and flattening process.
+///
+/// This enum covers inconsistencies in the internal state of the Datalog engine,
+/// unsupported PDDL/LIR constructs, and capacity limits.
 #[derive(Error, Debug)]
 pub enum DatalogError {
-    /// Erreur levée lorsque la pile de l'algorithme de flattening est incohérente.
-    /// Cela arrive si un nœud parent attend plus d'enfants que la pile n'en contient.
-    #[error("Inconsistent stack state during flattening: Node {0:?} expected more children than available")]
-    InconsistentStack(ExprKind),
 
-    /// Erreur levée si, à la fin du parcours, la pile ne contient pas exactement un élément racine.
-    #[error("Final stack state is invalid: expected 1 root atom, found {0}")]
-    InvalidFinalState(usize),
-
-    /// Erreur levée si un paramètre possède une définition de type invalide ou vide.
-    /// Crucial pour la sécurité de l'accès `members()[0]`.
-    #[error("Inconsistent type definition for parameter {0:?}: expected a primitive pivot type")]
-    InconsistentType(VariableId),
-
-    /// Erreur levée si un identifiant de variable dépasse la capacité du bitset (64).
-    #[error("Variable ID {0} exceeds the 64-bit capacity of the flattener")]
-    VariableLimitExceeded(u32),
-
-    /// Erreur levée lors de la rencontre d'un nœud non supporté ou inattendu lors du flattening.
-    /// Utile pour détecter les quantificateurs non expansés ou les types invalides.
+    /// Raised when an unsupported or unexpected node kind is encountered during flattening.
+    ///
+    /// **Note:** This often indicates that the quantifier expansion or ADL preprocessing
+    /// steps were skipped or failed to simplify the expression.
     #[error("Unsupported node type {kind:?} at node {node_id:?}. Ensure expand() was called.")]
     UnsupportedNode {
         kind: ExprKind,
         node_id: NodeId,
     },
 
-    /// Erreur levée lorsqu'un segment attendu (comme les Types ou le Root)
-    /// n'a pas été initialisé avant son utilisation.
-    #[error("Internal engine state inconsistency: {0}")]
-    InternalState(String),
-
-    /// Erreur de passage lors de l'extraction d'atomes ou de la manipulation d'identifiants.
-    #[error(transparent)]
-    SyntaxTree(#[from] SyntaxTreeError),
-
-    /// Erreur levée si un argument d'atome n'est ni une variable ni une constante
+    /// Raised if an atom argument is neither a variable nor a constant.
     #[error("Invalid atom argument at node index {0}")]
     InvalidAtomArgument(NodeId),
 
-    /// Erreur provenant de la couche d'expression LIR.
+    /// Raised when a required internal segment (e.g., Type registry or Root node)
+    /// has not been initialized before use.
+    #[error("Internal engine state inconsistency: {0}")]
+    InternalState(String),
+
+    /// Errors propagated from the underlying syntax tree manipulation.
+    #[error(transparent)]
+    SyntaxTree(#[from] SyntaxTreeError),
+
+    /// Errors propagated from the Low-level Intermediate Representation (LIR) layer.
     #[error(transparent)]
     Expr(#[from] ExprError),
+}
+
+impl Traceable for DatalogError {}
+
+impl DatalogError {
+    /// Creates an `UnsupportedNode` error and captures the call site trace.
+    ///
+    /// # Arguments
+    /// * `kind` - The kind of expression that is not supported.
+    /// * `node_id` - The ID of the node in the expression tree.
+    #[track_caller]
+    pub fn unsupported_node(kind: ExprKind, node_id: NodeId) -> Self {
+        DatalogError::UnsupportedNode { kind, node_id }.trace()
+    }
+
+    /// Creates an `InternalState` error with a custom message and captures the trace.
+    #[track_caller]
+    pub fn internal_state<S: Into<String>>(msg: S) -> Self {
+        DatalogError::InternalState(msg.into()).trace()
+    }
+
+    /// Creates an `InvalidAtomArgument` error for the specified node and captures the trace.
+    #[track_caller]
+    pub fn invalid_atom_argument(node_id: NodeId) -> Self {
+        DatalogError::InvalidAtomArgument(node_id).trace()
+    }
 }

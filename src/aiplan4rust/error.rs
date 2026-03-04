@@ -13,6 +13,23 @@ use crate::aiplan4rust::syntax::SyntaxError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::validation::common::WellNormalizedError;
 
+pub trait Traceable: std::fmt::Debug + std::fmt::Display + Sized {
+    #[track_caller]
+    fn trace(self) -> Self {
+        if log::log_enabled!(log::Level::Debug) {
+            let caller = std::panic::Location::caller();
+            let bt = std::backtrace::Backtrace::force_capture();
+
+            log::debug!(
+                "Trace at {}:{}:{}\n[Content] {}\n[Backtrace]\n{}",
+                caller.file(), caller.line(), caller.column(), self, bt
+            );
+        }
+        self
+    }
+}
+
+
 #[derive(Debug, Error)]
 pub enum AiplanError {
     #[error("Internal error: {0}")]
@@ -63,6 +80,8 @@ impl AiplanError {
 
     /// Crée une erreur interne avec un message donné.
     pub fn internal_error<S: Into<String>>(msg: S) -> Self {
-        AiplanError::InternalError(msg.into())
+        AiplanError::InternalError(msg.into()).trace()
     }
 }
+
+impl Traceable for AiplanError {}

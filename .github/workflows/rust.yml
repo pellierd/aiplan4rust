@@ -1,4 +1,4 @@
-name: Rust
+name: Rust CI (Low Memory & Swap)
 
 on:
   push:
@@ -9,9 +9,12 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: false
-  # On force l'utilisation de LLD et on retire tout ce qui alourdit le binaire
+  # Optimisation agressive pour la RAM : pas de debuginfo, linker LLD et strip des symboles
   RUSTFLAGS: "-C link-arg=-fuse-ld=lld -C debuginfo=0 -C strip=symbols"
-  RUST_LOG: debug
+  # On force la compilation sur un seul cœur pour éviter les pics de RAM
+  CARGO_BUILD_JOBS: 1
+  # Log au niveau info pour ne pas saturer les buffers pendant la compilation
+  RUST_LOG: info
   RUST_BACKTRACE: 1
 
 jobs:
@@ -24,11 +27,21 @@ jobs:
         uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Install LLD Linker
-        # LLD consomme beaucoup moins de RAM que le linker par défaut
         run: sudo apt-get update && sudo apt-get install -y lld
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
+
+      - name: Maximize Swap Space (10GB)
+        # GitHub Actions a environ 14GB de disque libre, on en prend 10 pour le swap
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 10G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "=== MÉMOIRE ET SWAP APRÈS CONFIGURATION ==="
+          free -h
 
       - name: Cache Cargo
         uses: actions/cache@v3
@@ -41,22 +54,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Run tests (Low Memory Mode)
+      - name: Compile and Run Tests
         shell: bash
         run: |
           set -o pipefail
           
-          echo "=== MÉMOIRE DISPONIBLE AU DÉPART ==="
-          free -h
-
-          LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
+          # On définit les filtres pour les tests
           FILTER="all() and not binary(parser_tests)"
+
+          echo "=== COMPILATION (NO RUN) ==="
+          # On compile d'abord pour isoler les erreurs de linking
+          cargo test --no-run --locked
+
+          echo "=== EXÉCUTION DES TESTS (JOBS=1) ==="
+          # On change le log en debug juste pour l'exécution pour voir tes traces
+          export RUST_LOG="info,aiplan4rust::grounding=debug,aiplan4rust::lir::expr=debug"
           
-          echo "=== LANCEMENT DE LA COMPILATION ET DES TESTS ==="
-          
-          # --jobs 1 : Un seul fichier compilé/testé à la fois
-          # --status-level pass : Affiche chaque succès en direct dans la console
-          # --color always : Pour garder la lisibilité (vert/rouge) dans GitHub
           cargo nextest run \
             --jobs 1 \
             -E "$FILTER" \
@@ -64,15 +77,11 @@ jobs:
             --failure-output immediate \
             --success-output immediate \
             --color always \
-            --nocapture \
-            --verbose 2>&1 | tee "$LOG_FILE"
-          
-          echo "=== FIN DU PROCESSUS ==="
-          free -h
+            --nocapture 2>&1 | tee test_results.log
 
       - name: Upload test log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-log
-          path: test-*.log
+          path: test_results.log

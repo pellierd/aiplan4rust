@@ -271,7 +271,7 @@ impl DatalogEngine {
         type_defs: &[TypedSymbol<TypeId, TypeId>], // Ajouté pour voir la hiérarchie
     ) -> Result<(), DatalogError> {
         let root_sk_id = *self.type_to_skeleton.last().ok_or_else(|| {
-            DatalogError::InternalState("Root type skeleton missing".to_string())
+            DatalogError::internal_state("Root type skeleton missing".to_string())
         })?;
 
         for object in object_defs {
