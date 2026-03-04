@@ -38,7 +38,9 @@ jobs:
 
       - name: Build (Trace)
         run: |
-          echo "=== DÉBUT DE LA COMPILATION (Mode 1 Job) ==="
+          echo "=== INFO RAM AVANT BUILD ==="
+          free -h
+          echo "=== DÉBUT DE LA COMPILATION (Jobs=1) ==="
           cargo build --verbose --jobs 1
           echo "=== COMPILATION TERMINÉE ==="
 
@@ -48,22 +50,24 @@ jobs:
           set -o pipefail
           
           LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
-          echo "Log file created: $LOG_FILE"
+          
+          echo "=== INFO RAM AVANT TESTS ==="
+          free -h
 
           FILTER="all() and not binary(parser_tests)"
           
-          echo "=== LANCEMENT DES TESTS AVEC NEXTEST ==="
-          echo "Configuration: 1 thread de test, 1 job de compilation."
-
-          # --status-level pass : Affiche chaque test réussi immédiatement
-          # --failure-output immediate-all : Affiche les erreurs dès qu'elles arrivent
+          echo "=== LANCEMENT DES TESTS (AFFICHAGE INDIVIDUEL) ==="
+          
+          # On utilise --status-level pass pour voir chaque test OK
+          # On utilise --failure-output immediate pour voir chaque erreur tout de suite
+          # On force --color always pour que ce soit lisible dans la console GitHub
           cargo nextest run \
-            -j 1 \
+            --jobs 1 \
             -E "$FILTER" \
-            --test-threads 1 \
             --status-level pass \
-            --failure-output immediate-all \
+            --failure-output immediate \
             --success-output immediate \
+            --color always \
             --nocapture \
             --verbose 2>&1 | tee "$LOG_FILE"
           
