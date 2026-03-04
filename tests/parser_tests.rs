@@ -111,7 +111,7 @@ pub fn test_parse_all_files(domain_dir: &Path) -> bool {
 #[test_case("tests/integration/hddl/ipc20/total-order/assembly-hierarchical"; "ipc20_total_order_assembly_hierarchical")]
 #[test_case("tests/integration/hddl/ipc20/total-order/barman-bdi"; "ipc20_total_order_barman_bdi")]
 #[test_case("tests/integration/hddl/ipc20/total-order/blocksworld-gtohp"; "ipc20_total_order_blocksworld_gtohp")]
-#[test_case("tests/integration/hddl/ipc20/total-order/blocksworld-hpddl"; "ipc20_total_order_blocksworld_hpddl")]
+#[test_case("tests/integration/hddl/ipc20/total-order/blocksworld-hpddl"; "ipc20_total_order_blocksworld_hpdl")]
 #[test_case("tests/integration/hddl/ipc20/total-order/childsnack"; "ipc20_total_order_childsnack")]
 #[test_case("tests/integration/hddl/ipc20/total-order/depots"; "ipc20_total_order_depots")]
 #[test_case("tests/integration/hddl/ipc20/total-order/elevator-learned-ecai-16"; "ipc20_total_order_elevator_learned_ecai_16")]
@@ -141,6 +141,26 @@ pub fn test_hddl_parser(domain_path: &str) {
     assert!(
         test_parse_all_files(path),
         "Parsing test failed for directory {}",
+        domain_path
+    );
+}
+
+#[test_case("tests/integration/pddl/ipc98/assembly"; "ipc98_pddl_adl_assembly")]
+#[test_case("tests/integration/pddl/ipc98/gripper/adl"; "ipc98_pddl_adl_gripper")]
+#[test_case("tests/integration/pddl/ipc98/gripper/strips"; "ipc98_pddl_strips_gripper")]
+#[test_case("tests/integration/pddl/ipc98/logistics/adl"; "ipc98_pddl_adl_logistics")]
+#[test_case("tests/integration/pddl/ipc98/logistics/strips"; "ipc98_pddl_strips_logistics")]
+#[test_case("tests/integration/pddl/ipc98/movie/adl"; "ipc98_pddl_adl_movie")]
+#[test_case("tests/integration/pddl/ipc98/movie/strips"; "ipc98_pddl_strips_movie")]
+#[test_case("tests/integration/pddl/ipc98/mystery-prime/adl"; "ipc98_pddl_adl_mystery_prime")]
+#[test_case("tests/integration/pddl/ipc98/mystery-prime/strips"; "ipc98_pddl_strips_mystery_prime")]
+#[test_case("tests/integration/pddl/ipc98/mystery/adl"; "ipc98_pddl_adl_mystery")]
+#[test_case("tests/integration/pddl/ipc98/mystery/strips"; "ipc98_pddl_strips_mystery")]
+pub fn test_pddl_parser(domain_path: &str) {
+    let path = Path::new(domain_path);
+    assert!(
+        test_parse_all_files(path),
+        "PDDL Parsing test failed for directory {}",
         domain_path
     );
 }
