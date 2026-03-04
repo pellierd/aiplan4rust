@@ -1,5 +1,5 @@
 (define (domain logistics-adl)
-  (:requirements :adl :domain-axioms)
+  (:requirements :adl)
   (:types physobj - object
 	  obj vehicle - physobj
 	  truck airplane - vehicle

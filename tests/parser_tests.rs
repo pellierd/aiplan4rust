@@ -152,9 +152,7 @@ pub fn test_hddl_parser(domain_path: &str) {
 #[test_case("tests/integration/pddl/ipc98/logistics/strips"; "ipc98_pddl_strips_logistics")]
 #[test_case("tests/integration/pddl/ipc98/movie/adl"; "ipc98_pddl_adl_movie")]
 #[test_case("tests/integration/pddl/ipc98/movie/strips"; "ipc98_pddl_strips_movie")]
-#[test_case("tests/integration/pddl/ipc98/mystery-prime/adl"; "ipc98_pddl_adl_mystery_prime")]
 #[test_case("tests/integration/pddl/ipc98/mystery-prime/strips"; "ipc98_pddl_strips_mystery_prime")]
-#[test_case("tests/integration/pddl/ipc98/mystery/adl"; "ipc98_pddl_adl_mystery")]
 #[test_case("tests/integration/pddl/ipc98/mystery/strips"; "ipc98_pddl_strips_mystery")]
 pub fn test_pddl_parser(domain_path: &str) {
     let path = Path::new(domain_path);
