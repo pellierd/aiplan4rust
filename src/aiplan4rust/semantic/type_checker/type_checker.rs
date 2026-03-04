@@ -194,33 +194,60 @@ impl<'a> TypeChecker<'a> {
 
     /// Returns `true` if two sets of types share at least one common supertype.
     ///
-    /// This function computes the transitive closure of all supertypes for each type
-    /// in `ty1` and `ty2`, and then checks if there's any intersection.
+    /// In PDDL semantics, an empty type set is unconstrained and represents the root
+    /// `object` type. Therefore, if either set is empty, they are considered to share
+    /// the universal root supertype.
+    ///
+    /// # Optimization
+    ///
+    /// This function implements a fast path for identical type sets and unconstrained
+    /// types before computing the full transitive closure of supertypes.
+    ///
+    /// # Arguments
+    ///
+    /// * `ty1` - The first set of types to check.
+    /// * `ty2` - The second set of types to check.
     ///
     /// # Returns
     ///
-    /// * `Ok(true)` if a shared supertype is found.
-    /// * `Ok(false)` if the sets are disjoint in the hierarchy.
-    /// * `Err(TypeCheckError)` on resolution failure.
+    /// * `Ok(true)` if:
+    ///     - Both sets are identical.
+    ///     - Either set is empty (representing the universal `object` type).
+    ///     - An intersection is found between their respective transitive supertype closures.
+    /// * `Ok(false)` if the type hierarchies are strictly disjoint.
+    /// * `Err(TypeCheckError)` if a type identifier cannot be resolved in the symbol table.
     pub fn have_common_supertype(
         &self,
         ty1: &Type<SymbolId>,
         ty2: &Type<SymbolId>,
     ) -> Result<bool, TypeCheckError> {
+        // 1. Fast path: Direct equality or unconstrained types.
+        // In PDDL, an empty type list represents the root 'object' type,
+        // which is the universal supertype for all other types.
+        if ty1 == ty2 || ty1.is_root() || ty2.is_root() {
+            return Ok(true);
+        }
+
+        // 2. Comprehensive check for cross-hierarchy relationships.
+        // Compute the transitive closure of all supertypes for the first type set.
         let mut supertypes1 = HashSet::new();
         for t1 in ty1.iter() {
+            // ascending_type_closure includes the type itself.
             supertypes1.extend(self.ascending_type_closure(*t1)?.iter().cloned());
         }
 
+        // Check if any supertype of the second type set intersects with the first one.
         for t2 in ty2.iter() {
             if self.ascending_type_closure(*t2)?
                 .iter()
                 .any(|t| supertypes1.contains(t))
             {
+                // A common ancestor was found in the hierarchy.
                 return Ok(true);
             }
         }
 
+        // No shared supertype found; the types belong to disjoint branches.
         Ok(false)
     }
 

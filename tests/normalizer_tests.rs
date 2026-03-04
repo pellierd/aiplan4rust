@@ -163,7 +163,7 @@ pub fn test_pddl_normalizer(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
         test_normalizer_all_files(path),
-        "PDDL Parsing test failed for directory {}",
+        "Parser + Normalizer integration test failed for directory {}",
         domain_path
     );
 }

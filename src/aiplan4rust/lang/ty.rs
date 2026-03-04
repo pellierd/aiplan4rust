@@ -50,6 +50,8 @@ impl<ID: Id> Type<ID> {
     pub fn len(&self) -> usize { self.members.len() }
     pub fn is_empty(&self) -> bool { self.members.is_empty() }
 
+    pub fn is_root(&self) -> bool { self.is_empty() }
+
     pub fn is_primitive(&self) -> bool { self.members.len() == 1 }
     pub fn is_either(&self) -> bool { self.members.len() > 1 }
 
