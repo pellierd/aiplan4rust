@@ -149,3 +149,21 @@ pub fn test_hddl_normalizer(domain_path: &str) {
         domain_path
     );
 }
+
+#[test_case("tests/integration/pddl/ipc98/assembly"; "ipc98_pddl_adl_assembly")]
+#[test_case("tests/integration/pddl/ipc98/gripper/adl"; "ipc98_pddl_adl_gripper")]
+#[test_case("tests/integration/pddl/ipc98/gripper/strips"; "ipc98_pddl_strips_gripper")]
+#[test_case("tests/integration/pddl/ipc98/logistics/adl"; "ipc98_pddl_adl_logistics")]
+#[test_case("tests/integration/pddl/ipc98/logistics/strips"; "ipc98_pddl_strips_logistics")]
+#[test_case("tests/integration/pddl/ipc98/movie/adl"; "ipc98_pddl_adl_movie")]
+#[test_case("tests/integration/pddl/ipc98/movie/strips"; "ipc98_pddl_strips_movie")]
+#[test_case("tests/integration/pddl/ipc98/mystery-prime/strips"; "ipc98_pddl_strips_mystery_prime")]
+#[test_case("tests/integration/pddl/ipc98/mystery/strips"; "ipc98_pddl_strips_mystery")]
+pub fn test_pddl_normalizer(domain_path: &str) {
+    let path = Path::new(domain_path);
+    assert!(
+        test_normalizer_all_files(path),
+        "PDDL Parsing test failed for directory {}",
+        domain_path
+    );
+}
