@@ -256,13 +256,25 @@ impl SymbolInterner {
         SymbolId::new(idx)
     }
 
-    /// Interns the given string and returns an `Ident` representing it.
+    /// Interns the given string and returns a [`SymbolId`] representing it.
     ///
-    /// If the string is already interned, returns its existing `Ident`.
-    /// Otherwise, adds the string to the pool and returns a new `Ident`.
+    /// # Case Sensitivity
+    ///
+    /// To comply with PDDL and HDDL standards (which are case-insensitive), this method
+    /// systematically converts the input string to **lowercase** before interning.
+    /// For example, interning `"OBJ"`, `"Obj"`, and `"obj"` will all return the same identifier.
+    ///
+    /// # Behavior
+    ///
+    /// - If a lowercase version of the string is already interned, returns its existing ID.
+    /// - Otherwise, normalizes the string, adds it to the symbol pool, and returns a new ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The string slice or owned string to be interned.
     pub fn intern_symbol<S: AsRef<str>>(&mut self, s: S) -> SymbolId {
-        let s = s.as_ref();
-        if let Some(&idx) = self.symbol_id_map.get(s) {
+        let s = s.as_ref().to_lowercase();
+        if let Some(&idx) = self.symbol_id_map.get(s.as_str()) {
             return SymbolId::new(idx);
         }
         let boxed: Box<str> = s.to_string().into_boxed_str();
@@ -273,7 +285,7 @@ impl SymbolInterner {
         SymbolId::new(idx)
     }
 
-    /// Retrieves the interned string by its `Ident`.
+    /// Retrieves the interned string by its `SymbolId`.
     ///
     /// # Arguments
     /// * `ident` - The `Ident` representing the index of the interned string.

@@ -151,7 +151,8 @@ pub fn test_hddl_linker(domain_path: &str) {
     );
 }
 
-/*#[test_case("tests/integration/pddl/ipc98/assembly"; "ipc98_pddl_adl_assembly")]
+
+#[test_case("tests/integration/pddl/ipc98/assembly"; "ipc98_pddl_adl_assembly")]
 #[test_case("tests/integration/pddl/ipc98/gripper/adl"; "ipc98_pddl_adl_gripper")]
 #[test_case("tests/integration/pddl/ipc98/gripper/strips"; "ipc98_pddl_strips_gripper")]
 #[test_case("tests/integration/pddl/ipc98/logistics/adl"; "ipc98_pddl_adl_logistics")]
@@ -167,4 +168,4 @@ pub fn test_pddl_linker(domain_path: &str) {
         "Linking test failed for directory {}",
         domain_path
     );
-}*/
+}
