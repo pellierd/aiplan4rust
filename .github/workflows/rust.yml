@@ -9,18 +9,23 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: false
-  RUSTFLAGS: "-C debuginfo=0"
+  # On force l'utilisation de LLD et on retire tout ce qui alourdit le binaire
+  RUSTFLAGS: "-C link-arg=-fuse-ld=lld -C debuginfo=0 -C strip=symbols"
   RUST_LOG: debug
   RUST_BACKTRACE: 1
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Install LLD Linker
+        # LLD consomme beaucoup moins de RAM que le linker par défaut
+        run: sudo apt-get update && sudo apt-get install -y lld
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
@@ -36,31 +41,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build (Trace)
-        run: |
-          echo "=== INFO RAM AVANT BUILD ==="
-          free -h
-          echo "=== DÉBUT DE LA COMPILATION (Jobs=1) ==="
-          cargo build --verbose --jobs 1
-          echo "=== COMPILATION TERMINÉE ==="
-
-      - name: Run tests (Trace)
+      - name: Run tests (Low Memory Mode)
         shell: bash
         run: |
           set -o pipefail
           
-          LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
-          
-          echo "=== INFO RAM AVANT TESTS ==="
+          echo "=== MÉMOIRE DISPONIBLE AU DÉPART ==="
           free -h
 
+          LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
           FILTER="all() and not binary(parser_tests)"
           
-          echo "=== LANCEMENT DES TESTS (AFFICHAGE INDIVIDUEL) ==="
+          echo "=== LANCEMENT DE LA COMPILATION ET DES TESTS ==="
           
-          # On utilise --status-level pass pour voir chaque test OK
-          # On utilise --failure-output immediate pour voir chaque erreur tout de suite
-          # On force --color always pour que ce soit lisible dans la console GitHub
+          # --jobs 1 : Un seul fichier compilé/testé à la fois
+          # --status-level pass : Affiche chaque succès en direct dans la console
+          # --color always : Pour garder la lisibilité (vert/rouge) dans GitHub
           cargo nextest run \
             --jobs 1 \
             -E "$FILTER" \
@@ -71,7 +67,8 @@ jobs:
             --nocapture \
             --verbose 2>&1 | tee "$LOG_FILE"
           
-          echo "=== FIN DES TESTS ==="
+          echo "=== FIN DU PROCESSUS ==="
+          free -h
 
       - name: Upload test log
         if: always()
