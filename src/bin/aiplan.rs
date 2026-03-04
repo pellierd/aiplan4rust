@@ -56,9 +56,19 @@ fn handle_cli_result(result: Result<(), CliError>, cli: &mut Command, subcommand
         }
 
         Err(other) => {
-            eprintln!("Internal error: {other:?}"); // ou .debug()
-            //eprintln!("Backtrace:\n{:?}", std::backtrace::Backtrace::capture());
-            eprintln!("This is a bug. Please report it.");
+            eprintln!("Internal error: {other:?}");
+
+            // Récupération des variables d'environnement
+            let log_level = std::env::var("RUST_LOG").unwrap_or_default().to_lowercase();
+            let backtrace = std::env::var("RUST_BACKTRACE").unwrap_or_default();
+
+            // On n'affiche le bloc d'aide que si on n'est pas déjà en mode "verbeux"
+            if !log_level.contains("debug") && !log_level.contains("trace") && backtrace != "1" {
+                eprintln!("To help us fix this, please run the command again with:");
+                eprintln!("    RUST_LOG=debug RUST_BACKTRACE=1 ./target/debug/aiplan ...");
+            }
+
+            eprintln!("This is a bug. Please report it at: https://github.com/aiplan4rust/issues");
             std::process::exit(2);
         }
     }

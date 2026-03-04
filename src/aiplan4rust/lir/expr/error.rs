@@ -164,7 +164,7 @@ impl ExprError {
             let bt = std::backtrace::Backtrace::force_capture();
 
             log::debug!(
-                "ExprError captured at {file}:{line}:{col}\n\
+                "Error captured at {file}:{line}:{col}\n\
                  [Error] {error:?}\n\
                  [Stack Trace]\n{trace}",
                 file = caller.file(),

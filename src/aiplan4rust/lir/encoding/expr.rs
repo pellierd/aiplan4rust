@@ -453,6 +453,7 @@ fn encode_kind(kind: AstKind) -> Result<ExprKind, ExprError> {
         AstKind::PredicateSymbol => Ok(ExprKind::PredicateSymbol),
         AstKind::Variable => Ok(ExprKind::Variable),
         AstKind::Object => Ok(ExprKind::Object),
+        AstKind::When => Ok(ExprKind::When),
         AstKind::FunctionSymbol => Ok(ExprKind::FunctionSymbol),
         AstKind::TaskSymbol => Ok(ExprKind::TaskSymbol),
         AstKind::PrefName => Ok(ExprKind::PrefName),
