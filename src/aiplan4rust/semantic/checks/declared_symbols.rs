@@ -89,24 +89,31 @@ fn check_symbol_declarations(
                 let current_kind = declaration.symbol_kind();
                 let previous_kind = previous_declaration.symbol_kind();
 
-                // Special case: PrimitiveType and Predicate may share ambiguous names
-                if (current_kind == SymbolKind::PrimitiveType && previous_kind == SymbolKind::Predicate)
-                    || (current_kind == SymbolKind::Predicate && previous_kind == SymbolKind::PrimitiveType)
-                {
+                // On demande à la logique centralisée si le partage est possible
+                if current_kind.can_share_name_space_with(&previous_kind) {
 
-                    let (predicate_decl, type_decl) = match current_kind == SymbolKind::Predicate {
-                        true => (declaration, previous_declaration),
-                        false => (previous_declaration, declaration),
-                    };
+                    // On ne génère un warning QUE pour le cas ambigu Type/Prédicat
+                    let is_type = current_kind == SymbolKind::PrimitiveType || previous_kind == SymbolKind::PrimitiveType;
+                    let is_pred = current_kind == SymbolKind::Predicate || previous_kind == SymbolKind::Predicate;
 
-                    let warning = Diagnostic::warning_ambiguous_type_predicate_symbol(
-                        type_decl.clone(),
-                        predicate_decl.clone(),
-                        Provider::Analyzer,
-                        context.source_id(),
-                        ast_entry.span().clone(),
-                    );
-                    diagnostic_manager.add_diagnostic(warning);
+                    if is_type && is_pred {
+                        let (predicate_decl, type_decl) = if current_kind == SymbolKind::Predicate {
+                            (declaration, previous_declaration)
+                        } else {
+                            (previous_declaration, declaration)
+                        };
+
+                        let warning = Diagnostic::warning_ambiguous_type_predicate_symbol(
+                            type_decl.clone(),
+                            predicate_decl.clone(),
+                            Provider::Analyzer,
+                            context.source_id(),
+                            ast_entry.span().clone(),
+                        );
+                        diagnostic_manager.add_diagnostic(warning);
+                    }
+
+                // Pour Constant vs Constant (colourfragments) ou Type vs Constant : Silence radio.
                 } else {
                     checked = false;
 

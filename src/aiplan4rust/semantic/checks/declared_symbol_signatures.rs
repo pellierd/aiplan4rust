@@ -66,6 +66,27 @@ pub fn check_declared_symbol_signatures(
 
             // Check all usages of the symbol.
             for usage in symbol.usages() {
+                let usage_kind = usage.symbol_kind();
+                let decl_kind = declaration.symbol_kind();
+
+                // --- STRATÉGIE DE FILTRAGE UNIFIÉE ---
+
+                // 1. Si les genres sont différents et NE PEUVENT PAS partager l'espace de noms,
+                //    alors cet usage ne concerne pas cette déclaration.
+                if usage_kind != decl_kind && !decl_kind.can_share_name_space_with(&usage_kind) {
+                    continue;
+                }
+
+                // 2. Cas spécifique des types (Singletons) :
+                //    Même si can_share(Type, Constant) est vrai, on ne compare pas leurs signatures.
+                //    Une constante n'a pas de paramètres, contrairement à un prédicat ou une tâche.
+                if (matches!(decl_kind, SymbolKind::PrimitiveType) || matches!(usage_kind, SymbolKind::PrimitiveType))
+                    && usage_kind != decl_kind
+                {
+                    continue;
+                }
+
+                // 3. Validation de la signature
                 if !match_declaration_with_usage(
                     declaration,
                     usage,
@@ -74,7 +95,8 @@ pub fn check_declared_symbol_signatures(
                     type_checker,
                     diagnostic_manager,
                 )? {
-                    no_error &= false;
+                    no_error = false; // Utilisation de false directement (plus idiomatique que &=)
+
                     let entry = context.syntax_tree().get_node(usage.node_id()).unwrap();
 
                     let error = Diagnostic::error_invalid_symbol_signature(
@@ -236,11 +258,11 @@ fn match_argument(
     let is_subtype = type_checker.is_any_subtype_of(ty1, ty2)?;
 
     // Special tolerated case: accept a primitive task matching an action/method with a supertype
+    // Special tolerated case: accept a primitive task matching an action/method/symbol with a supertype.
+    // We use the centralized 'can_share_name_space_with' to validate this HDDL-specific overlap.
     if !is_subtype
-        && (declaration.symbol_kind() == SymbolKind::Action
-        || declaration.symbol_kind() == SymbolKind::DASymbol
-        || declaration.symbol_kind() == SymbolKind::Method)
         && usage.symbol_kind() == SymbolKind::Task
+        && declaration.symbol_kind().can_share_name_space_with(&usage.symbol_kind())
     {
         let warning = Diagnostic::warning_task_argument_is_supertype_of_declaration(
             symbol_declaration.clone(),
@@ -253,6 +275,7 @@ fn match_argument(
         diagnostic_manager.add_diagnostic(warning);
 
         // Accept the match if ty1 is a supertype of ty2 (ty1 :> ty2)
+        // This allows "upcasting" which is sometimes required in complex HDDL domains.
         return Ok(type_checker.is_any_supertype_of(ty1, ty2)?);
     }
 

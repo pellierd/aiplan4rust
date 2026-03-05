@@ -163,18 +163,25 @@ fn should_skip_symbol(
 /// ```
 fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckContext) -> bool {
     let usage_scope = usage.scope();
+    let usage_kind = usage.symbol_kind();
 
-    // Common closure to check declarations for the given kind and scope
-    // This closure checks if the declaration's scope starts with the usage scope and if the
-    // declaration kind matches the usage kind.
+    // --- LOGIQUE UNIFIÉE ---
+    // On vérifie si une déclaration est compatible avec l'usage
     let check_declarations = |declaration: &Declaration| {
-        usage_scope.starts_with(&declaration.scope()) && declaration.symbol_kind() == usage.symbol_kind()
+        let decl_kind = declaration.symbol_kind();
+
+        // 1. Le scope doit correspondre
+        let scope_match = usage_scope.starts_with(&declaration.scope());
+
+        // 2. Le genre doit être compatible (soit identique, soit autorisé par can_share)
+        // Note: On utilise `decl_kind == usage_kind` ou `can_share`
+        // car can_share renvoie false si les genres sont identiques (sauf Constant).
+        let kind_match = decl_kind == usage_kind || decl_kind.can_share_name_space_with(&usage_kind);
+
+        scope_match && kind_match
     };
 
-    // For PrimitiveType, we also check usages at the root scope.
-    // This is necessary because PrimitiveType can be used without declaration if it appears on
-    // the right side of type_checker declarations in PDDL.For example, types like "car" or "vehicle"
-    // might not be explicitly declared but are understood in the domain context.
+    // Pour PrimitiveType, conservation de la logique de "root scope" (PDDL types implicites)
     let check_usages_at_root_scope = |usage: &Usage| {
         let root_id = context.syntax_tree().try_root_id().unwrap();
         let root_scope = Scope::new(root_id, None);
@@ -184,28 +191,21 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
             .any(|u| usage.scope().starts_with(&root_scope) && u.symbol_kind() == usage.symbol_kind())
     };
 
-    // For SymbolKind::Task, we also check if declaration.kind() is Action or Task.
-    // This ensures we match tasks that are declared with Action or Task symbols.
-    let check_primitive_task_declaration = |declaration: &Declaration| {
-        usage_scope.starts_with(&declaration.scope())
-            && (declaration.symbol_kind() == SymbolKind::Action
-                || declaration.symbol_kind() == SymbolKind::Task)
-    };
-
-    match usage.symbol_kind() {
+    match usage_kind {
+        // La logique spéciale Task/Action est maintenant absorbée par `can_share_name_space_with`
+        // si tu as bien configuré (Task, Action) dans ton match.
+        // Sinon, on garde le match spécifique ou on complète `can_share`.
         SymbolKind::Task => symbol
             .declarations()
             .iter()
-            .any(check_primitive_task_declaration),
+            .any(check_declarations), // Nettoyé !
+
         SymbolKind::PrimitiveType => {
-            // For PrimitiveType, we check the common declaration ops and also include checks
-            // or usages at the root scope. This ensures that PrimitiveTypes can be considered
-            // even if they aren't explicitly declared in the current scope.
             symbol.declarations().iter().any(check_declarations)
                 || symbol
-                    .usages()
-                    .iter()
-                    .any(|u| check_usages_at_root_scope(u))
+                .usages()
+                .iter()
+                .any(|u| check_usages_at_root_scope(u))
         }
         _ => symbol.declarations().iter().any(check_declarations),
     }

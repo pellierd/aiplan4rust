@@ -85,7 +85,15 @@ pub fn check_unused_symbols(
 
             // Determine if this declaration has at least one valid usage
             let has_valid_usage = symbol.usages().iter().any(|usage| {
-                usage.scope().starts_with(&declaration_scope)
+                let usage_kind = usage.symbol_kind();
+                // 1. Le scope doit correspondre
+                let scope_match = usage.scope().starts_with(&declaration_scope);
+
+                // 2. Le genre doit être identique OU compatible selon notre stratégie centrale
+                let kind_match = usage_kind == declaration_kind
+                    || declaration_kind.can_share_name_space_with(&usage_kind);
+
+                scope_match && kind_match
             });
 
             // If no usage is found, emit a warning
@@ -142,6 +150,8 @@ fn skip_unused_symbol_declaration(
             | SymbolKind::Action
             | SymbolKind::DASymbol
             | SymbolKind::Method
+            | SymbolKind::TaskID
+
     ) {
         return Ok(true);
     }
@@ -232,31 +242,51 @@ fn check_pddl_builtin_symbol_declaration(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
     let requirements = context.requirements();
-    let (expected_kind, requirements) = match declaration.symbol_ident() {
-        SymbolInterner::OBJECT_SYMBOL_ID
-        if requirements.contains(&Typing) || requirements.contains(&Adl) =>
-            {
-                (SymbolKind::PrimitiveType, vec![Typing, Adl])
-            }
-        SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&NumericFluents) => (
-            SymbolKind::PrimitiveType,
-            vec![NumericFluents, Fluents],
-        ),
+    let current_kind = declaration.symbol_kind();
+
+    // 1. On identifie si le nom est un mot-clé réservé selon les requirements
+    let (expected_kind, reqs) = match declaration.symbol_ident() {
+        SymbolInterner::OBJECT_SYMBOL_ID if requirements.contains(&Typing) || requirements.contains(&Adl) => {
+            (SymbolKind::PrimitiveType, vec![Typing, Adl])
+        }
+        SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&NumericFluents) => {
+            (SymbolKind::PrimitiveType, vec![NumericFluents, Fluents])
+        }
         SymbolInterner::TOTAL_TIME_SYMBOL_ID if requirements.contains(&NumericFluents) => {
             (SymbolKind::Function, vec![NumericFluents, Fluents])
         }
-        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if requirements.contains(&DurativeActions) => (
-            SymbolKind::Variable,
-            vec![DurativeActions],
-        ),
-        _ => return true,
+        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if requirements.contains(&DurativeActions) => {
+            (SymbolKind::Variable, vec![DurativeActions])
+        }
+        _ => return true, // Pas un mot-clé, on valide la déclaration
     };
 
-    if declaration.symbol_kind() != expected_kind {
+    // 2. CAS A : Collision Directe (Genre identique)
+    // L'utilisateur essaie de déclarer "object" comme un "PrimitiveType".
+    // C'est ta stratégie : ERREUR car ça entre en conflit avec ta racine interne.
+    if current_kind == expected_kind {
+        let error = Diagnostic::error_symbol_conflicts_with_keyword(
+            declaration.clone(),
+            expected_kind,
+            reqs,
+            provider,
+            context.source_id(),
+            declaration.span().clone(),
+        );
+        diagnostic_manager.add_diagnostic(error);
+        return true; // On marque comme trouvé mais invalide
+    }
+
+    // 3. CAS B : Usage Ambigu (Genre différent)
+    // L'utilisateur déclare "object" comme "Constant".
+    // On vérifie si notre nouvelle stratégie autorise ce partage.
+    if current_kind.can_share_name_space_with(&expected_kind) {
+        // C'est autorisé (ex: Constant vs Type), mais c'est risqué.
+        // -> WARNING (ton ancienne stratégie d'ambiguïté)
         let warning = Diagnostic::warning_symbol_declared_ambiguously_as_keyword(
             declaration.clone(),
             expected_kind,
-            requirements,
+            reqs,
             provider,
             context.source_id(),
             declaration.span().clone(),
@@ -264,16 +294,10 @@ fn check_pddl_builtin_symbol_declaration(
         diagnostic_manager.add_diagnostic(warning);
         false
     } else {
-        let error = Diagnostic::error_symbol_conflicts_with_keyword(
-            declaration.clone(),
-            expected_kind,
-            requirements,
-            provider,
-            context.source_id(),
-            declaration.span().clone(),
-        );
-        diagnostic_manager.add_diagnostic(error);
-        true
+        // CAS C : Conflit Radical (ex: Variable nommée "object")
+        // Ce n'est pas autorisé par can_share_name_space_with.
+        // On pourrait ici mettre une erreur plus grave ou rester sur le warning.
+        false
     }
 }
 

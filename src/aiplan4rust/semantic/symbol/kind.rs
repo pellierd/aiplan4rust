@@ -71,6 +71,63 @@ pub enum Kind {
     Variable,
 }
 
+impl Kind {
+    /// Returns `true` if two symbols are allowed to share the same name (identifier)
+    /// in a case-insensitive context.
+    ///
+    /// This logic is essential for PDDL/HDDL compatibility, allowing common
+    /// naming conventions while preventing critical unification ambiguities.
+    ///
+    /// # Sharing Rules
+    ///
+    /// * **Same Kind (`self == other`):**
+    ///     * Returns `true` **only for Constants**. This allows a Problem file
+    ///       to redeclare a constant already defined in the Domain (standard behavior).
+    ///     * Returns `false` for all other kinds (e.g., two Tasks cannot share a name).
+    ///
+    /// * **Type vs Constant:**
+    ///     * Returns `true`. This supports the "Singleton" idiom where a unique
+    ///       object shares the name of its type (e.g., `fireExtinguisher - FireExtinguisher`).
+    ///
+    /// * **Type vs Predicate:**
+    ///     * Returns `true`. While syntactically distinct due to parentheses `(p ...)`,
+    ///       sharing is allowed but may trigger a compiler warning elsewhere.
+    ///
+    /// * **Variables (`?x`):**
+    ///     * Always returns `false`. Variables are "sacred" to ensure safe
+    ///       unification and avoid collisions with static symbols.
+    ///
+    /// * **Default:**
+    ///     * Returns `false` for any other combination (e.g., Task vs Constant)
+    ///       to maintain model clarity.
+    pub fn can_share_name_space_with(&self, other: &Self) -> bool {
+        // 1. Handle identical kinds
+        if self == other {
+            // Authorized only for constants (Domain/Problem redeclaration)
+            return matches!(self, Kind::Constant);
+        }
+
+        // 2. Handle authorized mixed pairs
+        match (self, other) {
+            // Singleton convention: Type and Constant/Object
+            (Kind::PrimitiveType, Kind::Constant) | (Kind::Constant, Kind::PrimitiveType) => true,
+
+            // Manageable syntactic ambiguity: Type and Predicate
+            (Kind::PrimitiveType, Kind::Predicate) | (Kind::Predicate, Kind::PrimitiveType) => true,
+
+            // AJOUTE CETTE LIGNE : Crucial pour HDDL
+            // Une Task et une Action partagent souvent le même nom.
+            (Kind::Task, Kind::Action) | (Kind::Action, Kind::Task) => true,
+
+            // Strict safety: Variables never share their namespace
+            (Kind::Variable, _) | (_, Kind::Variable) => false,
+
+            // Default: Strict (Task, Method, etc.)
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Kind {
     /// Formats the `Kind` enum as a human-readable string.
     ///

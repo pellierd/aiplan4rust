@@ -79,13 +79,14 @@ pub fn check_cross_declared_symbols(
                     // Retrieve all relevant domain declarations for this symbol
                     let domain_declarations = get_relevant_domain_declarations(domain_symbol_table, symbol.ident());
 
-                    // Check if there exists a domain declaration with the same SymbolKind as the problem declaration
-                    let same_kind_exists = domain_declarations
-                        .iter()
-                        .any(|d| d.symbol_kind() == declaration.symbol_kind());
+                    // On cherche s'il existe une déclaration dans le domaine qui NE PEUT PAS
+                    // partager l'espace de noms avec la déclaration du problème.
+                    let has_conflict = domain_declarations.iter().any(|d| {
+                        !declaration.symbol_kind().can_share_name_space_with(&d.symbol_kind())
+                    });
 
                     // If no domain declaration of the same kind exists, report a cross-conflict error
-                    if !same_kind_exists {
+                    if has_conflict {
                         let error = Diagnostic::error_cross_conflict_symbol_declaration(
                             declaration.clone(),
                             domain_declarations,
