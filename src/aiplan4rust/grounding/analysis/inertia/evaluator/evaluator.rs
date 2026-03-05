@@ -113,7 +113,7 @@ impl<'a> InertiaEvaluator<'a> {
             for &arg_id in &children[1..] {
                 let arg_node = init.try_node(arg_id)?;
                 // On récupère la valeur concrète (ex: l'ID de l'objet 'truck1')
-                args.push(arg_node.try_constant()?);
+                args.push(arg_node.try_object()?);
             }
 
             // 4. On lie la définition (skeleton_id) aux valeurs concrètes (args)
@@ -138,7 +138,7 @@ impl<'a> InertiaEvaluator<'a> {
             // 3. Extraction des arguments de la fonction (ex: le 'x' dans '(f x)')
             let mut args = Vec::with_capacity(arity);
             for &arg_id in &func_children[1..] {
-                args.push(init.try_node(arg_id)?.try_constant()?);
+                args.push(init.try_node(arg_id)?.try_object()?);
             }
 
             // 4. Extraction de la valeur (le membre de droite du '=' : children[1])
@@ -146,7 +146,7 @@ impl<'a> InertiaEvaluator<'a> {
             let value = if let Ok(num) = val_node.try_number() {
                 StaticValue::Number(num)
             } else {
-                StaticValue::Object(val_node.try_constant()?)
+                StaticValue::Object(val_node.try_object()?)
             };
 
             // 5. Enregistrement pour l'analyse d'inertie
@@ -211,8 +211,6 @@ impl<'a> InertiaEvaluator<'a> {
             // Justification (Théorème 1.2) : Si toutes les instances possibles sont déjà dans l'état initial
             // et que p est inerte négatif (aucune action ne peut le supprimer), alors toutes les
             // instances possibles de (p, ~a) seront VRAIES dans tous les états atteignables.
-            println!("DEBUG: Predicate {:?}", pred_id);
-            println!("DEBUG: n_p_a = {}, max_p_a = {}, mask = {}", n_p_a, max_p_a, mask);
             if n_p_a == max_p_a {
                 return Ok(Some(true));
             }
@@ -355,6 +353,36 @@ impl<'a> InertiaEvaluator<'a> {
         Ok(())
     }
 
+    /// Extrait le masque d'instanciation et les constantes associées d'un atome.
+    ///
+    /// Cette fonction implémente la logique de la **Définition 8** du papier IPP :
+    /// `C(a) := {i | ai est une constante}`.
+    ///
+    /// # Logique du Papier IPP
+    ///
+    /// Selon le papier, pour évaluer $N(p, \vec{a})$, nous devons identifier quelles positions
+    /// du vecteur d'arguments $\vec{a}$ sont occupées par des constantes afin de choisir
+    /// la table de comptage appropriée $T(p, C)$.
+    ///
+    /// - **Le Masque (`u16`)** : Représente l'ensemble $C$. Chaque bit correspond à une position.
+    ///   Si l'argument à la position $i$ est une constante, le bit correspondant est mis à 1.
+    ///   L'implémentation utilise un encodage *Big Endian* (le premier argument est le bit de poids fort).
+    /// - **Le Buffer (`ArgumentBuffer`)** : Implémente la restriction $\vec{a}|_{C(\vec{a})}$ (Définition 7).
+    ///   Il contient uniquement les identifiants des objets constants, en préservant leur ordre
+    ///   relatif, tout en ignorant (sautant) les variables.
+    ///
+    /// # Gestion de l'ADL et de l'Instanciation Partielle
+    ///
+    /// Conformément à la **Section 3.2**, cette fonction est "variable-aware".
+    /// Si un argument est une `Variable`, son bit reste à `0` dans le masque et il n'est pas
+    /// ajouté au buffer. Cela permet d'obtenir le compte $N$ pour n'importe quelle
+    /// combinaison de constantes, ce qui est le cœur de la simplification atomique.
+    ///
+    /// # Sécurité Arithmétique
+    ///
+    /// Une garde est présente pour `children.len() <= 1` (atome sans arguments ou symbole seul),
+    /// garantissant que le calcul de `args.len() - 1 - i` ne provoque jamais de sous-dépassement
+    /// (*underflow*) sur les types non signés.
     fn extract_mask_dynamic(
         &self,
         node: &ExprNode,
@@ -369,13 +397,22 @@ impl<'a> InertiaEvaluator<'a> {
         let mut mask = 0u16;
 
         for (i, &arg_id) in args.iter().enumerate() {
-            if let Some(obj) = expr.try_node(arg_id).ok().and_then(|n| n.try_constant().ok()) {
-                mask |= 1 << (args.len() - 1 - i);
-                buffer.push(obj);
+            if let Ok(arg_node) = expr.try_node(arg_id) {
+                // ON VÉRIFIE LE GENRE AVANT D'ESSAYER D'EXTRAIRE
+                if arg_node.kind() == ExprKind::Object {
+                    // Ici, try_constant() ne peut PAS échouer
+                    if let Ok(obj) = arg_node.try_object() {
+                        mask |= 1 << (args.len() - 1 - i);
+                        buffer.push(obj);
+                    }
+                }
+                // Si c'est ExprKind::Variable, on ne fait rien (le bit reste à 0)
+                // C'est exactement ce que demande le papier IPP.
             }
         }
         mask
     }
+
     pub fn generate_predicate_masks(&mut self, key: AtomSkeletonId, arity: usize, args: &[ObjectId]) {
         // 1. Garde contre l'arité 0 et les erreurs de calcul potentielles
         if arity == 0 {

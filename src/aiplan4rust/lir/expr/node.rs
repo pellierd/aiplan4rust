@@ -382,7 +382,7 @@ impl ExprNode {
     }
 
     /// Returns the object ID or an error.
-    pub fn try_constant(&self) -> Result<ObjectId, ExprError> {
+    pub fn try_object(&self) -> Result<ObjectId, ExprError> {
         self.content().try_object()
     }
 

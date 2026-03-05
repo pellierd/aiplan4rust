@@ -1,4 +1,3 @@
-use std::error::Error;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
@@ -1435,7 +1434,6 @@ fn test_not_atomic_formula_triggers_error() -> Result<(), DatalogError> {
     let mut builder = ExprBuilder::new();
     let mut rules = Vec::new();
 
-    // Logique : (NOT (P10 ?v0)) -> Doit échouer car pas en Positive Normal Form
     let v0 = builder.variable(0);
     let p10 = builder.atomic_formula_with_skeleton(10, vec![v0], 10);
     let root = builder.not(p10);
@@ -1444,10 +1442,11 @@ fn test_not_atomic_formula_triggers_error() -> Result<(), DatalogError> {
     let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params);
 
     match result {
-        Err(DatalogError::UnsupportedNode { kind, .. }) => {
-            assert_eq!(kind, ExprKind::AtomicFormula, "L'erreur doit pointer sur l'atome sous le NOT");
+        // Changement ici : On attend FeatureNotSupported
+        Err(DatalogError::FeatureNotSupported { feature, .. }) => {
+            assert!(feature.contains("AtomicFormula"), "L'erreur doit pointer sur l'atome sous le NOT");
         },
-        _ => panic!("Le NOT sur une formule atomique devrait être rejeté en descente"),
+        _ => panic!("Le NOT sur une formule atomique devrait être rejeté comme FeatureNotSupported"),
     }
 
     Ok(())
@@ -1626,21 +1625,18 @@ fn test_double_not_is_rejected_as_non_pnf() -> Result<(), DatalogError> {
     let v1 = builder.variable(1);
     let eq = builder.comparison(CompareOp::Equal, v0, v1);
 
-    // Construction de NOT(NOT(= ?v0 ?v1))
     let not_inner = builder.not(eq);
     let root = builder.not(not_inner);
     builder.set_root(root)?;
 
-    // On exécute l'encodage
     let result = encoder.encode_expr(&builder.finish(), root, &mut rules, &params);
 
-    // On vérifie que cela produit bien une erreur UnsupportedNode pour le type 'Not'
-    // car le premier NOT s'attend à une Comparison, pas à un autre NOT.
     match result {
-        Err(DatalogError::UnsupportedNode { kind, .. }) => {
-            assert_eq!(kind, ExprKind::Not, "L'erreur doit porter sur le nœud Not imbriqué");
+        // Changement ici : On attend FeatureNotSupported
+        Err(DatalogError::FeatureNotSupported { feature, .. }) => {
+            assert!(feature.contains("Not"), "L'erreur doit mentionner le support de la négation");
         },
-        _ => panic!("L'encodeur devrait rejeter le double NOT comme non-PNF"),
+        _ => panic!("L'encodeur devrait rejeter le double NOT comme FeatureNotSupported (PNF required)"),
     }
 
     Ok(())

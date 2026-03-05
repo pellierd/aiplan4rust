@@ -4,7 +4,7 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::Datal
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lang::CompareOp;
@@ -326,9 +326,18 @@ impl DatalogEncoder {
                     continue;
                 }
 
+                // --- FEATURES (VALIDE PDDL MAIS NÉCESSITE PREPROCESSING) ---
+                // Si l'un de ceux-là arrive ici, c'est l'Expander/PNF qui est en cause.
+                ExprKind::Forall | ExprKind::Exists | ExprKind::Imply => {
+                    return Err(DatalogError::feature_not_supported(
+                        format!("ADL construct {:?} in effects", kind),
+                        node_id
+                    ));
+                }
+
                 // 6. Safety: Any other node kind triggers an error (e.g., Forall, Exists)
                 _ => {
-                    return Err(DatalogError::unsupported_node(kind.clone(), node_id));
+                    return Err(DatalogError::incompatible_node(kind.clone(), node_id));
                 }
             }
         }
@@ -423,7 +432,7 @@ impl DatalogEncoder {
 
                         // 1. Vérification de l'arité (1 seul enfant)
                         if children.len() != 1 {
-                            return Err(DatalogError::unsupported_node(kind.clone(), node_id));
+                            return Err(ExprError::invalid_expr_node(node_id, kind.clone()).into());
                         }
 
                         let child_id = children[0];
@@ -439,7 +448,8 @@ impl DatalogEncoder {
                         };
 
                         if !is_valid_comparison {
-                            return Err(DatalogError::unsupported_node(child_kind.clone(), child_id));
+                            let feature_desc = format!("Negation of {:?}", child_kind);
+                            return Err(DatalogError::feature_not_supported(feature_desc, child_id));
                         }
 
                         // Si c'est bon, on continue la visite
@@ -462,7 +472,7 @@ impl DatalogEncoder {
                         results_stack.push(None);
                     }
 
-                    _ => return Err(DatalogError::UnsupportedNode { kind: kind.clone(), node_id }),
+                    _ => return Err(DatalogError::incompatible_node(kind.clone(), node_id)),
                 }
             } else {
                 // --- PHASE 2 : Synthèse ---

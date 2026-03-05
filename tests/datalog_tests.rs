@@ -105,6 +105,9 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
 #[test_case("tests/integration/other/combinatorial/"; "com")]
 #[test_case("tests/integration/pddl/ipc98/assembly/adl/"; "ipc98_pddl_adl_assembly")]
 pub fn test_pddl_datalog(domain_path: &str) {
+    let _ = env_logger::builder()
+        .is_test(true)
+        .try_init();
     let path = Path::new(domain_path);
     assert!(test_datalog_cardinality(path));
 }

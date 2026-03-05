@@ -12,12 +12,27 @@ use crate::aiplan4rust::error::Traceable;
 #[derive(Error, Debug)]
 pub enum DatalogError {
 
-    /// Raised when an unsupported or unexpected node kind is encountered during flattening.
+    /// The construct is valid PDDL/ADL, but the current Datalog encoder
+    /// has not implemented it yet.
     ///
-    /// **Note:** This often indicates that the quantifier expansion or ADL preprocessing
-    /// steps were skipped or failed to simplify the expression.
-    #[error("Unsupported node type {kind:?} at node {node_id:?}. Ensure expand() was called.")]
-    UnsupportedNode {
+    /// This typically applies to complex negations, implications, or quantifiers
+    /// that require an explicit Preprocessing step (like Positive Normal Form
+    /// or Quantifier Expansion).
+    #[error("Feature not supported: {feature} at node {node_id:?}. \
+             This ADL construct requires additional preprocessing or a more advanced encoder.")]
+    FeatureNotSupported {
+        feature: String,
+        node_id: NodeId,
+    },
+
+    /// The node encountered is fundamentally incompatible with Datalog grounding.
+    ///
+    /// This happens when the expression tree contains elements that cannot be
+    /// mapped to Horn logic, such as HTN tasks, preferences, or internal
+    /// compiler artifacts.
+    #[error("Incompatible node: {kind:?} at node {node_id:?}. \
+             This element cannot be grounded into Datalog rules.")]
+    IncompatibleNode {
         kind: ExprKind,
         node_id: NodeId,
     },
@@ -43,14 +58,19 @@ pub enum DatalogError {
 impl Traceable for DatalogError {}
 
 impl DatalogError {
-    /// Creates an `UnsupportedNode` error and captures the call site trace.
-    ///
-    /// # Arguments
-    /// * `kind` - The kind of expression that is not supported.
-    /// * `node_id` - The ID of the node in the expression tree.
+    /// Creates a `FeatureNotSupported` error, typically for missing ADL transformations.
     #[track_caller]
-    pub fn unsupported_node(kind: ExprKind, node_id: NodeId) -> Self {
-        DatalogError::UnsupportedNode { kind, node_id }.trace()
+    pub fn feature_not_supported<S: Into<String>>(feature: S, node_id: NodeId) -> Self {
+        DatalogError::FeatureNotSupported {
+            feature: feature.into(),
+            node_id,
+        }.trace()
+    }
+
+    /// Creates an `IncompatibleNode` error for nodes that don't belong in a Datalog pipeline.
+    #[track_caller]
+    pub fn incompatible_node(kind: ExprKind, node_id: NodeId) -> Self {
+        DatalogError::IncompatibleNode { kind, node_id }.trace()
     }
 
     /// Creates an `InternalState` error with a custom message and captures the trace.
@@ -64,4 +84,5 @@ impl DatalogError {
     pub fn invalid_atom_argument(node_id: NodeId) -> Self {
         DatalogError::InvalidAtomArgument(node_id).trace()
     }
+
 }
