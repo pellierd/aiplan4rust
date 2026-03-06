@@ -689,6 +689,15 @@ impl Problem {
     /// This method performs a single-pass registration: it inserts the symbol
     /// and pushes the skeleton simultaneously.
     pub fn add_predicate_def(&mut self, atom_skeleton: AtomicFormulaSkeleton) -> AtomSkeletonId {
+        let symbol_id = atom_skeleton.symbol();
+
+        // SAFETY: Check that the predicate name was registered before adding the structure
+        debug_assert!(
+            symbol_id.as_usize() < self.predicate_symbols.len(),
+            "Predicate symbol {:?} is not registered. Register the symbol before adding the skeleton.",
+            symbol_id
+        );
+
         let skeleton_id = AtomSkeletonId::from(self.predicate_defs.len());
         self.predicate_defs.push(atom_skeleton);
         skeleton_id
@@ -799,6 +808,14 @@ impl Problem {
     /// 1. [`FunctionSymbolId`]: The unique identifier for the function's symbol (name).
     /// 2. [`FunctionSkeletonId`]: The identifier for the structural definition in the function vector.
     pub fn add_function_def(&mut self, function: AtomicFunctionSkeleton) -> FunctionSkeletonId {
+        let symbol_id = function.symbol();
+
+        debug_assert!(
+            symbol_id.as_usize() < self.function_symbols.len(),
+            "Function symbol {:?} is not registered. Ensure the functor is in the registry.",
+            symbol_id
+        );
+
         let skeleton_id = FunctionSkeletonId::from(self.function_defs.len());
         self.function_defs.push(function);
         skeleton_id
@@ -931,6 +948,14 @@ impl Problem {
     /// 1. The [`TaskSymbolId`] associated with the task's name.
     /// 2. The [`TaskSkeletonId`] indexing the specific structural definition.
     pub fn add_task_def(&mut self, task_skeleton: AtomicTaskSkeleton) -> TaskSkeletonId {
+        let symbol_id = task_skeleton.symbol();
+
+        debug_assert!(
+            symbol_id.as_usize() < self.task_symbols.len(),
+            "Task symbol {:?} is not registered. Symbols must exist before skeletons.",
+            symbol_id
+        );
+
         let task_skeleton_id = TaskSkeletonId::from(self.task_defs.len());
         self.task_defs.push(task_skeleton);
         task_skeleton_id
@@ -1110,6 +1135,16 @@ impl Problem {
     /// # Parameters
     /// * `action`: The [`LiftedAction`] schema to be registered.
     pub fn add_action_def(&mut self, action: ActionDef) {
+        let symbol_id = action.name();
+
+        // SAFETY: Ensure the action symbol is already registered.
+        // This check is only active in debug/test builds and has zero cost in release.
+        debug_assert!(
+            symbol_id.as_usize() < self.action_symbols.len(),
+            "Action symbol {:?} is missing from the registry. Symbols must be registered before adding definitions.",
+            symbol_id
+        );
+
         self.action_defs.push(action);
     }
 
@@ -1155,9 +1190,18 @@ impl Problem {
     /// # Parameters
     /// * `method`: The [`LiftedMethod`] definition to be added.
     pub fn add_method_def(&mut self, method: MethodDef) {
+        let symbol_id = method.name();
+
+        // SAFETY: Ensure the method symbol is already registered.
+        // This invariant prevents indexing issues during task decomposition.
+        debug_assert!(
+            symbol_id.as_usize() < self.method_symbols.len(),
+            "Method symbol {:?} is not registered. Ensure the symbol is added to the registry before its definition.",
+            symbol_id
+        );
+
         self.method_defs.push(method);
     }
-
     /// Returns a reference to the initial state expression.
     ///
     /// The initial state (typically the `:init` block in PDDL) describes

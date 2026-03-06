@@ -99,6 +99,10 @@ impl DatalogEncoder {
         self.next_aux_id = start_id;
     }
 
+    // Dans DatalogEncoder
+    pub fn current_id(&self) -> usize {
+        self.next_aux_id
+    }
     /// Encodes a PDDL Type as a unary Datalog predicate and maintains a semantic mapping.
     /// Encodes a PDDL Type as a unary Datalog predicate using sequential allocation.
     ///

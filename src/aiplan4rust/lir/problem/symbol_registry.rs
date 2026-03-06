@@ -28,57 +28,93 @@ impl<ID: Id> SymbolRegistry<ID> {
     ///
     /// Returns the corresponding typed ID.
     pub fn insert(&mut self, ident: SymbolId) -> ID {
+        //self.check_invariant("Before insert");
         if let Some(&id) = self.map.get(&ident) {
             return id;
         }
         let id = ID::from(self.elements.len());
         self.elements.push(ident);
         self.map.insert(ident, id);
+        self.check_invariant();
         id
     }
 
     /// Returns the ID associated with the given `Ident`, if it exists.
     pub fn get_id(&self, ident: &SymbolId) -> Option<ID> {
-        self.map.get(ident).copied()
+        let r = self.map.get(ident).copied();
+        self.check_invariant(); // Optional: Check integrity on access
+        r
     }
 
     /// Returns the `Ident` associated with a given ID, if valid.
     pub fn get_ident(&self, id: ID) -> Option<&SymbolId> {
-        self.elements.get(id.as_usize())
+        let r = self.elements.get(id.as_usize());
+        self.check_invariant(); // Optional: Check integrity on access
+        r
     }
 
     /// Checks if the table contains a given `Ident`.
     pub fn contains(&self, ident: &SymbolId) -> bool {
+        self.check_invariant();
         self.map.contains_key(ident)
     }
 
     /// Returns the number of elements in the table.
     pub fn len(&self) -> usize {
+        self.check_invariant();
         self.elements.len()
     }
 
     /// Returns true if the table is empty.
     pub fn is_empty(&self) -> bool {
+        self.check_invariant();
         self.elements.is_empty()
     }
 
     /// Returns an iter over all `Ident`s in the table.
     pub fn iter(&self) -> impl Iterator<Item = &SymbolId> {
+        self.check_invariant();
         self.elements.iter()
     }
 
     pub fn ids(&self) -> &[SymbolId] {
+        self.check_invariant();
         &self.elements
     }
 
     /// Attempts to get the ID for an `Ident`, returning an error if not found.
     pub fn try_get_id(&self, ident: &SymbolId) -> Result<ID, IndexTableError> {
+        self.check_invariant();
         self.get_id(ident).ok_or(IndexTableError::ident_not_found(*ident))
     }
 
-    /// Attempts to get the `Ident` for an ID, returning an error if out of bounds.
     pub fn try_get_ident(&self, id: ID) -> Result<&SymbolId, IndexTableError> {
-        self.get_ident(id).ok_or(IndexTableError::index_out_of_bounds(id.as_usize()))
+        self.check_invariant();
+        self.elements.get(id.as_usize())
+            .ok_or_else(|| IndexTableError::index_out_of_bounds(id.as_usize()))
+    }
+
+    // Diagnostic profond pour vérifier l'intégrité du registre.
+    pub fn debug_integrity(&self) -> (usize, usize, bool) {
+        let map_size = self.map.len(); // Utilise directement le champ map
+        let vec_size = self.elements.len(); // Utilise directement le champ elements
+
+        (map_size, vec_size, map_size == vec_size)
+    }
+
+    /// Validates the internal consistency of the registry.
+    ///
+    /// Invariant: The number of unique symbols in the map must always match
+    /// the number of symbols in the positional vector.
+    fn check_invariant(&self) {
+        debug_assert_eq!(
+            self.map.len(),
+            self.elements.len(),
+            "Registry Invariant Broken: Map size ({}) does not match Vector size ({}). \
+             This indicates a synchronization failure between mapping and storage.",
+            self.map.len(),
+            self.elements.len()
+        );
     }
 }
 

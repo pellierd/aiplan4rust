@@ -6,8 +6,12 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::DatalogEngin
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::grounding::passes::{quantifier_expansion, type_flattening};
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
+use crate::aiplan4rust::lang::ids;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::analysis::inertia::InertiaTable;
+use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::DiagnosticManager;
 
 /// The `Grounder` is responsible for converting a lifted planning problem
@@ -102,6 +106,95 @@ impl Grounder {
         let types = datalog.get_type_extensions();
 
 
+        print!("{}", lifted_problem.domain_view().to_syntax_string());
+        print!("{}", lifted_problem.problem_view().to_syntax_string());
+
+        let registry = lifted_problem.action_symbols();
+
+        // APPEL DU DIAGNOSTIC ICI
+        let (map_size, vec_size, coherent) = registry.debug_integrity();
+
+        //println!("=== FINAL REGISTRY DIAGNOSTIC ===");
+        //println!("Logical Size (Map): {}", map_size);
+        //println!("Physical Size (Vec): {}", vec_size);
+        //println!("Is Coherent: {}", if coherent { "YES" } else { "NO ❌" });
+
+        if !coherent {
+            println!("DANGER: Le registre a été corrompu avant le grounding.");
+        }
+        println!("--- DIAGNOSTIC DES ACTIONS ---");
+        // 1. On récupère les définitions
+        let action_defs = lifted_problem.action_defs();
+
+        // 2. On FORCE la récupération d'un registre FRAIS
+        // (Cela devrait normalement reconstruire la table de correspondance)
+        let registry = lifted_problem.action_symbols();
+
+        println!("Vérification Registry: taille = {}", registry.len());
+
+        for action_tuple in datalog.get_reachable_actions() {
+            // 1. On récupère l'ActionDefId calculé par Datalog (ex: 5)
+            let action_def_id = action_tuple.symbol();
+
+            // 2. On récupère la définition de l'action dans le problème "Lifted"
+            // On utilise .get() pour être ultra sécurisé
+            if let Some(action_def) = lifted_problem.action_defs().get(action_def_id.as_usize()) {
+
+                // 3. On extrait le NameID que l'action possède elle-même.
+                // C'est cet ID qui est synchronisé avec le Registry du LIR.
+                let action_name_id = action_def.name();
+
+                // 4. On demande au registre de traduire ce NameID précis.
+                // On utilise try_get_ident car c'est la méthode qui log l'erreur au lieu de paniquer.
+                let symbol_id = lifted_problem.action_symbols().try_get_ident(action_name_id)?;
+
+                // 5. On résout le nom final via l'interner
+                let action_name = lifted_problem.interner()
+                    .try_resolve_symbol(*symbol_id)
+                    .unwrap_or("Action_Inconnue");
+
+
+                // --- DÉBUT DU TRAITEMENT DES ARGUMENTS ---
+
+                // 1. On prépare un vecteur pour stocker les noms des objets
+                let mut arg_names = Vec::with_capacity(action_tuple.args().len());
+
+                // 2. On parcourt les ObjectIds contenus dans la tuple Datalog
+                for (i, &obj_id) in action_tuple.args().iter().enumerate() {
+
+                    // 3. Traduction : ObjectId (Datalog) -> SymbolId (Interner)
+                    // On utilise le registre des objets du problème
+                    let obj_symbol_id = match lifted_problem.object_symbol().try_get_ident(obj_id) {
+                        Ok(sym_id) => sym_id,
+                        Err(e) => {
+                            // Si on arrive ici, c'est que Datalog a trouvé un ID d'objet
+                            // qui n'existe pas dans le registre initial (très rare avec ton nouveau moteur)
+                            log::error!("Erreur d'argument pour {}: index {} introuvable", action_name, obj_id.as_usize());
+                            continue;
+                        }
+                    };
+
+                    // 4. Résolution : SymbolId -> String (ex: "ball1")
+                    let arg_name = lifted_problem.interner()
+                        .try_resolve_symbol(*obj_symbol_id)
+                        .unwrap_or("<objet_inconnu>");
+
+                    arg_names.push(arg_name.to_string());
+                }
+
+                // 5. Affichage final formaté
+                if arg_names.is_empty() {
+                    println!("{} (Action sans paramètres)", action_name);
+                } else {
+                    println!("{}({})", action_name, arg_names.join(", "));
+                }
+
+
+                // Continue ici ton traitement des arguments (action_tuple.args()...)
+            }
+        }
+        /*println!("{}", lifted_problem.to_string());
+
         println!("--- Datalog Analysis Results ---");
         println!("Reachable Actions: {}", actions.len());
         println!("Reachable Fluents: {}", fluents.len());
@@ -110,18 +203,38 @@ impl Grounder {
         for action in actions {
             // Traduction de l'ActionDefId en Nom
             let action_def_id = action.symbol();
+            println!("ActionDefId: {}", action_def_id);
             let action_def = lifted_problem.action_defs().get(action_def_id.as_usize()).unwrap();
             let action_name_symbol_id = action_def.name();
+            println!("DEBUG: Registry size: {}, Looking for ID: {:?}",
+                     lifted_problem.action_symbols().len(),
+                     action_name_symbol_id);
+            print!("{}", lifted_problem.action_symbols());
+            print!("{}", lifted_problem.interner());
+
             let action_name_symbol = lifted_problem.action_symbols().try_get_ident(action_name_symbol_id)?;
+            println!("action_name_symbol: {}", action_name_symbol);
             let action_name = lifted_problem.interner().try_resolve_symbol(*action_name_symbol)?;
 
-            // 1. On prépare un vecteur pour stocker les noms (String)
+            /*// 1. On prépare un vecteur pour stocker les noms (String)
             let mut arg_names = Vec::with_capacity(action.args.len());
 
             // 2. On parcourt chaque ObjectId présent dans les arguments de la tuple
-            for id in &action.args {
-                // 3. On demande au registre le nom correspondant à l'ID
-                let obj_symbol_id = lifted_problem.object_symbol().try_get_ident(*id)?;
+            for (i, id) in action.args.iter().enumerate() {
+                // 3. Tentative de récupération du symbole avec log d'erreur
+                let obj_symbol_id = match lifted_problem.object_symbol().try_get_ident(*id) {
+                    Ok(sym_id) => sym_id,
+                    Err(e) => {
+                        println!("DEBUG ERROR: Action argument at index {} has ID: {}", i, id.as_usize());
+                        println!("Context: Registry size is {}, but we asked for index {}",
+                                 lifted_problem.object_symbol().len(), id.as_usize());
+                        return panic!("Registry OOB for ID {}: {}", id.as_usize(), e);
+                    }
+                };
+
+                // Debug print pour voir ce qu'on a trouvé
+                println!("DEBUG: Argument {} -> Raw ID: {}, Symbol ID: {:?}", i, id.as_usize(), obj_symbol_id);
+
                 let argument = lifted_problem.interner().try_resolve_symbol(*obj_symbol_id)?;
 
                 // 4. On ajoute le nom à notre liste
@@ -129,8 +242,9 @@ impl Grounder {
             }
 
             // 5. Utilisation finale pour l'affichage
-            println!("{}({})", action_name, arg_names.join(", "));
-        }
+            println!("{}({})", action_name, arg_names.join(", "));*/
+            println!("{}", action_name);
+        }*/
 
 
 

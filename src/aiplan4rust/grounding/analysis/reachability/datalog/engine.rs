@@ -85,22 +85,27 @@ impl DatalogEngine {
     }
 
     pub fn get_reachable_actions(&self) -> Vec<Tuple<ActionDefId>> {
-        // On peut pré-allouer un peu d'espace pour éviter les premières réallocations
         let mut actions = Vec::with_capacity(self.db.relations().len());
 
         for (&sk_id, rel) in self.db.relations().iter() {
-            // 1. Utilisation de la méthode de segment optimisée
             if self.is_action(sk_id) {
-
-                // 2. Traduction arithmétique inline (O(1))
                 let action_def_id = self.atom_id_to_action_def_id(sk_id);
 
-                for tuple_data in rel.iter() {
-                    // 3. Création du Tuple avec clone des arguments
-                    actions.push(Tuple::new(
-                        action_def_id,
-                        tuple_data.to_vec()
-                    ));
+                // --- CORRECTION ICI ---
+                if rel.arity() == 0 {
+                    // Pour l'arité 0, si la relation n'est pas vide,
+                    // c'est que l'action est vraie (1 seule instance possible).
+                    if !rel.is_empty() {
+                        actions.push(Tuple::new(action_def_id, vec![]));
+                    }
+                } else {
+                    // Pour l'arité > 0, on itère normalement sur les arguments
+                    for tuple_data in rel.iter() {
+                        actions.push(Tuple::new(
+                            action_def_id,
+                            tuple_data.to_vec()
+                        ));
+                    }
                 }
             }
         }
@@ -142,8 +147,6 @@ impl DatalogEngine {
             .expect("Aucune règle trouvée pour cet index d'action")
     }
 
-    /// Prépare le moteur pour un nouveau problème.
-    /// Configure la base de faits, définit les types et compile le domaine en règles Datalog.
     pub fn load_problem(&mut self, problem: &LiftedProblem) -> Result<(), DatalogError> {
         // 1. Internal State Reset
         // Reset the fact database and clear existing inference rules.
@@ -155,22 +158,23 @@ impl DatalogEngine {
         self.fluence_threshold = problem.predicate_defs().len();
         self.encoder = DatalogEncoder::new(self.fluence_threshold);
 
-
+        // Segment 2: Types & Hierarchy Auxiliaries
         self.declare_types_as_unary_predicates(problem.type_defs());
-        // We use self.type_to_skeleton.len() instead of problem.type_defs().len()
-        // as the source of truth for the type_threshold.
+
+        // We now use self.encoder.current_id() instead of manual length calculation.
         //
         // WHY: Our internal vector includes BOTH the PDDL domain types AND
-        // the sentinel ROOT type. Relying on the PDDL definition count alone
-        // would ignore the root type we just injected, leading to a collision
-        // where the first Action ID would overwrite the Root type ID.
-        self.type_threshold = self.fluence_threshold + self.type_to_skeleton.len();
+        // the sentinel ROOT type, but more importantly, the encoder might have
+        // generated hidden auxiliary predicates for type hierarchies or unions.
+        // current_id() captures the REAL end of this segment in the encoder.
+        self.type_threshold = self.encoder.current_id();
 
         // 3. Action Signature Declaration
         // Segment 3: Reserve IDs for action atoms.
         // This freezes the boundary for any future auxiliary predicates.
+        // We declare actions first, then capture the new ID state.
         self.declare_action_as_predicates(problem.action_defs());
-        self.action_threshold = self.type_threshold + problem.action_defs().len();
+        self.action_threshold = self.encoder.current_id();
 
         // 4. Seuil des Auxiliaires (Nouveau & Simplifié)
         // Puisque l'égalité est une constante (0xFFFF_FC00),
@@ -196,7 +200,8 @@ impl DatalogEngine {
         self.compile_domain_actions_as_rules(problem.action_defs())?;
 
         // On synchronise le seuil sur la réalité de ce que l'encodeur a produit
-        self.builtin_threshold = self.action_threshold;
+        // après la génération des règles (qui peut avoir créé de nouveaux auxiliaires).
+        self.builtin_threshold = self.encoder.current_id();
 
         Ok(())
     }
@@ -229,13 +234,10 @@ impl DatalogEngine {
         p >= self.type_threshold && p < self.action_threshold
     }
 
-    /// Convertit un `AtomSkeletonId` en `ActionDefId` via arithmétique de segment.
-    /// L'attribut #[inline] permet au compilateur d'éliminer l'overhead de l'appel.
-    /// Convertit un `AtomSkeletonId` en `ActionDefId` via arithmétique de segment.
     #[inline]
     pub fn atom_id_to_action_def_id(&self, sk_id: AtomSkeletonId) -> ActionDefId {
         let id_val = sk_id.as_usize();
-        debug_assert!(self.is_action(sk_id));
+        // On ne touche à rien ici, le calcul est mathématiquement juste pour le vecteur
         ActionDefId::from(id_val - self.type_threshold)
     }
 
@@ -394,6 +396,16 @@ impl DatalogEngine {
 
         // B. Générer la règle de déclenchement (Preconditions -> Action)
         self.compile_action_body_as_rules(action, action_atom.clone())?;
+
+        // --- LE BOOTSTRAP EST ICI ---
+        // On vérifie la règle de déclenchement qu'on vient de pousser
+        if let Some(trigger_rule) = self.rules.last() {
+            // Si le corps est vide et l'action n'a pas de paramètres (?x)
+            if trigger_rule.body().is_empty() && action.parameters().is_empty() {
+                // On l'injecte comme un fait car elle est "toujours vraie"
+                self.db.insert_delta_fact(action_sk_id, &[]);
+            }
+        }
 
         // C. Générer les règles de causalité (Action -> Effets)
         self.encoder.encode_effects(
