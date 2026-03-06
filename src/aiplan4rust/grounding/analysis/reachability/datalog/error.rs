@@ -37,6 +37,10 @@ pub enum DatalogError {
         node_id: NodeId,
     },
 
+    /// Raised when a variable in the rule head is not bound by any atom in the body.
+    #[error("Unbound variable '{0:?}' in rule head. All variables in the head must appear in the positive body.")]
+    UnboundVariable(VariableId),
+
     /// Raised if an atom argument is neither a variable nor a constant.
     #[error("Invalid atom argument at node index {0}")]
     InvalidAtomArgument(NodeId),
@@ -85,4 +89,9 @@ impl DatalogError {
         DatalogError::InvalidAtomArgument(node_id).trace()
     }
 
+    // Ajoute ce helper pour la traçabilité
+    #[track_caller]
+    pub fn unbound_variable(v: VariableId) -> Self {
+        DatalogError::UnboundVariable(v).trace()
+    }
 }

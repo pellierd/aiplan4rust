@@ -342,13 +342,13 @@ impl AtomSkeletonId {
         (self.value & NEGATION_FLAG) != 0
     }
 
-    /// Creates a negated version of the current ID.
-    ///
-    /// * **Returns**: A new `AtomSkeletonId` with the MSB set.
-    ///   If the ID was already negated, it remains negated.
     #[inline(always)]
-    pub fn to_negated(self) -> Self {
-        Self { value: self.value | NEGATION_FLAG }
+    pub fn set_negated(self, negated: bool) -> Self {
+        if negated {
+            Self { value: self.value | NEGATION_FLAG }
+        } else {
+            Self { value: self.value & ID_MASK }
+        }
     }
 
     /// Removes the negation bit to return the positive base ID.

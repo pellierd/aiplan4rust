@@ -67,7 +67,7 @@ impl DatalogEngine {
         for (&sk_id, rel) in self.db.relations().iter() {
 
             // On ne garde que ce qui appartient aux Fluents (Prédicats)
-            if self.is_fluent(sk_id.as_usize()) {
+            if self.is_fluent(sk_id) {
 
                 // Le sk_id est déjà notre AtomSkeletonId interne
                 let skeleton_id = AtomSkeletonId::from(sk_id);
@@ -90,7 +90,7 @@ impl DatalogEngine {
 
         for (&sk_id, rel) in self.db.relations().iter() {
             // 1. Utilisation de la méthode de segment optimisée
-            if self.is_action(sk_id.as_usize()) {
+            if self.is_action(sk_id) {
 
                 // 2. Traduction arithmétique inline (O(1))
                 let action_def_id = self.atom_id_to_action_def_id(sk_id);
@@ -112,7 +112,7 @@ impl DatalogEngine {
         let mut types = Vec::with_capacity(self.db.relations().len());
 
         for (&sk_id, rel) in self.db.relations().iter() {
-            let id_val = sk_id.as_usize();
+            let id_val = sk_id;
 
             // 1. Utilisation de la méthode de segment pour les Types
             if self.is_type(id_val) {
@@ -195,56 +195,68 @@ impl DatalogEngine {
         // Any dynamically created predicates (auxiliaries) will have IDs >= action_threshold.
         self.compile_domain_actions_as_rules(problem.action_defs())?;
 
+        // On synchronise le seuil sur la réalité de ce que l'encodeur a produit
+        self.builtin_threshold = self.action_threshold;
+
         Ok(())
     }
 
-    /// Vérifie si un ID appartient au segment des Fluents (prédicats d'état PDDL).
     #[inline]
-    pub fn is_fluent(&self, id: usize) -> bool {
-        // Logique : tout ce qui est avant le premier seuil
-        id < self.fluence_threshold
+    pub fn is_fluent(&self, id: AtomSkeletonId) -> bool {
+        // .as_usize() fait un MASQUE (id & !NEGATION_FLAG)
+        // On compare donc TOUJOURS l'index de base, peu importe le signe.
+        id.as_usize() < self.fluence_threshold
     }
 
     /// Vérifie si un ID appartient au segment des Types (prédicats unaires).
     #[inline]
-    pub fn is_type(&self, id: usize) -> bool {
-        // Dépend du seuil des fluents et de celui des types
-        id >= self.fluence_threshold && id < self.type_threshold
+    pub fn is_type(&self, id: AtomSkeletonId) -> bool {
+        let p = id.as_usize();
+        p >= self.fluence_threshold && p < self.type_threshold
     }
 
     #[inline]
     pub fn atom_id_to_type_id(&self, sk_id: AtomSkeletonId) -> TypeId {
         let id_val = sk_id.as_usize();
-        debug_assert!(self.is_type(id_val));
+        debug_assert!(self.is_type(sk_id)); // Utilise l'ID complet pour le check
         TypeId::from(id_val - self.fluence_threshold)
     }
 
     /// Vérifie si un ID appartient au segment des Actions.
     #[inline]
-    pub fn is_action(&self, id: usize) -> bool {
-        // Dépend du seuil des types et de celui des actions
-        id >= self.type_threshold && id < self.action_threshold
+    pub fn is_action(&self, id: AtomSkeletonId) -> bool {
+        let p = id.as_usize();
+        p >= self.type_threshold && p < self.action_threshold
     }
 
     /// Convertit un `AtomSkeletonId` en `ActionDefId` via arithmétique de segment.
     /// L'attribut #[inline] permet au compilateur d'éliminer l'overhead de l'appel.
+    /// Convertit un `AtomSkeletonId` en `ActionDefId` via arithmétique de segment.
     #[inline]
     pub fn atom_id_to_action_def_id(&self, sk_id: AtomSkeletonId) -> ActionDefId {
         let id_val = sk_id.as_usize();
-        // Le check reste en debug, mais disparaît en release
-        debug_assert!(id_val >= self.type_threshold && id_val < self.action_threshold);
+        debug_assert!(self.is_action(sk_id));
         ActionDefId::from(id_val - self.type_threshold)
     }
 
     #[inline]
-    pub fn is_builtin(&self, id: usize) -> bool {
-        id >= Atom::BUILTIN_ZONE_START
+    pub fn is_builtin(&self, id: AtomSkeletonId) -> bool {
+        id.as_usize() >= Atom::BUILTIN_ZONE_START
     }
 
     #[inline]
-    pub fn is_auxiliary(&self, id: usize) -> bool {
-        // Un auxiliaire est entre le seuil des actions et la zone réservée
-        id >= self.builtin_threshold && id < Atom::BUILTIN_ZONE_START
+    pub fn is_auxiliary(&self, id: AtomSkeletonId) -> bool {
+        let p = id.as_usize();
+        p >= self.builtin_threshold && p < Atom::BUILTIN_ZONE_START
+    }
+
+    /// La SEULE méthode autorisée pour ajouter une règle au moteur.
+    pub fn push_rule(&mut self, mut rule: Rule) {
+        // 1. On répare l'ordre (Priorité 4 pour l'égalité l'enverra à la fin)
+        self.optimize_body(rule.body_mut());
+
+        // 2. On l'ajoute au stockage
+        self.rules.push(rule);
     }
 
     fn declare_types_as_unary_predicates(&mut self, type_defs: &[TypedSymbol<TypeId, TypeId>]) {
@@ -281,24 +293,21 @@ impl DatalogEngine {
         for object in object_defs {
             let obj_id = object.symbol();
 
-            // 1. Toujours dans ROOT
+            // 1. On l'insère dans la sentinelle ROOT (ton garde-fou universel)
             self.db.insert_delta_fact(root_sk_id, &[obj_id]);
 
-            // 2. Propagation dans la hiérarchie
+            // 2. Pour chaque type déclaré de l'objet (ex: [ball])
             for &type_id in object.ty() {
-                // Insertion du type direct (ex: location)
+                // On l'insère dans le type lui-même
                 let sk_id = self.type_to_skeleton[type_id.as_usize()];
                 self.db.insert_delta_fact(sk_id, &[obj_id]);
 
-                // RESOLUTION DES PARENTS (C'est ça qui manquait !)
+                // 3. On l'insère dans TOUS les parents/membres identifiés par le flattener
+                // Si members() est vide, cette boucle ne fait rien (c'est correct, ROOT suffit)
                 if let Some(ty_def) = type_defs.get(type_id.as_usize()) {
-                    // On parcourt les membres (pivots ou parents) pour remplir les tables
                     for &parent_id in ty_def.ty().members() {
                         let parent_sk_id = self.type_to_skeleton[parent_id.as_usize()];
                         self.db.insert_delta_fact(parent_sk_id, &[obj_id]);
-
-                        // Si ton flattening est très profond, on pourrait même
-                        // récurser ici, mais normalement les pivots sont déjà plats.
                     }
                 }
             }
@@ -371,21 +380,6 @@ impl DatalogEngine {
             // Compilation de l'unité (on garde action_as_rule au singulier ici)
             self.compile_action_as_rules(action, action_sk_id)?;
         }
-
-        // 1. On extrait les règles de self (O(1) - simple échange de pointeurs)
-        // self.rules devient temporairement un Vec vide.
-        let mut rules_to_optimize = std::mem::take(&mut self.rules);
-
-        // 2. On itère sur les règles extraites
-        for rule in &mut rules_to_optimize {
-            // MAGIE DU BORROW CHECKER :
-            // - 'self' est disponible car il ne possède plus le vecteur qu'on itère.
-            // - 'rule' est mutable, donc optimize_body peut modifier le corps.
-            self.optimize_body(rule.body_mut());
-        }
-
-        // 3. On remet les règles optimisées dans le moteur
-        self.rules = rules_to_optimize;
 
         Ok(())
     }
@@ -479,11 +473,7 @@ impl DatalogEngine {
             body.push(body_atom);
         }
 
-        // On optimise le corps localement pour l'ordre des prédicats
-        self.optimize_body(&mut body);
-
-        // On enregistre la règle finale dans le moteur
-        self.rules.push(Rule::new(head, body));
+        self.push_rule(Rule::new(head, body));
 
         Ok(())
     }
@@ -512,7 +502,8 @@ impl DatalogEngine {
             let body = vec![Atom::new(type_sk_id, vec![var_x])];
 
             // On ajoute la règle au moteur
-            self.rules.push(Rule::new(head, body));
+            //self.rules.push(Rule::new(head, body));
+            self.push_rule(Rule::new(head, body));
         }
 
         // 4. On met en cache et on retourne
@@ -561,19 +552,22 @@ impl DatalogEngine {
             // On remet les règles en place
             self.rules = rules;
 
-            // 3. PHASE DE TRANSITION
-            // On stabilise le Delta qui vient d'être utilisé
+
+
+            // 1. On stabilise ce qui a servi de PIVOT durant ce tour
+            // (Le delta du tour N devient le stable du tour N+1)
             self.db.commit_delta();
 
-            // On injecte les découvertes accumulées dans discovered_facts
-            // pendant les appels à evaluate_head
+            // 2. SEULEMENT MAINTENANT, on injecte les découvertes
+            // Elles vont remplir le Delta TOUT NEUF pour le tour suivant.
             for (sk_id, args) in self.discovered_facts.drain(..) {
-                // insert_delta_fact vérifie déjà les doublons dans stable + delta
+                // Cette fonction doit vérifier l'unicité contre le STABLE (le nouveau)
                 self.db.insert_delta_fact(sk_id, &args);
             }
 
             // La boucle continue si insert_delta_fact a ajouté de nouveaux éléments au Delta
         }
+
     }
 
 
@@ -588,8 +582,9 @@ impl DatalogEngine {
         let atom = &rule.body()[body_idx];
         let sk_id = atom.skeleton_id();
 
+
         // --- NOUVEAU : Gestion des Built-ins (Filtres) ---
-        if self.is_builtin(sk_id.as_usize()) {
+        if self.is_builtin(sk_id) {
             // L'égalité n'est jamais un pivot car elle n'est pas dans la DB.
             // On l'exécute simplement comme un test.
             if self.execute_builtin(atom) {
@@ -610,28 +605,49 @@ impl DatalogEngine {
     }
 
     fn execute_builtin(&self, atom: &Atom) -> bool {
-        // On suppose que l'ID de l'égalité est Atom::EQUALITY_ID
-        if atom.skeleton_id().as_usize() == Atom::EQUALITY_ID {
-            let terms = atom.terms();
-            let val_a = self.get_term_value(&terms[0]);
-            let val_b = self.get_term_value(&terms[1]);
+        let sk_id = atom.skeleton_id().as_usize();
 
-            match (val_a, val_b) {
-                (Some(a), Some(b)) => {
-                    let is_equal = a == b;
-                    // Si l'atome est négatif (NOT =), on retourne true si les valeurs sont différentes
-                    if atom.is_negated() { !is_equal } else { is_equal }
-                }
-                _ => {
-                    // Si les variables ne sont pas encore liées, le filtre échoue (Datalog est strict)
-                    false
-                }
+
+        // CENTRALISATION : On dispatch selon l'ID du prédicat
+        match sk_id {
+            // Cas 1 : L'ÉGALITÉ (Le cas qui nous intéresse pour Gripper)
+            Atom::EQUALITY_ID => {
+                self.eval_equality(atom)
             }
-        } else {
-            true
+
+            // Cas 2 : On peut imaginer d'autres built-ins ici plus tard
+            // Atom::GREATER_THAN_ID => self.eval_numeric_gt(atom),
+
+            // Par défaut, si on ne connaît pas, on laisse passer (ou on log une erreur)
+            _ => true,
         }
     }
 
+    /// Logique spécifique pour l'égalité
+    fn eval_equality(&self, atom: &Atom) -> bool {
+        let terms = atom.terms();
+        // On récupère les IDs concrets des objets via l'environnement actuel
+        let val_a = self.get_term_value(&terms[0]);
+        let val_b = self.get_term_value(&terms[1]);
+
+        match (val_a, val_b) {
+            (Some(a), Some(b)) => {
+                let are_equal = a == b;
+
+                // Si l'atome est inversé (NOT =), on renvoie Vrai si les objets sont différents
+                if atom.is_negated() {
+                    !are_equal
+                } else {
+                    are_equal
+                }
+            }
+            _ => {
+                // En Datalog strict, si une variable n'est pas encore liée,
+                // le filtre ne peut pas être validé.
+                false
+            }
+        }
+    }
     fn get_term_value(&self, term: &Term) -> Option<ObjectId> {
         match term {
             Term::Constant(c) => Some(*c),
@@ -699,7 +715,7 @@ impl DatalogEngine {
         self.undo_to_savepoint(trail_split);
     }
 
-    fn evaluate_head(&mut self, rule: &Rule) {
+    fn evaluate_head(&mut self, rule: &Rule) -> Result<(), DatalogError> {
         let head = rule.head();
         let head_sk = head.skeleton_id();
 
@@ -712,7 +728,7 @@ impl DatalogEngine {
                 Term::Variable(v) => {
                     // Si ton grounding est correct, toute variable en tête doit être liée dans le corps
                     let val = self.current_env[v.as_usize()]
-                        .expect("Variable non liée dans la tête");
+                        .ok_or_else(|| DatalogError::unbound_variable(*v))?;
                     self.head_buffer.push(val);
                 }
             }
@@ -722,7 +738,7 @@ impl DatalogEngine {
         // On vérifie dans la DB (Stable + Delta)
         if self.db.contains_stable(head_sk, &self.head_buffer) ||
             self.db.contains_delta(head_sk, &self.head_buffer) {
-            return;
+            return Ok(());
         }
 
         // 3. On vérifie aussi dans les découvertes du pivot en cours
@@ -735,6 +751,7 @@ impl DatalogEngine {
             // Le clone n'arrive qu'ici, au dernier moment possible.
             self.discovered_facts.push((head_sk, self.head_buffer.clone()));
         }
+        Ok(())
     }
 
     /// Tente de faire correspondre les termes d'un atome (venant d'une règle)
@@ -798,7 +815,7 @@ impl DatalogEngine {
         while !remaining.is_empty() {
             let best_idx = remaining.iter().enumerate().min_by_key(|(_, atom)| {
                 let sk_id = atom.skeleton_id();
-                let priority = self.get_predicate_priority(sk_id.as_usize());
+                let priority = self.get_predicate_priority(sk_id);
 
                 let mut bound_count = 0;
                 for term in atom.terms() {
@@ -834,12 +851,13 @@ impl DatalogEngine {
         *body = optimized;
     }
 
-    /// Retourne la priorité de tri pour l'optimisation (plus bas = plus prioritaire).
     #[inline(always)]
-    pub fn get_predicate_priority(&self, id: usize) -> u8 {
-        // On teste d'abord si c'est un Built-in car c'est un ID très spécifique
+    pub fn get_predicate_priority(&self, id: AtomSkeletonId) -> u8 {
+        // Note : On passe l'objet `id` complet aux fonctions.
+        // Elles utiliseront id.as_usize() en interne pour ignorer la négation.
+
         if self.is_builtin(id) {
-            3
+            4
         } else if self.is_type(id) {
             0
         } else if self.is_fluent(id) {
@@ -847,7 +865,8 @@ impl DatalogEngine {
         } else if self.is_action(id) {
             2
         } else {
-            4 // Forcément un auxiliaire (puisque id < BUILTIN_ZONE_START)
+            // Cas des prédicats auxiliaires générés par le flattener
+            3
         }
     }
 

@@ -94,6 +94,8 @@ impl Grounder {
         let mut datalog = DatalogEngine::new();
         datalog.load_problem(&lifted_problem)?;
 
+        datalog.run();
+
         // Calcul de l'atteignabilité
         let actions = datalog.get_reachable_actions();
         let fluents = datalog.get_reachable_fluents();
@@ -127,9 +129,6 @@ impl Grounder {
             }
 
             // 5. Utilisation finale pour l'affichage
-            let display_args = arg_names.join(", ");
-            println!("{}({})", action_name, display_args);
-
             println!("{}({})", action_name, arg_names.join(", "));
         }
 

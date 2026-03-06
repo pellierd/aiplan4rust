@@ -19,15 +19,13 @@ pub struct Atom {
     /// The actual arguments for this instance, which can be [`Term::Variable`]
     /// or [`Term::Constant`].
     terms: Vec<Term>,
-    /// Indicates if the atom is part of a negative literal (e.g., `not(at(?v, ?l))`).
-    negated: bool,
 }
 
 impl Atom {
 
     // Zone des Built-ins décalée pour ne pas mordre sur le bit de signe (MSB)
     // 1 << 62 est une valeur immense, mais le bit 63 reste à 0.
-    pub const BUILTIN_ZONE_START: usize = 1 << 62;
+    pub const BUILTIN_ZONE_START: usize = 1 << 62  ;
 
     /// ID immuable pour l'égalité
     pub const EQUALITY_ID: usize = Self::BUILTIN_ZONE_START;
@@ -43,7 +41,6 @@ impl Atom {
         Self {
             skeleton_id,
             terms,
-            negated: false,
         }
     }
 
@@ -51,28 +48,33 @@ impl Atom {
         Self {
             skeleton_id: AtomSkeletonId::from(Self::EQUALITY_ID),
             terms: vec![t1, t2],
-            negated: false,
         }
     }
 
-    /// Flags this atom as negated.
-    ///
-    /// This is used by the flattener when encountering a logical `Not` node
-    /// in the lifted problem description.
+    // Inverse l'état actuel de négation (Logique de toggle).
+    /// Remplace l'ancien `self.negated = !self.negated`.
     pub fn negated(&mut self) {
-        self.negated = true;
+        let new_state = !self.is_negated();
+        self.skeleton_id = self.skeleton_id.set_negated(new_state);
     }
 
-    /// Vérifie si cet atome est une égalité (ou une inégalité si negated est vrai).
-    /// Utilise la constante de la "Zone Haute" pour une vérification O(1).
+    /// Vérifie si cet atome est une égalité (ou une inégalité).
+    /// L'ID est "nettoyé" par .as_usize() avant la comparaison.
     #[inline(always)]
     pub fn is_equality(&self) -> bool {
         self.skeleton_id.as_usize() == Self::EQUALITY_ID
     }
 
-    /// Returns `true` if this atom is negated (a negative literal).
+    /// Retourne `true` si l'atome est négatif en interrogeant le bit MSB de l'ID.
+    #[inline(always)]
     pub fn is_negated(&self) -> bool {
-        self.negated
+        self.skeleton_id.is_negated()
+    }
+
+    /// Permet de forcer un état de négation spécifique.
+    #[inline(always)]
+    pub fn set_negated(&mut self, negated: bool) {
+        self.skeleton_id = self.skeleton_id.set_negated(negated);
     }
 
     /// Returns the unique identifier of the atom's skeleton.
@@ -107,20 +109,18 @@ impl Atom {
 impl fmt::Display for Atom {
     /// Formats the atom for debug output and logging.
     ///
-    /// Predicates are prefixed with `sk_` to indicate they refer to
-    /// a Skeleton ID. If the atom is negated, it is wrapped in `not(...)`.
-    ///
-    /// # Example
-    /// ```text
-    /// sk_5(?v0, c12)
-    /// not(sk_2(?v1))
-    /// ```
+    /// Utilise is_negated() qui lit le bit MSB de l'ID.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.negated {
+        let is_neg = self.is_negated();
+
+        if is_neg {
             write!(f, "not(")?;
         }
 
-        write!(f, "{}(", self.skeleton_id)?;
+        // On utilise .as_usize() pour ne pas afficher le bit de signe
+        // dans le nom du prédicat (évite d'avoir not(not_AS#...))
+        write!(f, "sk_{}(", self.skeleton_id.as_usize())?;
+
         for (i, term) in self.terms.iter().enumerate() {
             if i > 0 {
                 write!(f, ", ")?;
@@ -129,7 +129,7 @@ impl fmt::Display for Atom {
         }
         write!(f, ")")?;
 
-        if self.negated {
+        if is_neg {
             write!(f, ")")?;
         }
         Ok(())

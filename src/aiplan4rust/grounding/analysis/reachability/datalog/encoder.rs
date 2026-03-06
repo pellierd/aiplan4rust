@@ -494,19 +494,17 @@ impl DatalogEncoder {
                     },
 
                     ExprKind::Not => {
+                        // On sait que c'est une égalité positive grâce à la Phase 1
                         match results_stack.pop().flatten() {
                             Some(mut atom) => {
-                                if atom.is_equality() && !atom.is_negated() {
-                                    let terms = atom.terms();
-                                    if terms[0] == terms[1] {
-                                        // NOT(True) -> False
-                                        None
-                                    } else {
-                                        atom.negated(); // (= c1 c2) -> (!= c1 c2)
-                                        Some(atom)
-                                    }
+                                let terms = atom.terms();
+                                if terms[0] == terms[1] {
+                                    // NOT(c1 = c1) -> False
+                                    None
                                 } else {
-                                    atom.negated();
+                                    // (= c1 c2) -> (!= c1 c2)
+                                    // On utilise set_negated(true) car on SAIT qu'on veut une inégalité
+                                    atom.set_negated(true);
                                     Some(atom)
                                 }
                             }
@@ -609,26 +607,27 @@ impl DatalogEncoder {
 
                     ExprKind::Comparison => {
                         if node.content().try_compare_op()? == CompareOp::Equal {
-                            let children = node.children();
-                            if let (Some(mut r1), Some(mut r2)) = (self.node_to_term(expr, children[0])?, self.node_to_term(expr, children[1])?) {
-                                if let Term::Variable(v) = r1 { r1 = self.resolve_var(v); }
-                                if let Term::Variable(v) = r2 { r2 = self.resolve_var(v); }
+                            // Utilise ta fonction centrale !
+                            let mut atom = self.extract_atom(expr, node)?;
 
-                                if r1 == r2 {
-                                    // TAUTOLOGIE : On renvoie l'atome d'égalité.
-                                    // Il sera "nettoyé" par le AND s'il y a d'autres atomes.
-                                    Some(Atom::equality(r1, r2))
-                                } else {
-                                    match (&r1, &r2) {
-                                        (Term::Constant(_), Term::Constant(_)) => {
-                                            // CONFLIT : Tes tests veulent None ici !
-                                            None
-                                        }
-                                        _ => Some(Atom::equality(r1, r2)),
-                                    }
+                            // Résolution des termes (important !)
+                            for term in atom.terms_mut() {
+                                if let Term::Variable(v) = *term {
+                                    *term = self.resolve_var(v);
                                 }
-                            } else { None }
-                        } else { None }
+                            }
+
+                            let terms = atom.terms();
+                            if terms[0] == terms[1] {
+                                Some(atom) // Tautologie
+                            } else if let (Term::Constant(c1), Term::Constant(c2)) = (&terms[0], &terms[1]) {
+                                None // Conflit de constantes
+                            } else {
+                                Some(atom)
+                            }
+                        } else {
+                            None
+                        }
                     },
 
                     ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
@@ -651,7 +650,7 @@ impl DatalogEncoder {
     /// # Arguments
     ///
     /// * `expr` - The global expression tree used to resolve the nature of child nodes.
-    /// * `node` - A reference to the current [`ExprNode`], which must represent an `AtomicFormula`.
+    /// * `node` - A reference to the current [`ExprNode`], which must represent an `AtomicFormula` or a `Comparison`.
     ///
     /// # Returns
     ///
@@ -659,7 +658,8 @@ impl DatalogEncoder {
     ///
     /// # Process
     ///
-    /// 1. **Skeleton Extraction**: Retrieves the `AtomSkeletonId` from the node content.
+    /// 1. **ID & Offset Resolution**: Determines if the node is a `Comparison` (using a fixed `EQUALITY_ID` with no offset)
+    ///    or an `AtomicFormula` (fetching the `AtomSkeletonId` from content and skipping the predicate name at index 0).
     /// 2. **Term Mapping**: Iterates over child nodes to categorize arguments:
     ///    - **Variables**: Parameters (e.g., `?v0`) are converted to [`Term::Variable`].
     ///    - **Constants**: Fixed objects (e.g., `room_a`) are converted to [`Term::Constant`].
@@ -668,8 +668,10 @@ impl DatalogEncoder {
     /// # Performance
     ///
     /// * **Complexity**: $O(N)$ where $N$ is the number of arguments (arity of the predicate).
-    /// * **Efficiency**: Uses a fallible iterator (`collect::<Result<Vec<_>, _>>`) to populate
-    ///   the term buffer in a single pass without redundant allocations.
+    /// * **Efficiency**:
+    ///    - Uses a branchless-friendly tuple assignment for the ID and skip offset.
+    ///    - Allocates the `Vec<Term>` with exact capacity using `saturating_sub` to avoid reallocations.
+    ///    - Skips the predicate name efficiently using the `children.iter().skip(n)` iterator.
     ///
     /// # Errors
     ///
@@ -678,29 +680,32 @@ impl DatalogEncoder {
     /// * An argument node is neither a `Variable` nor a `Constant` (e.g., a nested expression).
     /// * A node reference within the `expr` tree is invalid.
     fn extract_atom(&self, expr: &Expr, node: &ExprNode) -> Result<Atom, DatalogError> {
-        let skeleton_id = node.content().try_atom_skeleton()?;
+        let kind = node.kind();
         let children = node.children();
 
-        // Pre-allocate the vector for optimal performance
-        let mut terms = Vec::with_capacity(children.len());
+        // 1. Fast determination of the Skeleton ID and the child skip offset.
+        // Comparisons (equality) use a fixed ID and start terms at index 0.
+        // Atomic formulas fetch their ID from content and skip the predicate name at index 0.
+        let (skeleton_id, skip_count) = if kind == ExprKind::Comparison {
+            (AtomSkeletonId::from(Atom::EQUALITY_ID), 0)
+        } else {
+            (node.content().try_atom_skeleton()?, 1)
+        };
 
-        // Explicit loop for mapping child nodes to Datalog terms (except 0 the predicate symbol)
-        for &arg_id in children.iter().skip(1) {
+        // 2. Exact allocation to prevent vector resizing during the loop.
+        let capacity = children.len().saturating_sub(skip_count);
+        let mut terms = Vec::with_capacity(capacity);
+
+        // 3. Optimized term collection.
+        for &arg_id in children.iter().skip(skip_count) {
             let arg_node = expr.try_node(arg_id)?;
 
+            // Match on Enum is highly optimized by the Rust compiler.
             let term = match arg_node.kind() {
-                ExprKind::Variable => {
-                    let var_id = arg_node.content().try_variable()?;
-                    Term::Variable(var_id)
-                }
-                ExprKind::Object => {
-                    let cons_id = arg_node.content().try_object()?;
-                    Term::Constant(cons_id)
-                }
-                // Datalog atoms must only contain terminals (Variables or Constants)
+                ExprKind::Variable => Term::Variable(arg_node.content().try_variable()?),
+                ExprKind::Object => Term::Constant(arg_node.content().try_object()?),
                 _ => return Err(DatalogError::invalid_atom_argument(arg_id)),
             };
-
             terms.push(term);
         }
 
@@ -827,7 +832,7 @@ impl DatalogEncoder {
         while let Some(node_id) = stack.pop() {
             if let Ok(node) = expr.try_node(node_id) {
                 match node.kind() {
-                    ExprKind::AtomicFormula => {
+                    ExprKind::AtomicFormula | ExprKind::Comparison => {
                         if let Ok(atom) = self.extract_atom(expr, node) {
                             for term in atom.terms() {
                                 // On résout le terme immédiatement
@@ -845,7 +850,7 @@ impl DatalogEncoder {
                             }
                         }
                     }
-                    ExprKind::And | ExprKind::When | ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
+                    ExprKind::And | ExprKind::When | ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall | ExprKind::Not => {
                         for &child_id in node.children() {
                             stack.push(child_id);
                         }

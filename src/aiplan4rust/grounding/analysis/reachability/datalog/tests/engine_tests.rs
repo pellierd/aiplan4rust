@@ -164,16 +164,16 @@ fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
     assert_eq!(engine.fluence_threshold, 2, "Le seuil des fluents devrait être 2");
 
     // is_fluent(id) -> id < 2
-    assert!(engine.is_fluent(0)); // at
-    assert!(engine.is_fluent(1)); // connected
-    assert!(!engine.is_fluent(2)); // Ici commence les types
+    assert!(engine.is_fluent(AtomSkeletonId::from(0))); // at
+    assert!(engine.is_fluent(AtomSkeletonId::from(1))); // connected
+    assert!(!engine.is_fluent(AtomSkeletonId::from(2))); // Ici commence les types
 
     // --- 2. Vérification des Types ---
     // Les types commencent à l'ID 2 (fluence_threshold)
     // Mock : object (2), location (3), et le moteur ajoute ROOT (4)
-    assert!(engine.is_type(2), "L'ID 2 devrait être le type 'object'");
-    assert!(engine.is_type(3), "L'ID 3 devrait être le type 'location'");
-    assert!(engine.is_type(4), "L'ID 4 devrait être le type 'ROOT'");
+    assert!(engine.is_type(AtomSkeletonId::from(2)), "L'ID 2 devrait être le type 'object'");
+    assert!(engine.is_type(AtomSkeletonId::from(3)), "L'ID 3 devrait être le type 'location'");
+    assert!(engine.is_type(AtomSkeletonId::from(4)), "L'ID 4 devrait être le type 'ROOT'");
 
     // --- 3. Vérification des Actions ---
     // Les actions commencent après les types (ID 5+)
@@ -194,7 +194,7 @@ fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
     // --- 5. Vérification des Auxiliaires ---
     // Les IDs auxiliaires sont générés à la volée pour les préconditions complexes
     // Ils commencent après le dernier ID d'action.
-    assert!(engine.is_auxiliary(10));
+    assert!(engine.is_auxiliary(AtomSkeletonId::from(10)));
 
     Ok(())
 }
@@ -268,7 +268,7 @@ fn test_action_rule_ingestion() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Vérification des Type Guards
     let type_guards_count = rule.body().iter()
-        .filter(|a| engine.is_type(a.skeleton_id().as_usize()))
+        .filter(|a| engine.is_type(a.skeleton_id()))
         .count();
     assert_eq!(type_guards_count, 3, "Il devrait y avoir exactement 3 type guards");
 
@@ -285,7 +285,7 @@ fn test_action_rule_ingestion() -> Result<(), Box<dyn std::error::Error>> {
 
     // 4. Vérification de l'atome auxiliaire
     let aux_atoms: Vec<_> = rule.body().iter()
-        .filter(|a| engine.is_auxiliary(a.skeleton_id().as_usize()))
+        .filter(|a| engine.is_auxiliary(a.skeleton_id()))
         .collect();
 
     assert!(!aux_atoms.is_empty(), "L'encodeur aurait dû générer un atome auxiliaire pour le AND des préconditions");
