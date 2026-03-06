@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lang::CompareOp;
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 
-////// ATENTION JE NE GERE PAS LE NOT EQUAL jsute le EQUAL ni les AXIOMS
+////// ATENTION JE NE GERE PAS les AXIOMS
 
 /// A transformation engine that encodes complex PDDL formulas into Datalog rules.
 ///

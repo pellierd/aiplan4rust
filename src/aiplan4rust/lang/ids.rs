@@ -9,6 +9,9 @@ use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterne
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 
+// Dans un module commun (ex: core/ids.rs)
+pub const INVALID_ID: usize = 1 << 62;
+
 /// Trait pour tous les wrappers d'identifiants basés sur un index usize.
 pub trait Id: Copy + Eq + Ord + Default + std::hash::Hash + Serialize + fmt::Display + From<usize> + Into<usize> {
     fn new(idx: usize) -> Self;
@@ -34,14 +37,21 @@ macro_rules! impl_id_type {
         }
 
         impl Default for $id {
-            fn default() -> Self { Self { value: usize::MAX } }
+            fn default() -> Self { Self { value: INVALID_ID } }
         }
 
-        impl $id {
+       impl $id {
+
             pub const fn new(value: usize) -> Self { Self { value } }
+
+            #[inline(always)]
             pub fn as_usize(self) -> usize { self.value }
-            pub fn is_valid(&self) -> bool { self.value != usize::MAX }
-            pub fn invalid_value() -> usize { usize::MAX }
+
+            #[inline(always)]
+            pub fn is_valid(&self) -> bool { self.value != INVALID_ID }
+
+            #[inline(always)]
+            pub fn invalid_value() -> usize { INVALID_ID }
         }
 
         impl From<usize> for $id {
@@ -244,7 +254,7 @@ impl SyntaxInternerDisplay for LiteralId {
 }
 
 
-const NEGATION_FLAG: usize = 1 << (std::mem::size_of::<usize>() * 8 - 1);
+const NEGATION_FLAG: usize = 1 << 63;
 const ID_MASK: usize = !NEGATION_FLAG;
 
 /// A specialized identifier for Atom Skeletons (predicates with arguments).
@@ -292,8 +302,12 @@ impl Id for AtomSkeletonId {
 }
 
 impl Default for AtomSkeletonId {
-    /// Returns a sentinel invalid ID (`usize::MAX`).
-    fn default() -> Self { Self { value: usize::MAX } }
+    /// Retourne une valeur sentinelle (Invalide).
+    /// On utilise la valeur maximale possible sur 63 bits pour
+    /// garantir que le bit de négation (63ème) est à 0.
+    fn default() -> Self {
+        Self { value: INVALID_ID }
+    }
 }
 
 impl AtomSkeletonId {
@@ -306,13 +320,17 @@ impl AtomSkeletonId {
     #[inline(always)]
     pub fn as_usize(self) -> usize { self.value & ID_MASK }
 
-    /// Checks if the ID is valid.
-    ///
-    /// * **Returns**: `true` if the ID is not equal to `invalid_value()`.
-    pub fn is_valid(&self) -> bool { self.value != usize::MAX }
+    /// Utilise la constante globale pour l'invalidité
+    #[inline(always)]
+    pub fn invalid_value() -> usize {
+        INVALID_ID
+    }
 
-    /// Returns the sentinel value for invalid IDs.
-    pub fn invalid_value() -> usize { usize::MAX }
+    /// Un ID est valide s'il n'est pas égal à la sentinelle globale
+    #[inline(always)]
+    pub fn is_valid(&self) -> bool {
+        self.value != INVALID_ID
+    }
 
     // --- Specific Negation Logic ---
 

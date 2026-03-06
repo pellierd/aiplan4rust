@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::{config, GroundingResult};
 use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaEvaluator;
@@ -92,6 +93,46 @@ impl Grounder {
 
         let mut datalog = DatalogEngine::new();
         datalog.load_problem(&lifted_problem)?;
+
+        // Calcul de l'atteignabilité
+        let actions = datalog.get_reachable_actions();
+        let fluents = datalog.get_reachable_fluents();
+        let types = datalog.get_type_extensions();
+
+
+        println!("--- Datalog Analysis Results ---");
+        println!("Reachable Actions: {}", actions.len());
+        println!("Reachable Fluents: {}", fluents.len());
+
+        println!("--- REACHABLE ACTIONS ---");
+        for action in actions {
+            // Traduction de l'ActionDefId en Nom
+            let action_def_id = action.symbol();
+            let action_def = lifted_problem.action_defs().get(action_def_id.as_usize()).unwrap();
+            let action_name_symbol_id = action_def.name();
+            let action_name_symbol = lifted_problem.action_symbols().try_get_ident(action_name_symbol_id)?;
+            let action_name = lifted_problem.interner().try_resolve_symbol(*action_name_symbol)?;
+
+            // 1. On prépare un vecteur pour stocker les noms (String)
+            let mut arg_names = Vec::with_capacity(action.args.len());
+
+            // 2. On parcourt chaque ObjectId présent dans les arguments de la tuple
+            for id in &action.args {
+                // 3. On demande au registre le nom correspondant à l'ID
+                let obj_symbol_id = lifted_problem.object_symbol().try_get_ident(*id)?;
+                let argument = lifted_problem.interner().try_resolve_symbol(*obj_symbol_id)?;
+
+                // 4. On ajoute le nom à notre liste
+                arg_names.push(argument.to_string());
+            }
+
+            // 5. Utilisation finale pour l'affichage
+            let display_args = arg_names.join(", ");
+            println!("{}({})", action_name, display_args);
+
+            println!("{}({})", action_name, arg_names.join(", "));
+        }
+
 
 
         let problem = Problem::from(lifted_problem);

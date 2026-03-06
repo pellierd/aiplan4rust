@@ -25,8 +25,9 @@ pub struct Atom {
 
 impl Atom {
 
-    /// Le début de la zone réservée aux built-ins (tout en haut des u32).
-    pub const BUILTIN_ZONE_START: usize = usize::MAX - 1024;
+    // Zone des Built-ins décalée pour ne pas mordre sur le bit de signe (MSB)
+    // 1 << 62 est une valeur immense, mais le bit 63 reste à 0.
+    pub const BUILTIN_ZONE_START: usize = 1 << 62;
 
     /// ID immuable pour l'égalité
     pub const EQUALITY_ID: usize = Self::BUILTIN_ZONE_START;

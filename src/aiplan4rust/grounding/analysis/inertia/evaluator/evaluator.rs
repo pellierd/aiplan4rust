@@ -531,6 +531,39 @@ impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
 
 }
 
+/*impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
+    fn evaluate(&self, node_id: NodeId, expr: &Expr) -> Option<StaticValue> {
+        let node = expr.try_node(node_id).ok()?;
+        let mut buffer = ArgumentBuffer::new();
+
+        match node.kind() {
+            ExprKind::AtomicFormula => {
+                // 1. try_atom_skeleton est inchangé, il renvoie l'ID brut (tagué ou non)
+                let id = node.try_atom_skeleton().ok()?;
+
+                // 2. On appelle ta fonction originale.
+                // À l'intérieur, quand elle fait id.as_usize(), le bit MSB est ignoré.
+                // Donc elle calcule toujours la vérité du fait "positif".
+                let res = self.evaluate_predicate_internal(node_id, expr, &mut buffer)
+                    .ok()
+                    .flatten();
+
+                // 3. ICI on applique la logique de négation si le bit était présent
+                res.map(|b| {
+                    let final_bool = if id.is_negated() { !b } else { b };
+                    StaticValue::Boolean(final_bool)
+                })
+            }
+            ExprKind::Function => {
+                self.evaluate_function_internal(node_id, expr, &mut buffer)
+                    .ok()
+                    .flatten()
+            }
+            _ => None,
+        }
+    }
+}*/
+
 #[cfg(test)]
 #[path = "tests/evaluator_tests.rs"]
 mod evaluator_tests;
