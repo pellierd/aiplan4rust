@@ -7,7 +7,7 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::Dat
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::tuple::Tuple;
-use crate::aiplan4rust::lang::{ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol};
+use crate::aiplan4rust::lang::{ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -33,7 +33,10 @@ pub struct DatalogEngine {
     fluence_threshold: usize,
     type_threshold: usize,
     action_threshold: usize,
-    builtin_threshold: usize
+    builtin_threshold: usize,
+    /// Cache pour ne pas dupliquer les prédicats d'union.
+    /// Clé : La liste triée des TypeId. Valeur : L'ID du squelette Datalog.
+    union_cache: HashMap<Vec<TypeId>, AtomSkeletonId>,
 }
 
 impl DatalogEngine {
@@ -53,6 +56,7 @@ impl DatalogEngine {
             type_threshold: 0,
             action_threshold: 0,
             builtin_threshold: 0,
+            union_cache: HashMap::new(),
         }
     }
 
@@ -438,13 +442,36 @@ impl DatalogEngine {
 
         // 2. Préparer le corps avec les TYPE GUARDS
         let mut body = Vec::new();
-        for (i, param) in action.parameters().iter().enumerate() {
-            // Récupère la variable correspondante (?p_i)
-            let var_term = head.terms()[i].clone();
+        // On utilise le constructeur statique .internal_state() pour générer l'erreur avec la trace
+        let root_type_sk_id = self.type_to_skeleton.last()
+            .copied()
+            .ok_or_else(|| DatalogError::internal_state(
+                "DatalogEngine must have at least a Root Type skeleton before compiling actions"
+            ))?;
 
-            // Récupère l'ID du prédicat de type associé
-            let type_sk_id = self.type_to_skeleton[param.ty().members()[0].as_usize()];
-            body.push(Atom::new(type_sk_id, vec![var_term]));
+        for (i, param) in action.parameters().iter().enumerate() {
+            let var_term = head.terms()[i].clone();
+            let members = param.ty().members();
+
+            if members.is_empty() {
+                // CAS 1 : Type Racine (STRIPS ou Feuille directe)
+                // On utilise l'ID du squelette Root
+                body.push(Atom::new(root_type_sk_id, vec![var_term]));
+            } else {
+                // CAS 2 : Type Pivot (Union de racines)
+                // Comme ton flattener garantit que members contient des types racines,
+                // on DOIT générer un "OU" (Union) pour que l'objet soit valide
+                // s'il appartient à n'importe lequel de ces types.
+
+                if members.len() == 1 {
+                    let type_sk_id = self.type_to_skeleton[members[0].as_usize()];
+                    body.push(Atom::new(type_sk_id, vec![var_term]));
+                } else {
+                    // Utilise la fonction de cache d'union qu'on a vue précédemment
+                    let union_sk_id = self.get_or_create_union_predicate(members);
+                    body.push(Atom::new(union_sk_id, vec![var_term]));
+                }
+            }
         }
 
         // 3. Ajouter l'atome de précondition aplatie si nécessaire
@@ -460,6 +487,39 @@ impl DatalogEngine {
 
         Ok(())
     }
+
+    /// Récupère ou crée un prédicat unaire auxiliaire qui représente
+    /// l'union de plusieurs types primitifs.
+    fn get_or_create_union_predicate(&mut self, members: &[TypeId]) -> AtomSkeletonId {
+        // 1. On vérifie si cette union exacte existe déjà
+        // (Note : Ton flattener trie déjà les members, donc la clé est stable)
+        if let Some(&existing_id) = self.union_cache.get(members) {
+            return existing_id;
+        }
+
+        // 2. On crée un nouveau prédicat auxiliaire (unaire)
+        let union_sk_id = self.encoder.encode_type_as_unary_predicate();
+
+        // 3. Pour chaque type de l'union, on crée une règle :
+        // Union(?x) :- Type_i(?x)
+        for &type_id in members {
+            let type_sk_id = self.type_to_skeleton[type_id.as_usize()];
+
+            // On utilise une variable standard (ex: index 0) pour le corps
+            let var_x = Term::Variable(VariableId::from(0));
+
+            let head = Atom::new(union_sk_id, vec![var_x.clone()]);
+            let body = vec![Atom::new(type_sk_id, vec![var_x])];
+
+            // On ajoute la règle au moteur
+            self.rules.push(Rule::new(head, body));
+        }
+
+        // 4. On met en cache et on retourne
+        self.union_cache.insert(members.to_vec(), union_sk_id);
+        union_sk_id
+    }
+
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // FONCTIONS FOR RUNNING THE ENGINE

@@ -123,21 +123,38 @@ impl DatalogEncoder {
     ///    rule compiler to verify predicate arity (always 1 for types).
     #[inline]
     pub fn encode_type_as_unary_predicate(&mut self) -> AtomSkeletonId {
+        self.encode_auxiliary_predicate(1, None)
+    }
+
+    /// Crée un prédicat auxiliaire de manière flexible.
+    /// - Si `types` est `Some`: utilise la liste fournie (zéro boucle inutile).
+    /// - Si `types` est `None`: génère une signature générique de taille `arity`.
+    pub fn encode_auxiliary_predicate(
+        &mut self,
+        arity: usize,
+        types: Option<TypedList<VariableId, TypeId>>
+    ) -> AtomSkeletonId {
         let id = self.next_aux_id;
         self.next_aux_id += 1;
 
         let sk_id = AtomSkeletonId::from(id);
         let predicate_id = PredicateSymbolId::from(id);
 
-        // Schema: type_name(?v0) where ?v0 is of type 'object' (root)
-        // We use the root type for the variable because this predicate
-        // is what defines the membership of an object to a specific type.
-        let arg = TypedSymbol::new(VariableId::from(0), Type::root());
-        let mut arguments = TypedList::new();
-        arguments.push(arg);
+        let final_parameters = match types {
+            // Cas 1 : On a déjà les types (ex: une Action)
+            Some(p) => p,
+            // Cas 2 : On doit générer des types root (ex: une Union ou un AND)
+            None => {
+                let mut arguments = TypedList::new();
+                for i in 0..arity {
+                    arguments.push(TypedSymbol::new(VariableId::from(i), Type::root()));
+                }
+                arguments
+            }
+        };
 
-        // Register auxiliary definition for schema consistency in the encoder
-        self.aux_defs.push(AtomicFormulaSkeleton::new(predicate_id, arguments));
+        // Enregistrement unique
+        self.aux_defs.push(AtomicFormulaSkeleton::new(predicate_id, final_parameters));
 
         sk_id
     }
@@ -177,20 +194,8 @@ impl DatalogEncoder {
         &mut self,
         action: &ActionDef,
     ) -> AtomSkeletonId {
-        let id = self.next_aux_id;
-        self.next_aux_id += 1;
-
-        let sk_id = AtomSkeletonId::from(id);
-        let predicate_id = PredicateSymbolId::from(id);
-
-        // 1. Retrieve the action parameters to define the signature (arity and types)
-        let parameters = action.parameters().clone();
-
-        // 2. Register the skeleton definition
-        // This is vital for mapping ground facts back to meaningful action names.
-        self.aux_defs.push(AtomicFormulaSkeleton::new(predicate_id, parameters));
-
-        sk_id
+        let params = action.parameters().clone();
+        self.encode_auxiliary_predicate(params.len(), Some(params))
     }
 
     /// Encodes action effects into Datalog rules by propagating causality from the action to its consequences.
