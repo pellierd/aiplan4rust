@@ -101,8 +101,8 @@ impl Grounder {
         datalog.run();
 
         // Calcul de l'atteignabilité
-        let actions = datalog.get_reachable_actions();
-        let fluents = datalog.get_reachable_fluents();
+        //let actions = datalog.get_reachable_actions();
+        //let fluents = datalog.get_reachable_fluents();
         let types = datalog.get_type_extensions();
 
 
@@ -112,16 +112,6 @@ impl Grounder {
         let registry = lifted_problem.action_symbols();
 
         // APPEL DU DIAGNOSTIC ICI
-        let (map_size, vec_size, coherent) = registry.debug_integrity();
-
-        //println!("=== FINAL REGISTRY DIAGNOSTIC ===");
-        //println!("Logical Size (Map): {}", map_size);
-        //println!("Physical Size (Vec): {}", vec_size);
-        //println!("Is Coherent: {}", if coherent { "YES" } else { "NO ❌" });
-
-        if !coherent {
-            println!("DANGER: Le registre a été corrompu avant le grounding.");
-        }
         println!("--- DIAGNOSTIC DES ACTIONS ---");
         // 1. On récupère les définitions
         let action_defs = lifted_problem.action_defs();
@@ -191,61 +181,51 @@ impl Grounder {
 
 
                 // Continue ici ton traitement des arguments (action_tuple.args()...)
+            } else {
+                println!("Action inconnue avec ID {}", action_def_id.as_usize());
             }
         }
-        /*println!("{}", lifted_problem.to_string());
 
-        println!("--- Datalog Analysis Results ---");
-        println!("Reachable Actions: {}", actions.len());
-        println!("Reachable Fluents: {}", fluents.len());
 
-        println!("--- REACHABLE ACTIONS ---");
-        for action in actions {
-            // Traduction de l'ActionDefId en Nom
-            let action_def_id = action.symbol();
-            println!("ActionDefId: {}", action_def_id);
-            let action_def = lifted_problem.action_defs().get(action_def_id.as_usize()).unwrap();
-            let action_name_symbol_id = action_def.name();
-            println!("DEBUG: Registry size: {}, Looking for ID: {:?}",
-                     lifted_problem.action_symbols().len(),
-                     action_name_symbol_id);
-            print!("{}", lifted_problem.action_symbols());
-            print!("{}", lifted_problem.interner());
+        println!("--- DIAGNOSTIC DES FLUENTS ACCESSIBLES ---");
+        let reachable_fluents = datalog.get_reachable_fluents();
+        println!("Nombre de fluents trouvés : {}", reachable_fluents.len());
 
-            let action_name_symbol = lifted_problem.action_symbols().try_get_ident(action_name_symbol_id)?;
-            println!("action_name_symbol: {}", action_name_symbol);
-            let action_name = lifted_problem.interner().try_resolve_symbol(*action_name_symbol)?;
+        for fluent in reachable_fluents {
+            // 1. Extraction de l'ID du prédicat (qui peut avoir le MSB à 1)
+            let sk_id = fluent.symbol(); // Supposons que cela retourne ton type PredicateId
 
-            /*// 1. On prépare un vecteur pour stocker les noms (String)
-            let mut arg_names = Vec::with_capacity(action.args.len());
+            if let Some(predicat_def) = lifted_problem.predicate_defs().get(sk_id.as_usize()) {
+                let predicate_id = predicat_def.symbol();
+                let pred_name_symbol_id = lifted_problem.predicate_symbols().try_get_ident(predicate_id)?;
+                let pred_name = lifted_problem.interner().try_resolve_symbol(*pred_name_symbol_id)?;
+                if sk_id.is_negated() {
+                    format!("not {}", pred_name);
+                }
 
-            // 2. On parcourt chaque ObjectId présent dans les arguments de la tuple
-            for (i, id) in action.args.iter().enumerate() {
-                // 3. Tentative de récupération du symbole avec log d'erreur
-                let obj_symbol_id = match lifted_problem.object_symbol().try_get_ident(*id) {
-                    Ok(sym_id) => sym_id,
-                    Err(e) => {
-                        println!("DEBUG ERROR: Action argument at index {} has ID: {}", i, id.as_usize());
-                        println!("Context: Registry size is {}, but we asked for index {}",
-                                 lifted_problem.object_symbol().len(), id.as_usize());
-                        return panic!("Registry OOB for ID {}: {}", id.as_usize(), e);
-                    }
-                };
+                // 4. Traitement des arguments (ObjectIds -> Noms)
+                let mut arg_names = Vec::with_capacity(fluent.args().len());
+                for &obj_id in fluent.args() {
+                    let arg_name = if let Ok(sym_id) = lifted_problem.object_symbol().try_get_ident(obj_id) {
+                        lifted_problem.interner()
+                            .try_resolve_symbol(*sym_id)
+                            .unwrap_or("<objet_inconnu>")
+                    } else {
+                        "<id_objet_invalide>"
+                    };
+                    arg_names.push(arg_name);
+                }
 
-                // Debug print pour voir ce qu'on a trouvé
-                println!("DEBUG: Argument {} -> Raw ID: {}, Symbol ID: {:?}", i, id.as_usize(), obj_symbol_id);
 
-                let argument = lifted_problem.interner().try_resolve_symbol(*obj_symbol_id)?;
-
-                // 4. On ajoute le nom à notre liste
-                arg_names.push(argument.to_string());
+                if arg_names.is_empty() {
+                    println!("{}()", pred_name);
+                } else {
+                    println!("{}({})", pred_name, arg_names.join(", "));
+                }
+            } else {
+                println!("erreur: fluent inconnu avec ID {}", sk_id.as_usize());
             }
-
-            // 5. Utilisation finale pour l'affichage
-            println!("{}({})", action_name, arg_names.join(", "));*/
-            println!("{}", action_name);
-        }*/
-
+        }
 
 
         let problem = Problem::from(lifted_problem);
