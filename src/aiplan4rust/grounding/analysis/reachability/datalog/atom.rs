@@ -55,7 +55,7 @@ impl Atom {
     /// Remplace l'ancien `self.negated = !self.negated`.
     pub fn negated(&mut self) {
         let new_state = !self.is_negated();
-        self.skeleton_id = self.skeleton_id.set_negated(new_state);
+        self.skeleton_id.set_negated(new_state);
     }
 
     /// Vérifie si cet atome est une égalité (ou une inégalité).
@@ -74,7 +74,7 @@ impl Atom {
     /// Permet de forcer un état de négation spécifique.
     #[inline(always)]
     pub fn set_negated(&mut self, negated: bool) {
-        self.skeleton_id = self.skeleton_id.set_negated(negated);
+        self.skeleton_id.set_negated(negated);
     }
 
     /// Returns the unique identifier of the atom's skeleton.

@@ -342,12 +342,13 @@ impl AtomSkeletonId {
         (self.value & NEGATION_FLAG) != 0
     }
 
+    // On passe d'une consommation (self) à une référence mutable (&mut self)
     #[inline(always)]
-    pub fn set_negated(self, negated: bool) -> Self {
+    pub fn set_negated(&mut self, negated: bool) {
         if negated {
-            Self { value: self.value | NEGATION_FLAG }
+            self.value |= NEGATION_FLAG;
         } else {
-            Self { value: self.value & ID_MASK }
+            self.value &= ID_MASK;
         }
     }
 
