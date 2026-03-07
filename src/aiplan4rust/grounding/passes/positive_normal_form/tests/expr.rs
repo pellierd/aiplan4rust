@@ -3,7 +3,7 @@ use crate::aiplan4rust::lang::CompareOp;
 use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent};
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::expr::ops::rewriting::encode_to_pnf::encode_to_pnf;
+use crate::aiplan4rust::grounding::passes::positive_normal_form::expr::encode_to_pnf;
 
 /// **Test Goal**: Verify the structural transformation of a negated atom into a single negated LIR node.
 ///
@@ -31,7 +31,13 @@ fn test_encode_simple_atom_negation() -> Result<(), ExprOpError> {
 
     // 2. Transformation
     // We pass the reference to our collection vector to track negated literals.
-    encode_to_pnf(expr.try_root_id()?, &mut expr, &mut negated_atoms)?;
+    let mut dfs_stack = Vec::with_capacity(16);
+    encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    ).expect("PNF encoding failed");
 
     // 3. Validation: The 'Not' node should be replaced by the 'AtomicFormula' with MSB set.
     let root = expr.try_root_node()?;
@@ -82,7 +88,8 @@ fn test_encode_comparison_stays_unchanged() -> Result<(), ExprOpError> {
 
     // 3. Transformation
     // Even with the vector provided, nothing should be collected here.
-    encode_to_pnf(initial_root_id, &mut expr, &mut negated_atoms)?;
+    let mut dfs_stack = Vec::with_capacity(16);
+    encode_to_pnf(initial_root_id, &mut expr, &mut negated_atoms, &mut dfs_stack)?;
 
     // 4. Validation: Structure preservation
     let root = expr.try_root_node()?;
@@ -130,7 +137,13 @@ fn test_detect_unsupported_node_under_not() -> Result<(), ExprOpError> {
     let mut expr = builder.finish();
 
     // 2. Transformation: Attempting to encode an invalid PNF structure.
-    let result = encode_to_pnf(expr.try_root_id().unwrap(), &mut expr, &mut negated_atoms);
+    let mut dfs_stack = Vec::with_capacity(16);
+    let result = encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack,
+    );
 
     // 3. Validation: The function must return an Err instead of panicking or succeeding.
     assert!(
@@ -170,7 +183,13 @@ fn test_detect_double_negation_failure() -> Result<(), ExprOpError> {
 
     // 2. Transformation
     // In PNF encoding, we never expect to see a 'Not' node under another 'Not' node.
-    let result = encode_to_pnf(expr.try_root_id().unwrap(), &mut expr, &mut negated_atoms);
+    let mut dfs_stack = Vec::with_capacity(16);
+    let result = encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    );
 
     // 3. Validation: Ensure it returns an Error instead of trying to process it.
     assert!(
@@ -217,7 +236,13 @@ fn test_mixed_complex_pnf() -> Result<(), ExprOpError> {
     let mut expr = builder.finish();
 
     // 4. Transformation: Lowering negations to PNF
-    encode_to_pnf(expr.try_root_id()?, &mut expr, &mut negated_atoms)?;
+    let mut dfs_stack = Vec::with_capacity(16);
+    encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    )?;
 
     // 5. Validation: Tree Structure
     let root = expr.try_root_node()?;
@@ -289,7 +314,13 @@ fn test_pnf_traverses_quantifiers_with_correct_args() -> Result<(), ExprOpError>
 
     // --- Transformation ---
     // The DFS must descend through the Forall node to find and absorb the Not node.
-    encode_to_pnf(expr.try_root_id()?, &mut expr, &mut negated_atoms)?;
+    let mut dfs_stack = Vec::with_capacity(16);
+    encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    )?;
 
     // --- Validation: Quantifier Level ---
     let root = expr.try_root_node()?;
@@ -362,7 +393,13 @@ fn test_detect_forbidden_double_negation_in_bit() -> Result<(), ExprOpError> {
     }
 
     // 3. Transformation: The encoder finds a 'Not' above a node that is already bit-negated.
-    let result = encode_to_pnf(expr.try_root_id().unwrap(), &mut expr, &mut negated_atoms);
+    let mut dfs_stack = Vec::with_capacity(16);
+    let result = encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    );
 
     // 4. Validation: Ensure it returns an Error instead of flipping the bit back to positive.
     assert!(
@@ -410,7 +447,13 @@ fn test_pnf_descends_into_quantifiers() -> Result<(), ExprOpError> {
 
     // 4. Transformation
     // We expect this to succeed as it traverses the Forall to reach the Not.
-    encode_to_pnf(expr.try_root_id()?, &mut expr, &mut negated_atoms)?;
+    let mut dfs_stack = Vec::with_capacity(16);
+    encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    )?;
 
     // 5. Validation
     let root = expr.try_root_node()?;
@@ -473,7 +516,13 @@ fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
 
     // 4. Transformation
     // Iterative traversal should handle this easily where recursion would fail.
-    encode_to_pnf(expr.try_root_id()?, &mut expr, &mut negated_atoms)?;
+    let mut dfs_stack = Vec::with_capacity(16);
+    encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    )?;
 
     // 5. Validation: Trace down to the atom to ensure it was negated
     let mut curr_id = expr.try_root_id()?;
@@ -534,7 +583,13 @@ fn test_pnf_traverses_multiple_quantifier_layers() -> Result<(), ExprOpError> {
 
     // 4. Transformation
     // The iterative DFS should descend: Forall -> Exists -> Not
-    encode_to_pnf(expr.try_root_id()?, &mut expr, &mut negated_atoms)?;
+    let mut dfs_stack = Vec::with_capacity(16);
+    encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    )?;
 
     // 5. Validation: check if the leaf is now a negated AtomicFormula
     let root = expr.try_root_node()?;
@@ -592,7 +647,13 @@ fn test_detect_forbidden_complex_node_under_not() -> Result<(), ExprOpError> {
 
     // 2. Transformation
     // The encoder must detect that 'And' is not a valid child for 'Not' in PNF.
-    let result = encode_to_pnf(expr.try_root_id().unwrap(), &mut expr, &mut negated_atoms);
+    let mut dfs_stack = Vec::with_capacity(16);
+    let result = encode_to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack
+    );
 
     // 3. Validation
     assert!(

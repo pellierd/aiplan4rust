@@ -23,9 +23,6 @@ pub mod eliminate_imply;
 pub mod push_negation;
 pub mod push_time_specifier;
 pub mod factorize_time_specifier;
-pub mod encode_to_pnf;
-#[cfg(test)]
-mod tests;
 
 pub use eliminate_imply::eliminate_imply as eliminate_imply;
 pub use push_negation::push_negation as push_negation;

@@ -23,24 +23,30 @@ use crate::aiplan4rust::tree::NodeId;
 /// * `expr`: A mutable reference to the [`Expr`] arena for in-place tree mutation.
 /// * `negated_atoms`: A mutable reference to a caller-owned [`Vec`]. This vector will be
 ///   populated with the [`AtomSkeletonId`] of every atom that gets negated during this pass.
+/// * `stack`: A mutable reference to a caller-owned [`Vec<NodeId>`] used as a scratchpad
+///   for DFS traversal. This avoids heap allocations during the traversal.
 ///
 /// # Transformation Logic
-/// - **`Not(AtomicFormula)`**: The `Not` node is consumed (absorbed), and the child
-///   `AtomicFormula` is moved into its place with its MSB (Most Significant Bit) set to true.
-/// - **`Not(Comparison)`**: Preserved as a structural `Not` node, as comparisons
-///   are handled during evaluation.
+/// - **`Not(AtomicFormula)`**: Handled by `handle_not_node`. Typically, the `Not` node is
+///   absorbed, and the child `AtomicFormula` is moved into its place with its MSB
+///   (Most Significant Bit) set to true.
+/// - **`Not(Comparison)`**: Preserved as a structural `Not` node (if `handle_not_node`
+///   returns `false`), as comparisons are handled during evaluation.
 /// - **Logical/Temporal Containers**: `And`, `Or`, `Forall`, `Exists`, `Always`, etc.,
 ///   are traversed to find nested negations.
 ///
-/// # Optimization: Early Exit & Buffer Reuse
-/// - The DFS traversal stops descending at terminal nodes (Atoms, Comparisons) to save cycles.
-/// - Using a mutable [`Vec`] for `negated_atoms` allows the caller to reuse the same
-///   allocation across multiple formulas, minimizing heap pressure.
+/// # Optimization: Zero-Allocation Traversal
+/// - The DFS traversal uses the provided `stack` buffer, ensuring **zero heap allocations**
+///   during the process if the buffer has sufficient capacity.
+/// - The traversal stops descending at terminal nodes (Atoms, Comparisons) to save cycles.
+/// - The use of `sort_unstable()` and `dedup()` at the end of the pass ensures the
+///   `negated_atoms` buffer remains compact.
 ///
 /// # Post-processing
-/// The `negated_atoms` vector is populated via `push`. The caller is responsible for
-/// calling `.sort_unstable()` and `.dedup()` after the pass if a unique set of
-/// negated literals is required for grounding or CWA (Closed World Assumption).
+/// The `negated_atoms` vector is populated, sorted, and deduplicated internally at
+/// the end of each call. If multiple calls are made (e.g., across different actions),
+/// the caller should perform a final global `.sort_unstable()` and `.dedup()` on the
+/// combined results.
 ///
 /// # Errors
 /// Returns [`ExprOpError::invalid_expr_node`] if:
@@ -50,10 +56,12 @@ use crate::aiplan4rust::tree::NodeId;
 pub fn encode_to_pnf(
     node_id: NodeId,
     expr: &mut Expr,
-    negated_atoms: &mut Vec<AtomSkeletonId>
+    negated_atoms: &mut Vec<AtomSkeletonId>,
+    stack: &mut Vec<NodeId>, // Ajout du buffer réutilisable (pile DFS)
 ) -> Result<(), ExprOpError> {
-    // Stack for Depth-First Search (DFS) traversal to avoid stack overflow on deep trees.
-    let mut stack = vec![node_id];
+    // On réutilise la pile passée en paramètre pour éviter les allocations répétées.
+    stack.clear();
+    stack.push(node_id);
 
     while let Some(curr_id) = stack.pop() {
         let node_kind = expr.try_node(curr_id)?.kind();
