@@ -53,7 +53,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// - A `Not` node is malformed or found above an invalid kind (e.g., `And`, `Or`).
 /// - An `Imply` node is encountered anywhere (Strictness violation).
 /// - An `AtomicFormula` is found under a `Not` but is already negated at the bit level.
-pub fn encode_to_pnf(
+pub fn to_pnf(
     node_id: NodeId,
     expr: &mut Expr,
     negated_atoms: &mut Vec<AtomSkeletonId>,

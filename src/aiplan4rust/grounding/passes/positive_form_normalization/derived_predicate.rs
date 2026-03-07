@@ -1,4 +1,4 @@
-use crate::aiplan4rust::grounding::passes::positive_normal_form::expr;
+use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr;
 use crate::aiplan4rust::lang::AtomSkeletonId;
 use crate::aiplan4rust::lir::DerivedPredicateDef;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
@@ -15,7 +15,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// Derived predicates define a formula (the body) that implies the head.
 /// We apply PNF to the entire body to eliminate structural negation.
-pub fn encode_to_pnf(
+pub fn to_pnf(
     predicate: &mut DerivedPredicateDef,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     scratchpad: &mut Vec<AtomSkeletonId>,
@@ -27,7 +27,7 @@ pub fn encode_to_pnf(
     // Derived predicates define a formula (the body) that implies the head.
     // We apply PNF to the entire body to eliminate structural negation.
     if let Some(root_id) = predicate.body_mut().root_id() {
-        expr::encode_to_pnf(
+        expr::to_pnf(
             root_id,
             predicate.body_mut(),
             scratchpad,

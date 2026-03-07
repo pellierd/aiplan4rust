@@ -1,4 +1,4 @@
-use crate::aiplan4rust::grounding::passes::positive_normal_form::expr;
+use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr;
 use crate::aiplan4rust::lang::AtomSkeletonId;
 use crate::aiplan4rust::lir::MethodDef;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
@@ -15,7 +15,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// This processes both the method's preconditions and the logical constraints
 /// within its task network.
-pub fn encode_to_pnf(
+pub fn to_pnf(
     method: &mut MethodDef,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     scratchpad: &mut Vec<AtomSkeletonId>,
@@ -27,7 +27,7 @@ pub fn encode_to_pnf(
     // 1. Transform Preconditions
     // Logic required for the method to be decomposing the task.
     if let Some(root_id) = method.precondition_mut().root_id() {
-        expr::encode_to_pnf(
+        expr::to_pnf(
             root_id,
             method.precondition_mut(),
             scratchpad,
@@ -39,7 +39,7 @@ pub fn encode_to_pnf(
     // HTN Task Networks can contain constraints (e.g., in HDDL) that
     // must be evaluated during decomposition.
     if let Some(root_id) = method.task_network_mut().logical_constraints_mut().root_id() {
-        expr::encode_to_pnf(
+        expr::to_pnf(
             root_id,
             method.task_network_mut().logical_constraints_mut(),
             scratchpad,

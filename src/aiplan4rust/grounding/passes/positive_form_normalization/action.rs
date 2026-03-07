@@ -1,4 +1,4 @@
-use crate::aiplan4rust::grounding::passes::positive_normal_form::expr;
+use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr;
 use crate::aiplan4rust::lang::AtomSkeletonId;
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
@@ -11,7 +11,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// It uses a reusable `scratchpad` buffer to perform local deduplication
 /// without new allocations.
-pub fn encode_to_pnf(
+pub fn to_pnf(
     action: &mut ActionDef,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     scratchpad: &mut Vec<AtomSkeletonId>,
@@ -22,7 +22,7 @@ pub fn encode_to_pnf(
 
     // 1. Collecte dans les préconditions
     if let Some(root_id) = action.precondition_mut().root_id() {
-        expr::encode_to_pnf(
+        expr::to_pnf(
             root_id,
             action.precondition_mut(),
             scratchpad,
@@ -34,7 +34,7 @@ pub fn encode_to_pnf(
     // Note: On ne vide pas le scratchpad ici car on veut accumuler
     // les atomes des préconditions ET des effets avant le tri unique.
     if let Some(root_id) = action.effect_mut().root_id() {
-        expr::encode_to_pnf(
+        expr::to_pnf(
             root_id,
             action.effect_mut(),
             scratchpad,

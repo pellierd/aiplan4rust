@@ -19,6 +19,9 @@ use crate::analysis::inertia::table::InertiaTableError;
 pub enum GroundingError {
 
     #[error(transparent)]
+    ExprOp(#[from] ExprOpError),
+
+    #[error(transparent)]
     InertiaTable(#[from] InertiaTableError),
 
     #[error(transparent)]
@@ -29,9 +32,6 @@ pub enum GroundingError {
 
     #[error(transparent)]
     BindingEngine(#[from] BindingError),
-
-    #[error(transparent)]
-    Logic(#[from] ExprOpError),
 
     #[error(transparent)]
     Arena(#[from] ArenaError),

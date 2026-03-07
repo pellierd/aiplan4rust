@@ -1,10 +1,10 @@
 use itertools::Itertools;
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::{config, GroundingResult};
+use crate::aiplan4rust::grounding::{config, problem, GroundingResult};
 use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaEvaluator;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::DatalogEngine;
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::grounding::passes::{quantifier_expansion, type_flattening};
+use crate::aiplan4rust::grounding::passes::{positive_form_normalization, quantifier_expansion, type_flattening};
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::ids;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -94,6 +94,10 @@ impl Grounder {
         // Il doit arriver APRES le flattening des types pour que le forall
         // sache exactement sur quels objets itérer.
         quantifier_expansion::problem::expand_with(&mut lifted_problem, &registry, Some(&evaluator))?;
+
+        // 6. PNF
+
+        let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
 
         let mut datalog = DatalogEngine::new();
         datalog.load_problem(&lifted_problem)?;
