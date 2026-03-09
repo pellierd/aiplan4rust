@@ -112,15 +112,16 @@ fn collect_all_action_fluents(
 /// definition found in the problem.
 ///
 /// This function aggregates results from effect analysis and initial state scanning
-/// to assign an [`Inertia`] status to each element.
+/// to assign an [`Inertia`] status to each element based on its presence (or absence)
+/// in action effects and the initial state.
 ///
 /// # Arguments
 ///
 /// * `problem` - The lifted problem containing all original definitions.
 /// * `fluent_predicates` - Set of predicate IDs modified by actions or TILs.
 /// * `fluent_functions` - Set of function IDs modified by effects or TILs.
-/// * `static_predicates` - Set of predicate IDs present in the initial state but never modified.
-/// * `static_functions` - Set of function IDs initialized but never modified.
+/// * `constant_predicates` - Set of predicate IDs present in the initial state but never modified.
+/// * `constant_functions` - Set of function IDs initialized but never modified.
 ///
 /// # Returns
 ///
@@ -129,44 +130,51 @@ fn build_inertia_table(
     problem: &LiftedProblem,
     fluent_predicates: HashSet<AtomSkeletonId>,
     fluent_functions: HashSet<FunctionSkeletonId>,
-    static_predicates: HashSet<AtomSkeletonId>,
-    static_functions: HashSet<FunctionSkeletonId>,
+    constant_predicates: HashSet<AtomSkeletonId>,
+    constant_functions: HashSet<FunctionSkeletonId>,
 ) -> InertiaTable {
     let mut table = InertiaTable::empty();
 
-    // Derived predicates are computed via axioms, so they are always treated as Fluents.
+    // Les prédicats dérivés sont calculés par des axiomes, donc considérés comme Fluents.
     let derived_ids: HashSet<_> = problem
         .derived_predicate_defs()
         .iter()
         .map(|d| d.header_id())
         .collect();
 
-    // --- Categorize Predicates ---
+    // --- Catégorisation des Prédicats ---
     for (idx, _) in problem.predicate_defs().iter().enumerate() {
         let id = AtomSkeletonId::from(idx);
 
         let inertia = if derived_ids.contains(&id) || fluent_predicates.contains(&id) {
-            Inertia::Fluent
-        } else if static_predicates.contains(&id) {
-            Inertia::Positive
+            // Le prédicat change de valeur (ADD et/ou DEL présents).
+            Inertia::fluent()
+        } else if constant_predicates.contains(&id) {
+            // Le prédicat est présent dans l'init et n'est JAMAIS modifié.
+            // Dans IPP, c'est l'Inertie Positive ET Négative.
+            Inertia::positive_negative()
         } else {
-            // Predicate is neither in effects nor in the initial state (Always False).
-            Inertia::Negative
+            // Le prédicat n'est ni dans les effets, ni dans l'état initial.
+            // Il est donc "Inerte Positif" (ne peut pas être ajouté) et reste absent (False).
+            Inertia::negative()
         };
         table.insert_predicate(id, inertia);
     }
 
-    // --- Categorize Functions (Numeric) ---
+    // --- Catégorisation des Fonctions (Numériques) ---
     for (idx, _) in problem.function_defs().iter().enumerate() {
         let id = FunctionSkeletonId::from(idx);
 
         let inertia = if fluent_functions.contains(&id) {
-            Inertia::Fluent
-        } else if static_functions.contains(&id) {
-            Inertia::Positive
+            // La fonction est modifiée par des effets (assign, increase, decrease).
+            Inertia::fluent()
+        } else if constant_functions.contains(&id) {
+            // La fonction est définie à l'initialisation et reste immuable.
+            Inertia::positive_negative()
         } else {
-            // Function is never initialized or modified (Undefined/Default).
-            Inertia::Negative
+            // La fonction n'est ni dans les effets, ni initialisée.
+            // Elle est considérée Inerte Négative (sa valeur par défaut, souvent 0, ne peut être diminuée).
+            Inertia::negative()
         };
         table.insert_function(id, inertia);
     }

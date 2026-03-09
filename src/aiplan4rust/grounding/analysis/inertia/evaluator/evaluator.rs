@@ -94,7 +94,7 @@ impl<'a> InertiaEvaluator<'a> {
         // C'est cet ID qui permet de savoir si "at(truck, place)" est un prédicat d'inertie.
         let skeleton_id = node.try_atom_skeleton()?;
 
-        if self.inertia.is_predicate_positive(skeleton_id)? {
+        if self.inertia.is_predicate_positive_inertia(skeleton_id)? {
             // 2. L'arité réelle des données (les arguments du fait initial)
             // Puisque le premier enfant est le "symbole" (le nom), on l'exclut.
             let arity = children.len().saturating_sub(1);
@@ -127,7 +127,7 @@ impl<'a> InertiaEvaluator<'a> {
         // 1. On récupère la définition de la fonction (le squelette)
         let func_id = node.try_function_skeleton()?;
 
-        if self.inertia.is_function_positive(func_id)? {
+        if self.inertia.is_function_positive_inertia(func_id)? {
             // 2. Dans un FComp (=), le premier enfant (children[0]) est le BasicFunctionTerm
             let func_term_node = init.try_node(children[0])?;
             let func_children = func_term_node.children();
@@ -172,8 +172,8 @@ impl<'a> InertiaEvaluator<'a> {
         // Définition : Un prédicat est inerte s'il n'apparaît dans aucun effet d'opérateur.
         // - Positive Inertia : N'apparaît dans aucun effet positif (ne peut pas devenir VRAI s'il est FAUX).
         // - Negative Inertia : N'apparaît dans aucun effet négatif (ne peut pas devenir FAUX s'il est VRAI).
-        let is_negative = self.inertia.is_predicate_negative(pred_id)?;
-        let is_positive = self.inertia.is_predicate_positive(pred_id)?;
+        let is_negative = self.inertia.is_predicate_negative_inertia(pred_id)?;
+        let is_positive = self.inertia.is_predicate_positive_inertia(pred_id)?;
 
 
         // Si le prédicat n'est pas inerte (fluents), on ne peut rien simplifier à ce stade.
@@ -274,7 +274,7 @@ impl<'a> InertiaEvaluator<'a> {
         let func_id = node.try_function_skeleton()?;
 
         // 1. Check d'inertie : Si la fonction peut changer, on ne simplifie rien. 🧊
-        if !self.inertia.is_function_positive(func_id)? {
+        if !self.inertia.is_function_positive_inertia(func_id)? {
             return Ok(None);
         }
 

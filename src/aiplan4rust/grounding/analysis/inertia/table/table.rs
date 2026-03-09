@@ -67,31 +67,6 @@ impl InertiaTable {
         self.predicates.insert(index, inertia);
     }
 
-    // --- Function Management ---
-
-    /// Retrieves the inertia status of a specific numeric function.
-    ///
-    /// # Arguments
-    /// * `index` - The unique identifier of the function skeleton.
-    ///
-    /// # Returns
-    /// Returns `Some(Inertia)` if analyzed, or `None` if the function
-    /// index is unknown.
-    pub fn get_function(&self, index: FunctionSkeletonId) -> Option<Inertia> {
-        self.functions.get(&index).copied()
-    }
-
-    /// Registers or updates the inertia status for a numeric function.
-    ///
-    /// # Arguments
-    /// * `index` - The identifier of the function skeleton.
-    /// * `inertia` - The inertia category to assign.
-    pub fn insert_function(&mut self, index: FunctionSkeletonId, inertia: Inertia) {
-        self.functions.insert(index, inertia);
-    }
-
-    // --- Getters avec Result ---
-
     // --- Secure Accessors ---
 
     /// Retrieves the inertia of a predicate or returns an error if the index is missing.
@@ -119,75 +94,106 @@ impl InertiaTable {
             .ok_or_else(|| InertiaTableError::missing_function_inertia(index))
     }
 
+    // --- Function Management ---
+
+    /// Retrieves the inertia status of a specific numeric function.
+    ///
+    /// # Arguments
+    /// * `index` - The unique identifier of the function skeleton.
+    ///
+    /// # Returns
+    /// Returns `Some(Inertia)` if analyzed, or `None` if the function
+    /// index is unknown.
+    pub fn get_function(&self, index: FunctionSkeletonId) -> Option<Inertia> {
+        self.functions.get(&index).copied()
+    }
+
+    /// Registers or updates the inertia status for a numeric function.
+    ///
+    /// # Arguments
+    /// * `index` - The identifier of the function skeleton.
+    /// * `inertia` - The inertia category to assign.
+    pub fn insert_function(&mut self, index: FunctionSkeletonId, inertia: Inertia) {
+        self.functions.insert(index, inertia);
+    }
+
     // --- Validation Helpers (Predicates) ---
 
-    /// Checks if a predicate is static and always true (Positive inertia).
+    /// Checks if a predicate is **positive-inert**.
     ///
-    /// Useful for simplifying conjunctions: if a positive static predicate is
-    /// found, it can be treated as a constant `True`.
+    /// # Parameters
+    /// * `index` - The unique identifier (`AtomSkeletonId`) of the predicate to check.
     ///
-    /// # Errors
-    /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_positive(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
-        Ok(self.try_get_predicate(index)? == Inertia::Positive)
+    /// # Returns
+    /// * `Ok(true)` if the predicate is never present in any action's `add` effect.
+    /// * `Ok(false)` if the predicate can be added by at least one action.
+    /// * `Err(InertiaTableError)` if the index is out of bounds or invalid.
+    pub fn is_predicate_positive_inertia(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
+        Ok(self.try_get_predicate(index)?.is_positive())
     }
 
-    /// Checks if a predicate is static and always false (Negative inertia).
+    /// Checks if a predicate is **negative-inert**.
     ///
-    /// Useful for pruning: if a negative static predicate is part of a
-    /// conjunction, the entire branch can be discarded.
+    /// # Parameters
+    /// * `index` - The unique identifier (`AtomSkeletonId`) of the predicate to check.
     ///
-    /// # Errors
-    /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_negative(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
-        Ok(self.try_get_predicate(index)? == Inertia::Negative)
+    /// # Returns
+    /// * `Ok(true)` if the predicate is never present in any action's `delete` effect.
+    /// * `Ok(false)` if the predicate can be removed by at least one action.
+    /// * `Err(InertiaTableError)` if the index is out of bounds or invalid.
+    pub fn is_predicate_negative_inertia(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
+        Ok(self.try_get_predicate(index)?.is_negative())
     }
 
-    /// Checks if a predicate is static (either Positive or Negative).
+    /// Checks if a predicate is **positive-and-negative-inert**.
     ///
-    /// A static predicate's truth value is determined solely by the initial state
-    /// and will never change during plan execution.
+    /// # Parameters
+    /// * `index` - The unique identifier (`AtomSkeletonId`) of the predicate to check.
     ///
-    /// # Errors
-    /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_static(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
-        Ok(!matches!(self.try_get_predicate(index)?, Inertia::Fluent))
+    /// # Returns
+    /// * `Ok(true)` if the predicate is both positive-inert and negative-inert (it remains constant).
+    /// * `Ok(false)` if the predicate is a fluent (can be added or deleted).
+    /// * `Err(InertiaTableError)` if the index is out of bounds or invalid.
+    pub fn is_predicate_positive_negative_inertia(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
+        Ok(self.try_get_predicate(index)?.is_positive_negative())
     }
 
     // --- Validation Helpers (Functions) ---
 
-    /// Checks if a numeric function is static and initialized (Positive inertia).
+    /// Checks if a numeric function is **positive-inert**.
     ///
-    /// In the context of numeric planning, a positive static function often represents
-    /// a constant resource capacity or a fixed cost that remains unchanged.
+    /// # Parameters
+    /// * `index` - The unique identifier (`FunctionSkeletonId`) of the function to check.
     ///
-    /// # Errors
-    /// Returns a [`InertiaTableError`] if the function index has not been analyzed.
-    pub fn is_function_positive(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
-        Ok(self.try_get_function(index)? == Inertia::Positive)
+    /// # Returns
+    /// * `Ok(true)` if the function's value is never increased or assigned by an action.
+    /// * `Err(InertiaTableError)` if the index is invalid.
+    pub fn is_function_positive_inertia(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
+        Ok(self.try_get_function(index)?.is_positive())
     }
 
-    /// Checks if a numeric function is uninitialized or explicitly marked as negative.
+    /// Checks if a numeric function is **negative-inert**.
     ///
-    /// A negative static function typically indicates a symbol that is never
-    /// assigned a value in the initial state and never modified by effects.
+    /// # Parameters
+    /// * `index` - The unique identifier (`FunctionSkeletonId`) of the function to check.
     ///
-    /// # Errors
-    /// Returns a [`InertiaTableError`] if the function index is unknown.
-    pub fn is_function_negative(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
-        Ok(self.try_get_function(index)? == Inertia::Negative)
+    /// # Returns
+    /// * `Ok(true)` if the function's value is never decreased or assigned by an action.
+    /// * `Err(InertiaTableError)` if the index is invalid.
+    pub fn is_function_negative_inertia(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
+        Ok(self.try_get_function(index)?.is_negative())
     }
 
-    /// Checks if a numeric function is static (either Positive or Negative).
+    /// Checks if a numeric function is **positive-and-negative-inert**.
     ///
-    /// If a function is static, the grounder or evaluator can replace its
-    /// expr with constant values, significantly reducing the overhead
-    /// of state evaluations.
+    /// # Parameters
+    /// * `index` - The unique identifier (`FunctionSkeletonId`) of the function to check.
     ///
-    /// # Errors
-    /// Returns a [`InertiaTableError`] if the function has not been categorized.
-    pub fn is_function_static(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
-        Ok(!matches!(self.try_get_function(index)?, Inertia::Fluent))
+    /// # Returns
+    /// * `Ok(true)` if the function value remains constant throughout the entire plan execution.
+    /// * `Err(InertiaTableError)` if the index is invalid.
+    pub fn is_function_positive_negative_inertia(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
+        Ok(self.try_get_function(index)?.is_positive_negative())
     }
 }
 

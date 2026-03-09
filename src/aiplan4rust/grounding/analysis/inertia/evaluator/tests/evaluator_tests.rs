@@ -116,7 +116,7 @@ mod tests {
         let mut i_table = InertiaTable::empty();
 
         // On marque le squelette 1 comme Inerte Positif
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id_raw), Inertia::Positive);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id_raw), Inertia::positive());
 
         // On crée le registre lié à ces données
         let registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
@@ -156,7 +156,7 @@ mod tests {
         let mut i_table = InertiaTable::empty();
 
         // Configuration de l'inertie sur la table (avant l'emprunt par le registre)
-        i_table.insert_function(FunctionSkeletonId::from(skel_id_raw), Inertia::Positive);
+        i_table.insert_function(FunctionSkeletonId::from(skel_id_raw), Inertia::positive());
 
         // Création du registre avec les références
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
@@ -199,7 +199,7 @@ mod tests {
 
         // On définit le prédicat comme Inerte Positif
         // (Rappel : Inerte Positif = n'apparaît dans aucun effet positif = ne peut pas être ajouté)
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Positive);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::positive());
 
         // Création du registre avec les références
         let registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
@@ -233,7 +233,7 @@ mod tests {
 
         // On définit le prédicat comme Inerte Négatif
         // (N'apparaît dans aucun effet négatif = ne peut pas être supprimé)
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Negative);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::negative());
 
         // Création du registre avec les références
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
@@ -281,8 +281,8 @@ mod tests {
         let mut i_table = InertiaTable::empty();
 
         // On définit les deux prédicats comme Inertes Positifs
-        i_table.insert_predicate(AtomSkeletonId::from(s1), Inertia::Positive);
-        i_table.insert_predicate(AtomSkeletonId::from(s2), Inertia::Positive);
+        i_table.insert_predicate(AtomSkeletonId::from(s1), Inertia::positive());
+        i_table.insert_predicate(AtomSkeletonId::from(s2), Inertia::positive());
 
         // Création du registre avec les références
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
@@ -339,8 +339,8 @@ mod tests {
 
         let mut i_table = InertiaTable::empty();
         // On met Positive ET Negative pour simuler une constante parfaite
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Positive);
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Negative);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::positive());
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::negative());
 
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
 
@@ -394,7 +394,7 @@ mod tests {
 
         // 4. Configuration de l'Inertie
         let mut i_table = InertiaTable::empty();
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Negative);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::negative());
 
         // Initialisation du registre
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
@@ -429,7 +429,7 @@ mod tests {
         let f_defs = Vec::new();
         let v_reg = ValueRegistry::empty();
         let mut i_table = InertiaTable::empty();
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Negative);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::negative());
 
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
 
@@ -481,7 +481,7 @@ mod tests {
 
         // 4. Setup Inertie (Inerte Positif)
         let mut i_table = InertiaTable::empty();
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Positive);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::positive());
 
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
 
@@ -538,7 +538,7 @@ mod tests {
 
         // 3. Setup Inertie (Inerte Positif pour la Règle 1 : N=0 => FALSE)
         let mut i_table = InertiaTable::empty();
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Positive);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::positive());
 
         // 4. INITIALISATION DU REGISTRE AVEC MAX_PROJ = 1
         // C'est ici que le test devient intéressant.
@@ -619,7 +619,7 @@ mod tests {
 
         // 3. Setup Inertie : NEGATIVE (pour la règle N=MAX => TRUE)
         let mut i_table = InertiaTable::empty();
-        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::Negative);
+        i_table.insert_predicate(AtomSkeletonId::from(skel_id), Inertia::negative());
 
         // 4. Initialisation avec une config permettant de stocker le masque 0b01
         let mut registry = InertiaEvaluator::mock_with_config(&p_defs, &f_defs, &v_reg, &i_table, 2, 2);
@@ -680,7 +680,7 @@ mod tests {
 
         // 3. Inertie : On marque explicitement le SQUELETTE 1 comme Inerte Positif
         let mut i_table = InertiaTable::empty();
-        i_table.insert_predicate(skel_id, Inertia::Positive);
+        i_table.insert_predicate(skel_id, Inertia::positive());
 
         // 4. Création du registre
         let f_defs = Vec::new();
@@ -727,8 +727,8 @@ mod tests {
 
         // 2. Setup Inertie : Inerte Positif
         let mut i_table = InertiaTable::empty();
-        i_table.insert_predicate(skel1, Inertia::Positive);
-        i_table.insert_predicate(skel2, Inertia::Positive);
+        i_table.insert_predicate(skel1, Inertia::positive());
+        i_table.insert_predicate(skel2, Inertia::positive());
 
         // 3. Initialisation du ValueRegistry
         // On utilise la méthode de test pour s'assurer que le vecteur interne
@@ -863,7 +863,7 @@ mod tests {
 
         // 1. Inertia: Mark the function as positive inertia (static) 🧊
         let mut i_table = InertiaTable::empty();
-        i_table.insert_function(skel_id, Inertia::Positive);
+        i_table.insert_function(skel_id, Inertia::positive());
 
         // 2. Direct definition of function skeletons 🛠️
         let f_defs = vec![
@@ -908,7 +908,7 @@ mod tests {
 
         // 1. Inertia: Mark as static
         let mut i_table = InertiaTable::empty();
-        i_table.insert_function(skel_id, Inertia::Positive);
+        i_table.insert_function(skel_id, Inertia::positive());
 
         // 2. Local definitions for the mock 🛠️
         let f_defs = vec![
@@ -961,7 +961,7 @@ mod tests {
 
         // 1. Inertia: Mark the function as static
         let mut i_table = InertiaTable::empty();
-        i_table.insert_function(skel_id, Inertia::Positive);
+        i_table.insert_function(skel_id, Inertia::positive());
 
         // 2. Define the function skeleton 🛠️
         let f_defs = vec![
