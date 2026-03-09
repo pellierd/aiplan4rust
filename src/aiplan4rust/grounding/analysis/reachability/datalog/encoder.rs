@@ -4,7 +4,7 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::Datal
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lang::CompareOp;
@@ -56,6 +56,8 @@ pub struct DatalogEncoder {
     // Ajout du champ interne
     // On utilise un champ membre pour éviter de le passer partout
     current_aliases: HashMap<VariableId, Term>,
+
+    negation_offset: usize,
 }
 
 impl DatalogEncoder {
@@ -82,7 +84,7 @@ impl DatalogEncoder {
     /// This constructor pre-allocates space for 256 auxiliary definitions and
     /// cache entries. This heuristic strategy minimizes heap reallocations
     /// during the initial encoding phase of typical PDDL problems.
-    pub fn new(base_id: usize) -> Self {
+    pub fn new(base_id: usize, negation_offset: usize) -> Self {
         Self {
             base_aux_id: base_id,
             next_aux_id: base_id,
@@ -90,6 +92,7 @@ impl DatalogEncoder {
             aux_defs: Vec::with_capacity(256),
             cache: HashMap::with_capacity(256),
             current_aliases: HashMap::with_capacity(256),
+            negation_offset,
         }
     }
 
@@ -690,7 +693,7 @@ impl DatalogEncoder {
         // 1. Fast determination of the Skeleton ID and the child skip offset.
         // Comparisons (equality) use a fixed ID and start terms at index 0.
         // Atomic formulas fetch their ID from content and skip the predicate name at index 0.
-        let (skeleton_id, skip_count) = if kind == ExprKind::Comparison {
+        let (mut skeleton_id, skip_count) = if kind == ExprKind::Comparison {
             (AtomSkeletonId::from(Atom::EQUALITY_ID), 0)
         } else {
             (node.content().try_atom_skeleton()?, 1)

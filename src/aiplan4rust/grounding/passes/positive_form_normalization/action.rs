@@ -15,7 +15,7 @@ pub fn to_pnf(
     action: &mut ActionDef,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     scratchpad: &mut Vec<AtomSkeletonId>,
-    stack: &mut Vec<NodeId>,
+    stack: &mut Vec<(NodeId, bool)>,
 ) -> Result<(), ExprOpError> {
     // 0. On vide le buffer de travail local (garde la capacité)
     scratchpad.clear();
@@ -26,7 +26,8 @@ pub fn to_pnf(
             root_id,
             action.precondition_mut(),
             scratchpad,
-            stack, // On passe la pile au moteur de traversée
+            stack,
+            false,
         )?;
     }
 
@@ -39,6 +40,7 @@ pub fn to_pnf(
             action.effect_mut(),
             scratchpad,
             stack,
+            true,
         )?;
     }
 

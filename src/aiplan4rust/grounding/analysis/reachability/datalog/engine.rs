@@ -7,9 +7,12 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::Dat
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::tuple::Tuple;
+use crate::aiplan4rust::grounding::binding::iter::BindingsIterator;
+use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::ActionDef;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Maximum number of variables (parameters) allowed per action or rule.
@@ -32,6 +35,7 @@ pub struct DatalogEngine {
     encoder: DatalogEncoder,
     fluence_threshold: usize,
     type_threshold: usize,
+    type_segment_start: usize,
     action_threshold: usize,
     builtin_threshold: usize,
     /// Cache pour ne pas dupliquer les prédicats d'union.
@@ -51,11 +55,12 @@ impl DatalogEngine {
             discovered_facts: Vec::with_capacity(1024),
             type_to_skeleton: Vec::new(),
             head_buffer: Vec::with_capacity(16),
-            encoder: DatalogEncoder::new(0),
+            encoder: DatalogEncoder::new(0, 0),
             fluence_threshold: 0,
             type_threshold: 0,
             action_threshold: 0,
             builtin_threshold: 0,
+            type_segment_start: 0,
             union_cache: HashMap::new(),
         }
     }
@@ -147,7 +152,7 @@ impl DatalogEngine {
             .expect("Aucune règle trouvée pour cet index d'action")
     }
 
-    pub fn load_problem(&mut self, problem: &LiftedProblem) -> Result<(), DatalogError> {
+    pub fn load_problem(&mut self, problem: &LiftedProblem, negated_predicates: &Vec<AtomSkeletonId>) -> Result<(), DatalogError> {
         // 1. Internal State Reset
         // Reset the fact database and clear existing inference rules.
         self.db = Database::new();
@@ -156,7 +161,17 @@ impl DatalogEngine {
         // Segment 1: PDDL Fluents
         // Define the first ID segment based on domain predicates.
         self.fluence_threshold = problem.predicate_defs().len();
-        self.encoder = DatalogEncoder::new(self.fluence_threshold);
+
+        // 3. Calcul de la frontière (Dynamique)
+        // Si la liste des négations est vide, les types commencent à N.
+        // Sinon, on réserve le miroir et les types commencent à 2N.
+        self.type_segment_start = if negated_predicates.is_empty() {
+            self.fluence_threshold
+        } else {
+            self.fluence_threshold * 2
+        };
+
+        self.encoder = DatalogEncoder::new(self.type_segment_start, self.fluence_threshold);
 
         // Segment 2: Types & Hierarchy Auxiliaries
         self.declare_types_as_unary_predicates(problem.type_defs());
@@ -208,23 +223,46 @@ impl DatalogEngine {
 
     #[inline]
     pub fn is_fluent(&self, id: AtomSkeletonId) -> bool {
-        // .as_usize() fait un MASQUE (id & !NEGATION_FLAG)
-        // On compare donc TOUJOURS l'index de base, peu importe le signe.
-        id.as_usize() < self.fluence_threshold
+        // Tout ce qui est avant le début des types est un fluent
+        // (cela inclut le bloc positif et le bloc négatif optionnel)
+        id.as_usize() < self.type_segment_start
     }
 
-    /// Vérifie si un ID appartient au segment des Types (prédicats unaires).
+    #[inline]
+    pub fn is_negated_fluent(&self, id: AtomSkeletonId) -> bool {
+        let val = id.as_usize();
+        val >= self.fluence_threshold && val < self.type_segment_start
+    }
+
     #[inline]
     pub fn is_type(&self, id: AtomSkeletonId) -> bool {
         let p = id.as_usize();
-        p >= self.fluence_threshold && p < self.type_threshold
+        // Le segment des types est coincé entre sa frontière propre et le début des actions
+        p >= self.type_segment_start && p < self.type_threshold
     }
 
     #[inline]
     pub fn atom_id_to_type_id(&self, sk_id: AtomSkeletonId) -> TypeId {
         let id_val = sk_id.as_usize();
-        debug_assert!(self.is_type(sk_id)); // Utilise l'ID complet pour le check
-        TypeId::from(id_val - self.fluence_threshold)
+        debug_assert!(self.is_type(sk_id));
+        // L'offset de soustraction est maintenant dynamique
+        TypeId::from(id_val - self.type_segment_start)
+    }
+
+    #[inline]
+    pub fn negate_id(&self, id: AtomSkeletonId) -> AtomSkeletonId {
+        let val = id.as_usize();
+        // On part du principe que id est un fluent positif < fluence_threshold
+        debug_assert!(val < self.fluence_threshold);
+        AtomSkeletonId::from(val + self.fluence_threshold)
+    }
+
+    #[inline]
+    pub fn pos_id_from_negated(&self, id: AtomSkeletonId) -> AtomSkeletonId {
+        let val = id.as_usize();
+        // On part du principe que id est un fluent négatif [N..2N[
+        debug_assert!(val >= self.fluence_threshold && val < self.type_segment_start);
+        AtomSkeletonId::from(val - self.fluence_threshold)
     }
 
     /// Vérifie si un ID appartient au segment des Actions.
@@ -249,7 +287,9 @@ impl DatalogEngine {
     #[inline]
     pub fn is_auxiliary(&self, id: AtomSkeletonId) -> bool {
         let p = id.as_usize();
-        p >= self.builtin_threshold && p < Atom::BUILTIN_ZONE_START
+        // Un auxiliaire est tout ce qui se trouve entre la fin des actions
+        // et le début de la zone réservée aux built-ins (égalité).
+        p >= self.action_threshold && p < Atom::BUILTIN_ZONE_START
     }
 
     /// La SEULE méthode autorisée pour ajouter une règle au moteur.
@@ -360,6 +400,42 @@ impl DatalogEngine {
         }
         Ok(())
     }
+
+
+
+    /*pub fn complete_negative_mirrors(
+        &mut self,
+        negated_predicates: &[AtomSkeletonId],
+        predicate_defs: &[AtomicFormulaSkeleton], // On ne passe que les définitions nécessaires
+        value_registry: &ValueRegistry
+    ) -> Result<(), DatalogError> {
+
+        for &pos_sk_id in negated_predicates {
+            // 1. Accès direct via l'ID (qui sert d'index dans predicate_defs)
+            let predicate_def = predicate_defs.get(pos_sk_id.as_usize())
+                .ok_or_else(|| DatalogError::undefined_predicate(pos_sk_id))?;
+
+            let parameters = predicate_def.parameters();
+
+            // 2. Réutilisation de ton BindingsIterator
+            let mut iterator = BindingsIterator::new(parameters, value_registry)?;
+
+            // 3. Calcul de l'ID miroir
+            let neg_sk_id = AtomSkeletonId::from(pos_sk_id.as_usize() + self.fluence_threshold);
+
+            // 4. Boucle de complétion
+            while let Some(bindings) = iterator.next() {
+                // 'bindings' est un Vec<ObjectId> ou similaire généré par l'itérateur
+
+                // On vérifie l'absence du fait positif
+                if !self.db.has_fact(pos_sk_id, &bindings) {
+                    // On insère le fait négatif correspondant
+                    self.db.insert_delta_fact(neg_sk_id, &bindings);
+                }
+            }
+        }
+        Ok(())
+    }*/
 
     /// Crée les squelettes de prédicats pour chaque action du problème.
     /// Cela permet de fixer les IDs des actions avant de générer les auxiliaires.
@@ -586,6 +662,7 @@ impl DatalogEngine {
 
     // Note : db est maintenant &Database (immutable)
     fn process_incremental(&mut self, rule: &Rule, body_idx: usize, pivot_idx: usize) {
+        // 1. Condition d'arrêt : succès de la règle (tous les atomes validés)
         if body_idx == rule.body().len() {
             self.evaluate_head(rule);
             return;
@@ -594,45 +671,73 @@ impl DatalogEngine {
         let atom = &rule.body()[body_idx];
         let sk_id = atom.skeleton_id();
 
-
-        // --- NOUVEAU : Gestion des Built-ins (Filtres) ---
-        if self.is_builtin(sk_id) {
-            // L'égalité n'est jamais un pivot car elle n'est pas dans la DB.
-            // On l'exécute simplement comme un test.
-            if self.execute_builtin(atom) {
+        // --- NOUVEAU : Branchement vers le filtrage Lazy ---
+        // Si l'atome est un built-in OU s'il est négatif (bit MSB à 1)
+        // On ne cherche pas dans la DB, on teste l'absence (pour not) ou la logique (pour ==)
+        if self.is_builtin(sk_id) || atom.is_negated() {
+            // On appelle execute_filter (qui remplace execute_builtin)
+            if self.execute_filter(atom) {
                 self.process_incremental(rule, body_idx + 1, pivot_idx);
             }
             return;
         }
 
-        // --- Logique existante pour les relations standards ---
+        // --- Logique existante pour les relations positives (Scan/Index) ---
+        // Note : On ne rentre ici que pour des atomes POSITIFS et NON-BUILTIN
         if body_idx < pivot_idx {
+            // Avant le pivot : uniquement dans le Stable
             self.match_relation(rule, body_idx, pivot_idx, sk_id, false);
         } else if body_idx == pivot_idx {
+            // Au pivot : uniquement dans le Delta (Semi-Naïf)
             self.match_relation(rule, body_idx, pivot_idx, sk_id, true);
         } else {
+            // Après le pivot : on teste les deux (Stable et Delta)
             self.match_relation(rule, body_idx, pivot_idx, sk_id, false);
             self.match_relation(rule, body_idx, pivot_idx, sk_id, true);
         }
     }
 
-    fn execute_builtin(&self, atom: &Atom) -> bool {
-        let sk_id = atom.skeleton_id().as_usize();
+    fn execute_filter(&self, atom: &Atom) -> bool {
+        let sk_id = atom.skeleton_id();
 
+        // 1. GESTION DES BUILT-INS (Identité inchangée)
+        if self.is_builtin(sk_id) {
+            return self.eval_equality(atom);
+        }
 
-        // CENTRALISATION : On dispatch selon l'ID du prédicat
-        match sk_id {
-            // Cas 1 : L'ÉGALITÉ (Le cas qui nous intéresse pour Gripper)
-            Atom::EQUALITY_ID => {
-                self.eval_equality(atom)
+        // 2. GESTION DE LA NÉGATION LAZY
+        // On vérifie les deux signaux de négation possibles :
+        // a) Le bit MSB (atom.is_negated())
+        // b) L'ID dans le segment miroir (sk_id >= fluence_threshold && sk_id < type_segment_start)
+        let is_neg_id = sk_id.as_usize() >= self.fluence_threshold && sk_id.as_usize() < self.type_segment_start;
+
+        if atom.is_negated() || is_neg_id {
+            let mut tuple_to_check = Vec::with_capacity(atom.arity());
+
+            // POssibilité d'utiksre un buffer pour optimioser et évuer l'allocation a chaque iteration
+            for term in atom.terms() {
+                if let Some(val) = self.get_term_value(term) {
+                    tuple_to_check.push(val);
+                } else {
+                    // Si une variable n'est pas liée, le filtre échoue (Safety Datalog)
+                    return false;
+                }
             }
 
-            // Cas 2 : On peut imaginer d'autres built-ins ici plus tard
-            // Atom::GREATER_THAN_ID => self.eval_numeric_gt(atom),
+            // --- DÉTERMINATION DE L'ID POSITIF ---
+            let pos_sk_id = if atom.is_negated() {
+                // C'est un bit MSB : l'ID stocké est déjà l'ID positif.
+                sk_id
+            } else {
+                // C'est un ID de segment [N..2N[ : on le ramène dans [0..N[
+                self.pos_id_from_negated(sk_id)
+            };
 
-            // Par défaut, si on ne connaît pas, on laisse passer (ou on log une erreur)
-            _ => true,
+            // On demande à la DB si le fait POSITIF existe (Stable + Delta)
+            return !self.db.has_fact(pos_sk_id, &tuple_to_check);
         }
+
+        true
     }
 
     /// Logique spécifique pour l'égalité
@@ -827,8 +932,8 @@ impl DatalogEngine {
         while !remaining.is_empty() {
             let best_idx = remaining.iter().enumerate().min_by_key(|(_, atom)| {
                 let sk_id = atom.skeleton_id();
-                let priority = self.get_predicate_priority(sk_id);
 
+                // 1. Calcul des variables déjà liées (Indispensable pour éviter les produits cartésiens)
                 let mut bound_count = 0;
                 for term in atom.terms() {
                     match term {
@@ -842,14 +947,22 @@ impl DatalogEngine {
                     }
                 }
 
+                // 2. Taille réelle des données dans la DB
                 let rel_size = self.db.get_relation_size(sk_id);
 
-                // CHANGEMENT ICI : Le bound_count est le critère ROI
-                (-(bound_count as i32), priority, rel_size)
+                // 3. Catégorie sémantique (Type, Fluent, etc.)
+                let priority = self.get_predicate_priority(sk_id);
+
+                // L'ORDRE DU TUPLE EST CRUCIAL :
+                // a) On maximise bound_count (d'où le signe moins)
+                // b) On minimise rel_size (pour traiter le moins de faits possible)
+                // c) On minimise priority (Types < Fluents < Actions)
+                (-(bound_count as i32), rel_size, priority)
             }).map(|(idx, _)| idx).unwrap();
 
             let best_atom = remaining.remove(best_idx);
 
+            // Mise à jour du masque des variables liées par l'atome choisi
             for term in best_atom.terms() {
                 if let Term::Variable(v) = term {
                     let v_idx = v.as_usize();
@@ -865,20 +978,18 @@ impl DatalogEngine {
 
     #[inline(always)]
     pub fn get_predicate_priority(&self, id: AtomSkeletonId) -> u8 {
-        // Note : On passe l'objet `id` complet aux fonctions.
-        // Elles utiliseront id.as_usize() en interne pour ignorer la négation.
-
-        if self.is_builtin(id) {
-            4
-        } else if self.is_type(id) {
-            0
+        if self.is_type(id) {
+            0 // 1er : Les types (unaires, très restrictifs)
+        } else if self.is_negated_fluent(id) {
+            2 // 3ème : Les négations (doivent attendre que les variables soient liées)
         } else if self.is_fluent(id) {
-            1
+            1 // 2ème : Les fluents positifs
         } else if self.is_action(id) {
-            2
+            3 // 4ème : Les actions
+        } else if self.is_auxiliary(id) {
+            4 // 5ème : Les auxiliaires
         } else {
-            // Cas des prédicats auxiliaires générés par le flattener
-            3
+            5 // 6ème : Les built-ins (Égalité, etc.)
         }
     }
 

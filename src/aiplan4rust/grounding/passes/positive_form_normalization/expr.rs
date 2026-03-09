@@ -57,35 +57,48 @@ pub fn to_pnf(
     node_id: NodeId,
     expr: &mut Expr,
     negated_atoms: &mut Vec<AtomSkeletonId>,
-    stack: &mut Vec<NodeId>, // Ajout du buffer réutilisable (pile DFS)
+    stack: &mut Vec<(NodeId, bool)>, // La pile transporte (ID, est_une_condition)
+    is_effect: bool,           // Indique si on démarre dans un arbre d'effets
 ) -> Result<(), ExprOpError> {
-    // On réutilise la pile passée en paramètre pour éviter les allocations répétées.
     stack.clear();
-    stack.push(node_id);
 
-    while let Some(curr_id) = stack.pop() {
+    // Si on est dans un arbre d'effets, on commence en mode "non-condition" (false).
+    // Si on est dans les préconditions, tout est considéré comme une condition (true).
+    stack.push((node_id, !is_effect));
+
+    while let Some((curr_id, in_condition)) = stack.pop() {
         let node_kind = expr.try_node(curr_id)?.kind();
 
         match node_kind {
-            // Special handling for negation nodes.
             ExprKind::Not => {
-                // handle_not_node handles the absorption of atoms or the preservation of comparisons.
-                // If it returns true, the node was transformed into a leaf (negated atom),
-                // so we continue to the next node in the stack.
-                if handle_not_node(curr_id, expr, negated_atoms)? {
-                    continue;
-                } else {
-                    // It was a comparison under a 'Not'; we stop descending this branch.
-                    continue;
+                // IMPORTANT : On ne traite le NOT que si on est dans un contexte logique (condition).
+                // Si in_condition est false, c'est un "Delete Effect", on l'ignore (Delete-Relaxation).
+                if in_condition {
+                    if handle_not_node(curr_id, expr, negated_atoms)? {
+                        continue;
+                    }
                 }
+                // Si c'est une comparaison ou un effet de suppression, on s'arrête là.
+                continue;
             }
-            // Standard logical connectors and quantifiers
+
+            ExprKind::When => {
+                let node = expr.try_node(curr_id)?;
+                let children = node.children();
+                if children.len() != 2 {
+                    return Err(ExprOpError::invalid_expr_node(curr_id, node_kind));
+                }
+                // Enfant 0 : La Condition -> On passe in_condition à TRUE
+                stack.push((children[0], true));
+                // Enfant 1 : L'Effet -> On passe in_condition à FALSE
+                stack.push((children[1], false));
+            }
+
+            // Connecteurs logiques et temporels
             ExprKind::And
             | ExprKind::Or
             | ExprKind::Forall
             | ExprKind::Exists
-            | ExprKind::When
-            // Temporal operators (PDDL 3.0 / Modal logic)
             | ExprKind::Always
             | ExprKind::Sometime
             | ExprKind::Within
@@ -96,9 +109,9 @@ pub fn to_pnf(
             | ExprKind::HoldDuring
             | ExprKind::HoldAfter => {
                 let node = expr.try_node(curr_id)?;
-                // Traverse children to find nested negations to encode
+                // On propage le contexte actuel (in_condition) aux enfants
                 for &child_id in node.children().iter().rev() {
-                    stack.push(child_id);
+                    stack.push((child_id, in_condition));
                 }
             }
 
@@ -106,13 +119,11 @@ pub fn to_pnf(
                 return Err(ExprOpError::invalid_expr_node(curr_id, node_kind));
             }
 
-            // Early exit for terms, metrics, and atoms
             _ => {}
         }
     }
 
-    // On trie et on dédoublonne à la toute fin, une seule fois
-    negated_atoms.sort_unstable(); // Plus rapide que sort() car ne préserve pas l'ordre des égaux
+    negated_atoms.sort_unstable();
     negated_atoms.dedup();
     Ok(())
 }

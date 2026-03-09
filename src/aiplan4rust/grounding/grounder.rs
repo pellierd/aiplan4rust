@@ -71,6 +71,8 @@ impl Grounder {
 
         // 3. ANALYSE D'INERTIE : On identifie ce qui ne change jamais.
         let table = InertiaTable::build(&lifted_problem)?;
+        println!("--- DIAGNOSTIC DES INERTIES ---");
+        println!("{}", table.to_string());
         // 3. VALUE REGISTRY CONSTRUCTION
         // We pass type/object definitions separately and inject the initial size config.
         let registry = ValueRegistry::build(
@@ -90,17 +92,23 @@ impl Grounder {
             config::DEFAULT_MAX_PROJ,
         )?;
 
+        print!("{}", lifted_problem.domain_view().to_syntax_string());
+        //print!("{}", lifted_problem.problem_view().to_syntax_string());
+        //println!("{}", lifted_problem);
         // 5. QUANTIFIER EXPANSION : On déploie les forall/exists.
         // Il doit arriver APRES le flattening des types pour que le forall
         // sache exactement sur quels objets itérer.
         quantifier_expansion::problem::expand_with(&mut lifted_problem, &registry, Some(&evaluator))?;
 
+        print!("{}", lifted_problem.domain_view().to_syntax_string());
+        //print!("{}", lifted_problem.problem_view().to_syntax_string());
+        //println!("{}", lifted_problem);
         // 6. PNF
 
-        let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
+        /*let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
 
         let mut datalog = DatalogEngine::new();
-        datalog.load_problem(&lifted_problem)?;
+        datalog.load_problem(&lifted_problem, &negated_predicates)?;
 
         datalog.run();
 
@@ -110,10 +118,12 @@ impl Grounder {
         let types = datalog.get_type_extensions();
 
 
-        print!("{}", lifted_problem.domain_view().to_syntax_string());
-        print!("{}", lifted_problem.problem_view().to_syntax_string());
+         */
 
-        let registry = lifted_problem.action_symbols();
+
+
+
+        /*let registry = lifted_problem.action_symbols();
 
         // APPEL DU DIAGNOSTIC ICI
         println!("--- DIAGNOSTIC DES ACTIONS ---");
@@ -231,7 +241,7 @@ impl Grounder {
             }
         }
 
-
+*/
         let problem = Problem::from(lifted_problem);
 
 

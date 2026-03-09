@@ -54,41 +54,46 @@ pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError
 
     while let Some(node_id) = stack.pop() {
         let node = expr.try_node(node_id)?;
-        if node.kind() != ExprKind::Not {
-            continue;
-        }
+        let kind = node.kind();
 
-        let children = node.children();
-        debug_assert!(
-            children.len() == 1,
-            "Not node must have exactly one child, found {}",
-            children.len()
-        );
+        if kind == ExprKind::Not {
+            let child_id = node.children()[0];
+            let child_kind = expr.try_node(child_id)?.kind();
 
-        // Retrieve the single child of the Not node
-        let child_id = children[0];
-        let child = expr.try_node(child_id)?;
+            match child_kind {
+                // (not (and A B)) -> (or (not A) (not B))
+                ExprKind::And | ExprKind::Or => {
+                    apply_de_morgan(node_id, expr)?;
+                    stack.push(node_id);
+                }
 
-        match child.kind() {
-            ExprKind::And | ExprKind::Or => {
-                // Apply De Morgan's law and push new Not nodes onto the stack
-                let new_not_ids = apply_de_morgan(node_id, expr)?;
-                stack.extend(new_not_ids);
+                // (not (forall (x) P)) -> (exists (x) (not P))
+                ExprKind::Forall | ExprKind::Exists => {
+                    apply_quantifier_negation(node_id, expr)?;
+                    stack.push(node_id);
+                }
+
+                // --- OPTION A : TRAVERSÉE SANS MUTATION ---
+                // On ne simplifie pas ¬¬X ici, on se contente de passer à travers
+                // pour traiter les négations potentielles plus profondément.
+                ExprKind::Not => {
+                    let grandchild_id = expr.try_node(child_id)?.children()[0];
+                    stack.push(grandchild_id);
+                }
+
+                // Négation sur une feuille (Atome/Comparaison) : On a atteint la cible.
+                ExprKind::AtomicFormula | ExprKind::Comparison => continue,
+
+                _ => return Err(ExprOpError::invalid_expr_node(child_id, child_kind)),
             }
-            ExprKind::Forall | ExprKind::Exists => {
-                // Apply quantifier negation rules and push the new Not node onto the stack
-                let new_not_id = apply_quantifier_negation(node_id, expr)?;
-                stack.push(new_not_id);
-            }
-            ExprKind::Not | ExprKind::Comparison | ExprKind::AtomicFormula => {
-                continue;
-            }
-            _ => {
-                return Err(ExprOpError::invalid_expr_node(child_id, child.kind()));
+        } else {
+            // Exploration récursive standard
+            let children = expr.try_node(node_id)?.children();
+            for i in (0..children.len()).rev() {
+                stack.push(children[i]);
             }
         }
     }
-
     Ok(())
 }
 
@@ -453,10 +458,6 @@ mod tests {
         Ok(())
     }
 
-    /// Test pushing negation through a deeply nested expression with AND, OR, NOT, and quantifiers.
-    /// Input: (not (and (A) (not (or (B) (C))) (forall (?X) (exists (?Y) (D)))))
-    /// Expected (after push_negations only, no simplification):
-    /// (or (not (A)) (not (not (or (B) (C)))) (exists (?X) (forall (?Y) (not (D)))))
     #[test]
     fn test_push_negation_deep_nested() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
@@ -470,7 +471,6 @@ mod tests {
         let or_bc = builder.or(vec![b, c]);
         let not_or_bc = builder.not(or_bc);
 
-        // Quantification imbriquée : ∀x.∃y.D
         let var_y = builder.typed_variable(11, &[100]);
         let exists_vars = builder.typed_variable_list(vec![var_y]);
         let exists_d = builder.exists(exists_vars, d);
@@ -479,29 +479,36 @@ mod tests {
         let forall_exists_d = builder.forall(forall_vars, exists_d);
 
         let and_node = builder.and(vec![a, not_or_bc, forall_exists_d]);
-        let root = builder.not(and_node);
+        let root_id = builder.not(and_node);
 
-        builder.set_root(root)?;
+        builder.set_root(root_id)?;
         let mut expr = builder.finish();
 
-        // 2. Transformation : (¬A ∨ ¬¬(B ∨ C) ∨ ∃x.∀y.¬D)
+        // 2. Transformation : Résultat attendu -> (¬A ∨ ¬¬(B ∨ C) ∨ ∃x.∀y.¬D)
+        // Note : On ne simplifie pas les doubles NOT ici (Option A). C'est le role de simplify
         push_negation(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         let root = expr.try_root_node()?;
-        assert_eq!(root.kind(), ExprKind::Or);
+        assert_eq!(root.kind(), ExprKind::Or, "La racine doit être un OR après De Morgan");
         assert_eq!(root.children().len(), 3);
 
-        // Branche A : ¬A
-        assert_eq!(expr.try_node_kind(root.children()[0])?, ExprKind::Not);
+        // --- Branche 0 : ¬A ---
+        let branch_0_id = root.children()[0];
+        assert_eq!(expr.try_node_kind(branch_0_id)?, ExprKind::Not);
 
-        // Branche B/C : ¬¬(B ∨ C)
-        let second_child_id = root.children()[1];
-        assert_eq!(expr.try_node_kind(second_child_id)?, ExprKind::Not);
-        let inner_not_id = expr.try_node(second_child_id)?.children()[0];
-        assert_eq!(expr.try_node_kind(inner_not_id)?, ExprKind::Not);
+        // --- Branche 1 : ¬¬(B ∨ C) ---
+        // Puisqu'on ne fait que traverser, les deux NOT sont toujours présents.
+        let first_not_id = root.children()[1];
+        assert_eq!(expr.try_node_kind(first_not_id)?, ExprKind::Not, "Le premier NOT est conservé");
 
-        // Branche D (Quantificateurs) : ∃x.∀y.¬D
+        let second_not_id = expr.try_node(first_not_id)?.children()[0];
+        assert_eq!(expr.try_node_kind(second_not_id)?, ExprKind::Not, "Le deuxième NOT est conservé");
+
+        let inner_or_id = expr.try_node(second_not_id)?.children()[0];
+        assert_eq!(expr.try_node_kind(inner_or_id)?, ExprKind::Or, "On retrouve le OR initial");
+
+        // --- Branche 2 : ∃x.∀y.¬D ---
         let exists_id = root.children()[2];
         assert_eq!(expr.try_node_kind(exists_id)?, ExprKind::Exists);
 
@@ -509,8 +516,10 @@ mod tests {
         assert_eq!(expr.try_node_kind(forall_id)?, ExprKind::Forall);
 
         let final_not_id = expr.try_node(forall_id)?.children()[0];
-        assert_eq!(expr.try_node_kind(final_not_id)?, ExprKind::Not);
-        assert_eq!(expr.try_node_kind(expr.try_node(final_not_id)?.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(final_not_id)?, ExprKind::Not, "Le NOT a bien été poussé sur D");
+
+        let atom_d_id = expr.try_node(final_not_id)?.children()[0];
+        assert_eq!(expr.try_node_kind(atom_d_id)?, ExprKind::AtomicFormula);
 
         Ok(())
     }

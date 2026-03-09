@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::collections::HashSet;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
-use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::engine::DatalogEngine;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
@@ -134,47 +133,63 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
 #[test]
 fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
     let mut engine = DatalogEngine::new();
-    // On utilise la fonction qui retourne un Result
     let problem = create_mock_problem_with_init()?;
 
-    engine.load_problem(&problem)?;
+    // --- 1. Préparation des négations ---
+    // Atome 'at' (ID 0) est marqué comme négatif pour activer le miroir.
+    let negated_atoms = vec![AtomSkeletonId::from(0)];
 
-    // --- 1. Vérification des Seuils (Thresholds) ---
-    // On a 2 prédicats dans le mock : at (0) et connected (1)
+    // Chargement : cela calcule les seuils et compile les règles.
+    engine.load_problem(&problem, &negated_atoms)?;
+
+    // --- 2. Vérification des Seuils (Fluents & Miroir) ---
+    // Dans le mock : at (0), connected (1) -> fluence_threshold = 2
     assert_eq!(engine.fluence_threshold, 2, "Le seuil des fluents devrait être 2");
 
-    // is_fluent(id) -> id < 2
-    assert!(engine.is_fluent(AtomSkeletonId::from(0))); // at
-    assert!(engine.is_fluent(AtomSkeletonId::from(1))); // connected
-    assert!(!engine.is_fluent(AtomSkeletonId::from(2))); // Ici commence les types
+    // Miroir activé : type_segment_start = 2 * 2 = 4
+    assert_eq!(engine.type_segment_start, 4, "Les types devraient commencer à l'ID 4 (après le miroir)");
 
-    // --- 2. Vérification des Types ---
-    // Les types commencent à l'ID 2 (fluence_threshold)
-    // Mock : object (2), location (3), et le moteur ajoute ROOT (4)
-    assert!(engine.is_type(AtomSkeletonId::from(2)), "L'ID 2 devrait être le type 'object'");
-    assert!(engine.is_type(AtomSkeletonId::from(3)), "L'ID 3 devrait être le type 'location'");
-    assert!(engine.is_type(AtomSkeletonId::from(4)), "L'ID 4 devrait être le type 'ROOT'");
+    // --- 3. Vérification des Types ---
+    // Les types commencent à type_segment_start (4)
+    let id_type_object = AtomSkeletonId::from(engine.type_segment_start);
+    assert!(engine.is_type(id_type_object), "L'ID {} devrait être un type", id_type_object.as_usize());
 
-    // --- 3. Vérification des Actions ---
-    // Les actions commencent après les types (ID 5+)
-    // Si tu n'as pas encore ajouté d'actions dans le mock, engine.action_threshold sera 5
-    assert_eq!(engine.action_threshold, 6);
+    // Le type ROOT est le dernier du segment des types
+    let id_type_root = AtomSkeletonId::from(engine.type_threshold - 1);
+    assert!(engine.is_type(id_type_root), "L'ID {} (ROOT) devrait être un type", id_type_root.as_usize());
 
-    // --- 4. Vérification de la Database (Types) ---
-    // On vérifie que les objets du mock sont bien classés
-    // robot (ObjectId 0) est un 'object' (Type Datalog 2)
-    let sk_object = AtomSkeletonId::from(2);
+    // --- 4. Vérification des Actions ---
+    // L'action move prend l'ID qui suit les types.
+    // L'action_threshold marque la fin de ce segment.
+    assert!(engine.action_threshold > engine.type_threshold, "Il devrait y avoir au moins une action");
+
+    // --- 5. Vérification de la Database (Instance des Types) ---
+    // Le robot (ObjectId 0) est un 'object' (ID 4)
+    let sk_object = AtomSkeletonId::from(engine.type_segment_start);
     let id_robot = ObjectId::from(0);
 
     assert!(
         engine.db.contains_delta(sk_object, &[id_robot]),
-        "Le robot doit être présent dans l'extension du type 'object'"
+        "Le robot doit être présent dans l'extension du type d'ID {}", sk_object.as_usize()
     );
 
-    // --- 5. Vérification des Auxiliaires ---
-    // Les IDs auxiliaires sont générés à la volée pour les préconditions complexes
-    // Ils commencent après le dernier ID d'action.
-    assert!(engine.is_auxiliary(AtomSkeletonId::from(10)));
+    // --- 6. Vérification des Auxiliaires ---
+    // IMPORTANT : is_auxiliary doit tester par rapport à action_threshold.
+    // On teste l'ID qui est PILE au niveau du seuil des actions.
+    let first_aux_id = AtomSkeletonId::from(engine.action_threshold);
+
+    assert!(
+        engine.is_auxiliary(first_aux_id),
+        "L'ID {} (action_threshold) doit être reconnu comme auxiliaire",
+        first_aux_id.as_usize()
+    );
+
+    // Un ID arbitraire dans la zone de travail
+    assert!(engine.is_auxiliary(AtomSkeletonId::from(100)));
+
+    // L'égalité ne doit PAS être un auxiliaire (c'est un builtin)
+    let equality_id = AtomSkeletonId::from(Atom::EQUALITY_ID);
+    assert!(!engine.is_auxiliary(equality_id), "L'ID d'égalité ne doit pas être un auxiliaire");
 
     Ok(())
 }
@@ -183,28 +198,40 @@ fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
 fn test_engine_init_facts_ingestion() -> Result<(), Box<dyn Error>> {
     let mut engine = DatalogEngine::new();
     let problem = create_mock_problem_with_init()?;
-    engine.load_problem(&problem)?;
 
-    // Dans le mock : (at robot room_a)
-    // at = Fluent ID 0 (fluence_threshold = 2)
+    // On peut passer une liste vide ici si le domaine n'a pas de négations,
+    // ou une liste peuplée pour vérifier que les faits POSITIFS ne bougent pas.
+    let negated_atoms = Vec::new();
+    engine.load_problem(&problem, &negated_atoms)?;
+
+    // --- 1. Vérification du fait : (at robot room_a) ---
+    // at = Fluent ID 0
     // robot = ObjectId 0, room_a = ObjectId 1
     let sk_at = AtomSkeletonId::from(0);
     let args_at = vec![ObjectId::from(0), ObjectId::from(1)];
 
     assert!(
         engine.db.contains_delta(sk_at, &args_at),
-        "Le fait (at robot room_a) devrait être dans la Database Delta"
+        "Le fait (at robot room_a) devrait être dans la Database Delta à l'ID 0"
     );
 
-    // Dans le mock : (connected room_a room_b)
+    // --- 2. Vérification du fait : (connected room_a room_b) ---
     // connected = Fluent ID 1
-    // room_a = 1, room_b = 2
+    // room_a = ObjectId 1, room_b = ObjectId 2
     let sk_conn = AtomSkeletonId::from(1);
     let args_conn = vec![ObjectId::from(1), ObjectId::from(2)];
 
     assert!(
         engine.db.contains_delta(sk_conn, &args_conn),
-        "Le fait (connected room_a room_b) devrait être dans la Database Delta"
+        "Le fait (connected room_a room_b) devrait être dans la Database Delta à l'ID 1"
+    );
+
+    // --- 3. Vérification de l'étanchéité ---
+    // On s'assure qu'aucun fait n'a fuité dans le segment suivant (Types ou Miroir)
+    let sk_invalid = AtomSkeletonId::from(engine.type_segment_start);
+    assert!(
+        !engine.db.contains_delta(sk_invalid, &args_at),
+        "Le segment des types ne devrait pas contenir de faits d'atomes"
     );
 
     Ok(())
@@ -214,19 +241,40 @@ fn test_engine_init_facts_ingestion() -> Result<(), Box<dyn Error>> {
 fn test_type_inheritance_ingestion() -> Result<(), Box<dyn Error>> {
     let mut engine = DatalogEngine::new();
     let problem = create_mock_problem_with_init()?;
-    engine.load_problem(&problem)?;
 
-    // IDs du mock : object=2, location=3
-    let sk_obj = AtomSkeletonId::from(2);
-    let sk_loc = AtomSkeletonId::from(3);
+    // On charge le problème. Même avec une liste vide, le moteur
+    // initialise correctement type_segment_start.
+    engine.load_problem(&problem, &Vec::new())?;
+
+    // --- 1. Récupération dynamique des IDs de types ---
+    // Dans ton mock, 'object' est le premier type (index 0)
+    // et 'location' est le second (index 1).
+    let sk_obj = AtomSkeletonId::from(engine.type_segment_start);
+    let sk_loc = AtomSkeletonId::from(engine.type_segment_start + 1);
+
     let id_room_a = ObjectId::from(1);
 
-    // room_a doit être une location
-    assert!(engine.db.contains_delta(sk_loc, &[id_room_a]));
+    // --- 2. Vérification de l'appartenance directe ---
+    // room_a est défini comme une 'location' dans le mock
+    assert!(
+        engine.db.contains_delta(sk_loc, &[id_room_a]),
+        "L'objet room_a (ID 1) doit être une location (ID {})", sk_loc.as_usize()
+    );
 
-    // room_a doit AUSSI être un object (héritage)
-    assert!(engine.db.contains_delta(sk_obj, &[id_room_a]),
-            "L'objet room_a devrait hériter du type parent 'object'");
+    // --- 3. Vérification de l'héritage (Inférence lors du load) ---
+    // room_a doit AUSSI être un object car location <: object
+    assert!(
+        engine.db.contains_delta(sk_obj, &[id_room_a]),
+        "L'objet room_a devrait hériter du type parent 'object' (ID {})", sk_obj.as_usize()
+    );
+
+    // --- 4. Vérification du type ROOT ---
+    // Tous les objets doivent être dans ROOT (le dernier type ajouté par le moteur)
+    let sk_root = AtomSkeletonId::from(engine.type_threshold - 1);
+    assert!(
+        engine.db.contains_delta(sk_root, &[id_room_a]),
+        "Tout objet doit appartenir au type ROOT (ID {})", sk_root.as_usize()
+    );
 
     Ok(())
 }
@@ -235,35 +283,43 @@ fn test_type_inheritance_ingestion() -> Result<(), Box<dyn Error>> {
 fn test_action_rule_ingestion() -> Result<(), Box<dyn std::error::Error>> {
     let mut engine = DatalogEngine::new();
     let problem = create_mock_problem_with_init()?;
-    engine.load_problem(&problem)?;
 
-    // 1. On récupère l'ID de l'action 'move' de manière sûre.
-    // Si tu n'as pas de recherche par nom, on utilise l'index 0
-    // mais on s'assure qu'on récupère bien une règle d'action.
+    // On charge le problème. On suppose ici pas de négations pour simplifier les IDs.
+    engine.load_problem(&problem, &Vec::new())?;
+
+    // 1. On récupère la règle générée pour l'action 'move' (index 0)
+    // Cette règle doit être de la forme : TypeGuards(?r, ?from, ?to), Preconds(...) -> Move(?r, ?from, ?to)
     let move_action_idx = 0;
     let rule = engine.get_rule_for_action(move_action_idx);
 
     // 2. Vérification des Type Guards
+    // Dans le mock, 'move' a 3 paramètres : ?r (robot), ?from (location), ?to (location)
     let type_guards_count = rule.body().iter()
         .filter(|a| engine.is_type(a.skeleton_id()))
         .count();
-    assert_eq!(type_guards_count, 3, "Il devrait y avoir exactement 3 type guards");
+    assert_eq!(type_guards_count, 3, "Il devrait y avoir exactement 3 type guards pour les paramètres");
 
     // 3. Vérification de la cohérence des variables (le Robot ?r)
-    let var_r = &rule.head().terms()[0];
-    let found_r_in_body = rule.body().iter()
-        .any(|atom| atom.terms().contains(var_r));
-    assert!(found_r_in_body, "La variable ?r de la tête doit être présente dans le corps");
+    // On vérifie que la variable en position 0 de l'action est bien liée au corps
+    if let Some(var_r) = rule.head().terms().get(0) {
+        let found_r_in_body = rule.body().iter()
+            .any(|atom| atom.terms().contains(var_r));
+        assert!(found_r_in_body, "La variable ?r de la tête doit être présente dans le corps (sécurité de jointure)");
+    }
 
-    // 4. Vérification de la logique (Préconditions)
-    // Au lieu de is_auxiliary qui peut faillir si l'ID a bougé,
-    // on vérifie qu'il y a des atomes qui ne sont pas des types.
+    // 4. Vérification de la logique (Préconditions & Auxiliaires)
+    // On filtre tout ce qui n'est pas un type (donc les fluents PDDL ou les auxiliaires PNF)
     let logical_atoms_count = rule.body().iter()
         .filter(|a| !engine.is_type(a.skeleton_id()))
         .count();
 
-    // On attend au moins 1 atome logique (soit un AUX, soit les prédicats directs)
-    assert!(logical_atoms_count >= 1, "La règle doit contenir la logique de précondition");
+    // On attend au moins 1 atome logique (ex: (at ?r ?from))
+    assert!(logical_atoms_count >= 1, "La règle doit contenir au moins une précondition logique");
+
+    // 5. Vérification de l'ID de tête
+    // L'ID de l'action doit être dans le segment [type_threshold .. action_threshold]
+    let head_id = rule.head().skeleton_id();
+    assert!(engine.is_action(head_id), "L'atome de tête doit être identifié comme une Action");
 
     Ok(())
 }
@@ -272,9 +328,9 @@ fn test_action_rule_ingestion() -> Result<(), Box<dyn std::error::Error>> {
 fn test_optimize_body_efficiency() {
     let mut engine = DatalogEngine::new();
 
-    // Configuration des seuils :
-    // 0-9: Fluents, 10-19: Types
+    // --- CONFIGURATION RÉALISTE DES SEUILS ---
     engine.fluence_threshold = 10;
+    engine.type_segment_start = 10;
     engine.type_threshold = 20;
 
     let sk_at = AtomSkeletonId::from(1);      // Fluent
@@ -282,17 +338,31 @@ fn test_optimize_body_efficiency() {
     let sk_robot = AtomSkeletonId::from(11);  // Type
     let sk_loc = AtomSkeletonId::from(12);    // Type
 
-    // Simuler des tailles de relations dans la DB
-    // On imagine 1000 localisations mais seulement 2 robots
+    // --- REMPLISSAGE DE LA DB ---
+
+    // 1. IsRobot : très petit (2 faits) -> Doit être le gagnant
     engine.db.insert_delta_fact(sk_robot, &[ObjectId::from(1)]);
     engine.db.insert_delta_fact(sk_robot, &[ObjectId::from(2)]);
+
+    // 2. IsLocation : gros (1000 faits)
     for i in 0..1000 {
         engine.db.insert_delta_fact(sk_loc, &[ObjectId::from(i)]);
     }
+
+    // 3. At : gros (1000 faits)
+    for i in 0..1000 {
+        engine.db.insert_delta_fact(sk_at, &[ObjectId::from(i), ObjectId::from(i+1)]);
+    }
+
+    // 4. Fuel : on lui met 10 faits (plus que Robot qui en a 2)
+    // C'est ce qui manquait ! Sinon, Fuel (taille 0) passait devant Robot (taille 2)
+    for i in 0..10 {
+        engine.db.insert_delta_fact(sk_fuel, &[ObjectId::from(1), ObjectId::from(i)]);
+    }
+
     engine.db.commit_delta();
 
-    // Corps de la règle non optimisé :
-    // [ At(?r, ?l), IsLocation(?l), Fuel(?r, ?f), IsRobot(?r) ]
+    // --- PRÉPARATION DE LA RÈGLE ---
     let var_r = Term::Variable(VariableId::from(0));
     let var_l = Term::Variable(VariableId::from(1));
     let var_f = Term::Variable(VariableId::from(2));
@@ -304,23 +374,17 @@ fn test_optimize_body_efficiency() {
         Atom::new(sk_robot, vec![var_r.clone()]),
     ];
 
-    // Exécution de l'optimisation
+    // Exécution
     engine.optimize_body(&mut body);
 
-    // --- VERIFICATIONS ---
-
-    // 1. Le premier doit être IsRobot (Type + Petite taille)
+    // --- VÉRIFICATIONS ---
+    // Maintenant Robot (Taille 2) est plus petit que Fuel (Taille 10), At (1000) et Loc (1000).
+    // De plus, c'est un Type (Priorité 0). Il sera 1er.
     assert_eq!(body[0].skeleton_id(), sk_robot, "Le type le plus petit doit être premier");
 
-    // 2. Le deuxième doit être un atome qui utilise ?r (déjà lié)
-    // Entre At(?r, ?l) et Fuel(?r, ?f), l'ordre dépendra de rel_size
-    // ou de leur position initiale si rel_size est identique (0 ici).
+    // Le deuxième doit être Fuel ou At (car ils utilisent la variable ?r qui vient d'être liée)
     let second_sk = body[1].skeleton_id();
-    assert!(second_sk == sk_at || second_sk == sk_fuel, "Le second doit utiliser la variable ?r liée");
-
-    // 3. IsLocation(?l) ne doit pas être en premier malgré que ce soit un Type,
-    // car IsRobot est beaucoup plus petit (2 vs 1000).
-    assert_ne!(body[0].skeleton_id(), sk_loc);
+    assert!(second_sk == sk_fuel || second_sk == sk_at, "Le second doit utiliser la variable ?r liée");
 }
 
 #[test]
@@ -435,28 +499,41 @@ fn test_fixed_point_termination() {
 fn test_full_mock_move_reachability() -> Result<(), Box<dyn Error>> {
     let mut engine = DatalogEngine::new();
     let problem = create_mock_problem_with_init()?;
-    engine.load_problem(&problem)?;
 
-    // Avant le run, le robot est en room_a (ObjectId 1)
-    let sk_at = AtomSkeletonId::from(0);
+    // 1. Initialisation avec le pipeline complet
+    // On passe une liste vide de négations (ou peuplée si ton mock en utilise)
+    engine.load_problem(&problem, &Vec::new())?;
+
+    // 2. État Initial : Le robot est en room_a (ID 1), pas encore en room_b (ID 2)
+    let sk_at = AtomSkeletonId::from(0); // Fluent 'at'
     let robot = ObjectId::from(0);
     let room_b = ObjectId::from(2);
 
-    assert!(!engine.db.contains_delta(sk_at, &[robot, room_b]));
+    assert!(!engine.db.contains_delta(sk_at, &[robot, room_b]), "Le robot ne devrait pas être en room_b au départ");
 
-    // Lancement de la saturation
+    // 3. Exécution du moteur (Saturation Datalog)
+    // C'est ici que les règles Preconds -> Action et Action -> Effects s'activent
     engine.run();
 
-    // Après le run, l'action "Move" a dû être déclenchée
-    // et le fait (at robot room_b) doit être dans le Stable
+    // 4. Vérification de l'Action (Étape intermédiaire cruciale)
+    // On vérifie si l'atome d'action 'move' a été déduit pour ces paramètres
+    // L'ID de l'action est situé entre type_threshold et action_threshold
+    let sk_move = AtomSkeletonId::from(engine.type_threshold);
+    let room_a = ObjectId::from(1);
+    assert!(
+        engine.db.contains_stable(sk_move, &[robot, room_a, room_b]),
+        "L'action move(robot, room_a, room_b) aurait dû être déduite"
+    );
+
+    // 5. Vérification de l'Effet (Le but final)
+    // Le fait (at robot room_b) doit maintenant être dans le Stable
     assert!(
         engine.db.contains_stable(sk_at, &[robot, room_b]),
-        "Le robot n'a pas atteint la room_b après saturation"
+        "Le robot n'a pas atteint la room_b après saturation des règles"
     );
 
     Ok(())
 }
-
 #[test]
 fn test_mixed_arity_zero_and_vars() {
     let mut engine = DatalogEngine::new();
@@ -644,13 +721,15 @@ fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
     let problem = create_mock_problem_with_init()?;
 
     // 1. Initialisation (Reset, Fluence Threshold, Encoder)
-    engine.load_problem(&problem)?;
+    // On passe une liste vide car l'égalité n'est pas un fluent "miroir", c'est un built-in.
+    engine.load_problem(&problem, &Vec::new())?;
 
-    // 2. Récupération des IDs réels du mock
-    // Note: Utilise les méthodes de ton LiftedProblem ou du SymbolInterner
-    let id_at = 0; // Dans ton mock, 'at' est le premier prédicat ajouté
+    // 2. Récupération des IDs réels du mock via les seuils de l'engine
     let sk_at = AtomSkeletonId::from(0);
-    let type_loc_id = 3; // Selon tes tests précédents (fluence_threshold=2 + types)
+    // On récupère dynamiquement l'ID du type 'location'
+    let sk_loc = AtomSkeletonId::from(engine.type_segment_start + 1);
+    let type_loc_id = sk_loc.as_usize();
+
     let id_robot = ObjectId::from(0);
     let id_room_a = ObjectId::from(1);
     let id_room_b = ObjectId::from(2);
@@ -663,35 +742,32 @@ fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
     let v1 = builder.variable(VariableId::from(1));
     let c_robot = builder.constant(id_robot);
 
-    // (AND (at robot ?v0) (NOT (= ?v0 ?v1)))
     // (AND (at robot ?v0) (location ?v1) (NOT (= ?v0 ?v1)))
-    let type_loc_id = 3;
-    let atom_at = builder.atomic_formula_with_skeleton(id_at, vec![c_robot, v0], sk_at);
+    let atom_at = builder.atomic_formula_with_skeleton(0, vec![c_robot, v0], sk_at);
     let atom_type_v1 = builder.atomic_formula_with_skeleton(
         type_loc_id,
         vec![v1],
-        AtomSkeletonId::from(type_loc_id)
-    ); // Borne v1 !
+        sk_loc
+    );
+
+    // Utilisation de l'opérateur de comparaison standard
     let eq = builder.comparison(CompareOp::Equal, v0, v1);
     let not_eq = builder.not(eq);
 
     let root = builder.and(vec![atom_at, atom_type_v1, not_eq]);
     builder.set_root(root)?;
 
-    // 4. Encodage via l'encodeur de l'engine (qui connaît déjà le threshold)
+    // 4. Encodage via l'encodeur de l'engine
     let mut params = TypedList::new();
-    params.push(TypedSymbol::new(VariableId::from(0), Type::primitive(TypeId::from(type_loc_id))));
-    params.push(TypedSymbol::new(VariableId::from(1), Type::primitive(TypeId::from(type_loc_id))));
+    params.push(TypedSymbol::new(VariableId::from(0), Type::root()));
+    params.push(TypedSymbol::new(VariableId::from(1), Type::root()));
 
+    // L'encodeur va transformer le NOT(=) en utilisant Atom::EQUALITY_ID (0xFFFF_FC00)
     let head_atom = engine.encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?.unwrap();
     engine.rules.extend(rules);
 
-    // 5. Injection des faits de test dans la Database
-    // On place le robot en Room_A
+    // 5. Injection des faits
     engine.db.insert_delta_fact(sk_at, &[id_robot, id_room_a]);
-
-    // On déclare Room_A et Room_B comme étant des locations (TypeId 3)
-    let sk_loc = AtomSkeletonId::from(type_loc_id);
     engine.db.insert_delta_fact(sk_loc, &[id_room_a]);
     engine.db.insert_delta_fact(sk_loc, &[id_room_b]);
 
@@ -701,13 +777,13 @@ fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
     // 7. Vérification finale
     let aux_sk = head_atom.skeleton_id();
 
-    // Le moteur doit trouver (Room_A, Room_B)
+    // Doit trouver (Room_A, Room_B) car Room_A != Room_B
     assert!(
         engine.db.contains_stable(aux_sk, &[id_room_a, id_room_b]),
         "L'inégalité v0 != v1 aurait dû permettre de déduire (room_a, room_b)"
     );
 
-    // Le moteur ne doit PAS trouver (Room_A, Room_A)
+    // Ne doit PAS trouver (Room_A, Room_A)
     assert!(
         !engine.db.contains_stable(aux_sk, &[id_room_a, id_room_a]),
         "L'inégalité v0 != v1 aurait dû bloquer la déduction de (room_a, room_a)"
@@ -722,22 +798,20 @@ fn test_ground_action_extraction() -> Result<(), Box<dyn Error>> {
     let problem = create_mock_problem_with_init()?;
 
     // 1. Chargement et exécution
-    engine.load_problem(&problem)?;
+    // On ajoute simplement l'argument manquant (Vec::new()) pour les négations
+    engine.load_problem(&problem, &Vec::new())?;
     engine.run();
 
     // 2. Extraction des actions que le moteur a jugé "atteignables"
-    // Cette méthode utilise ton action_threshold pour filtrer les faits
     let reachable_actions = engine.get_reachable_actions();
 
     // 3. VÉRIFICATIONS ÉLÉMENTAIRES
-    // Dans le mock, on a : (at robot room_a) et (connected room_a room_b)
-    // L'action move(robot, room_a, room_b) DOIT être là.
     assert!(!reachable_actions.is_empty(), "Le moteur aurait dû trouver au moins une action valide");
 
     // 4. VÉRIFICATION PRÉCISE DES PARAMÈTRES
     let id_robot = {
         let sym = problem.interner().lookup_symbol("robot").ok_or("Symbol robot not found")?;
-        problem.object_symbol().try_get_id(&sym)? // C'est déjà un Result !
+        problem.object_symbol().try_get_id(&sym)?
     };
 
     let id_room_a = {

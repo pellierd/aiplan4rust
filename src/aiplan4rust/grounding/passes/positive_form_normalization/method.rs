@@ -19,7 +19,7 @@ pub fn to_pnf(
     method: &mut MethodDef,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     scratchpad: &mut Vec<AtomSkeletonId>,
-    stack: &mut Vec<NodeId>, // La pile DFS réutilisable injectée
+    stack: &mut Vec<(NodeId, bool)>, // La pile DFS réutilisable injectée
 ) -> Result<(), ExprOpError> {
     // 0. On vide le buffer de travail local (conserve la capacité allouée)
     scratchpad.clear();
@@ -32,6 +32,7 @@ pub fn to_pnf(
             method.precondition_mut(),
             scratchpad,
             stack,
+            false
         )?;
     }
 
@@ -44,6 +45,7 @@ pub fn to_pnf(
             method.task_network_mut().logical_constraints_mut(),
             scratchpad,
             stack,
+            false
         )?;
     }
 

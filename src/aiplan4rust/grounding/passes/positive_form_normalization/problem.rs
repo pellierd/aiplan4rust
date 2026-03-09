@@ -25,12 +25,12 @@ pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, ExprOp
     // --- 1. Global Constraints ---
     if let Some(root) = problem.domain_constraints_mut().root_id() {
         scratchpad.clear();
-        expr::to_pnf(root, problem.domain_constraints_mut(), &mut scratchpad, &mut dfs_stack)?;
+        expr::to_pnf(root, problem.domain_constraints_mut(), &mut scratchpad, &mut dfs_stack, false)?;
         negated_atoms.extend_from_slice(&scratchpad);
     }
     if let Some(root) = problem.problem_constraints_mut().root_id() {
         scratchpad.clear();
-        expr::to_pnf(root, problem.problem_constraints_mut(), &mut scratchpad, &mut dfs_stack)?;
+        expr::to_pnf(root, problem.problem_constraints_mut(), &mut scratchpad, &mut dfs_stack, false)?;
         negated_atoms.extend_from_slice(&scratchpad);
     }
 
@@ -50,7 +50,7 @@ pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, ExprOp
     // --- 3. Problem Instance Specifics (Goal) ---
     if let Some(root) = problem.goal_mut().root_id() {
         scratchpad.clear();
-        expr::to_pnf(root, problem.goal_mut(), &mut scratchpad, &mut dfs_stack)?;
+        expr::to_pnf(root, problem.goal_mut(), &mut scratchpad, &mut dfs_stack, false)?;
         negated_atoms.extend_from_slice(&scratchpad);
     }
 

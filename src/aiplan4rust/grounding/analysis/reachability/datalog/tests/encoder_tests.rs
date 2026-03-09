@@ -17,12 +17,15 @@ use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind};
 /// - A fresh `DatalogEncoder` instance.
 /// - A `TypedList` representing the available action parameters or variables.
 fn setup_env() -> (DatalogEncoder, TypedList<VariableId, TypeId>) {
-    // Starting auxiliary predicates at 100 makes debugging easier by
-    // visually separating them from domain-defined predicates.
-    let encoder = DatalogEncoder::new(100);
+    // On définit arbitrairement un décalage de 50 pour la négation.
+    // Les auxiliaires commencent à 100 pour une séparation nette.
+    let negation_offset = 50;
+    let base_aux_id = 100;
+
+    let encoder = DatalogEncoder::new(base_aux_id, negation_offset);
     let mut params = TypedList::new();
 
-    // Create ?v0, ?v1, ?v2 as standard variables for logical expressions.
+    // Création de ?v0, ?v1, ?v2 comme variables standards.
     for i in 0..3 {
         params.push(TypedSymbol::new(VariableId::from(i), Type::root()));
     }

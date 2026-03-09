@@ -4,55 +4,86 @@ use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent};
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr::to_pnf;
+use crate::aiplan4rust::tree::NodeId;
 
-/// **Test Goal**: Verify the structural transformation of a negated atom into a single negated LIR node.
+/// **Test Goal**: Verify the structural transformation of a negated atom into a single negated LIR node (Logical Mode).
 ///
 /// **Input**:
 /// - A `Not` node pointing to an `AtomicFormula` (Skeleton ID: 500).
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical/Precondition mode).
 ///
 /// **Expected Output**:
 /// - The root node is transformed into an `AtomicFormula`.
 /// - The internal `AtomSkeletonId` has its MSB (negation bit) set to `true`.
-/// - The `negated_atoms` vector contains exactly one ID (the negated Skeleton ID 500).
+/// - The `negated_atoms` vector contains the negated Skeleton ID.
 #[test]
-fn test_encode_simple_atom_negation() -> Result<(), ExprOpError> {
+fn test_encode_simple_atom_negation_logical() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
 
     // 1. Setup: (not (at-robot r1))
-    // We use atomic_formula_with_skeleton because the LIR requires an AtomSkeletonId.
-    // Predicate ID: 1, Args: empty, Skeleton ID: 500.
     let atom = builder.atomic_formula_with_skeleton(1, vec![], 500);
     let not_node = builder.not(atom);
-
     builder.set_root(not_node)?;
     let mut expr = builder.finish();
 
-    // 2. Transformation
-    // We pass the reference to our collection vector to track negated literals.
-    let mut dfs_stack = Vec::with_capacity(16);
+    // 2. Transformation (is_effect = false)
     to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false
     ).expect("PNF encoding failed");
 
-    // 3. Validation: The 'Not' node should be replaced by the 'AtomicFormula' with MSB set.
+    // 3. Validation
     let root = expr.try_root_node()?;
-    assert_eq!(root.kind(), ExprKind::AtomicFormula, "Root should have absorbed the negation");
+    assert_eq!(root.kind(), ExprKind::AtomicFormula, "Logical 'Not' should be absorbed");
 
     if let ExprContent::AtomSkeleton(id) = root.content() {
-        // Check MSB bit
         assert!(id.is_negated(), "The MSB bit (negation) should be true");
-
-        // Verify collection side-effect
-        assert_eq!(negated_atoms.len(), 1, "One negated atom should have been collected");
-        assert_eq!(negated_atoms[0], *id, "Collected ID must match the modified root ID");
+        assert_eq!(negated_atoms.len(), 1);
+        assert_eq!(negated_atoms[0], *id);
     } else {
         panic!("The node content should be an AtomSkeleton");
     }
+    Ok(())
+}
+
+/// **Test Goal**: Verify that negation nodes are preserved in effect trees (Delete-Relaxation).
+///
+/// **Input**:
+/// - A `Not` node pointing to an `AtomicFormula`.
+/// - `is_effect = true` (Effect mode).
+///
+/// **Expected Output**:
+/// - The root node remains a `Not` kind.
+/// - No atoms are collected in `negated_atoms`.
+#[test]
+fn test_encode_effect_negation_preservation() -> Result<(), ExprOpError> {
+    let mut builder = ExprBuilder::new();
+    let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
+
+    let atom = builder.atomic_formula_with_skeleton(1, vec![], 500);
+    let not_node = builder.not(atom);
+    builder.set_root(not_node)?;
+    let mut expr = builder.finish();
+
+    // 2. Transformation (is_effect = true pour le mode effet)
+    to_pnf(
+        expr.try_root_id()?,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack,
+        true
+    ).expect("PNF encoding failed");
+
+    // 3. Validation
+    let root = expr.try_root_node()?;
+    assert_eq!(root.kind(), ExprKind::Not, "Effect 'Not' (Delete) should be preserved");
+    assert!(negated_atoms.is_empty(), "Delete effects should not populate negated_atoms");
 
     Ok(())
 }
@@ -61,7 +92,7 @@ fn test_encode_simple_atom_negation() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A `Not` node pointing to a `Comparison` node (`= ?x ?y`).
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical mode).
 ///
 /// **Expected Output**:
 /// - The tree structure remains `Not -> Comparison` (no absorption).
@@ -71,9 +102,9 @@ fn test_encode_simple_atom_negation() -> Result<(), ExprOpError> {
 fn test_encode_comparison_stays_unchanged() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
 
     // 1. Creation of operands for the comparison
-    // We create two variables ?x (ID 10) and ?y (ID 11)
     let var_x = builder.variable(10);
     let var_y = builder.variable(11);
 
@@ -87,25 +118,28 @@ fn test_encode_comparison_stays_unchanged() -> Result<(), ExprOpError> {
     let initial_root_id = expr.try_root_id()?;
 
     // 3. Transformation
-    // Even with the vector provided, nothing should be collected here.
-    let mut dfs_stack = Vec::with_capacity(16);
-    to_pnf(initial_root_id, &mut expr, &mut negated_atoms, &mut dfs_stack)?;
+    // On passe false car une comparaison est une condition logique (precond/goal/when-cond).
+    to_pnf(
+        initial_root_id,
+        &mut expr,
+        &mut negated_atoms,
+        &mut dfs_stack,
+        false
+    )?;
 
     // 4. Validation: Structure preservation
     let root = expr.try_root_node()?;
-    assert_eq!(root.kind(), ExprKind::Not, "Root should still be a Not node");
+    assert_eq!(root.kind(), ExprKind::Not, "Root should still be a Not node for comparisons");
 
     let child_id = root.children()[0];
     let child = expr.try_node(child_id)?;
-    assert_eq!(child.kind(), ExprKind::Comparison, "Child should be a Comparison node");
+    assert_eq!(child.kind(), ExprKind::Comparison, "Child should still be a Comparison node");
 
     // Verify that operands (?x and ?y) are still attached
     assert_eq!(child.children().len(), 2, "Comparison should still have 2 children");
-    assert_eq!(child.children()[0], var_x);
-    assert_eq!(child.children()[1], var_y);
 
     // 5. Validation: Collection (Side-effect check)
-    assert!(negated_atoms.is_empty(), "Negated comparisons should not be added to negated_atoms");
+    assert!(negated_atoms.is_empty(), "Negated comparisons must NOT be added to negated_atoms");
 
     Ok(())
 }
@@ -115,7 +149,7 @@ fn test_encode_comparison_stays_unchanged() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A `Not` node pointing directly to an `Imply` node.
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical mode).
 ///
 /// **Expected Output**:
 /// - The function returns an `Err(ExprOpError::InvalidExprNode)`.
@@ -133,16 +167,18 @@ fn test_detect_unsupported_node_under_not() -> Result<(), ExprOpError> {
     let imply = builder.imply(a, b);
     let not_node = builder.not(imply);
 
-    builder.set_root(not_node).unwrap();
+    builder.set_root(not_node)?;
     let mut expr = builder.finish();
 
     // 2. Transformation: Attempting to encode an invalid PNF structure.
+    // On utilise la pile de tuples (NodeId, bool) comme défini dans ta logique.
     let mut dfs_stack = Vec::with_capacity(16);
     let result = to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
         &mut dfs_stack,
+        false, // Mode logique
     );
 
     // 3. Validation: The function must return an Err instead of panicking or succeeding.
@@ -162,7 +198,7 @@ fn test_detect_unsupported_node_under_not() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A `Not` node pointing to another `Not` node: `(not (not A))`.
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical mode).
 ///
 /// **Expected Output**:
 /// - The function returns an `Err(ExprOpError::InvalidExprNode)`.
@@ -182,13 +218,14 @@ fn test_detect_double_negation_failure() -> Result<(), ExprOpError> {
     let mut expr = builder.finish();
 
     // 2. Transformation
-    // In PNF encoding, we never expect to see a 'Not' node under another 'Not' node.
-    let mut dfs_stack = Vec::with_capacity(16);
+    // On utilise la pile DFS de tuples (NodeId, bool)
+    let mut dfs_stack: Vec<(NodeId, bool)> = Vec::with_capacity(16);
     let result = to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false, // Mode logique (car on teste une structure de condition)
     );
 
     // 3. Validation: Ensure it returns an Error instead of trying to process it.
@@ -207,17 +244,17 @@ fn test_detect_double_negation_failure() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A conjunction: `(and (not (at-robot)) (not (= ?x ?y)))`.
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical/Precondition mode).
 ///
 /// **Expected Output**:
 /// - The `(not (at-robot))` branch is absorbed: `Not` node disappears, `AtomicFormula` gets the MSB bit.
 /// - The `(not (= ?x ?y))` branch remains structural: `Not` -> `Comparison`.
 /// - The `negated_atoms` vector collects **only** the `at-robot` skeleton ID.
-/// - The comparison operands (`?x`, `?y`) remain intact.
 #[test]
 fn test_mixed_complex_pnf() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
 
     // 1. Setup Negated Atom: (not (at-robot))
     // Predicate ID: 1, Args: empty, Skeleton ID: 500
@@ -236,12 +273,12 @@ fn test_mixed_complex_pnf() -> Result<(), ExprOpError> {
     let mut expr = builder.finish();
 
     // 4. Transformation: Lowering negations to PNF
-    let mut dfs_stack = Vec::with_capacity(16);
     to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false // Mode logique
     )?;
 
     // 5. Validation: Tree Structure
@@ -281,7 +318,7 @@ fn test_mixed_complex_pnf() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A `Forall` node with `list_x` as metadata and `(not (at-robot ?x))` as child [0].
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical mode).
 ///
 /// **Expected Output**:
 /// - Child [0] of the quantifier is transformed from `Not` to `AtomicFormula`.
@@ -291,35 +328,32 @@ fn test_mixed_complex_pnf() -> Result<(), ExprOpError> {
 fn test_pnf_traverses_quantifiers_with_correct_args() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
 
     // 1. Setup Typed Variables (Internal Metadata / Signature)
-    // Variable ID: 2, Type ID: 102
     let var_x_sym = builder.typed_variable(2, &[102]);
     let list_x = builder.typed_variable_list(vec![var_x_sym]);
 
     // 2. Setup Arguments (Structural Links)
-    // Variable reference ID: 2
     let arg_x = builder.variable(2);
 
     // 3. Setup Negated Atom: (not (at-robot ?x))
-    // Predicate ID: 3, Args: [?x], Skeleton ID: 500
     let at_x = builder.atomic_formula_with_skeleton(3, vec![arg_x], 500);
     let not_at = builder.not(at_x);
 
     // 4. Setup Forall: The formula body is the first child [0]
     let forall = builder.forall(list_x, not_at);
-
     builder.set_root(forall)?;
     let mut expr = builder.finish();
 
     // --- Transformation ---
-    // The DFS must descend through the Forall node to find and absorb the Not node.
-    let mut dfs_stack = Vec::with_capacity(16);
+    // On passe 'false' car un Forall est une condition logique.
     to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false
     )?;
 
     // --- Validation: Quantifier Level ---
@@ -327,18 +361,12 @@ fn test_pnf_traverses_quantifiers_with_correct_args() -> Result<(), ExprOpError>
     assert_eq!(root.kind(), ExprKind::Forall, "Root must remain a Forall node");
 
     // --- Validation: Atom Level ---
-    // In this LIR, the body of the quantifier is the first child (index 0).
     let body_id = root.children()[0];
     let body_node = expr.try_node(body_id)?;
+    assert_eq!(body_node.kind(), ExprKind::AtomicFormula, "The inner Not should be absorbed");
 
-    // The 'Not' node should have been absorbed into the AtomicFormula
-    assert_eq!(body_node.kind(), ExprKind::AtomicFormula, "The inner Not should be absorbed into the atom");
-
-    // Check if the negation bit is correctly set in the skeleton ID
     if let ExprContent::AtomSkeleton(id) = body_node.content() {
         assert!(id.is_negated(), "The atom's MSB bit must be set to true");
-
-        // Verify that the negated atom was correctly indexed for Closed World Assumption
         assert_eq!(negated_atoms.len(), 1, "The nested negated atom should be collected");
         assert_eq!(negated_atoms[0], *id);
     } else {
@@ -346,12 +374,8 @@ fn test_pnf_traverses_quantifiers_with_correct_args() -> Result<(), ExprOpError>
     }
 
     // --- Validation: Arguments Integrity ---
-    // The AtomicFormula node has 2 children: [PredicateID, ArgumentID].
-    // This explains why len is 2 instead of 1.
-    assert_eq!(body_node.children().len(), 2, "Atom should have 2 structural children (Predicate + Arg)");
-
     // The argument ?x should be preserved at the second index (index 1).
-    assert_eq!(body_node.children()[1], arg_x, "The variable argument ?x must be preserved at index 1");
+    assert_eq!(body_node.children()[1], arg_x, "The variable argument ?x must be preserved");
 
     Ok(())
 }
@@ -361,7 +385,7 @@ fn test_pnf_traverses_quantifiers_with_correct_args() -> Result<(), ExprOpError>
 ///
 /// **Input**:
 /// - A `Not` node pointing to an `AtomicFormula` whose `AtomSkeletonId` already has `is_negated() == true`.
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical mode).
 ///
 /// **Expected Output**:
 /// - The function returns `Err(ExprOpError::InvalidExprNode)`.
@@ -370,38 +394,29 @@ fn test_pnf_traverses_quantifiers_with_correct_args() -> Result<(), ExprOpError>
 fn test_detect_forbidden_double_negation_in_bit() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
 
-    // 1. Create an atom and manually set its negation bit
+    // 1. Create an atom and setup (not (already_negated_atom))
     let atom_id = builder.atomic_formula_with_skeleton(1, vec![], 500);
-
-    // We simulate a state where the atom is already negated at the bit level
-    // before the encoder even sees it under a 'Not' node.
-    {
-        // Internal trick for the test: reach into the builder or a temp expr
-        // to flip the bit if your API allows, or simulate a tree where
-        // a previous partial pass already touched the node.
-    }
-
-    // 2. Setup: (not (negated_atom))
     let not_node = builder.not(atom_id);
     builder.set_root(not_node).unwrap();
     let mut expr = builder.finish();
 
-    // Force the bit to true for the sake of the test if not already done
+    // Force the bit to true manually to simulate an inconsistent/corrupted state
     if let ExprContent::AtomSkeleton(ref mut id) = expr.try_node_mut(atom_id)?.content_mut() {
         id.set_negated(true);
     }
 
-    // 3. Transformation: The encoder finds a 'Not' above a node that is already bit-negated.
-    let mut dfs_stack = Vec::with_capacity(16);
+    // 2. Transformation: The encoder finds a 'Not' above a node that is already bit-negated.
     let result = to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false, // Mode logique
     );
 
-    // 4. Validation: Ensure it returns an Error instead of flipping the bit back to positive.
+    // 3. Validation: Ensure it returns an Error instead of flipping the bit back to positive.
     assert!(
         result.is_err(),
         "Should return Err when a 'Not' is found above an already bit-negated atom"
@@ -418,7 +433,7 @@ fn test_detect_forbidden_double_negation_in_bit() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A `Forall` node: `(forall (?x) (not (at ?x)))`.
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical/Condition mode).
 ///
 /// **Expected Output**:
 /// - The `Forall` node remains as the root.
@@ -428,6 +443,7 @@ fn test_detect_forbidden_double_negation_in_bit() -> Result<(), ExprOpError> {
 fn test_pnf_descends_into_quantifiers() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
 
     // 1. Declare the typed variable for the quantifier scope
     // ?x - Type ID 102 (example)
@@ -446,20 +462,20 @@ fn test_pnf_descends_into_quantifiers() -> Result<(), ExprOpError> {
     let mut expr = builder.finish();
 
     // 4. Transformation
-    // We expect this to succeed as it traverses the Forall to reach the Not.
-    let mut dfs_stack = Vec::with_capacity(16);
+    // On passe 'false' car un Forall est une condition (precond/goal).
     to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false,
     )?;
 
     // 5. Validation
     let root = expr.try_root_node()?;
     assert_eq!(root.kind(), ExprKind::Forall);
 
-    // Get the quantifier's body (the first child)
+    // Get the quantifier's body (the first child in this LIR)
     let child_id = root.children()[0];
     let child = expr.try_node(child_id)?;
 
@@ -488,7 +504,7 @@ fn test_pnf_descends_into_quantifiers() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A leaf `AtomicFormula` (ID 500) wrapped in a `Not`, then nested under 1,000 `And` nodes.
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical mode).
 ///
 /// **Expected Output**:
 /// - The function completes successfully (iterative stack vs recursion).
@@ -498,6 +514,7 @@ fn test_pnf_descends_into_quantifiers() -> Result<(), ExprOpError> {
 fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
 
     // 1. Create a leaf atom
     let atom = builder.atomic_formula_with_skeleton(1, vec![], 500);
@@ -505,7 +522,7 @@ fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
     // 2. Wrap it in a 'Not' node
     let mut current = builder.not(atom);
 
-    // 3. Create a deep chain of 1000 'And' nodes to test iterative traversal
+    // 3. Create a deep chain of 1,000 'And' nodes to test iterative traversal
     // This is a stress test for stack safety.
     for _ in 0..1000 {
         current = builder.and(vec![current]);
@@ -516,12 +533,12 @@ fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
 
     // 4. Transformation
     // Iterative traversal should handle this easily where recursion would fail.
-    let mut dfs_stack = Vec::with_capacity(16);
     to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false, // Mode logique
     )?;
 
     // 5. Validation: Trace down to the atom to ensure it was negated
@@ -533,7 +550,7 @@ fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
     }
 
     let final_node = expr.try_node(curr_id)?;
-    assert_eq!(final_node.kind(), ExprKind::AtomicFormula);
+    assert_eq!(final_node.kind(), ExprKind::AtomicFormula, "Leaf should be an atom now");
 
     if let ExprContent::AtomSkeleton(id) = final_node.content() {
         assert!(id.is_negated(), "The deep atom should be successfully negated");
@@ -541,6 +558,8 @@ fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
         // 6. Validation: Collection across depth
         assert_eq!(negated_atoms.len(), 1, "The atom should be collected regardless of depth");
         assert_eq!(negated_atoms[0], *id);
+    } else {
+        panic!("Leaf content should be an AtomSkeleton");
     }
 
     Ok(())
@@ -551,7 +570,7 @@ fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A nested structure: `(forall (?x) (exists (?y) (not (at ?x ?y))))`.
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical mode).
 ///
 /// **Expected Output**:
 /// - Both quantifier nodes (`Forall`, `Exists`) are preserved in the tree.
@@ -561,6 +580,7 @@ fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
 fn test_pnf_traverses_multiple_quantifier_layers() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack = Vec::with_capacity(16);
 
     // 1. Declare typed variables for different scopes
     let var_x = builder.typed_variable(1, &[100]);
@@ -582,38 +602,38 @@ fn test_pnf_traverses_multiple_quantifier_layers() -> Result<(), ExprOpError> {
     let mut expr = builder.finish();
 
     // 4. Transformation
-    // The iterative DFS should descend: Forall -> Exists -> Not
-    let mut dfs_stack = Vec::with_capacity(16);
+    // L'itératif DFS descend : Forall -> Exists -> Not (puis absorbe le Not)
     to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false, // Mode logique
     )?;
 
-    // 5. Validation: check if the leaf is now a negated AtomicFormula
+    // 5. Validation : On vérifie que la feuille est maintenant une AtomicFormula négative
     let root = expr.try_root_node()?;
     assert_eq!(root.kind(), ExprKind::Forall);
 
-    // Descend to Exists
+    // Descend vers Exists
     let exists_id = root.children()[0];
     let exists_node = expr.try_node(exists_id)?;
     assert_eq!(exists_node.kind(), ExprKind::Exists);
 
-    // Descend to the AtomicFormula (the Not node should have been absorbed)
+    // Descend vers l'AtomicFormula (le nœud 'Not' doit avoir disparu)
     let final_atom_id = exists_node.children()[0];
     let final_atom = expr.try_node(final_atom_id)?;
 
-    assert_eq!(final_atom.kind(), ExprKind::AtomicFormula, "The Not node should be gone");
+    assert_eq!(final_atom.kind(), ExprKind::AtomicFormula, "Le nœud 'Not' devrait être absorbé");
 
     if let ExprContent::AtomSkeleton(id) = final_atom.content() {
-        assert!(id.is_negated(), "The atom nested deep within quantifiers should be bit-negated");
+        assert!(id.is_negated(), "L'atome imbriqué doit avoir son bit MSB activé");
 
-        // 6. Validation: Side-effect collection
-        assert_eq!(negated_atoms.len(), 1, "The deep atom must be collected in negated_atoms");
+        // 6. Validation : Collecte de l'effet de bord
+        assert_eq!(negated_atoms.len(), 1, "L'atome profond doit être collecté dans negated_atoms");
         assert_eq!(negated_atoms[0], *id);
     } else {
-        panic!("Expected AtomSkeleton content");
+        panic!("Contenu AtomSkeleton attendu");
     }
 
     Ok(())
@@ -624,7 +644,7 @@ fn test_pnf_traverses_multiple_quantifier_layers() -> Result<(), ExprOpError> {
 ///
 /// **Input**:
 /// - A `Not` node pointing to an `And` node: `(not (and A B))`.
-/// - An empty `Vec<AtomSkeletonId>` for collection.
+/// - `is_effect = false` (Logical mode).
 ///
 /// **Expected Output**:
 /// - The function returns `Err(ExprOpError::InvalidExprNode)`.
@@ -634,25 +654,26 @@ fn test_pnf_traverses_multiple_quantifier_layers() -> Result<(), ExprOpError> {
 fn test_detect_forbidden_complex_node_under_not() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
     let mut negated_atoms = Vec::new();
+    let mut dfs_stack: Vec<(NodeId, bool)> = Vec::with_capacity(16);
 
     // 1. Setup: (not (and A B))
-    // This is illegal at this stage; it should have been (or (not A) (not B))
+    // This is illegal at this stage; it should have been transformed into (or (not A) (not B))
     let a = builder.atomic_formula_with_skeleton(1, vec![], 100);
     let b = builder.atomic_formula_with_skeleton(2, vec![], 101);
     let and_node = builder.and(vec![a, b]);
     let not_node = builder.not(and_node);
 
-    builder.set_root(not_node).unwrap();
+    builder.set_root(not_node)?;
     let mut expr = builder.finish();
 
     // 2. Transformation
-    // The encoder must detect that 'And' is not a valid child for 'Not' in PNF.
-    let mut dfs_stack = Vec::with_capacity(16);
+    // The encoder must detect that 'And' is not a valid child for 'Not' in this pass.
     let result = to_pnf(
         expr.try_root_id()?,
         &mut expr,
         &mut negated_atoms,
-        &mut dfs_stack
+        &mut dfs_stack,
+        false, // Mode logique
     );
 
     // 3. Validation

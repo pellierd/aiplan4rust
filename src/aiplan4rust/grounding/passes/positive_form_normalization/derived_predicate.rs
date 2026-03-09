@@ -19,7 +19,7 @@ pub fn to_pnf(
     predicate: &mut DerivedPredicateDef,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     scratchpad: &mut Vec<AtomSkeletonId>,
-    stack: &mut Vec<NodeId>, // La pile DFS réutilisable injectée
+    stack: &mut Vec<(NodeId, bool)>, // La pile DFS réutilisable injectée
 ) -> Result<(), ExprOpError> {
     // 0. On vide le buffer de travail pour cette unité (conserve la capacité)
     scratchpad.clear();
@@ -32,6 +32,7 @@ pub fn to_pnf(
             predicate.body_mut(),
             scratchpad,
             stack,
+            false
         )?;
     }
 

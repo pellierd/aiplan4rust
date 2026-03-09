@@ -11,6 +11,7 @@ use aiplan4rust::DatalogEngine;
 use aiplan4rust::type_flattening::problem::flatten as flatten_types;
 use aiplan4rust::quantifier_expansion::problem::expand_with;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
+use aiplan4rust::aiplan4rust::grounding::passes::positive_form_normalization::to_pnf;
 use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
 
 pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
@@ -59,9 +60,9 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
         let registry = ValueRegistry::build(pb.type_defs(), pb.object_defs(), config::DEFAULT_VALUE_REGISTRY_SIZE).unwrap();
         let evaluator = InertiaEvaluator::build(pb.predicate_defs(), pb.function_defs(), pb.init(), &table, &registry, config::DEFAULT_MAX_ARITY, config::DEFAULT_MAX_PROJ).unwrap();
         expand_with(&mut pb, &registry, Some(&evaluator)).unwrap();
-
+        let negated_predicates = to_pnf(&mut pb).unwrap();
         let mut datalog = DatalogEngine::new();
-        if let Err(e) = datalog.load_problem(&pb) {
+        if let Err(e) = datalog.load_problem(&pb, &negated_predicates) {
             println!("\x1b[1;31mFAILED (Datalog Load)\x1b[0m");
             eprintln!("    Error: {}", e);
             success = false; continue;

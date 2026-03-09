@@ -1,5 +1,5 @@
 use thiserror::Error;
-use crate::aiplan4rust::lang::VariableId;
+use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
@@ -11,6 +11,10 @@ use crate::aiplan4rust::error::Traceable;
 /// unsupported PDDL/LIR constructs, and capacity limits.
 #[derive(Error, Debug)]
 pub enum DatalogError {
+
+    /// Ajout : Le prédicat référencé par son ID n'existe pas dans les définitions.
+    #[error("Undefined predicate with ID: {0:?}")]
+    UndefinedPredicate(AtomSkeletonId), // Ou l'ID spécifique utilisé (ex: PredicateId)
 
     /// The construct is valid PDDL/ADL, but the current Datalog encoder
     /// has not implemented it yet.
@@ -62,6 +66,12 @@ pub enum DatalogError {
 impl Traceable for DatalogError {}
 
 impl DatalogError {
+    /// Crée une erreur UndefinedPredicate et capture la trace.
+    #[track_caller]
+    pub fn undefined_predicate(id: AtomSkeletonId) -> Self {
+        DatalogError::UndefinedPredicate(id).trace()
+    }
+
     /// Creates a `FeatureNotSupported` error, typically for missing ADL transformations.
     #[track_caller]
     pub fn feature_not_supported<S: Into<String>>(feature: S, node_id: NodeId) -> Self {
