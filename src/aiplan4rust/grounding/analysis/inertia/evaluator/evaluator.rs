@@ -1,16 +1,18 @@
-use smallvec::SmallVec;
-use std::collections::HashMap;
-use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, ObjectId, TypeId, TypedSymbol};
 use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaRegistryError;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, ObjectId};
 use crate::aiplan4rust::lir::expr::ops::{StaticEvaluator, StaticValue};
-use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::problem::atomic_skeleton::{
+    AtomicFormulaSkeleton, AtomicFunctionSkeleton,
+};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::tree::Node;
+use ordered_float::OrderedFloat;
+use smallvec::SmallVec;
+use std::collections::HashMap;
 
 const DEFAULT_MAX_ARITY: usize = 15;
 const DEFAULT_MAX_PROJ: usize = 3;
@@ -23,12 +25,13 @@ type ArgumentBuffer = SmallVec<[ObjectId; ARGUMENT_BUFFER_SIZE]>;
 #[derive(Debug)]
 pub struct InertiaEvaluator<'a> {
     counting_predicates: HashMap<AtomSkeletonId, HashMap<u16, HashMap<Box<[ObjectId]>, usize>>>,
-    static_functions: HashMap<FunctionSkeletonId, HashMap<u16, HashMap<Box<[ObjectId]>, StaticValue>>>,
+    static_functions:
+        HashMap<FunctionSkeletonId, HashMap<u16, HashMap<Box<[ObjectId]>, StaticValue>>>,
     inertia: &'a InertiaTable,
 
     // --- RÉFÉRENCES EMPRUNTÉES (Context) ---
     predicate_defs: Box<[AtomicFormulaSkeleton]>,
-    function_defs: Box<[AtomicFunctionSkeleton]>,// Pour les signatures des fonctions
+    function_defs: Box<[AtomicFunctionSkeleton]>, // Pour les signatures des fonctions
     value_registry: &'a ValueRegistry,
 
     consensus_values: HashMap<FunctionSkeletonId, StaticValue>,
@@ -37,7 +40,6 @@ pub struct InertiaEvaluator<'a> {
     max_proj: usize,
 }
 impl<'a> InertiaEvaluator<'a> {
-
     pub fn build(
         predicate_defs: &[AtomicFormulaSkeleton],
         function_defs: &[AtomicFunctionSkeleton],
@@ -47,7 +49,6 @@ impl<'a> InertiaEvaluator<'a> {
         max_arity: usize,
         max_proj: usize,
     ) -> Result<Self, InertiaRegistryError> {
-
         // 1. On CLONE les définitions dans des Box (Zéro lifetime 'a sur Problem)
         let mut registry = Self {
             predicate_defs: predicate_defs.to_vec().into_boxed_slice(),
@@ -59,7 +60,6 @@ impl<'a> InertiaEvaluator<'a> {
             consensus_values: Default::default(),
             max_arity,
             max_proj,
-
         };
 
         // 2. Traitement de l'init (on utilise init_expr passé en argument)
@@ -87,42 +87,52 @@ impl<'a> InertiaEvaluator<'a> {
         }
     }
 
-    fn process_predicate(&mut self, node: &ExprNode, init: &Expr) -> Result<(), InertiaRegistryError> {
+    fn process_predicate(
+        &mut self,
+        node: &ExprNode,
+        init: &Expr,
+    ) -> Result<(), InertiaRegistryError> {
         let children = node.children();
 
-        // 1. On récupère l'ID du SQUELETTE (la définition du prédicat)
-        // C'est cet ID qui permet de savoir si "at(truck, place)" est un prédicat d'inertie.
+        // Ton analyse est juste : le skeleton_id est lié à l'AtomicFormula
         let skeleton_id = node.try_atom_skeleton()?;
 
+        // On ne traite que les prédicats qui ne changent jamais (Inerte Positif)
         if self.inertia.is_predicate_positive_inertia(skeleton_id)? {
-            // 2. L'arité réelle des données (les arguments du fait initial)
-            // Puisque le premier enfant est le "symbole" (le nom), on l'exclut.
             let arity = children.len().saturating_sub(1);
-
-            if arity == 0 {
-                // Prédicat propositionnel (arité 0 dans la définition)
-                self.generate_predicate_masks(skeleton_id, 0, &[]);
-                return Ok(());
-            }
-
-            // 3. Extraction des arguments (les constantes)
             let mut args = Vec::with_capacity(arity);
 
-            // On commence à 1 car children[0] est le symbole (le nom),
-            // pas une donnée membre de l'instance du prédicat.
-            for &arg_id in &children[1..] {
+            // On parcourt les enfants à partir de l'index 1 (les arguments)
+            for (i, &arg_id) in children.iter().enumerate().skip(1) {
                 let arg_node = init.try_node(arg_id)?;
-                // On récupère la valeur concrète (ex: l'ID de l'objet 'truck1')
-                args.push(arg_node.try_object()?);
+
+                // Tentative d'extraction de l'ID de l'objet
+                match arg_node.try_object() {
+                    Ok(obj_id) => args.push(obj_id),
+                    Err(_) => {
+                        // Si on arrive ici, l'argument n'est pas un ObjectID valide
+                        println!("[ERREUR-INIT] Prédicat {:?} : l'enfant {} (NodeId {:?}) n'est pas un Object (Kind: {:?})",
+                                 skeleton_id, i, arg_id, arg_node.kind());
+                        return Ok(()); // On ignore ce fait mal formé
+                    }
+                }
             }
 
-            // 4. On lie la définition (skeleton_id) aux valeurs concrètes (args)
+            // --- LE LOG DE VÉRITÉ ---
+            // Si ce log n'apparaît pas pour les IDs 2, 5, 7, 8, 9,
+            // alors la table reste vide et l'évaluateur renverra toujours False.
+            println!("[INIT-REGISTRY] Succès : Predicate {:?} | Args: {:?}", skeleton_id, args);
+
             self.generate_predicate_masks(skeleton_id, arity, &args);
         }
         Ok(())
     }
 
-    fn process_function(&mut self, node: &ExprNode, init: &Expr) -> Result<(), InertiaRegistryError> {
+    fn process_function(
+        &mut self,
+        node: &ExprNode,
+        init: &Expr,
+    ) -> Result<(), InertiaRegistryError> {
         let children = node.children();
         // 1. On récupère la définition de la fonction (le squelette)
         let func_id = node.try_function_skeleton()?;
@@ -169,69 +179,75 @@ impl<'a> InertiaEvaluator<'a> {
         let node = expr.try_node(node_id)?;
         let pred_id = node.try_atom_skeleton()?;
 
-        // Définition : Un prédicat est inerte s'il n'apparaît dans aucun effet d'opérateur.
-        // - Positive Inertia : N'apparaît dans aucun effet positif (ne peut pas devenir VRAI s'il est FAUX).
-        // - Negative Inertia : N'apparaît dans aucun effet négatif (ne peut pas devenir FAUX s'il est VRAI).
         let is_negative = self.inertia.is_predicate_negative_inertia(pred_id)?;
         let is_positive = self.inertia.is_predicate_positive_inertia(pred_id)?;
 
-
-        // Si le prédicat n'est pas inerte (fluents), on ne peut rien simplifier à ce stade.
         if !is_negative && !is_positive {
             return Ok(None);
         }
 
-        // --- ÉTAPE A : Calcul de N(p, ~a) (Définition 5) ---
-        // N(p, ~a) est le nombre d'instances dans l'état initial I qui unifient avec l'atome partiel (p, ~a).
-        // Le papier utilise des tables pré-calculées (Section 3.3) pour obtenir ce compte en O(arity).
+        // --- ÉTAPE A : Calcul de N(p, ~a) ---
         let mask = self.extract_mask_dynamic(node, expr, buffer);
-        let n_limit = buffer.len().min(self.max_proj);
-        let lookup_slice = &buffer[..n_limit];
 
-        let n_p_a = self.counting_predicates.get(&pred_id)
-            .and_then(|masks| masks.get(&mask))
-            .and_then(|entries| entries.get(lookup_slice))
-            .copied()
-            .unwrap_or(0);
-
-        // --- ÉTAPE B : Application des règles de simplification (Définition 6) ---
-
-        // RÈGLE 1 : "If p is a positive inertia and N(p, ~a) = 0 then (p, ~a) is simplified to FALSE."
-        // Justification (Théorème 1.1) : Comme p est inerte positif, aucune action ne peut l'ajouter.
-        // Si aucune instance n'existe initialement (N=0), aucune ne sera jamais vraie dans les états atteignables.
-        if is_positive && n_p_a == 0 {
-            return Ok(Some(false));
+        // NOUVEAU : Vérification de la limite de projection
+        let bit_count = (mask as u32).count_ones() as usize;
+        if mask != 0 && bit_count > self.max_proj {
+            // On a trop de constantes par rapport à ce qu'on a pré-calculé.
+            // On ne peut pas simplifier, on renvoie None au lieu de laisser n_p_a tomber à 0.
+            return Ok(None);
         }
 
-        // RÈGLE 2 : "If p is a negative inertia and N(p, ~a) = MAX(p, ~a) then (p, ~a) is simplified to TRUE."
-        // MAX(p, ~a) (Définition 5) est le nombre total de combinaisons typées possibles pour les variables de ~a.
-        if is_negative {
-            let max_p_a = self.calculate_max_instances(node, expr);
+        // NOUVEAU : On utilise tout le buffer (lookup_slice doit correspondre exactement au masque)
+        let lookup_slice = buffer.as_slice();
 
-            // Justification (Théorème 1.2) : Si toutes les instances possibles sont déjà dans l'état initial
-            // et que p est inerte négatif (aucune action ne peut le supprimer), alors toutes les
-            // instances possibles de (p, ~a) seront VRAIES dans tous les états atteignables.
-            if n_p_a == max_p_a {
+        // On cible le prédicat 'requires' (ID 2)
+        if pred_id.as_usize() == 2 {
+            println!("[LOOKUP-DEBUG] Predicate: requires");
+            println!("  -> Mask (bin): {:b}", mask);
+            println!("  -> Args in Buffer: {:?}", lookup_slice);
+
+            // Test manuel : Est-ce que le prédicat existe avec ce masque ?
+            let has_mask = self.counting_predicates.get(&pred_id)
+                .map(|m| m.contains_key(&mask))
+                .unwrap_or(false);
+            println!("  -> Mask exists in table? {}", has_mask);
+        }
+
+        let n_p_a = self
+            .counting_predicates
+            .get(&pred_id)
+            .and_then(|masks| masks.get(&mask))
+            .and_then(|entries| entries.get(lookup_slice))
+            .copied();
+
+        // --- ÉTAPE B : Application des règles ---
+
+        /// --- ÉTAPE B : Application des règles ---
+        let n_val = n_p_a.unwrap_or(0);
+        let grounded = self.all_args_grounded(node, expr);
+
+        // 1. Cas de l'Inertie Positive (Statique : jamais ajouté, jamais supprimé)
+        if is_positive {
+            // Si n_val > 0, il existe au moins une assignation qui rend le fait vrai.
+            // Si c'est grounded, n_val sera 1 (Vrai) ou 0 (Faux).
+            // Si ce n'est pas grounded, n_val > 0 signifie "possiblement vrai".
+            return Ok(Some(n_val > 0));
+        }
+
+        // 2. Cas de l'Inertie Négative (Semi-statique : présent au début, peut seulement être supprimé)
+        if is_negative {
+            // S'il n'était pas là au début (n_val == 0), il ne sera jamais là (Faux permanent)
+            if n_val == 0 {
+                return Ok(Some(false));
+            }
+            // S'il est là ET qu'il est totalement instantié (grounded),
+            // comme il ne peut pas être supprimé (Inertie Négative), il est Vrai permanent.
+            if grounded {
                 return Ok(Some(true));
             }
         }
 
-        // --- CAS PARTICULIER : Atome totalement instantié (Grounded) ---
-        // Pour un atome sans variables, MAX(p, ~a) est toujours égal à 1.
-        if self.all_args_grounded(node, expr) {
-            if is_positive {
-                // Si N=1, l'atome est présent initialement. Comme il est inerte négatif (par défaut
-                // si on ne le précise pas ou si testé ici), il reste VRAI.
-                // Si N=0, il a déjà été capturé par la Règle 1.
-                return Ok(Some(n_p_a > 0));
-            }
-
-            // Note technique : Pour une inertie purement négative (sans être positive),
-            // si N=0, on ne peut PAS simplifier à FALSE car une action pourrait
-            // techniquement l'ajouter si elle n'est pas inerte positive.
-        }
-
-        // "In all other cases (p, ~a) cannot (yet) be simplified and remains in the formula tree."
+        // Si on arrive ici, on ne peut pas conclure avec certitude (ex: Inerte Négatif non-grounded)
         Ok(None)
     }
 
@@ -244,8 +260,11 @@ impl<'a> InertiaEvaluator<'a> {
 
         if let Ok(pred_id) = node.try_atom_skeleton() {
             // On récupère la signature (types des arguments) définie au build
-            if let Some(arg_types) = self.predicate_defs.get(pred_id.as_usize()).map(|s| s.parameters()) {
-
+            if let Some(arg_types) = self
+                .predicate_defs
+                .get(pred_id.as_usize())
+                .map(|s| s.parameters())
+            {
                 // On itère sur les positions i de 1 à n
                 for (i, &child_id) in children[1..].iter().enumerate() {
                     if let Ok(child_node) = expr.try_node(child_id) {
@@ -253,7 +272,8 @@ impl<'a> InertiaEvaluator<'a> {
                         // Pour chaque i appartenant à V(~a), on multiplie par |dom(Ti)|.
                         if child_node.kind() == ExprKind::Variable {
                             let type_id = arg_types[i].ty();
-                            let domain_size = self.value_registry.get_type_domain(type_id).cardinality();
+                            let domain_size =
+                                self.value_registry.get_type_domain(type_id).cardinality();
                             max_val *= domain_size;
                         }
                     }
@@ -284,7 +304,9 @@ impl<'a> InertiaEvaluator<'a> {
         let lookup_slice = &buffer[..n_limit];
 
         // 3. Recherche de la valeur injectée dans le registre 🔍
-        let mut value = self.static_functions.get(&func_id)
+        let mut value = self
+            .static_functions
+            .get(&func_id)
             .and_then(|masks| masks.get(&mask))
             .and_then(|entries| entries.get(lookup_slice))
             .copied();
@@ -342,12 +364,18 @@ impl<'a> InertiaEvaluator<'a> {
     fn check_limits(max_arity: usize, problem: &LiftedProblem) -> Result<(), InertiaRegistryError> {
         for (i, p) in problem.predicate_defs().iter().enumerate() {
             if p.arity() > max_arity {
-                return Err(InertiaRegistryError::predicate_arity_too_high(AtomSkeletonId::from(i), p.arity()));
+                return Err(InertiaRegistryError::predicate_arity_too_high(
+                    AtomSkeletonId::from(i),
+                    p.arity(),
+                ));
             }
         }
         for (i, f) in problem.function_defs().iter().enumerate() {
             if f.arity() > max_arity {
-                return Err(InertiaRegistryError::function_arity_too_high(FunctionSkeletonId::from(i), f.arity()));
+                return Err(InertiaRegistryError::function_arity_too_high(
+                    FunctionSkeletonId::from(i),
+                    f.arity(),
+                ));
             }
         }
         Ok(())
@@ -391,7 +419,9 @@ impl<'a> InertiaEvaluator<'a> {
     ) -> u16 {
         buffer.clear();
         let children = node.children();
-        if children.len() <= 1 { return 0; }
+        if children.len() <= 1 {
+            return 0;
+        }
 
         let args = &children[1..];
         let mut mask = 0u16;
@@ -413,7 +443,12 @@ impl<'a> InertiaEvaluator<'a> {
         mask
     }
 
-    pub fn generate_predicate_masks(&mut self, key: AtomSkeletonId, arity: usize, args: &[ObjectId]) {
+    pub fn generate_predicate_masks(
+        &mut self,
+        key: AtomSkeletonId,
+        arity: usize,
+        args: &[ObjectId],
+    ) {
         // 1. Garde contre l'arité 0 et les erreurs de calcul potentielles
         if arity == 0 {
             let mask_table = self.counting_predicates.entry(key).or_default();
@@ -502,33 +537,37 @@ impl<'a> InertiaEvaluator<'a> {
             }
         }
     }
-
 }
 
 impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
     fn evaluate(&self, node_id: NodeId, expr: &Expr) -> Option<StaticValue> {
         let node = expr.try_node(node_id).ok()?;
-
-        // Création d'un buffer local sur la pile (Stack allocation)
-        // C'est ultra-rapide et propre à chaque thread.
         let mut buffer = ArgumentBuffer::new();
 
-        match node.kind() {
-            ExprKind::AtomicFormula => {
-                self.evaluate_predicate_internal(node_id, expr, &mut buffer)
-                    .ok()
-                    .flatten()
-                    .map(StaticValue::Boolean)
-            }
-            ExprKind::Function => {
-                self.evaluate_function_internal(node_id, expr, &mut buffer)
-                    .ok()
-                    .flatten()
-            }
+        let result = match node.kind() {
+            ExprKind::AtomicFormula => self
+                .evaluate_predicate_internal(node_id, expr, &mut buffer)
+                .ok()
+                .flatten()
+                .map(StaticValue::Boolean),
+            ExprKind::Function => self
+                .evaluate_function_internal(node_id, expr, &mut buffer)
+                .ok()
+                .flatten(),
             _ => None,
-        }
-    }
+        };
 
+        // --- LE DEBUG ---
+        if let Some(val) = &result {
+            // On n'affiche que si c'est un atome (pour éviter de polluer avec les constantes brutes)
+            if node.kind() == ExprKind::AtomicFormula {
+                // Utilise ta méthode pour récupérer le nom du prédicat si possible
+                println!("[Inertia] Evaluated Node {:?} -> {:?}", node_id, val);
+            }
+        }
+
+        result
+    }
 }
 
 /*impl<'a> StaticEvaluator for InertiaEvaluator<'a> {

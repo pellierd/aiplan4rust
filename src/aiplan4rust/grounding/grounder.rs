@@ -64,8 +64,40 @@ impl Grounder {
 
         // 1. TYPE FLATTENING : On résout la hiérarchie (A est un B).
         // Obligatoire avant tout car tout le reste en dépend.
+        let types_before = lifted_problem.type_defs().len();
+        let objects_before = lifted_problem.object_defs().len();
+        println!("--- DEBUG PRE-FLATTEN ---");
+        println!("Types count: {}", types_before);
+        println!("Objects count: {}", objects_before);
         type_flattening::problem::flatten(&mut lifted_problem)?;
+        println!("{}", lifted_problem);
 
+        let types_after = lifted_problem.type_defs().len();
+        let objects_after = lifted_problem.object_defs().len();
+        println!("--- DEBUG POST-FLATTEN ---");
+        println!("Types count: {}", types_after); // <--- DOIT ÊTRE > types_before si des Either existaient
+        println!("Objects count: {}", objects_after);
+
+        // 4. Vérification de la cohérence des IDs d'objets
+        for obj in lifted_problem.object_defs() {
+            for &ty_id in obj.ty().members() {
+                if ty_id.as_usize() >= types_after {
+                    println!("FATAL: Object {} has type ID {} but max type ID is {}",
+                             obj.symbol().as_usize(), ty_id.as_usize(), types_after - 1);
+                }
+            }
+        }
+
+        println!("--- POST-FLATTEN CHECK ---");
+        for (i, ty_def) in lifted_problem.type_defs().iter().enumerate() {
+            println!("Type index {}: ID={:?}, Members={:?}", i, ty_def.symbol(), ty_def.ty().members());
+        }
+
+        for obj in lifted_problem.object_defs().iter().take(5) {
+            println!("Object {:?}: Type Members={:?}", obj.symbol(), obj.ty().members());
+        }
+
+        panic!("");
         // 2. OBJECT FLUENT FLATTENING
         // TO DO
 
