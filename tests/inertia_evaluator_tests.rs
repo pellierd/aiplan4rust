@@ -5,12 +5,11 @@ mod common;
 use crate::common::io::*;
 use crate::common::pipeline::{analyze_file, encode, link};
 
-use aiplan4rust::type_flattening::problem::flatten as flatten_types;
+use aiplan4rust::type_flattening;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
 use aiplan4rust::aiplan4rust::grounding::config;
 use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
 use aiplan4rust::aiplan4rust::lang::{TypeId, Type, ObjectId, VariableId, AtomSkeletonId, PredicateSymbolId};
 use aiplan4rust::aiplan4rust::lir::expr::Expr;
 use aiplan4rust::aiplan4rust::lir::expr::builder::ExprBuilder;
@@ -65,7 +64,7 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
         let mut pb = lir_result.take_lifted_problem().expect("No lifted problem");
 
         // 1. Préparation de l'évaluateur
-        flatten_types(&mut pb).unwrap();
+        type_flattening::flatten(&mut pb).unwrap();
         let table = analyze_inertia(&pb).expect("Inertia analysis failed");
 
         let registry = ValueRegistry::build(

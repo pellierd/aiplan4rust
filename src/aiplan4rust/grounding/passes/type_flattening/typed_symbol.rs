@@ -1,52 +1,57 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedSymbol, VariableId};
-use crate::aiplan4rust::lir::LirError;
+//! # Typed Symbol Flattening
+//!
+//! This module provides specialized functions to flatten the types of symbols 
+//! used in the LIR, specifically for objects (constants) and variables.
+//!
+//! ## Overview
+//! Since `TypedSymbol` is a generic container, these functions handle the 
+//! extraction of the mutable type reference and delegate the actual 
+//! flattening logic to the [`ty`] module.
+//!
+//! If a symbol's type is a complex type (like an `either` type), it will be 
+//! reduced to a primitive "pivot" type, with the transformation tracked 
+//! by the [`PivotTracker`].
 
-/// Flattens the type of a `TypedSymbol<ObjectID, TypeID>` in place according to the provided mapping.
+use crate::aiplan4rust::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
+use crate::aiplan4rust::lir::LirError;
+use crate::type_flattening::PivotTracker;
+use crate::type_flattening::ty;
+
+/// Flattens the type of a constant object.
 ///
-/// # Parameters
-/// - `symbol`: The symbol to modify.
-/// - `map`: A mapping from union types (`Type::Either`) to their corresponding flattened type identifiers.
+/// This function extracts the mutable type from a `TypedSymbol<ObjectId, TypeId>` 
+/// and simplifies it using the provided tracker.
 ///
-/// # Returns
-/// - `Ok(())` if the type was successfully updated or did not need flattening.
-/// - `Err(LirError)` if the type is an `Either` type that is not present in the mapping.
+/// # Errors
+/// Returns a [`LirError`] if the type transformation violates LIR constraints.
 pub fn flatten_typed_object(
     symbol: &mut TypedSymbol<ObjectId, TypeId>,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
 ) -> Result<(), LirError> {
-    // Only types if it's an "either" type and exists in the map
-    let ty = symbol.ty();
-    if ty.is_either() {
-        if let Some(&flat_type) = map.get(symbol.ty()) {
-            symbol.set_ty(Type::primitive(flat_type));
-        } else {
-            return Err(LirError::missing_type(ty.clone()));
-        }
-    }
-    Ok(())
+    // 1. Gain mutable access to the object's type
+    let ty = symbol.ty_mut();
+
+    // 2. Delegate the transformation.
+    // Complex types (like 'either') are replaced with a primitive 'pivot' type.
+    ty::flatten(ty, tracker)
 }
 
-/// Flattens the type of a `TypedSymbol<VariableID, TypeID>` in place according to the provided mapping.
+/// Flattens the type of a variable.
 ///
-/// # Parameters
-/// - `symbol`: The symbol to modify.
-/// - `map`: A mapping from union types (`Type::Either`) to their corresponding flattened type identifiers.
+/// This function extracts the mutable type from a `TypedSymbol<VariableId, TypeId>` 
+/// and simplifies it. This is typically used for action parameters or 
+/// quantified variables.
 ///
-/// # Returns
-/// - `Ok(())` if the type was successfully updated or did not need flattening.
-/// - `Err(LirError)` if the type is an `Either` type that is not present in the mapping.
+/// # Errors
+/// Returns a [`LirError`] if the variable type cannot be flattened correctly.
 pub fn flatten_typed_variable(
     symbol: &mut TypedSymbol<VariableId, TypeId>,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
 ) -> Result<(), LirError> {
-    let ty = symbol.ty();
-    if ty.is_either() {
-        if let Some(&flat_type) = map.get(symbol.ty()) {
-            symbol.set_ty(Type::primitive(flat_type));
-        } else {
-            return Err(LirError::missing_type(ty.clone()));
-        }
-    }
-    Ok(())
+    // 1. Gain mutable access to the variable's type
+    let ty = symbol.ty_mut();
+
+    // 2. Delegate the transformation to the type module via the tracker.
+    // If 'ty' is a complex type, it is transformed into a primitive type in-place.
+    ty::flatten(ty, tracker)
 }

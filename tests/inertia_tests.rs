@@ -7,7 +7,7 @@ mod common;
 use crate::common::io::*;
 use crate::common::pipeline::{analyze_file, encode, link};
 
-use aiplan4rust::type_flattening::problem::flatten as flatten_types;
+use aiplan4rust::type_flattening;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use aiplan4rust::aiplan4rust::lang::AtomSkeletonId;
@@ -42,7 +42,7 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
         let mut pb = lir_result.take_lifted_problem().expect("No lifted problem");
 
         // --- Transformations ---
-        flatten_types(&mut pb).unwrap();
+        type_flattening::flatten(&mut pb).unwrap();
 
         // --- Analyse d'Inertie ---
         let table = analyze_inertia(&pb).unwrap();

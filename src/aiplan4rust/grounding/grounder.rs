@@ -69,7 +69,7 @@ impl Grounder {
         println!("--- DEBUG PRE-FLATTEN ---");
         println!("Types count: {}", types_before);
         println!("Objects count: {}", objects_before);
-        type_flattening::problem::flatten(&mut lifted_problem)?;
+        type_flattening::flatten(&mut lifted_problem)?;
         println!("{}", lifted_problem);
 
         let types_after = lifted_problem.type_defs().len();

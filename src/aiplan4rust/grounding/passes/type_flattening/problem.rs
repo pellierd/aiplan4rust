@@ -1,658 +1,458 @@
-//! Type Flattening and Canonicalization for Lifted Problems.
-//!
-//! This module provides the infrastructure to transform a complex PDDL/HDL type
-//! hierarchy containing union types (`Type::Either`) into a flat, primitive-only
-//! representation.
-//!
-//! # Overview
-//!
-//! Many downstream processes, particularly **Grounding**, struggle with the
-//! recursive nature of `Either` types. This module eliminates that complexity by:
-//! 1.  Performing a DFS traversal to find terminal "leaf" types.
-//! 2.  Creating unique "Pivot" types that represent specific sets of leaves.
-//! 3.  Updating the entire problem to use these stable Pivots.
-//!
-//! # Architecture
-//!
-//! The module is organized as a dispatcher that propagates type changes across
-//! all LIR (Lifted Intermediate Representation) components:
-//! - **Definitions**: Handled in the module root via pivot maps.
-//! - **Logic**: Propagated to `expr`, `action`, `method`, etc.
-//! - **Symbols**: Managed through `typed_symbol` and `typed_list`.
-//!
-//! # Naming Convention
-//!
-//! Flattened types are automatically named using the format:
-//! `{EITHER_PREFIX}{EITHER_SEP}{type1}{EITHER_SEP}{type2}...`
-//! (e.g., `either_truck_airplane`).
 
 use crate::aiplan4rust::lang::{Type, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::type_flattening::{atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr, typed_symbol, task, action, method, initial_task_network};
+use crate::aiplan4rust::tree::NodeId;
+use crate::type_flattening::pivot_tracker::PivotTracker;
 
 const EITHER_PREFIX: &str = "either";
 const EITHER_SEP: &str = "_";
 
 /// Flattens the problem's type hierarchy by replacing union types (`Either`)
-/// with atomic pivot types.
+/// with stable, atomic pivot types.
 ///
-/// This process transforms a complex typed problem into a "flat" representation
-/// required for subsequent grounding phases. The operation is performed
-/// in three major steps:
+/// This transformation is a prerequisite for Grounding, as it eliminates
+/// recursive or overlapping type definitions. It ensures that every named
+/// type in the problem eventually points to a single, canonical "Pivot" type
+/// representing a unique set of terminal leaf types.
 ///
-/// 1. **Analysis & Creation**: Identifies all `Either` combinations, resolves
-///    their terminal root parents, and generates unique "pivot" types in the domain.
-/// 2. **Type Definition Mutation**: Updates the problem's type table so that
-///    original `Either` types now point to these pivots as primitive types.
-/// 3. **Component Propagation**: Traverses the entire problem (actions, methods,
-///    goals, objects) to update every type reference to the new flattened structure.
+/// # Arguments
 ///
-/// # Parameters
 /// * `problem` - A mutable reference to the [`LiftedProblem`] to be transformed.
 ///
 /// # Returns
-/// * `Ok(())` if the flattening and remapping process succeeded.
-/// * `Err(LirError)` if an error occurs (e.g., type resolution failure or interner error).
 ///
-/// # Example
-/// ```rust
-/// use crate::aiplan4rust::lir::problem::types;
+/// * `Ok(())` - If the flattening and remapping process succeeded.
+/// * `Err(LirError)` - If a type resolution fails or an inconsistency is detected.
 ///
-/// // Given a problem with: type truck = either(heavy, light)
-/// types::flatten(&mut problem)?;
-/// // After the call, 'truck' is a primitive type pointing to a unique pivot.
-/// ```
+/// # Implementation Details
+///
+/// The process follows a 4-step pipeline designed for both structural correctness
+/// and memory efficiency:
+///
+/// 1. **Hierarchy Resolution**: Flattens all `Either` definitions to their
+///    base primitive roots (DFS-based).
+/// 2. **Structural Mapping**: Uses a [`PivotTracker`] to identify unique
+///    combinations of roots. Identical structures are mapped to the same Pivot ID.
+/// 3. **Pivot Materialization**: Injects new pivot type definitions into the
+///    problem's type table.
+/// 4. **Re-binding**: Updates all original named types to become primitives
+///    pointing to their respective pivots.
+///
+/// This implementation uses reusable buffers ([`Vec`] and [`String`]) to minimize
+/// heap allocations during the traversal.
 pub fn flatten(problem: &mut LiftedProblem) -> Result<(), LirError> {
-    // Step 1: Create the mapping and inject new pivot types
-    // Analyzes the hierarchy to ensure each type combination is unique and canonical.
-    let flatten_types_map = flatten_types_def(problem)?;
 
-    // Step 2: Propagate changes to the rest of the problem components
-    // Updates action signatures, method parameters, and object definitions.
-    apply_map_to_problem_components(problem, &flatten_types_map)?;
+    let num_original = problem.type_defs().len();
+    let mut tracker = PivotTracker::new(num_original);
+
+    //println!("{}", problem);
+    flatten_type_def(problem, &mut tracker)?;
+    //println!("{}", problem);
+
+    let mut stack = Vec::with_capacity(num_original);
+    flatten_problem_types(problem, &mut tracker, &mut stack)?;
+
+    let mut name_buf = String::with_capacity(32);
+    for (ty, _) in tracker.into_iter() {
+        create_pivot(problem, &ty, &mut name_buf)?;
+    }
+
 
     Ok(())
 }
 
-/// STEP 3: Propagate Type Changes to Problem Components
-///
-/// Traverses all components of the `LiftedProblem` and updates their internal
-/// type references using the provided mapping. This ensures that every
-/// signature, variable, and object now refers to the flattened pivot types.
-///
-/// This function acts as a dispatcher, calling specific flattening ops for:
-/// - Objects and Constants
-/// - Predicate and Function Skeletons
-/// - Actions (Instantaneous and Durative)
-/// - HTN structures (Tasks, Methods, and ITN)
-/// - Logical Expressions (Goals and Constraints)
-///
-/// # Arguments
-/// * `problem` - The [`LiftedProblem`] to be updated.
-/// * `map` - The pre-calculated mapping from `Either` structures to Pivot `TypeID`s.
-fn apply_map_to_problem_components(
+pub fn flatten_type_def(
     problem: &mut LiftedProblem,
-    map: &HashMap<Type<TypeId>, TypeId>
+    tracker: &mut PivotTracker
 ) -> Result<(), LirError> {
-    // Note: We use the 'map' passed as an argument to maintain consistency
-    // with the changes already applied to the type definitions.
+    let mut parent_set = HashSet::new();
+    let mut stack = Vec::new();
 
-    // Update Objects
-    for object in problem.object_defs_mut() {
-        typed_symbol::flatten_typed_object(object, map)?;
-    }
+    let num_initial_types = problem.type_defs().len();
 
-    // Update Predicate and Function signatures
-    for atomic_formula in problem.predicate_defs_mut() {
-        atomic_formula_skeleton::flatten(atomic_formula, map)?;
-    }
+    // We store planned changes to apply them only after the analysis is complete.
+    // This prevents get_root_types from seeing a partially mutated graph.
+    let mut mutations = Vec::with_capacity(num_initial_types);
 
-    for atomic_function in problem.function_defs_mut() {
-        atomic_function_skeleton::flatten(atomic_function, map)?;
-    }
+    // --- PHASE 1: ANALYSIS (Immutable View) ---
+    for i in 0..num_initial_types {
+        let tid = TypeId::from(i);
+        let ty = problem.type_defs()[i].ty();
 
-    // Update Domain and Problem Constraints
-    expr::flatten(problem.domain_constraints_mut(), map)?;
-    expr::flatten(problem.problem_constraints_mut(), map)?;
-
-    // Update HTN Task Skeletons
-    for task in problem.task_defs_mut() {
-        task::flatten(task, map)?;
-    }
-
-    // Update Derived Predicates
-    for derived_predicate in problem.derived_predicate_defs_mut() {
-        derived_predicate::flatten(derived_predicate, map)?;
-    }
-
-    // Update Action signatures and effects
-    for action in problem.action_defs_mut() {
-        action::flatten(action, map)?;
-    }
-
-    // Update HTN Methods
-    for method in problem.method_defs_mut() {
-        method::flatten(method, map)?;
-    }
-
-    // Update Goal conditions
-    expr::flatten(problem.goal_mut(), map)?;
-
-    // Update Initial Task Network (HTN)
-    initial_task_network::flatten(problem.initial_task_network_mut(), map)?;
-
-    Ok(())
-}
-
-/// Flattens all union (either) types in a lifted problem into primitive types pointing to unique pivots.
-///
-/// This function ensures that any "either" type is replaced by a "primitive" type
-/// pointing to a canonical "pivot" type that contains only root types.
-/// It performs a full resolution of the type hierarchy (flattening) and merges
-/// equivalent types into single pivot definitions (canonicalization).
-///
-/// # Process
-/// 1. Identifies all union types in the problem.
-/// 2. Resolves each type down to its terminal root parents using an optimized DFS.
-/// 3. Checks if a pivot with the same root parents already exists:
-///    - If yes: Reuses the existing pivot identifier.
-///    - If no: Generates a stable canonical name, interns it, and creates a new "either" pivot.
-/// 4. Replaces the original union type with a `primitive` pointer to the pivot.
-///
-/// # Optimization
-/// This implementation minimizes heap allocations by:
-/// - Using reusable buffers (`stack_buffer`, `set_buffer`) for graph traversal.
-/// - Utilizing the `Entry` API to avoid double hashing during canonicalization.
-/// - Implementing "lazy naming" to only generate strings for newly created pivots.
-///
-/// # Parameters
-/// - `problem`: The mutable lifted problem containing types to be flattened.
-///
-/// # Returns
-/// A `Result` containing a `HashMap<Type<TypeID>, TypeID>` mapping each original
-/// union structure to its corresponding pivot identifier. This mapping is essential
-/// for updating predicates, actions, and objects during grounding.
-///
-/// # Errors
-/// Returns a `LirError` if:
-/// - A `TypeID` cannot be resolved in the problem's type table.
-/// - A name cannot be resolved through the interner.
-///
-/// # Example
-/// ```rust
-/// let mut problem = LiftedProblem::new(...);
-/// // After defining either types like 'either(a, b)'...
-/// let mapping = flatten_types_def(&mut problem)?;
-///
-/// // All 'either' types in 'problem' are now 'primitive' pointers to flat pivots.
-/// ```
-fn flatten_types_def(
-    problem: &mut LiftedProblem,
-) -> Result<HashMap<Type<TypeId>, TypeId>, LirError> {
-    // 1. Initialization
-    let mut to_process = either_types(problem);
-    let mut either_to_primitive: HashMap<Type<TypeId>, TypeId> = HashMap::new();
-    let mut to_update: HashMap<TypeId, TypeId> = HashMap::new();
-
-    // Map to merge types sharing identical root parents (Canonicalization)
-    let mut parents_to_pivot: HashMap<Vec<TypeId>, TypeId> = HashMap::new();
-
-    // Reusable buffers for DFS traversal to avoid repeated heap allocations
-    let mut stack_buffer = Vec::with_capacity(32);
-    let mut set_buffer = HashSet::with_capacity(32);
-
-    // 2. Calculation Phase (Analysis + Pivot Creation)
-    while let Some(original_id) = to_process.pop_front() {
-        let ty_structure = problem.try_get_type(original_id)?.ty().clone();
-
-        // Check if this exact structure was already mapped to a pivot
-        if let Some(&pivot_id) = either_to_primitive.get(&ty_structure) {
-            to_update.insert(original_id, pivot_id);
+        // 1. IDEMPOTENCE CHECK:
+        // If the type already has exactly one member, it is already a primitive
+        // (either a pivot or a redirection). We skip it to maintain stability.
+        if ty.members().len() == 1 {
             continue;
         }
 
-        // Resolve all terminal parents (roots) using the optimized DFS
-        let flattened_parents_ty = get_parents(
-            &ty_structure,
-            problem,
-            &mut stack_buffer,
-            &mut set_buffer
-        )?;
+        // 2. ATOMIC ROOT:
+        // Empty types are considered base atomic types. We ensure they point
+        // to themselves as a primitive.
+        if ty.is_empty() {
+            mutations.push((i, tid));
+            continue;
+        }
 
-        // We use the raw vector of members as a key for canonicalization
-        let parents_vec = flattened_parents_ty.members().to_vec();
+        // 3. COMPLEX TYPE ANALYSIS (Either/Hierarchy):
+        // Resolve the full hierarchy to find the underlying atomic roots.
+        let roots = get_root_types(tid, problem, &mut parent_set, &mut stack)?;
 
-        // Entry API: find existing pivot or create a new one efficiently
-        let pivot_id = match parents_to_pivot.entry(parents_vec) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => {
-                // We only generate the name and intern it if we are actually creating a new pivot
-                let new_name = make_either_type_name(problem, &flattened_parents_ty)?;
-                let name_id = problem.interner_mut().intern_symbol(new_name);
+        if roots.is_empty() {
+            // Safety fallback for orphan types: redirect to itself.
+            mutations.push((i, tid));
+        } else if roots.len() == 1 {
+            // OPTIMIZATION & SAFETY:
+            // If a complex analysis results in a single root, we redirect directly
+            // to that root without involving the tracker (preventing Type::either panics).
+            mutations.push((i, roots[0]));
+        } else {
+            // MULTI-ROOT PIVOTING:
+            // For true unions (2+ roots), we request a unique pivot ID from the tracker.
+            // The tracker ensures that identical sets of roots share the same pivot.
+            let pivot_id = tracker.next_type_id(&roots);
+            mutations.push((i, pivot_id));
+        }
+    }
 
-                let symbol_id = problem.add_type_symbol(name_id);
-                let new_type_id = problem.add_type_defs(TypedSymbol::new(symbol_id, flattened_parents_ty))?;
+    // --- PHASE 2: APPLICATION (Mutation) ---
+    // Apply all planned mutations to the problem's type definitions.
+    for (index, target_id) in mutations {
+        problem.type_defs_mut()[index].set_ty(Type::primitive(target_id));
+    }
 
-                entry.insert(new_type_id);
-                new_type_id
+    Ok(())
+}
+
+/*pub fn flatten_type_def(problem: &mut LiftedProblem, tracker: &mut PivotTracker) -> Result<(), LirError> {
+    let mut parent_set = HashSet::new();
+    let mut stack = Vec::new();
+
+    // --- PASSE 1 : Collecte des roots ---
+    let num_initial_types = problem.type_defs().len();
+    let mut resolved_roots = Vec::with_capacity(num_initial_types);
+    for i in 0..num_initial_types {
+        let tid = TypeId::from(i);
+        let ty = problem.type_defs()[i].ty();
+
+        // 1. Racine atomique
+        if ty.is_empty() {
+            resolved_roots.push(Some(Vec::new()));
+            continue;
+        }
+
+        // 2. DÉJÀ APPLATI (Idempotence) :
+        // Si le type a un seul membre, c'est soit un pivot (auto-réf),
+        // soit une redirection déjà calculée (ex: t1 -> 3).
+        // On met None pour dire à la Passe 3 : "ne touche à rien".
+        if ty.members().len() == 1 {
+            resolved_roots.push(None);
+            continue;
+        }
+
+        // 3. À TRAITER (Either complexe)
+        let roots = get_root_types(tid, problem, &mut parent_set, &mut stack)?;
+        resolved_roots.push(Some(roots));
+    }
+
+    // --- PASSE 2 : ATTRIBUTION DES IDs ---
+    for i in 0..num_initial_types {
+        let tid = TypeId::from(i);
+        let entry = &resolved_roots[i];
+
+        match entry {
+            None => {
+                // Signal "Déjà fait" : on ne demande pas de modification
+
+            }
+            Some(roots) => {
+                if roots.is_empty() {
+                    // Racine atomique : reste elle-même
+                    problem.type_defs_mut()[i].set_ty(Type::primitive(tid));
+                } else {
+                    // Nouveau pivot via tracker
+                    let pivot_id = tracker.next_type_id(roots);
+                    problem.type_defs_mut()[i].set_ty(Type::primitive(pivot_id));
+                }
             }
         };
-
-        either_to_primitive.insert(ty_structure, pivot_id);
-        to_update.insert(original_id, pivot_id);
     }
 
-    // 3. Application Phase (Update the problem definitions)
-    for (old_id, new_pivot_id) in to_update {
-        let new_ty_def = Type::primitive(new_pivot_id);
-        if let Some(ts_mut) = problem.type_defs_mut().get_mut(old_id.as_usize()) {
-            ts_mut.set_ty(new_ty_def);
-        }
-    }
 
-    Ok(either_to_primitive)
-}
+    Ok(())
+}*/
 
-
-/// Returns the identifiers of all either types in the problem.
+/// Resolves the full lineage of a type to its terminal primitive roots.
 ///
-/// # Parameters
-/// - problem: the LiftedProblem containing all types.
+/// This function performs a Depth-First Search (DFS) to traverse the type hierarchy
+/// and collect all leaf types (types with no members). It ensures that complex
+/// nested `Either` types are flattened into a single-level list of base types.
+///
+/// # Arguments
+///
+/// * `ty_id` - The starting [`TypeId`] to resolve.
+/// * `problem` - A reference to the [`LiftedProblem`] containing the type definitions.
+/// * `lineage_set` - A reusable [`HashSet`] to collect unique root types without duplicates.
+/// * `stack` - A reusable [`Vec`] used as a work stack for the DFS traversal.
 ///
 /// # Returns
-/// A VecDeque of Idents representing types that are unions (either types).
-fn either_types(problem: &LiftedProblem) -> VecDeque<TypeId> {
-    // We don't pre-allocate the full length because either types are usually
-    // a small subset of the total types. VecDeque will grow as needed.
-    problem
-        .type_defs()
-        .iter()
-        .filter(|ts| ts.ty().is_either())
-        .map(|ts| ts.symbol())
-        .collect()
-}
-
-/// Returns all flattened root parent identifiers for a given `Type`, sorted.
 ///
-/// This function performs a Depth-First Search (DFS) to resolve all nested types
-/// (both `either` and `primitive` pointers) until only root types (empty definitions)
-/// remain. It uses reusable buffers to minimize heap allocations.
+/// * `Ok(Vec<TypeId>)` - A sorted list where the first element is `ty_id` (the identity),
+///   followed by all its terminal primitive roots.
+/// * `Err(LirError)` - If a type in the hierarchy cannot be found.
 ///
-/// # Parameters
-/// - `types`: The `Type` to types.
-/// - `problem`: The `LiftedProblem` context used to resolve `TypeID` definitions.
-/// - `stack`: A reusable `Vec` buffer used for the traversal stack.
-/// - `parent_set`: A reusable `HashSet` buffer used for duplicate removal.
+/// # Implementation Details
 ///
-/// # Returns
-/// - `Ok(Type::new())` if no parents are found.
-/// - `Ok(Type::primitive(id))` if exactly one root is found.
-/// - `Ok(Type::either(ids))` if multiple roots are found (sorted).
-/// - `Err(LirError)` if a `TypeID` cannot be resolved in the problem.
-fn get_parents(
-    ty: &Type<TypeId>,
+/// The function follows "Option B" logic: it ignores intermediate `Either` types
+/// and only collects types that have no further members (the "roots").
+/// The resulting vector is normalized (sorted) to ensure deterministic signatures.
+fn get_root_types(
+    ty_id: TypeId,
     problem: &LiftedProblem,
-    stack: &mut Vec<TypeId>,      // Buffer for the DFS traversal
-    parent_set: &mut HashSet<TypeId>, // Buffer for duplicate removal
-) -> Result<Type<TypeId>, LirError> {
-    // 1. Reset buffers without deallocating their capacity
+    parents_set: &mut HashSet<TypeId>,
+    stack: &mut Vec<(TypeId, Vec<TypeId>)>
+) -> Result<Vec<TypeId>, LirError> {
+    parents_set.clear();
     stack.clear();
-    parent_set.clear();
 
-    // 2. Initialize stack from type members
-    stack.extend(ty.iter());
+    stack.push((ty_id, Vec::new()));
 
-    // 3. Flattening via DFS
-    while let Some(m) = stack.pop() {
-        let member_def = problem.try_get_type(m)?.ty();
+    while let Some((current, mut path)) = stack.pop() {
+        let ty_def = problem.try_get_type(current)?.ty();
 
-        if member_def.is_empty() {
-            // CAS 1: Root type found (no further parents)
-            parent_set.insert(m);
+        // --- 1. DÉTECTION DE CYCLE ---
+        if path.contains(&current) {
+            // On autorise l'auto-référence des Pivots (marqueur d'aplatissement)
+            if !ty_def.is_empty() && ty_def.members()[0] == current {
+                continue;
+            }
+            panic!("ERREUR DOMAINE : Cycle détecté pour le type {:?}", current);
+        }
+
+        // --- 2. EXPLORATION ---
+        if ty_def.is_empty() {
+            if current != ty_id {
+                parents_set.insert(current);
+            }
         } else {
-            // CAS 2: Complex type (either or primitive pivot).
-            // We quantifiers its members to continue resolution.
-            // Using rev() preserves the original order in the DFS stack.
-            stack.extend(member_def.members().iter().rev());
+            // On descend dans les membres (soit un 'either', soit les racines d'un pivot)
+            path.push(current);
+            for &member in ty_def.members() {
+                stack.push((member, path.clone()));
+            }
         }
     }
 
-    // 4. Final collection and sorting
-    let mut parent_idents: Vec<TypeId> = parent_set.drain().collect();
+    // --- 3. RÉSULTAT TRIÉ ---
+    // On renvoie simplement la liste des racines atomiques trouvées.
+    let mut result: Vec<TypeId> = parents_set.drain().collect();
+    result.sort_unstable();
 
-    // Unstable sort is faster and sufficient for Copy types like TypeID
-    parent_idents.sort_unstable();
-
-    // 5. Canonical return based on the number of unique roots
-    match parent_idents.len() {
-        0 => Ok(Type::new()),
-        1 => Ok(Type::primitive(parent_idents[0])),
-        _ => Ok(Type::either(parent_idents)),
-    }
+    Ok(result)
 }
 
-/// Generates a canonical, stable name for an "either" type using efficient string slicing.
+/// Materializes a new Pivot type within the problem's definition.
 ///
-/// This function constructs a unique string representation for a union type (`either`) by
-/// concatenating its member type names. To ensure the same set of types always produces
-/// the same name regardless of order, the member names are sorted alphabetically.
+/// A Pivot is a canonical type that represents a unique combination of primitive roots.
+/// Once created, this pivot acts as the single point of reference for all
+/// original `Either` types that share the same leaf lineage.
 ///
-/// # Optimization
-/// This version minimizes heap allocations by:
-/// 1. Working with references (`&str`) directly from the interner instead of cloning strings.
-/// 2. Pre-calculating the exact total capacity required for the final `String`.
-/// 3. Performing a single allocation for the result.
+/// # Arguments
 ///
-/// # Parameters
-/// - `problem`: Reference to the `LiftedProblem` containing the type interner and symbol table.
-/// - `types`: The `Type` (union/either) whose member identifiers will be used for the name.
+/// * `problem` - A mutable reference to the [`LiftedProblem`] where the new type will be injected.
+/// * `pivot` - The structural signature (roots) identified by the tracker.
+/// * `pivot_name_buffer` - A reusable [`String`] buffer used by `reserve_pivot_id` to generate the pivot's name.
 ///
 /// # Returns
-/// - `Ok(String)` representing the canonical name, e.g., `"either_parent1_parent2"`.
-/// - `Err(LirError)` if any member identifier or string resolution fails.
-fn make_either_type_name(problem: &LiftedProblem, ty: &Type<TypeId>) -> Result<String, LirError> {
-    // 1. Pre-allocate a vector for references, not owned Strings
-    let mut parent_names: Vec<&str> = Vec::with_capacity(ty.len());
+///
+/// * `Ok(TypeId)` - The unique identifier of the newly created Pivot type.
+/// * `Err(LirError)` - If the name reservation or type definition injection fails.
+///
+/// # Implementation Details
+///
+/// The pivot's internal definition follows a specific layout: `[Self, Root1, Root2, ...]`.
+/// This self-reference at index 0 is a requirement for the grounding engine to
+/// treat the pivot as a valid member of its own type set.
+fn create_pivot(
+    problem: &mut LiftedProblem,
+    pivot: &Type<TypeId>,
+    pivot_name_buffer: &mut String,
+) -> Result<TypeId, LirError> {
+    // --- STEP 1: Identity Reservation ---
+    // Generate a unique name (e.g., "either_a_b") and reserve a new TypeId
+    // in the problem's symbol table.
+    let pivot_id = reserve_pivot_id(problem, pivot, pivot_name_buffer)?;
 
-    // 2. Resolve all identifiers to their string slices
-    for id in ty.iter() {
+    // --- STEP 2: Definition Construction ---
+    // Prepare the member list. We allocate exactly pivot.len() + 1 to include
+    // the pivot's self-reference at the head of the list.
+    let mut members = Vec::with_capacity(pivot.len() + 1);
+    members.push(pivot_id);
+    members.extend(pivot.members());
+
+    // --- STEP 3: Global Registration ---
+    // Inject the new TypedSymbol into the problem's type definitions.
+    // The pivot is defined as an 'Either' of its roots and itself.
+    problem.add_type_defs(TypedSymbol::new(
+        pivot_id,
+        Type::either(members)
+    ))?;
+
+    Ok(pivot_id)
+}
+
+/// Generates a unique name for a pivot type and reserves its ID in the symbol table.
+///
+/// This function constructs a deterministic name based on the sorted names of its
+/// parent roots (e.g., `either_airplane_truck`). It then interns this name to
+/// obtain a stable symbol and registers it as a new type in the problem.
+///
+/// # Arguments
+///
+/// * `problem` - A mutable reference to the [`LiftedProblem`] to update the interner and symbol table.
+/// * `pivot` - The structural signature ([`Type`] reference) containing the root TypeIds that define the pivot.
+/// * `pivot_name_buffer` - A reusable [`String`] buffer to build the pivot's name without new allocations.
+///
+/// # Returns
+///
+/// * `Ok(TypeId)` - The newly reserved unique identifier for this pivot.
+/// * `Err(LirError)` - If a parent TypeId cannot be resolved to a human-readable name.
+///
+/// # Implementation Details
+///
+/// 1. **Name Resolution**: Fetches the string representation of each root TypeId present in `pivot`.
+/// 2. **Lexicographical Sorting**: Sorts parent names alphabetically to ensure that
+///    `either_a_b` and `either_b_a` result in the exact same symbol.
+/// 3. **String Construction**: Builds the name using the defined `EITHER_PREFIX` and `EITHER_SEP` in `pivot_name_buffer`.
+/// 4. **Interning**: Converts the `String` into a `SymbolId` via the problem's interner.
+/// 5. **Registration**: Adds the symbol to the problem's type registry to get a fresh [`TypeId`].
+fn reserve_pivot_id(
+    problem: &mut LiftedProblem,
+    pivot: &Type<TypeId>,
+    pivot_name_buffer: &mut String,
+) -> Result<TypeId, LirError> {
+    // Collect human-readable names of all roots.
+    let mut parent_names: Vec<&str> = Vec::with_capacity(pivot.len());
+
+    for id in pivot.iter() {
         let string_id = problem.type_symbols().try_get_ident(*id)?;
         let name = problem.interner().try_resolve_symbol(*string_id)?;
         parent_names.push(name);
     }
 
-    // 3. Sort references (very fast, just compares pointers/slices)
+    // Sort names to guarantee name determinism (order-independent).
     parent_names.sort_unstable();
 
-    // 4. Calculate total capacity needed to avoid reallocations during formatting
-    // Prefix + Sep + Names + Separators
-    let total_len = EITHER_PREFIX.len()
-        + EITHER_SEP.len()
-        + parent_names.iter().map(|n| n.len()).sum::<usize>()
-        + (parent_names.len().saturating_sub(1) * EITHER_SEP.len());
+    // --- Name Construction ---
+    // Reuse the provided buffer to avoid unnecessary heap allocations.
+    pivot_name_buffer.clear();
+    pivot_name_buffer.push_str(EITHER_PREFIX);
+    pivot_name_buffer.push_str(EITHER_SEP);
 
-    let mut result = String::with_capacity(total_len);
-
-    // 5. Build the final string
-    result.push_str(EITHER_PREFIX);
-    result.push_str(EITHER_SEP);
-
-    for (i, name) in parent_names.iter().enumerate() {
+    for (i, parent_name) in parent_names.iter().enumerate() {
         if i > 0 {
-            result.push_str(EITHER_SEP);
+            pivot_name_buffer.push_str(EITHER_SEP);
         }
-        result.push_str(name);
+        pivot_name_buffer.push_str(parent_name);
     }
 
-    Ok(result)
+    // --- Symbol Interning ---
+    // Convert the temporary String into a permanent, unique SymbolId.
+    let name_id = problem.interner_mut().intern_symbol(pivot_name_buffer.clone());
+
+    // --- ID Reservation ---
+    // Register the symbol in the problem's type table and return the new TypeId.
+    Ok(problem.add_type_symbol(name_id))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Traverses and updates all components of the [`LiftedProblem`] to use flattened types.
+///
+/// After the type definitions themselves have been flattened and pivots created,
+/// this function propagates those changes throughout the entire problem structure.
+/// It ensures that every reference to an original `Either` type is replaced by its
+/// corresponding primitive pivot.
+///
+/// # Arguments
+///
+/// * `problem` - A mutable reference to the [`LiftedProblem`] to be updated.
+/// * `tracker` - A reference to the [`PivotTracker`] containing the mapping
+///   between original type signatures and their new Pivot IDs.
+/// * `stack` - A reusable [`Vec<NodeId>`] buffer used for tree-walking during
+///   expression flattening (prevents recursive allocations).
+///
+/// # Returns
+///
+/// * `Ok(())` - If all components were successfully remapped.
+/// * `Err(LirError)` - If a type reference in any component cannot be resolved.
+///
+/// # Propagation Scope
+///
+/// This function handles the "Ripple Effect" of flattening across:
+/// 1. **Objects & Constants**: Re-typing all physical entities in the problem.
+/// 2. **Signatures**: Predicates, Functions, and HTN Task skeletons.
+/// 3. **Logic**: Domain/Problem constraints, Goal conditions, and Derived Predicates.
+/// 4. **Execution**: Action parameters/preconditions/effects and HTN Methods.
+pub fn flatten_problem_types(
+    problem: &mut LiftedProblem,
+    tracker: &mut PivotTracker,
+    stack: &mut Vec<NodeId>,
+) -> Result<(), LirError> {
 
-    #[test]
-    fn test_flatten_types_def_simple() -> Result<(), LirError> {
-        use crate::aiplan4rust::interner::SymbolInterner;
-        use crate::aiplan4rust::lang::{Type, TypedSymbol, TypeId};
-        use crate::aiplan4rust::lir::problem::LiftedProblem;
-        use std::collections::HashSet;
-
-        let mut interner = SymbolInterner::new();
-
-        // 1. Prepare Identifiers
-        let name_a = interner.intern_symbol("a");
-        let name_b = interner.intern_symbol("b");
-        let name_c = interner.intern_symbol("c");
-        let name_d = interner.intern_symbol("d");
-
-        // 2. Initialize the problem
-        let mut problem = LiftedProblem::new(interner, HashSet::new());
-
-        // 3. Symbol Reservation phase
-        // add_type_symbol allocates slots in the vector and returns the TypeID
-        let id_a = problem.add_type_symbol(name_a);
-        let id_b = problem.add_type_symbol(name_b);
-        let id_c = problem.add_type_symbol(name_c);
-        let id_d = problem.add_type_symbol(name_d);
-
-        // 4. Data Injection phase
-        // We define a, b, c as primitives of 'object' (roots for the purpose of this test)
-        // Note: In a real LIR problem, roots often have an empty definition Type::new()
-        problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?;
-        problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?;
-        problem.add_type_defs(TypedSymbol::new(id_c, Type::new()))?;
-
-        // Define 'd' as a union (either) of a, b, and c
-        let either_abc_type = Type::either(vec![id_a, id_b, id_c]);
-        problem.add_type_defs(TypedSymbol::new(id_d, either_abc_type))?;
-
-        // --- BEFORE Flattening Output ---
-        println!("\nTypes before flattening:");
-        for (idx, ts) in problem.type_defs().iter().enumerate() {
-            let type_id = TypeId::from(idx);
-            let string_id = problem.type_symbols().get_ident(type_id)
-                .expect("TypeID must have an associated name");
-
-            let name = problem.interner().try_resolve_symbol(*string_id)?;
-            println!("{}: {:?}", name, ts.ty().members());
-        }
-
-        // 5. Execute flattening
-        super::flatten_types_def(&mut problem).expect("Flattening failed");
-
-        // --- AFTER Flattening Output ---
-        println!("\nTypes after flattening:");
-        for (idx, ts) in problem.type_defs().iter().enumerate() {
-            let type_id = TypeId::from(idx);
-            let string_id = problem.type_symbols().try_get_ident(type_id)?;
-            let name = problem.interner().try_resolve_symbol(*string_id)?;
-            println!("{}: {:?}", name, ts.ty().members());
-        }
-
-        // 6. Final Verifications
-
-        // Type 'd' must now be a primitive pointing to the new pivot type 'either_a_b_c'
-        let sym_d = problem.try_get_type(id_d).expect("Type 'd' must exist");
-        assert!(sym_d.ty().is_primitive(), "Type 'd' should have become primitive");
-        assert_eq!(sym_d.ty().members().len(), 1, "Type 'd' should point to exactly one pivot");
-
-        // Retrieve the Pivot Type created during flattening
-        let pivot_type_id = sym_d.ty().members()[0];
-        let pivot_symbol = problem.try_get_type(pivot_type_id)?;
-
-        // Verify Pivot internal structure
-        assert!(pivot_symbol.ty().is_either(), "The pivot itself must be an 'either' type");
-        let pivot_members = pivot_symbol.ty().members();
-        assert_eq!(pivot_members.len(), 3, "Pivot should contain exactly 3 roots (a, b, c)");
-        assert!(pivot_members.contains(&id_a));
-        assert!(pivot_members.contains(&id_b));
-        assert!(pivot_members.contains(&id_c));
-
-        // Verify Pivot naming in the interner
-        let pivot_string_id = problem.type_symbols().get_ident(pivot_type_id)
-            .expect("Pivot type must be registered in the symbol table");
-
-        let pivot_name = problem.interner().try_resolve_symbol(*pivot_string_id)?;
-        println!("New pivot created: {}", pivot_name);
-
-        assert!(pivot_name.starts_with("either_"), "Pivot name should start with 'either_'");
-        // Depending on your make_either_type_name ops, it might contain names or IDs
-        assert!(pivot_name.contains("a") || pivot_name.contains("b") || pivot_name.contains("c"),
-                "Pivot name should be descriptive of its members");
-
-        Ok(())
+    // --- Objects & Constants ---
+    // Re-type all objects (e.g., 'truck1' from 'truck' to 'pivot_truck_airplane').
+    for object in problem.object_defs_mut() {
+        typed_symbol::flatten_typed_object(object, tracker)?;
     }
 
-    #[test]
-    fn test_flatten_types_def_complex() -> Result<(), LirError> {
-        use crate::aiplan4rust::interner::SymbolInterner;
-        use crate::aiplan4rust::lang::{Type, TypedSymbol};
-        use crate::aiplan4rust::lir::problem::LiftedProblem;
-        use std::collections::HashSet;
-
-        let mut interner = SymbolInterner::new();
-
-        // 1. Prepare Identifiers
-        let name_a = interner.intern_symbol("a");
-        let name_b = interner.intern_symbol("b");
-        let name_c = interner.intern_symbol("c");
-        let name_d = interner.intern_symbol("d");
-        let name_e = interner.intern_symbol("e");
-        let name_f = interner.intern_symbol("f");
-
-        // 2. Initialize the problem
-        let mut problem = LiftedProblem::new(interner, HashSet::new());
-
-        // 3. Reservation phase (add_type_symbol)
-        let id_a = problem.add_type_symbol(name_a);
-        let id_b = problem.add_type_symbol(name_b);
-        let id_c = problem.add_type_symbol(name_c);
-        let id_d = problem.add_type_symbol(name_d);
-        let id_e = problem.add_type_symbol(name_e);
-        let id_f = problem.add_type_symbol(name_f);
-
-        // 4. Injection phase (add_type)
-        problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?; // Root type
-        problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?; // Root type
-
-        // Define complex hierarchy:
-        // c = either(a, b)
-        problem.add_type_defs(TypedSymbol::new(id_c, Type::either(vec![id_a, id_b])))?;
-        // d = either(a, c) -> should resolve to {a, b}
-        problem.add_type_defs(TypedSymbol::new(id_d, Type::either(vec![id_a, id_c])))?;
-        // e = either(c, d) -> should resolve to {a, b}
-        problem.add_type_defs(TypedSymbol::new(id_e, Type::either(vec![id_c, id_d])))?;
-        // f = either(b, c) -> should resolve to {a, b}
-        problem.add_type_defs(TypedSymbol::new(id_f, Type::either(vec![id_b, id_c])))?;
-
-        // 5. Execute flattening
-        super::flatten_types_def(&mut problem)?;
-
-        // 6. VERIFICATIONS
-
-        // We expect c, d, e, and f to all point to the EXACT SAME pivot ID
-        let mut pivot_ids = HashSet::new();
-
-        for &id in &[id_c, id_d, id_e, id_f] {
-            let ts = problem.try_get_type(id)?;
-
-            // A. Verify type is now a Primitive (Single pointer)
-            let type_name = problem.interner().try_resolve_symbol(
-                *problem.type_symbols().try_get_ident(id)?
-            )?;
-
-            assert!(
-                ts.ty().is_primitive(),
-                "Type '{}' should be a primitive after flattening", type_name
-            );
-
-            // B. Collect the pivot ID
-            let pivot_id = ts.ty().members()[0];
-            pivot_ids.insert(pivot_id);
-
-            // C. Verify the pivot definition
-            let pivot_ts = problem.try_get_type(pivot_id)?;
-            assert!(
-                pivot_ts.ty().is_either(),
-                "Pivot for '{}' must be an 'either' type (the actual definition)", type_name
-            );
-
-            // D. Verify the pivot contains ONLY atomic roots (Full Flattening)
-            let members = pivot_ts.ty().members();
-            assert_eq!(
-                members.len(), 2,
-                "Pivot for '{}' should have exactly 2 members (a and b)", type_name
-            );
-            assert!(members.contains(&id_a), "Pivot for '{}' is missing root 'a'", type_name);
-            assert!(members.contains(&id_b), "Pivot for '{}' is missing root 'b'", type_name);
-
-            // E. Verify no residual recursion (pivot members must be empty/roots)
-            for &m_id in members {
-                assert!(
-                    problem.try_get_type(m_id)?.ty().is_empty(),
-                    "Pivot member must be a root type, not another pointer"
-                );
-            }
-        }
-
-        // F. CANONICALIZATION CHECK (Deduplication)
-        assert_eq!(
-            pivot_ids.len(),
-            1,
-            "Redundant types (c, d, e, f) should all point to the same unique pivot"
-        );
-
-        // G. Verify pivot naming convention
-        let final_pivot_id = *pivot_ids.iter().next().unwrap();
-        let pivot_string_id = problem.type_symbols().try_get_ident(final_pivot_id)?;
-        let pivot_name = problem.interner().try_resolve_symbol(*pivot_string_id)?;
-
-        assert!(
-            pivot_name.starts_with("either_"),
-            "Pivot name '{}' does not follow the naming convention", pivot_name
-        );
-
-        Ok(())
+    // --- Atomic Signatures ---
+    // Update the parameter types for predicates and functions.
+    for atomic_formula in problem.predicate_defs_mut() {
+        atomic_formula_skeleton::flatten(atomic_formula, tracker)?;
     }
 
-    #[test]
-    fn test_flatten_diamond_dependency() -> Result<(), LirError> {
-        use crate::aiplan4rust::interner::SymbolInterner;
-        use crate::aiplan4rust::lang::{Type, TypedSymbol};
-        use crate::aiplan4rust::lir::problem::LiftedProblem;
-        use std::collections::HashSet;
-
-        let interner = SymbolInterner::new();
-        let mut problem = LiftedProblem::new(interner, HashSet::new());
-
-        // 1. Create roots
-        let a = problem.interner_mut().intern_symbol("a");
-        let id_a = problem.add_type_symbol(a);
-        let b = problem.interner_mut().intern_symbol("b");
-        let id_b = problem.add_type_symbol(b);
-        let e = problem.interner_mut().intern_symbol("e");
-        let id_e = problem.add_type_symbol(e);
-
-        problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?;
-        problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?;
-        problem.add_type_defs(TypedSymbol::new(id_e, Type::new()))?;
-
-        // 2. Intermediate types
-        let c = problem.interner_mut().intern_symbol("c");
-        let id_c = problem.add_type_symbol(c);
-        let d = problem.interner_mut().intern_symbol("d");
-        let id_d = problem.add_type_symbol(d);
-        problem.add_type_defs(TypedSymbol::new(id_c, Type::either(vec![id_a, id_b])))?;
-        problem.add_type_defs(TypedSymbol::new(id_d, Type::either(vec![id_b, id_e])))?;
-
-        // 3. Diamond types: both resolve to {a, b, e}
-        let f = problem.interner_mut().intern_symbol("f");
-        let id_f = problem.add_type_symbol(f);
-        let g = problem.interner_mut().intern_symbol("g");
-        let id_g = problem.add_type_symbol(g);
-        problem.add_type_defs(TypedSymbol::new(id_f, Type::either(vec![id_c, id_d])))?; // {a, b} + {b, e}
-        problem.add_type_defs(TypedSymbol::new(id_g, Type::either(vec![id_a, id_d])))?; // {a} + {b, e}
-
-        // 4. Flatten
-        super::flatten_types_def(&mut problem)?;
-
-        // 5. Verification
-        let pivot_f = problem.try_get_type(id_f)?.ty().members()[0];
-        let pivot_g = problem.try_get_type(id_g)?.ty().members()[0];
-
-        // Check canonicalization (the most important part)
-        assert_eq!(pivot_f, pivot_g, "F and G should point to the exact same pivot because they have identical roots");
-
-        let final_pivot = problem.try_get_type(pivot_f)?.ty();
-        assert_eq!(final_pivot.members().len(), 3, "The pivot should have exactly 3 unique roots: a, b, e");
-        assert!(final_pivot.members().contains(&id_a));
-        assert!(final_pivot.members().contains(&id_b));
-        assert!(final_pivot.members().contains(&id_e));
-
-        Ok(())
+    for atomic_function in problem.function_defs_mut() {
+        atomic_function_skeleton::flatten(atomic_function, tracker)?;
     }
+
+    // --- Constraints & Global Logic ---
+    // Perform a deep traversal of expression trees for domain and problem constraints.
+    expr::flatten(problem.domain_constraints_mut(), tracker, stack)?;
+    expr::flatten(problem.problem_constraints_mut(), tracker, stack)?;
+
+    // --- HTN Tasks ---
+    // Update the abstract task definitions in Hierarchical Task Networks.
+    for task in problem.task_defs_mut() {
+        task::flatten(task, tracker)?;
+    }
+
+    // --- Derived Predicates ---
+    // Update axioms and their underlying logic.
+    for derived_predicate in problem.derived_predicate_defs_mut() {
+        derived_predicate::flatten(derived_predicate, tracker, stack)?;
+    }
+
+    // --- Actions ---
+    // The core of the LIR: parameters, preconditions, and effects.
+    for action in problem.action_defs_mut() {
+        action::flatten(action, tracker, stack)?;
+    }
+
+    // --- HTN Methods ---
+    // Update method preconditions and sub-task networks.
+    for method in problem.method_defs_mut() {
+        method::flatten(method, tracker, stack)?;
+    }
+
+    // --- Goal State ---
+    // Final check on the goal expression tree.
+    expr::flatten(problem.goal_mut(), tracker, stack)?;
+
+    // --- Initial Task Network ---
+    // Ensure the starting HTN state is consistent with the new types.
+    initial_task_network::flatten(problem.initial_task_network_mut(), tracker)?;
+
+    Ok(())
 }

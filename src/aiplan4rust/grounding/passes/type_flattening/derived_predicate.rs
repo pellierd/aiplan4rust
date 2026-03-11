@@ -1,39 +1,50 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeId};
+//! # Derived Predicate Flattening
+//!
+//! This module implements the type flattening logic for Derived Predicates (Axioms).
+//!
+//! ## Overview
+//! A Derived Predicate consists of a **head** (its signature) and a **body** //! (a logical expression defining when the predicate is true). 
+//!
+//! Flattening a derived predicate involves:
+//! 1. **Head Flattening**: Updating the types of the predicate's parameters 
+//!    to use primitive pivot types.
+//! 2. **Body Flattening**: Recursively updating the logical formula that 
+//!    defines the predicate, ensuring all internal variables and quantifiers 
+//!    are consistent with the new type system.
+
 use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::type_flattening::{atomic_formula_skeleton, expr};
+use crate::type_flattening::PivotTracker;
+use crate::aiplan4rust::tree::NodeId;
 
-/// Flattens all union types (`Type::Either`) within a `DerivedPredicate` in place.
+/// Flattens a derived predicate definition in-place.
 ///
-/// This function performs a complete transformation of the derived predicate by:
-/// 1. Flattening the **head** (the signature) via `atomic_formula_skeleton`.
-/// 2. Flattening the **body** (the logical formula) via `expr`.
+/// This function simplifies the types within the predicate's signature (head) 
+/// and propagates those changes through the logical definition (body).
 ///
-/// This ensures that both the definition of the derived predicate and its
-/// underlying ops use the same canonical primitive types (pivots).
+/// # Arguments
+/// * `derived_predicate` - A mutable reference to the predicate to transform.
+/// * `tracker` - The shared [`PivotTracker`] for consistent type mapping.
+/// * `stack` - A reusable buffer for the non-recursive traversal of the body expression.
 ///
-/// # Parameters
-/// - `derived_predicate`: The derived predicate structure to modify.
-/// - `map`: A mapping from union types to their unique flattened primitive type identifiers.
-///
-/// # Returns
-/// - `Ok(())` if the head and the body were successfully flattened.
-/// - `Err(LirError)` if any part of the predicate refers to a union type missing from the mapping.
-///
-/// # Implementation Note
-/// Since derived predicates often bridge different parts of the domain, it is
-/// critical to types the body to ensure that any variables or sub-expr
-/// remain type-consistent with the flattened objects.
+/// # Errors
+/// Returns a [`LirError`] if the signature flattening or the expression 
+/// tree traversal encounters an inconsistency.
 pub fn flatten(
     derived_predicate: &mut DerivedPredicate,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
+    stack: &mut Vec<NodeId>,
 ) -> Result<(), LirError> {
-    // 1. Flatten the signature (head)
-    atomic_formula_skeleton::flatten(derived_predicate.head_mut(), map)?;
+    // 1. Flatten the signature (the "head").
+    // We reuse the atomic formula logic as derived predicate heads share 
+    // the same structure as standard predicates.
+    atomic_formula_skeleton::flatten(derived_predicate.head_mut(), tracker)?;
 
-    // 2. Flatten the logical definition (body)
-    expr::flatten(derived_predicate.body_mut(), map)?;
+    // 2. Flatten the logical definition (the "body").
+    // We utilize the provided stack to perform an efficient DFS traversal 
+    // of the expression tree, which may contain complex logical operators.
+    expr::flatten(derived_predicate.body_mut(), tracker, stack)?;
 
     Ok(())
 }

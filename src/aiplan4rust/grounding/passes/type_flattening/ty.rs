@@ -1,28 +1,50 @@
-use std::collections::HashMap;
+//! # Type In-Place Flattening
+//!
+//! This module provides the core logic for simplifying the LIR type system.
+//!
+//! ## Core Logic
+//! It detects complex type structures—specifically `either` types—and 
+//! collapses them into primitive types. This process ensures that the 
+//! rest of the planning pipeline only has to deal with simple, 
+//! non-hierarchical type identifiers.
+//!
+//! The mapping between the original complex members and the new 
+//! primitive "pivot" is managed by the [`PivotTracker`].
+
 use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::LirError;
+use crate::type_flattening::PivotTracker;
 
-/// Flattens a `Type<TID>` in place according to the provided mapping.
+/// Flattens a type definition in-place.
 ///
-/// # Parameters
-/// - `types`: The type to modify.
-/// - `map`: A mapping from union types (`Type::Either`) to their corresponding flattened type identifiers.
+/// If the provided type is an `either` type (a union of multiple types), 
+/// it is replaced by a single primitive type ID.
 ///
-/// # Returns
-/// - `Ok(())` if the type is successfully remapped or is already non-union.
-/// - `Err(LirError)` if a union type cannot be remapped due to a missing mapping.
+/// # Mechanism
+/// 1. Checks if the type `is_either()`.
+/// 2. Queries the [`PivotTracker`] to get or create a "pivot" `TypeId` 
+///    corresponding to that specific set of member types.
+/// 3. Replaces the current `Type` value with a `Type::primitive` using that ID.
+///
+/// # Arguments
+/// * `ty` - A mutable reference to the type to be flattened.
+/// * `tracker` - The stateful tracker that ensures consistent ID mapping.
+///
+/// # Errors
+/// Returns a [`LirError`] if the tracker fails to allocate or retrieve a pivot ID.
 pub fn flatten(
     ty: &mut Type<TypeId>,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
 ) -> Result<(), LirError> {
     if ty.is_either() {
-        if let Some(&new_ident) = map.get(ty) {
-            let members = ty.members_mut();
-            members.clear();
-            members.push(new_ident);
-        } else {
-            return Err(LirError::missing_type(ty.clone()));
-        }
+        // Retrieve the pivot ID (existing or newly created) from the tracker
+        // based on the set of members in the 'either' type.
+        let target_id = tracker.next_type_id(ty.members());
+
+        // Replace the complex "either" structure with the corresponding 
+        // primitive type. This effectively "flattens" the hierarchy.
+        *ty = Type::primitive(target_id);
     }
+
     Ok(())
 }

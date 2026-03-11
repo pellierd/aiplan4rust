@@ -1,37 +1,52 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeId};
+//! # HTN Method Flattening
+//!
+//! This module implements the type flattening logic for HTN Methods.
+//!
+//! ## Overview
+//! A Method in HTN defines how an abstract task can be decomposed into a 
+//! sub-network of tasks. Flattening a method requires ensuring that its 
+//! signature and its applicability conditions (preconditions) use 
+//! consistent primitive types.
+//!
+//! The process involves:
+//! 1. **Parameter Flattening**: Simplifying the types of the method's variables.
+//! 2. **Precondition Flattening**: Recursively traversing the precondition 
+//!    expression tree to resolve hierarchical types in logical constraints 
+//!    (e.g., in `forall` or `exists` quantifiers).
+
 use crate::aiplan4rust::lir::MethodDef;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::grounding::passes::type_flattening::{expr, typed_list};
+use crate::type_flattening::PivotTracker;
+use crate::aiplan4rust::tree::NodeId;
 
-/// Flattens all union types (`Type::Either`) within a `Method` in place.
+/// Flattens an HTN method definition in-place.
 ///
-/// This transformation ensures that the method's signature, the task it refines,
-/// its applicability preconditions, and its decomposition network all use
-/// primitive types from the flattened domain.
+/// This function simplifies the types within the method's parameters and 
+/// propagates those changes through the precondition expression tree.
 ///
-/// # Parameters
-/// - `method`: The `Method` structure to modify.
-/// - `map`: A mapping from union types to their unique flattened primitive `TypeID`.
+/// # Arguments
+/// * `method` - A mutable reference to the Method definition to transform.
+/// * `tracker` - The shared pivot tracker for consistent type mapping.
+/// * `stack` - A reusable stack buffer for the depth-first traversal of 
+///   the precondition expression tree.
 ///
-/// # Returns
-/// - `Ok(())` if all components were successfully flattened.
-/// - `Err(LirError)` if a union type is encountered that is not in the mapping.
+/// # Errors
+/// Returns a [`LirError`] if parameter flattening or expression 
+/// traversal fails.
 pub fn flatten(
     method: &mut MethodDef,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
+    stack: &mut Vec<NodeId>,
 ) -> Result<(), LirError> {
-    // 1. Flatten method parameters
-    // Remaps types in the method's signature (NamedTypedList).
-    typed_list::flatten_typed_variable_list(method.parameters_mut(), map)?;
+    // 1. Process the primary source of types: the method's parameter list.
+    // This ensures the method's signature matches the flattened domain.
+    typed_list::flatten_typed_variable_list(method.parameters_mut(), tracker)?;
 
-    // 2. Flatten the task expression
-    // Remaps types for the arguments of the abstract task being refined.
-    expr::flatten(method.task_mut(), map)?;
-
-    // 3. Flatten the precondition expression tree
-    // Remaps types used in the logical conditions of the method.
-    expr::flatten(method.precondition_mut(), map)?;
+    // 2. Process the precondition expression tree.
+    // We pass the stack to allow for an efficient, non-recursive 
+    // traversal of the logical formula.
+    expr::flatten(method.precondition_mut(), tracker, stack)?;
 
     Ok(())
 }

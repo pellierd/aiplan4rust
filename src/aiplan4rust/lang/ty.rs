@@ -1,3 +1,4 @@
+use core::borrow::Borrow;
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{SymbolId, TypeId, Id, RemapSymbol};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
@@ -73,6 +74,15 @@ impl<'a, ID: Id> IntoIterator for &'a Type<ID> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+// --- 2. Bloc d'implémentation du Trait Borrow ---
+// C'est ici que l'on permet la comparaison "Type <-> Slice" pour l'IndexMap
+impl<ID: Id> Borrow<[ID]> for Type<ID> {
+    #[inline(always)]
+    fn borrow(&self) -> &[ID] {
+        &self.members // ou self.members()
     }
 }
 

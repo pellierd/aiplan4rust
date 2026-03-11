@@ -1,60 +1,59 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeId};
+//! # Action Definition Flattening
+//!
+//! This module implements the type flattening logic for primitive actions.
+//!
+//! ## Overview
+//! Actions are the fundamental operators of a planning domain. Flattening 
+//! an action requires a consistent transformation of its signature and its 
+//! logical components to ensure that the grounded state space remains valid.
+//!
+//! The transformation process follows three steps:
+//! 1. **Signature Flattening**: Converting hierarchical parameter types into 
+//!    primitive pivot types.
+//! 2. **Precondition Flattening**: Resolving types within the logical formulas 
+//!    that govern the action's applicability.
+//! 3. **Effect Flattening**: Resolving types within the formulas that describe 
+//!    how the world state changes.
+
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::grounding::passes::type_flattening::{expr, typed_list};
+use crate::aiplan4rust::grounding::passes::type_flattening::{expr};
+use crate::aiplan4rust::tree::NodeId;
+use crate::type_flattening::pivot_tracker::PivotTracker;
+use crate::type_flattening::typed_list;
 
-/// Flattens all union types (`Type::Either`) within an `Action` in place.
+/// Flattens a primitive action definition in-place.
 ///
-/// This function performs a complete transformation of the action by:
-/// 1. Flattening the **parameters** in the header via `typed_list`.
-/// 2. Flattening the **precondition** expression tree via `expr`.
-/// 3. Flattening the **effect** expression tree via `expr`.
+/// This function simplifies the types within the action's parameters and 
+/// propagates those changes through both the precondition and effect 
+/// expression trees.
 ///
-/// # Parameters
-/// - `action`: The `Action` structure to modify.
-/// - `map`: A mapping from union types to their unique flattened primitive `TypeID` (pivots).
+/// # Arguments
+/// * `action` - A mutable reference to the Action definition to transform.
+/// * `tracker` - The shared [`PivotTracker`] for consistent type mapping.
+/// * `stack` - A reusable buffer for the non-recursive traversal of the 
+///   expression trees, preventing frequent heap allocations.
 ///
-/// # Returns
-/// - `Ok(())` if the header, precondition, and effect were successfully flattened.
-/// - `Err(LirError)` if any part of the action refers to a union type missing from the mapping.
-///
-/// # Implementation Note
-/// It is vital to types both preconditions and effects because they often
-/// contain quantified variables (forall/exists) or refer to object types that
-/// must match the flattened domain.
-/// Aplatit tous les types d'union (`Type::Either`) au sein d'une `Action` en place.
-///
-/// Cette fonction effectue une transformation complète de l'action en :
-/// 1. Aplatissant les **paramètres** de la signature.
-/// 2. Aplatissant l'expression de la **durée** (si présente).
-/// 3. Aplatissant l'arbre d'expression des **préconditions** (ou conditions).
-/// 4. Aplatissant l'arbre d'expression des **effets**.
-///
-/// # Paramètres
-/// - `action`: La structure `Action` à modifier.
-/// - `map`: Une table de hachage associant les types d'union à leur `TypeID` primitif unique.
-///
-/// # Returns
-/// - `Ok(())` si tous les composants ont été aplatis avec succès.
-/// - `Err(LirError)` si une partie de l'action fait référence à un type d'union absent de la table.
+/// # Errors
+/// Returns a [`LirError`] if parameter flattening or expression 
+/// traversal fails in either the preconditions or effects.
 pub fn flatten(
     action: &mut ActionDef,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
+    stack: &mut Vec<NodeId>,
 ) -> Result<(), LirError> {
-    // 1. Aplatissement des paramètres dans l'en-tête de l'action
-    typed_list::flatten_typed_variable_list(action.parameters_mut(), map)?;
+    // 1. Flatten the action's parameters (the signature).
+    // This centralizes the logic for variable-type mapping.
+    typed_list::flatten_typed_variable_list(action.parameters_mut(), tracker)?;
 
-    // 2. Aplatissement de la durée (spécifique aux actions temporelles)
-    if let Some(duration_mut) = action.duration_mut() {
-        expr::flatten(duration_mut, map)?;
-    }
+    // 2. Flatten the precondition expression tree.
+    // Reuses the pre-allocated stack to avoid unnecessary memory overhead.
+    expr::flatten(action.precondition_mut(), tracker, stack)?;
 
-    // 3. Aplatissement des préconditions (ou conditions temporelles)
-    expr::flatten(action.precondition_mut(), map)?;
-
-    // 4. Aplatissement des effets
-    expr::flatten(action.effect_mut(), map)?;
+    // 3. Flatten the effect expression tree.
+    // The same tracker and stack are used to ensure the entire action 
+    // is consistent with the global flattened domain.
+    expr::flatten(action.effect_mut(), tracker, stack)?;
 
     Ok(())
 }

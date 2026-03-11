@@ -8,7 +8,7 @@ use crate::common::io::*;
 use crate::common::pipeline::{analyze_file, encode, link};
 
 use aiplan4rust::DatalogEngine;
-use aiplan4rust::type_flattening::problem::flatten as flatten_types;
+use aiplan4rust::type_flattening;
 use aiplan4rust::quantifier_expansion::problem::expand_with;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::aiplan4rust::grounding::passes::positive_form_normalization::to_pnf;
@@ -55,7 +55,7 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
 
         let mut pb = lir_result.take_lifted_problem().expect("No lifted problem");
 
-        flatten_types(&mut pb).unwrap();
+        type_flattening::flatten(&mut pb).unwrap();
         let table = analyze_inertia(&pb).unwrap();
         let registry = ValueRegistry::build(pb.type_defs(), pb.object_defs(), config::DEFAULT_VALUE_REGISTRY_SIZE).unwrap();
         let evaluator = InertiaEvaluator::build(pb.predicate_defs(), pb.function_defs(), pb.init(), &table, &registry, config::DEFAULT_MAX_ARITY, config::DEFAULT_MAX_PROJ).unwrap();

@@ -1,29 +1,39 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeId};
+//! # Atomic Formula Flattening
+//!
+//! This module implements the type flattening logic for Atomic Formulae (Predicates).
+//!
+//! ## Overview
+//! Atomic Formulae are the building blocks of logical conditions in PDDL and HDN.
+//! They consist of a predicate symbol applied to a list of typed arguments.
+//!
+//! Flattening an atomic formula ensures that all its arguments are restricted 
+//! to primitive types. This is essential for the *grounding* process, as it 
+//! allows the system to match predicate arguments against a flat set of 
+//! objects and constants.
+
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::type_flattening::typed_list;
+use crate::type_flattening::PivotTracker;
 
-/// Flattens all types within an `AtomicFormulaSkeleton` in place according to the provided mapping.
+/// Flattens an atomic formula skeleton in-place.
 ///
-/// This function iterates through the parameters of a predicate or atomic formula skeleton
-/// and replaces any complex union types (`Type::Either`) with their corresponding
-/// flattened primitive `TypeID` (pivots) defined in the map.
+/// This function simplifies the types of the predicate's parameters. It 
+/// delegates the iteration and mutation of the parameter list to the 
+/// specialized [`typed_list`] module.
 ///
-/// # Parameters
-/// - `atomic_formula`: The `AtomicFormulaSkeleton` (e.g., a predicate definition) to types.
-/// - `map`: A mapping from union types to their unique flattened primitive type identifiers.
+/// # Arguments
+/// * `atomic_formula` - A mutable reference to the predicate skeleton to transform.
+/// * `tracker` - The shared [`PivotTracker`] used to map complex types to primitive pivots.
 ///
-/// # Returns
-/// - `Ok(())` if all parameter types were successfully mapped to pivots or were already primitive.
-/// - `Err(LirError)` if a parameter uses a union type that is missing from the mapping.
-///
-/// # Implementation Note
-/// This is a key step in domain flattening, ensuring that predicate signatures
-/// match the flattened types of the objects that will be used as arguments.
+/// # Errors
+/// Returns a [`LirError`] if the parameter list transformation fails.
 pub fn flatten(
     atomic_formula: &mut AtomicFormulaSkeleton,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
 ) -> Result<(), LirError> {
-    typed_list::flatten_typed_variable_list(atomic_formula.parameters_mut(), map)
+    // Delegate the flattening of the parameter list to the typed_list module.
+    // This transforms any 'either' types in the predicate's signature into 
+    // canonical primitive types.
+    typed_list::flatten_typed_variable_list(atomic_formula.parameters_mut(), tracker)
 }

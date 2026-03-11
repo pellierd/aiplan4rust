@@ -1,29 +1,38 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeId};
+//! # HTN Task Flattening
+//!
+//! This module handles the simplification of Abstract Tasks within the HTN 
+//! hierarchy.
+//!
+//! ## Overview
+//! Unlike actions or methods, tasks in the LIR do not contain logic bodies or 
+//! preconditions; they are defined by their symbolic signature (parameters). 
+//!
+//! This pass ensures that any complex types (e.g., `either` types) used in 
+//! a task's parameter list are replaced by their corresponding primitive 
+//! pivot types to maintain consistency across the task network.
+
 use crate::aiplan4rust::lir::problem::atomic_skeleton::task::Task;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::type_flattening::typed_list;
+use crate::type_flattening::PivotTracker;
 
-/// Flattens all types within a `Task` parameters list in place according to the provided mapping.
+/// Flattens the parameters of an HTN task.
 ///
-/// This function updates the task's parameter definitions by replacing any union types
-/// (`Type::Either`) with their corresponding flattened primitive type identifiers
-/// found in the `map`.
+/// This function mutates the task's parameter list in-place. It identifies 
+/// hierarchical types and replaces them with flattened versions tracked 
+/// by the [`PivotTracker`].
 ///
-/// # Parameters
-/// - `task`: The `Task` (HTN) whose parameters need to be flattened.
-/// - `map`: A mapping from complex union types to their unique flattened `TypeID` (pivots).
+/// # Arguments
+/// * `task` - A mutable reference to the Abstract Task to be transformed.
+/// * `tracker` - The shared pivot tracker for consistent type mapping.
 ///
-/// # Returns
-/// - `Ok(())` if the parameters were successfully updated or were already primitive.
-/// - `Err(LirError)` if a parameter's type is a union not found in the provided mapping.
-///
-/// # Implementation Note
-/// This relies on `typed_list::flatten_typed_variable_list` to handle the actual
-/// binding within the `NamedTypedList` of the task.
+/// # Errors
+/// Returns a [`LirError`] if the parameter list transformation fails.
 pub fn flatten(
     task: &mut Task,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
 ) -> Result<(), LirError> {
-    typed_list::flatten_typed_variable_list(task.parameters_mut(), map)
+    // HTN tasks do not have expression bodies or preconditions.
+    // We only need to flatten the parameters which may contain 'either' types.
+    typed_list::flatten_typed_variable_list(task.parameters_mut(), tracker)
 }

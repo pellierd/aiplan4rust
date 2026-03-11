@@ -1,38 +1,48 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeId};
+//! # Atomic Function Flattening
+//!
+//! This module implements the type flattening logic for Atomic Functions (Fluents).
+//!
+//! ## Overview
+//! Atomic Functions map a set of typed parameters to a specific return type. 
+//! To ensure the entire domain is flattened, both the input signature and 
+//! the output type must be transformed.
+//!
+//! The process involves:
+//! 1. **Parameter Flattening**: Simplifying the types of the function's 
+//!    arguments using the [`typed_list`] utility.
+//! 2. **Return Type Flattening**: Simplifying the result type of the function 
+//!    using the core [`ty`] logic.
+
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::type_flattening::{ty, typed_list};
+use crate::type_flattening::PivotTracker;
 
-/// Flattens all types within an `AtomicFunctionSkeleton` in place according to the provided mapping.
+/// Flattens an atomic function skeleton in-place.
 ///
-/// This operation performs a complete flattening of the function's signature by:
-/// 1. Updating the types of all input parameters in the `NamedTypedList`.
-/// 2. Updating the function's return type.
+/// This function ensures that any hierarchical or union types present in 
+/// either the parameters or the return type are replaced by primitive 
+/// pivot types.
 ///
-/// Any complex union types (`Type::Either`) are replaced by their corresponding
-/// flattened primitive `TypeID` (pivots) as defined in the mapping.
+/// # Arguments
+/// * `atomic_function` - A mutable reference to the function skeleton to transform.
+/// * `tracker` - The shared [`PivotTracker`] for consistent type mapping.
 ///
-/// # Parameters
-/// - `atomic_function`: The `AtomicFunctionSkeleton` to modify.
-/// - `map`: A mapping from union types to their unique flattened primitive type identifiers.
-///
-/// # Returns
-/// - `Ok(())` if both parameters and return types were successfully mapped or were already primitive.
-/// - `Err(LirError)` if any part of the signature uses a union type missing from the mapping.
-///
-/// # Implementation Note
-/// This function coordinates between `typed_list` for parameters and `types` for the
-/// return type to ensure the functional signature is fully ground-ready.
+/// # Errors
+/// Returns a [`LirError`] if the parameter list or the return type 
+/// transformation fails.
 pub fn flatten(
     atomic_function: &mut AtomicFunctionSkeleton,
-    map: &HashMap<Type<TypeId>, TypeId>,
+    tracker: &mut PivotTracker,
 ) -> Result<(), LirError> {
-    // Flatten input parameters
-    typed_list::flatten_typed_variable_list(atomic_function.parameters_mut(), map)?;
+    // 1. Flatten the input parameters (the signature).
+    // This ensures that function calls in expressions will match the flattened types.
+    typed_list::flatten_typed_variable_list(atomic_function.parameters_mut(), tracker)?;
 
-    // Flatten return type
-    ty::flatten(atomic_function.ty_mut(), map)?;
+    // 2. Flatten the return type.
+    // Since functions return values, the return type itself might be an 'either' type 
+    // that needs to be collapsed into a pivot type.
+    ty::flatten(atomic_function.ty_mut(), tracker)?;
 
     Ok(())
 }
