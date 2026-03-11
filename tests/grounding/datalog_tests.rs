@@ -2,17 +2,14 @@ use std::path::Path;
 use test_case::test_case;
 use aiplan4rust::aiplan4rust::grounding::config;
 use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-
-mod common;
-use crate::common::io::*;
-use crate::common::pipeline::{analyze_file, encode, link};
-
 use aiplan4rust::DatalogEngine;
 use aiplan4rust::type_flattening;
 use aiplan4rust::quantifier_expansion::problem::expand_with;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::aiplan4rust::grounding::passes::positive_form_normalization::to_pnf;
 use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
+use crate::common::io::*;
+use crate::common::pipeline::*;
 
 pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
     let mut success = true;
@@ -103,8 +100,8 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
     success
 }
 
-#[test_case("tests/integration/other/combinatorial/"; "com")]
-//#[test_case("tests/integration/pddl/ipc98/assembly/adl/"; "ipc98_pddl_adl_assembly")]
+#[test_case("tests/fixtures/other/combinatorial/"; "com")]
+//#[test_case("tests/fixtures/pddl/ipc98/assembly/adl/"; "ipc98_pddl_adl_assembly")]
 pub fn test_pddl_datalog(domain_path: &str) {
     let _ = env_logger::builder()
         .is_test(true)

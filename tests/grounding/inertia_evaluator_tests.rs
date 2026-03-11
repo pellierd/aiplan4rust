@@ -1,9 +1,8 @@
 use std::path::Path;
 use test_case::test_case;
 
-mod common;
 use crate::common::io::*;
-use crate::common::pipeline::{analyze_file, encode, link};
+use crate::common::pipeline::*;
 
 use aiplan4rust::type_flattening;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
@@ -15,9 +14,9 @@ use aiplan4rust::aiplan4rust::lir::expr::Expr;
 use aiplan4rust::aiplan4rust::lir::expr::builder::ExprBuilder;
 use aiplan4rust::aiplan4rust::lir::expr::ops::StaticEvaluator;
 
-#[test_case("tests/integration/pddl/ipc98/assembly"; "eval_assembly")]
-#[test_case("tests/integration/pddl/ipc98/gripper/adl"; "eval_gripper_adl")]
-#[test_case("tests/integration/pddl/ipc98/logistics/strips"; "eval_logistics_strips")]
+#[test_case("tests/fixtures/pddl/ipc98/assembly"; "eval_assembly")]
+#[test_case("tests/fixtures/pddl/ipc98/gripper/adl"; "eval_gripper_adl")]
+#[test_case("tests/fixtures/pddl/ipc98/logistics/strips"; "eval_logistics_strips")]
 pub fn test_inertia_evaluator_integration(domain_path: &str) {
     let path = Path::new(domain_path);
     let result = test_evaluator_robustness(path);

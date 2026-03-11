@@ -1,11 +1,8 @@
 use std::path::Path;
 use test_case::test_case;
-use aiplan4rust::aiplan4rust::grounding::config;
-use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 
-mod common;
 use crate::common::io::*;
-use crate::common::pipeline::{analyze_file, encode, link};
+use crate::common::pipeline::*;
 
 use aiplan4rust::type_flattening;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
@@ -201,13 +198,13 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
 
 // --- Points d'entrée des tests ---
 
-#[test_case("tests/integration/pddl/ipc98/assembly/adl/"; "ipc98_pddl_adl_assembly")]
-#[test_case("tests/integration/pddl/ipc98/gripper/strips/"; "ipc98_pddl_strips_gripper")]
-#[test_case("tests/integration/pddl/ipc98/logistics/strips/"; "ipc98_pddl_strips_logistics")]
-#[test_case("tests/integration/pddl/ipc98/movie/strips/"; "ipc98_pddl_strips_movie")]
-#[test_case("tests/integration/pddl/ipc98/mystery/strips/"; "ipc98_pddl_strips_mystery")]
-#[test_case("tests/integration/pddl/ipc98/mystery-prime/strips/"; "ipc98_pddl_strips_mystery_prime")]
-#[test_case("tests/integration/hddl/ipc20/total-order/barman-bdi"; "ipc20_total_order_barman_bdi")]
+#[test_case("tests/fixtures/pddl/ipc98/assembly/adl/"; "ipc98_pddl_adl_assembly")]
+#[test_case("tests/fixtures/pddl/ipc98/gripper/strips/"; "ipc98_pddl_strips_gripper")]
+#[test_case("tests/fixtures/pddl/ipc98/logistics/strips/"; "ipc98_pddl_strips_logistics")]
+#[test_case("tests/fixtures/pddl/ipc98/movie/strips/"; "ipc98_pddl_strips_movie")]
+#[test_case("tests/fixtures/pddl/ipc98/mystery/strips/"; "ipc98_pddl_strips_mystery")]
+#[test_case("tests/fixtures/pddl/ipc98/mystery-prime/strips/"; "ipc98_pddl_strips_mystery_prime")]
+#[test_case("tests/fixtures/hddl/ipc20/total-order/barman-bdi"; "ipc20_total_order_barman_bdi")]
 pub fn test_pddl_inertia_table(domain_path: &str) {
     let _ = env_logger::builder().is_test(true).try_init();
     let path = Path::new(domain_path);
