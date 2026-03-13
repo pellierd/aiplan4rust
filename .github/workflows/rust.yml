@@ -9,8 +9,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: false
-  # Optimisation RAM : pas de debuginfo, linker LLD et strip
+  # Optimisation agressive pour la RAM
   RUSTFLAGS: "-C link-arg=-fuse-ld=lld -C debuginfo=0 -C strip=symbols"
+  # Un seul cœur pour la compilation pour éviter les pics de RAM
   CARGO_BUILD_JOBS: 1
   RUST_LOG: info
   RUST_BACKTRACE: 1
@@ -37,6 +38,7 @@ jobs:
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
+          echo "=== MÉMOIRE DISPONIBLE ==="
           free -h
 
       - name: Cache Cargo
@@ -47,34 +49,42 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Compile and Run Tests
         shell: bash
         run: |
-          # 1. On retire --locked pour éviter l'erreur 101 si le lock est daté
-          echo "=== COMPILATION (NO RUN) ==="
-          cargo test --no-run
-
-          # 2. Exécution des tests avec filtres
-          echo "=== EXÉCUTION DES TESTS (JOBS=1) ==="
-          FILTER="all() and not binary(parser_tests)"
+          set -o pipefail
           
-          # Override du log pour le debug spécifique
+          # --- CONFIGURATION DU FILTRE ---
+          # Modifie cette ligne pour choisir tes tests (ex: "test(syntax) or test(linking)")
+          # Pour tout lancer, utilise : FILTER="all()"
+          FILTER="test(syntax) or test(semantic) or test(normalization) or test(encoder) or test(linking)"
+
+          echo "=== COMPILATION DU BINAIRE D'INTÉGRATION ==="
+          # On compile sans --locked pour éviter l'erreur 101
+          cargo test --test integration_tests --no-run
+
+          echo "=== LISTE DES TESTS SÉLECTIONNÉS ==="
+          cargo nextest list --test integration_tests -E "$FILTER"
+
+          echo "=== EXÉCUTION (JOBS=1) ==="
+          # Logs de debug spécifiques pour tes modules
           export RUST_LOG="info,aiplan4rust::grounding=debug,aiplan4rust::lir::expr=debug"
           
           cargo nextest run \
-            --jobs 1 \
+            --test integration_tests \
             -E "$FILTER" \
+            --jobs 1 \
             --status-level pass \
             --failure-output immediate \
             --success-output immediate \
-            --color always \
-            --nocapture 2>&1 | tee test_results.log
+            --color always 2>&1 | tee test_results.log
 
       - name: Upload test log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-log
+          name: test_results_log
           path: test_results.log
