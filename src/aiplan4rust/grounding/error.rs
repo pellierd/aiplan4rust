@@ -9,6 +9,7 @@ use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaRegistry
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::binding::BindingError;
 use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
+use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
@@ -18,6 +19,9 @@ use crate::analysis::inertia::table::InertiaTableError;
 #[derive(Debug, Error)]
 pub enum GroundingError {
 
+    #[error(transparent)]
+    Registry(#[from] ValueRegistryError),
+    
     #[error(transparent)]
     ExprOp(#[from] ExprOpError),
 

@@ -58,17 +58,12 @@ impl Grounder {
     ) -> Result<GroundingResult, GroundingError> {
 
 
-        let types_after = lifted_problem.type_defs().len();
-        let objects_after = lifted_problem.object_defs().len();
-
-
         // 1. OBJECT FLUENT FLATTENING
         // TO DO
 
-        // 3. ANALYSE D'INERTIE : On identifie ce qui ne change jamais.
+        // 2. ANALYSE D'INERTIE : On identifie ce qui ne change jamais.
         let table = InertiaTable::build(&lifted_problem)?;
-        println!("--- DIAGNOSTIC DES INERTIES ---");
-        println!("{}", table.to_string());
+
         // 3. VALUE REGISTRY CONSTRUCTION
         // We pass either_type/object definitions separately and inject the initial size config.
         let registry = ValueRegistry::build(
@@ -77,7 +72,13 @@ impl Grounder {
         )?;
 
 
-        let evaluator = InertiaEvaluator::build(
+
+
+        println!("{}", lifted_problem);
+        println!("{}", registry);
+
+
+        /*let evaluator = InertiaEvaluator::build(
             lifted_problem.predicate_defs(),
             lifted_problem.function_defs(),
             lifted_problem.init(),
@@ -99,7 +100,7 @@ impl Grounder {
         //print!("{}", lifted_problem.problem_view().to_syntax_string());
         //println!("{}", lifted_problem);
         // 6. PNF
-        panic!();
+        panic!();*/
         /*let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
 
         let mut datalog = DatalogEngine::new();

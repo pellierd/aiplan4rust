@@ -43,7 +43,7 @@ impl<'a> BindingsIterator<'a> {
     /// # Returns
     /// - A new `BindingsIterator` instance or a `BindingsIteratorError` if an overflow occurs.
     pub fn new(variables: &'a TypedList<VariableId, TypeId>, value_registry: &'a ValueRegistry) -> Result<Self, BindingsIteratorError> {
-        let domains = value_registry.get_variable_domains(variables);
+        let domains = value_registry.get_variable_domains(variables)?;
         let arity = domains.len();
 
         // 1. Calculate the total number of combinations.

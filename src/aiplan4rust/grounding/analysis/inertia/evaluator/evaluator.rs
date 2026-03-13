@@ -254,7 +254,7 @@ impl<'a> InertiaEvaluator<'a> {
     /// Calcule MAX(p, ~a) selon la Définition 5 du papier IPP.
     /// MAX est le nombre de toutes les instances terrestres (ground instances)
     /// cohérentes avec les types qui unifient avec le vecteur d'arguments ~a.
-    fn calculate_max_instances(&self, node: &ExprNode, expr: &Expr) -> usize {
+    fn calculate_max_instances(&self, node: &ExprNode, expr: &Expr) -> Result<usize, InertiaRegistryError> {
         let mut max_val: usize = 1;
         let children = node.children();
 
@@ -273,7 +273,7 @@ impl<'a> InertiaEvaluator<'a> {
                         if child_node.kind() == ExprKind::Variable {
                             let type_id = arg_types[i].ty();
                             let domain_size =
-                                self.value_registry.get_type_domain(type_id).len();
+                                self.value_registry.get_type_domain(type_id)?.len();
                             max_val *= domain_size;
                         }
                     }
@@ -281,7 +281,7 @@ impl<'a> InertiaEvaluator<'a> {
             }
         }
         // Si l'atome est totalement instancié, V(~a) est vide, le produit vide vaut 1.
-        max_val
+        Ok(max_val)
     }
 
     fn evaluate_function_internal(

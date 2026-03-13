@@ -133,7 +133,7 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
 }
 
 fn pick_obj_by_index(registry: &ValueRegistry, ty: &Type<TypeId>, index: usize) -> Option<ObjectId> {
-    let domain = registry.get_type_domain(ty);
+    let domain = registry.get_type_domain(ty).expect("Failed to get type domain");
     let card = domain.len();
 
     if card == 0 {

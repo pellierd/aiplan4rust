@@ -3,6 +3,7 @@ use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
+use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
 
 /// Errors encountered during the construction or evaluation of an `InertiaRegistry`.
 ///
@@ -10,6 +11,10 @@ use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
 /// while providing specific variants for indexing constraints.
 #[derive(Error, Debug)]
 pub enum InertiaRegistryError {
+
+    #[error(transparent)]
+    ValueRegistry(#[from] ValueRegistryError),
+
     /// An error originating from the underlying syntax tree system.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
