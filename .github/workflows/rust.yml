@@ -9,11 +9,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: false
-  # Optimisation agressive pour la RAM : pas de debuginfo, linker LLD et strip des symboles
+  # Optimisation RAM : pas de debuginfo, linker LLD et strip
   RUSTFLAGS: "-C link-arg=-fuse-ld=lld -C debuginfo=0 -C strip=symbols"
-  # On force la compilation sur un seul cœur pour éviter les pics de RAM
   CARGO_BUILD_JOBS: 1
-  # Log au niveau info pour ne pas saturer les buffers pendant la compilation
   RUST_LOG: info
   RUST_BACKTRACE: 1
 
@@ -33,14 +31,12 @@ jobs:
         uses: taiki-e/install-action@nextest
 
       - name: Maximize Swap Space (10GB)
-        # GitHub Actions a environ 14GB de disque libre, on en prend 10 pour le swap
         run: |
           sudo swapoff -a
           sudo fallocate -l 10G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
-          echo "=== MÉMOIRE ET SWAP APRÈS CONFIGURATION ==="
           free -h
 
       - name: Cache Cargo
@@ -51,23 +47,20 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Compile and Run Tests
         shell: bash
         run: |
-          set -o pipefail
-          
-          # On définit les filtres pour les tests
-          FILTER="all() and not binary(parser_tests)"
-
+          # 1. On retire --locked pour éviter l'erreur 101 si le lock est daté
           echo "=== COMPILATION (NO RUN) ==="
-          # On compile d'abord pour isoler les erreurs de linking
-          cargo test --no-run --locked
+          cargo test --no-run
 
+          # 2. Exécution des tests avec filtres
           echo "=== EXÉCUTION DES TESTS (JOBS=1) ==="
-          # On change le log en debug juste pour l'exécution pour voir tes traces
+          FILTER="all() and not binary(parser_tests)"
+          
+          # Override du log pour le debug spécifique
           export RUST_LOG="info,aiplan4rust::grounding=debug,aiplan4rust::lir::expr=debug"
           
           cargo nextest run \
