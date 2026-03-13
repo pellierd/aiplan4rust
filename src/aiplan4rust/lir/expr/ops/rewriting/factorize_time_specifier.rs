@@ -36,7 +36,7 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 /// # Arguments
 ///
 /// * `root_id` - The ID of the root node of the expression to factorize.
-/// * `expr` - A mutable reference to the expression tree to modify.
+/// * `logic` - A mutable reference to the expression tree to modify.
 ///
 /// # Returns
 ///
@@ -91,7 +91,7 @@ pub fn factorize_time_specifier(
 ///
 /// * `root_id` - The ID of the root node of the subtree to filter.
 /// * `keep_kind` - The `ExprKind` of the temporal specifier to retain.
-/// * `expr` - The mutable reference to the expression tree being modified.
+/// * `logic` - The mutable reference to the expression tree being modified.
 ///
 /// # Returns
 ///
@@ -480,7 +480,7 @@ mod tests {
     /// Input: (and (at start (or (A) (forall (?X) (B)))) (at end (C)))
     /// Expected Output:
     /// (and
-    ///    (at start (and (or (A) (forall (?X) (B)))))  // AtStart wraps filtered expr
+    ///    (at start (and (or (A) (forall (?X) (B)))))  // AtStart wraps filtered logic
     ///    (at end (and (C)))                             // AtEnd wraps filtered expression
     ///    (over all (and))                               // Overall empty but And
     /// )

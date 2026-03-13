@@ -15,10 +15,10 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Parameters
 /// - `node_id`: The `NodeId` of the node to normalize.
-/// - `expr`: Mutable reference to the expression tree.
+/// - `logic`: Mutable reference to the expression tree.
 ///
 /// # Returns
-/// - `Ok(())` if expr succeeds or if no simplification is applicable.
+/// - `Ok(())` if logic succeeds or if no simplification is applicable.
 /// - `Err(ExprError)` if any node cannot be accessed or mutated.
 pub fn simplify(
     node_id: NodeId,
@@ -51,7 +51,7 @@ pub fn simplify(
 ///
 /// # Parameters
 /// - `node_id`: The `NodeId` of the node to simplification. Must be a `Not` node.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Behavior
 /// - The function assumes (via `debug_assert!`) that the node is a `Not` with
@@ -112,7 +112,7 @@ fn simplify_double_negation(
     Ok(true)
 }
 
-/// Simplifies trivial constant expr under a `Not` node.
+/// Simplifies trivial constant logic under a `Not` node.
 ///
 /// This function detects cases where a `Not` node has as its single child
 /// an empty `And` or `Or` expression, and flips it according to logical
@@ -123,7 +123,7 @@ fn simplify_double_negation(
 ///
 /// # Parameters
 /// - `node_id`: The `NodeId` of the `Not` node to simplification.
-/// - `expr`: A mutable reference to the expression tree.
+/// - `logic`: A mutable reference to the expression tree.
 ///
 /// # Returns
 /// - `Ok(true)` if a simplification was applied.
@@ -254,7 +254,7 @@ mod tests {
         // 3. Validation
         let root_node = expr.try_root_node()?;
 
-        // Le nœud doit rester de either_type Not
+        // Le nœud doit rester de typing Not
         assert_eq!(root_node.kind(), ExprKind::Not);
 
         Ok(())

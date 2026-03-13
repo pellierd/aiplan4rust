@@ -7,7 +7,7 @@ use crate::aiplan4rust::tree::builder::SyntaxTreeBuilder;
 
 /// Ergonomic builder for `Expr` (expression trees).
 ///
-/// Provides high-level helpers to construct expr using `ExprKind` + `ExprContent`.
+/// Provides high-level helpers to construct logic using `ExprKind` + `ExprContent`.
 /// Requires a mutable reference to a `StringInterner` for identifiers.
 pub struct ExprBuilder {
     base: SyntaxTreeBuilder<ExprNode>,
@@ -62,7 +62,7 @@ impl ExprBuilder {
     /// that take a single argument, such as `not`, `at_start`, `always`, etc.
     ///
     /// # Arguments
-    /// * `kind` - The either_type of node (`ExprKind`) to create.
+    /// * `kind` - The typing of node (`ExprKind`) to create.
     /// * `child` - NodeId of the single child.
     ///
     /// # Returns
@@ -75,10 +75,10 @@ impl ExprBuilder {
     ///
     /// A binary node is a node that has **exactly two children**.
     /// This function is useful for binary logical operators, implications,
-    /// functional comparisons, and other expr that take two arguments.
+    /// functional comparisons, and other logic that take two arguments.
     ///
     /// # Arguments
-    /// * `kind` - The either_type of node (`ExprKind`) to create.
+    /// * `kind` - The typing of node (`ExprKind`) to create.
     /// * `left` - NodeId of the left child.
     /// * `right` - NodeId of the right child.
     ///
@@ -95,7 +95,7 @@ impl ExprBuilder {
     /// or any expression that can take a dynamic number of children.
     ///
     /// # Arguments
-    /// * `kind` - The either_type of node (`ExprKind`) to create.
+    /// * `kind` - The typing of node (`ExprKind`) to create.
     /// * `children` - A vector of NodeIds representing the children.
     ///
     /// # Returns
@@ -110,7 +110,7 @@ impl ExprBuilder {
 
     /// Creates a constant (object) node with the given identifier.
     ///
-    /// This helper accepts any either_type that can be converted into an [`ObjectId`],
+    /// This helper accepts any typing that can be converted into an [`ObjectId`],
     /// making it easy to use either a typed ID or a raw `usize` (especially in tests).
     ///
     /// # Arguments
@@ -128,7 +128,7 @@ impl ExprBuilder {
 
     /// Creates a variable node with the given identifier.
     ///
-    /// This helper accepts any either_type that can be converted into a [`VariableId`],
+    /// This helper accepts any typing that can be converted into a [`VariableId`],
     /// allowing the use of typed IDs or raw `usize`.
     ///
     /// Note: PDDL-specific naming (like the `?` prefix) should be handled
@@ -149,7 +149,7 @@ impl ExprBuilder {
 
     /// Creates a function symbol (functor) node with the given identifier.
     ///
-    /// This helper accepts any either_type that can be converted into a [`FunctionSymbolId`],
+    /// This helper accepts any typing that can be converted into a [`FunctionSymbolId`],
     /// making it easy to use either a pre-resolved ID or a raw `usize`.
     ///
     /// # Arguments
@@ -167,7 +167,7 @@ impl ExprBuilder {
 
     /// Creates a predicate node with the given identifier.
     ///
-    /// This helper accepts any either_type that can be converted into a [`PredicateSymbolId`],
+    /// This helper accepts any typing that can be converted into a [`PredicateSymbolId`],
     /// allowing for the use of typed identifiers or raw `usize` for quick prototyping.
     ///
     /// # Arguments
@@ -185,8 +185,8 @@ impl ExprBuilder {
 
     /// Creates a task symbol node with the given identifier.
     ///
-    /// This helper accepts any either_type that can be converted into a [`TaskSymbolId`],
-    /// which is useful for HTN (Hierarchical Task Network) expr where
+    /// This helper accepts any typing that can be converted into a [`TaskSymbolId`],
+    /// which is useful for HTN (Hierarchical Task Network) logic where
     /// task identifiers are already resolved.
     ///
     /// # Arguments
@@ -204,7 +204,7 @@ impl ExprBuilder {
 
     /// Creates a preference name node with the given identifier.
     ///
-    /// This helper accepts any either_type that can be converted into a [`PreferenceSymbolId`].
+    /// This helper accepts any typing that can be converted into a [`PreferenceSymbolId`].
     /// It is typically used for preference constraints in PDDL or HTN problems.
     ///
     /// # Arguments
@@ -327,7 +327,7 @@ impl ExprBuilder {
         )
     }
 
-    /// Creates a logical `AND` node with one or more child expr.
+    /// Creates a logical `AND` node with one or more child logic.
     ///
     /// In PDDL/HDDL, this represents a conjunction. An empty vector of children
     /// is technically allowed and usually represents a "True" constant in logical contexts.
@@ -353,7 +353,7 @@ impl ExprBuilder {
         self.nary(ExprKind::And, vec![])
     }
 
-    /// Creates a logical `OR` node with one or more child expr.
+    /// Creates a logical `OR` node with one or more child logic.
     ///
     /// In PDDL/HDDL, this represents a disjunction. If the vector of children
     /// is empty, the expression is technically "False" (the identity element for OR).
@@ -386,7 +386,7 @@ impl ExprBuilder {
     /// the expression being negated.
     ///
     /// # Arguments
-    /// * `expr` - The [`NodeId`] of the expression to negate.
+    /// * `logic` - The [`NodeId`] of the expression to negate.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Not` node.
@@ -513,7 +513,7 @@ impl ExprBuilder {
 
     /// Creates a functional comparison (`FComp`) node: (op left right)
     ///
-    /// Functional comparisons are used to compare two numeric expr
+    /// Functional comparisons are used to compare two numeric logic
     /// (terms, fluents, or literals) using a binary operator.
     ///
     /// # Arguments
@@ -617,7 +617,7 @@ impl ExprBuilder {
     /// Common operations include direct assignment, incrementing, or decrementing.
     ///
     /// # Arguments
-    /// * `op` - The either_type of assignment operation (e.g., [`AssignOp::Assign`], [`AssignOp::Increase`]).
+    /// * `op` - The typing of assignment operation (e.g., [`AssignOp::Assign`], [`AssignOp::Increase`]).
     /// * `target` - The [`NodeId`] of the fluent (function term) being modified.
     /// * `value` - The [`NodeId`] of the numeric expression to apply.
     ///
@@ -712,11 +712,11 @@ impl ExprBuilder {
     /// Creates an arithmetic expression node: (op operands...)
     ///
     /// This node represents a functional operation (addition, multiplication, etc.)
-    /// applied to one or more numeric sub-expr.
+    /// applied to one or more numeric sub-logic.
     ///
     /// # Arguments
     /// * `op` - The arithmetic operator to apply (e.g., [`ArithmeticOp::Add`], [`ArithmeticOp::Mul`]).
-    /// * `operands` - A [`Vec<NodeId>`] of the numeric expr to be operated upon.
+    /// * `operands` - A [`Vec<NodeId>`] of the numeric logic to be operated upon.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Operation` node.
@@ -737,7 +737,7 @@ impl ExprBuilder {
     /// operator. It can take any number of operands, representing their cumulative sum.
     ///
     /// # Arguments
-    /// * `operands` - A [`Vec<NodeId>`] of numeric expr to be added together.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric logic to be added together.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created addition node.
@@ -755,7 +755,7 @@ impl ExprBuilder {
     ///   (- a b c) => (a - b - c).
     ///
     /// # Arguments
-    /// * `operands` - A [`Vec<NodeId>`] of numeric expr.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric logic.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created subtraction node.
@@ -766,11 +766,11 @@ impl ExprBuilder {
     /// Creates a multiplication node: (* operands...)
     ///
     /// This constructs an [`ExprKind::Arithmetic`] node using the [`ArithmeticOp::Mul`]
-    /// operator. It represents the product of all expr contained in the
+    /// operator. It represents the product of all logic contained in the
     /// `operands` vector.
     ///
     /// # Arguments
-    /// * `operands` - A [`Vec<NodeId>`] of numeric expr to be multiplied.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric logic to be multiplied.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created multiplication node.
@@ -784,7 +784,7 @@ impl ExprBuilder {
     /// operator.
     ///
     /// # Arguments
-    /// * `operands` - A [`Vec<NodeId>`] of numeric expr. Usually, this contains
+    /// * `operands` - A [`Vec<NodeId>`] of numeric logic. Usually, this contains
     ///   two nodes representing the dividend and the divisor.
     ///
     /// # Returns
@@ -793,13 +793,13 @@ impl ExprBuilder {
         self.arithmetic_exp(ArithmeticOp::Div, operands)
     }
 
-    /// Creates an `AtStart` temporal node: (at start expr)
+    /// Creates an `AtStart` temporal node: (at start logic)
     ///
     /// This node is used in temporal planning to constrain an expression
     /// (condition or effect) to the beginning of the action's execution.
     ///
     /// # Arguments
-    /// * `expr` - The [`NodeId`] of the expression to be wrapped in the temporal constraint.
+    /// * `logic` - The [`NodeId`] of the expression to be wrapped in the temporal constraint.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `AtStart` node.
@@ -807,13 +807,13 @@ impl ExprBuilder {
         self.unary(ExprKind::AtStart, expr)
     }
 
-    /// Creates an `AtEnd` temporal node: (at end expr)
+    /// Creates an `AtEnd` temporal node: (at end logic)
     ///
     /// This node is used in temporal planning to anchor an expression
     /// (condition or effect) to the end of the action's execution interval.
     ///
     /// # Arguments
-    /// * `expr` - The [`NodeId`] of the expression to be wrapped in the temporal constraint.
+    /// * `logic` - The [`NodeId`] of the expression to be wrapped in the temporal constraint.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `AtEnd` node.
@@ -821,14 +821,14 @@ impl ExprBuilder {
         self.unary(ExprKind::AtEnd, expr)
     }
 
-    /// Creates an `Overall` temporal node: (over all expr)
+    /// Creates an `Overall` temporal node: (over all logic)
     ///
     /// This node represents a temporal invariant. In the context of PDDL, it ensures
     /// that the specified condition remains true throughout the entire duration
     /// of an action's execution.
     ///
     /// # Arguments
-    /// * `expr` - The [`NodeId`] of the condition expression to be maintained.
+    /// * `logic` - The [`NodeId`] of the condition expression to be maintained.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Overall` node.
@@ -836,13 +836,13 @@ impl ExprBuilder {
         self.unary(ExprKind::Overall, expr)
     }
 
-    /// Creates an `Always` constraint node: (always expr)
+    /// Creates an `Always` constraint node: (always logic)
     ///
     /// This node represents a global trajectory constraint. It asserts that the
     /// given expression must hold true in every state of the plan execution.
     ///
     /// # Arguments
-    /// * `expr` - The [`NodeId`] of the condition expression that must always hold.
+    /// * `logic` - The [`NodeId`] of the condition expression that must always hold.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Always` node.
@@ -850,13 +850,13 @@ impl ExprBuilder {
         self.unary(ExprKind::Always, expr)
     }
 
-    /// Creates a `Sometime` temporal node: (sometime expr)
+    /// Creates a `Sometime` temporal node: (sometime logic)
     ///
     /// This node represents a modal operator asserting that the given expression
     /// must hold true in at least one state during the plan execution.
     ///
     /// # Arguments
-    /// * `expr` - The [`NodeId`] of the condition that must eventually be satisfied.
+    /// * `logic` - The [`NodeId`] of the condition that must eventually be satisfied.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Sometime` node.
@@ -873,7 +873,7 @@ impl ExprBuilder {
     /// # Arguments
     ///
     /// * `value` - The numeric time bound (duration) for the `Within` operator.
-    /// * `expr` - The `NodeId` of the expression to which the constraint applies.
+    /// * `logic` - The `NodeId` of the expression to which the constraint applies.
     pub fn within(&mut self, value: f64, expr: NodeId) -> NodeId {
         // 1. Create a leaf node for the numeric duration
         let duration_node = self.number(value);
@@ -893,7 +893,7 @@ impl ExprBuilder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The `NodeId` of the expression to which the constraint applies.
+    /// * `logic` - The `NodeId` of the expression to which the constraint applies.
     pub fn at_most_once(&mut self, expr: NodeId) -> NodeId {
         self.unary(ExprKind::AtMostOnce, expr)
     }
@@ -952,7 +952,7 @@ impl ExprBuilder {
     ///
     /// * `start` - The numeric f64 value for the beginning of the time interval.
     /// * `end` - The numeric f64 value for the end of the time interval.
-    /// * `expr` - The `NodeId` of the expression that must be maintained during this period.
+    /// * `logic` - The `NodeId` of the expression that must be maintained during this period.
     pub fn hold_during(&mut self, start: f64, end: f64, expr: NodeId) -> NodeId {
         let start_node = self.number(start);
         let end_node = self.number(end);
@@ -970,7 +970,7 @@ impl ExprBuilder {
     /// # Arguments
     ///
     /// * `time` - The numeric f64 value representing the start time from which the expression must hold.
-    /// * `expr` - The `NodeId` of the expression that must be maintained.
+    /// * `logic` - The `NodeId` of the expression that must be maintained.
     pub fn hold_after(&mut self, time: f64, expr: NodeId) -> NodeId {
         let time_node = self.number(time);
         self.node(
@@ -987,7 +987,7 @@ impl ExprBuilder {
     /// # Arguments
     ///
     /// * `time` - The numeric f64 value representing the exact time at which the expression occurs.
-    /// * `expr` - The `NodeId` of the expression that becomes true at the given time.
+    /// * `logic` - The `NodeId` of the expression that becomes true at the given time.
     pub fn timed_initial_literal(&mut self, time: f64, expr: NodeId) -> NodeId {
         let time_node = self.number(time);
         self.node(
@@ -1004,7 +1004,7 @@ impl ExprBuilder {
     /// # Arguments
     ///
     /// * `opt` - The `Optimization` directive, specifying whether to minimize or maximize the metric.
-    /// * `expr` - The `NodeId` of the expression (e.g., total cost, time, or resource usage) to be optimized.
+    /// * `logic` - The `NodeId` of the expression (e.g., total cost, time, or resource usage) to be optimized.
     fn metric_exp(&mut self, opt: OptimizationOp, expr: NodeId) -> NodeId {
         self.node(
             // The optimization directive is stored directly in the node's content
@@ -1020,7 +1020,7 @@ impl ExprBuilder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The `NodeId` of the expression to be minimized.
+    /// * `logic` - The `NodeId` of the expression to be minimized.
     pub fn minimize(&mut self, expr: NodeId) -> NodeId {
         self.metric_exp(OptimizationOp::Minimize, expr)
     }
@@ -1033,7 +1033,7 @@ impl ExprBuilder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The `NodeId` of the expression to be maximized.
+    /// * `logic` - The `NodeId` of the expression to be maximized.
     pub fn maximize(&mut self, expr: NodeId) -> NodeId {
         self.metric_exp(OptimizationOp::Maximize, expr)
     }
@@ -1053,7 +1053,7 @@ impl ExprBuilder {
     /// Creates an `IsViolated` node to check the status of a soft constraint.
     ///
     /// This node evaluates to true if the named preference has not been satisfied
-    /// in the current plan. It is typically used in metric expr to penalize
+    /// in the current plan. It is typically used in metric logic to penalize
     /// the violation of specific soft goals.
     ///
     /// # Arguments

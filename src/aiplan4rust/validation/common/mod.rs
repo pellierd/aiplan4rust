@@ -5,9 +5,9 @@
 //! - [`checks`]: Implements functions to perform structural validation on AST nodes, such as
 //!   verifying children count, child kinds, node content, and more.
 //!
-//! The module also defines either_type aliases:
+//! The module also defines typing aliases:
 //! - [`WellFormedError`]: Alias for `ValidationError`, used to indicate errors during structural validation.
-//! - [`WellNormalizedError`]: Alias for `ValidationError`, used to indicate errors during expr checks.
+//! - [`WellNormalizedError`]: Alias for `ValidationError`, used to indicate errors during logic checks.
 //!
 //! # Usage
 //!

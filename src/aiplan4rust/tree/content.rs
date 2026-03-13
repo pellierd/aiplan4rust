@@ -39,7 +39,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 ///
 /// Types implementing this trait can express the specific kind
 /// of content they hold, such as identifiers, literals, or operators,
-/// and provide methods for extracting these in a either_type-safe manner.
+/// and provide methods for extracting these in a typing-safe manner.
 ///
 /// The trait also supports remapping of identifiers via a
 /// supplied mapping, useful during syntax tree transformations.

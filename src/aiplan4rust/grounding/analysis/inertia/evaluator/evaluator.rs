@@ -314,7 +314,7 @@ impl<'a> InertiaEvaluator<'a> {
         // 4. Logique de décision et Fallback PDDL
         if self.all_args_grounded(node, expr) {
             if value.is_none() {
-                // Si aucune valeur n'est trouvée, on vérifie le either_type de retour
+                // Si aucune valeur n'est trouvée, on vérifie le typing de retour
                 let def = &self.function_defs[func_id.as_usize()];
 
                 // Standard PDDL : une fonction numérique non initialisée vaut 0.0
@@ -571,8 +571,8 @@ impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
 }
 
 /*impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
-    fn evaluate(&self, node_id: NodeId, expr: &Expr) -> Option<StaticValue> {
-        let node = expr.try_node(node_id).ok()?;
+    fn evaluate(&self, node_id: NodeId, logic: &Expr) -> Option<StaticValue> {
+        let node = logic.try_node(node_id).ok()?;
         let mut buffer = ArgumentBuffer::new();
 
         match node.kind() {
@@ -583,7 +583,7 @@ impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
                 // 2. On appelle ta fonction originale.
                 // À l'intérieur, quand elle fait id.as_usize(), le bit MSB est ignoré.
                 // Donc elle calcule toujours la vérité du fait "positif".
-                let res = self.evaluate_predicate_internal(node_id, expr, &mut buffer)
+                let res = self.evaluate_predicate_internal(node_id, logic, &mut buffer)
                     .ok()
                     .flatten();
 
@@ -594,7 +594,7 @@ impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
                 })
             }
             ExprKind::Function => {
-                self.evaluate_function_internal(node_id, expr, &mut buffer)
+                self.evaluate_function_internal(node_id, logic, &mut buffer)
                     .ok()
                     .flatten()
             }

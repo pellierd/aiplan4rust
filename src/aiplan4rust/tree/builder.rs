@@ -10,7 +10,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 /// - Assigning children to nodes
 /// - Setting the root node
 ///
-/// This builder is generic over any either_type `T` implementing [`Node`].
+/// This builder is generic over any typing `T` implementing [`Node`].
 /// Concrete builders like [`ExprBuilder`] or [`AstBuilder`] can wrap this
 /// generic builder to provide domain-specific helpers (e.g., `and`, `or`, `forall`).
 ///

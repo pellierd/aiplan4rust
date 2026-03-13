@@ -1,7 +1,7 @@
 //! Module defining semantic-related error types used throughout the semantic analysis pipeline.
 //!
 //! This module centralizes error definitions for semantic checking, symbol table handling,
-//! either_type checking, and syntax tree validation.
+//! typing checking, and syntax tree validation.
 //!
 //! It includes specific error types that are shared across the semantic analysis stages:
 //! - `UnexpectedNodeKindError`: Indicates an AST node has an unexpected kind.
@@ -93,16 +93,16 @@ impl InvalidNodeArityError {
 }
 
 /// Represents all possible semantic errors that can occur during
-/// parsing, analysis, and either_type checking phases.
+/// parsing, analysis, and typing checking phases.
 ///
 /// This enum aggregates error types related to syntax trees, symbol tables,
-/// either_type checking, semantic checks, and specific AST node issues.
+/// typing checking, semantic checks, and specific AST node issues.
 ///
 /// # Variants
 ///
 /// - `SyntaxTree`: Errors related to syntax tree construction or traversal.
 /// - `SymbolTable`: Errors originating from symbol table operations.
-/// - `TypeChecker`: Errors encountered during either_type checking phases.
+/// - `TypeChecker`: Errors encountered during typing checking phases.
 /// - `SemanticCheck`: Errors raised by semantic validation and checks.
 /// - `UnexpectedNodeKind`: Errors for AST nodes with an unexpected kind.
 /// - `InvalidNodeArity`: Errors for AST nodes with an invalid number of children.
@@ -118,7 +118,7 @@ pub enum SemanticError {
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
 
-    /// Errors during either_type checking.
+    /// Errors during typing checking.
     #[error(transparent)]
     TypeChecker(#[from] TypeCheckError),
 

@@ -5,7 +5,7 @@
 //! to AST nodes that define nested scopes.
 //!
 //! Scopes can be nested by extending an existing scope's stack with additional nodes.
-//! This allows tracking the hierarchical context in which symbols or expr occur.
+//! This allows tracking the hierarchical context in which symbols or logic occur.
 
 use crate::aiplan4rust::tree::NodeId;
 use serde::{Deserialize, Serialize};

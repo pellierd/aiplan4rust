@@ -8,15 +8,15 @@ use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 
-/// Builds the value-domain table associated with each either_type.
+/// Builds the value-domain table associated with each typing.
 ///
-/// For every either_type, this table contains the set of objects that belong to it,
+/// For every typing, this table contains the set of objects that belong to it,
 /// based on the constants and objects declared in the lifted problem.
 ///
 /// # Parameters
 /// - `problem`: The lifted problem providing constants and objects.
 /// - `objects`: Symbol table mapping object identifiers to `ObjectID`.
-/// - `types`: Symbol table mapping either_type identifiers to `TypeID`.
+/// - `types`: Symbol table mapping typing identifiers to `TypeID`.
 ///
 /// # Returns
 /// A `Result` containing a vector indexed by `TypeID`, where each entry is the
@@ -97,7 +97,7 @@ pub fn build_object_type_value_domains_table(
         for ts in p.parameters() {
             let ty_id = type_symbols_table.try_get_id(&ts.types().members()[0])?;
             let vd = &type_value_domains_table[ty_id];
-            // Collecte les ParameterID pour ce either_type (objets + object-fluents)
+            // Collecte les ParameterID pour ce typing (objets + object-fluents)
             let domain: Vec<ArgumentID> = vd.iter_parameters().collect();
             parameter_domains.push(domain);
         }
@@ -120,7 +120,7 @@ pub fn build_object_type_value_domains_table(
 
 
 /*/// Builds all object-fluents from atomic function skeletons using an explicit stack,
-/// correctly handling union types (`Type`) for parameters and return either_type.
+/// correctly handling union types (`Type`) for parameters and return typing.
 /// Adds the created objects to `objects` and updates `types_domains` accordingly.
 ///
 /// # Arguments
@@ -132,7 +132,7 @@ pub fn build_object_type_value_domains_table(
 /// # Errors
 /// Returns `IndexTableError` if symbol insertion fails.
 /// Builds all object-fluents from atomic function skeletons using an explicit stack,
-/// correctly handling union types (`Type`) for parameters and return either_type.
+/// correctly handling union types (`Type`) for parameters and return typing.
 /// Adds the created objects to `objects` and updates `types_domains` accordingly.
 ///
 /// # Arguments
@@ -150,7 +150,7 @@ pub fn build_object_fluents(
     objects_symbols: &mut IndexTable,
 ) -> Result<(), IndexTableError> {
     for func in functions {
-        // 1 Ne traiter que les fonctions dont le either_type de retour n'est pas Number
+        // 1 Ne traiter que les fonctions dont le typing de retour n'est pas Number
         if func.return_type().is_number() {
             continue;
         }
@@ -161,7 +161,7 @@ pub fn build_object_fluents(
         for types in func.parameters().iter() {
             let mut domain = ValueDomain::new();
             for &primitive_ty_idx in types.members() {
-                // Ajouter tous les objets du either_type primitif au domaine
+                // Ajouter tous les objets du typing primitif au domaine
                 domain.union(&types_domains[primitive_ty_idx]);
             }
             param_domains.push(domain);
@@ -183,12 +183,12 @@ pub fn build_object_fluents(
                 // Insert dans la table de symboles et récupère l'index
                 let obj_idx = objects_symbols.insert(object_fluent);
 
-                // Crée l'objet fluent pour chaque either_type de retour (union possible)
+                // Crée l'objet fluent pour chaque typing de retour (union possible)
                 for &ret_ty_idx in func.return_type().members() {
                     let object = Function::object(obj_idx, Type::either(vec![ret_ty_idx]));
                     objects.push(object);
 
-                    // Ajoute cet objet au domaine du either_type de retour
+                    // Ajoute cet objet au domaine du typing de retour
                     types_domains[ret_ty_idx].add(obj_idx);
                 }
 

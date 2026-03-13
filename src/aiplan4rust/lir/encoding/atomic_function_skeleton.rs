@@ -22,7 +22,7 @@ use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the predicate (e.g., `(at ?r - robot ?l - location)`).
-/// * `evaluator` - The symbol evaluator for either_type resolution.
+/// * `evaluator` - The symbol evaluator for typing resolution.
 ///
 /// # Returns
 ///
@@ -32,7 +32,7 @@ use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 /// # Errors
 ///
 /// Returns an error if the underlying `named_typed_list::encoding` fails,
-/// typically due to a missing identifier or an unknown either_type.
+/// typically due to a missing identifier or an unknown typing.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
@@ -54,11 +54,11 @@ pub fn encode(
         registry
     )?;
 
-    // 3. Return either_type encoding (third child: index 2)
+    // 3. Return typing encoding (third child: index 2)
     let return_type_node_id = node.try_child(2)?;
     let return_type_node = ast.try_node(return_type_node_id)?;
 
-    // If the return either_type is explicitly "number", we ensure it's registered
+    // If the return typing is explicitly "number", we ensure it's registered
     // with the reserved TypeId::NUMBER_TYPE_ID (1) before encoding.
     if return_type_node.try_ident().ok() == Some(SymbolInterner::NUMBER_SYMBOL_ID) {
         registry.ensure_numeric_type();

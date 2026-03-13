@@ -360,7 +360,7 @@ pub trait SyntaxDisplay {
 ///
 /// This struct is used by the default implementations of
 /// `try_to_syntax_string` and `to_syntax_string` to adapt a
-/// `SyntaxDisplay` into a either_type that implements `Display`.
+/// `SyntaxDisplay` into a typing that implements `Display`.
 struct DisplayWrapper<'a, T: ?Sized> {
     value: &'a T,
 }

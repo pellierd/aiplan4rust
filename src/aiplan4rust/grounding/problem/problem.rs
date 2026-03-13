@@ -174,17 +174,17 @@ impl Problem {
 
     // ---------- Type symbol table ----------
 
-    /// Returns a reference to the either_type symbols table.
+    /// Returns a reference to the typing symbols table.
     pub fn type_symbols(&self) -> &SymbolRegistry<TypeId> {
         &self.type_symbols
     }
 
-    /// Returns a mutable reference to the either_type symbols table.
+    /// Returns a mutable reference to the typing symbols table.
     pub fn type_symbols_mut(&mut self) -> &mut SymbolRegistry<TypeId> {
         &mut self.type_symbols
     }
 
-    /// Replaces the current either_type symbols table with the provided one.
+    /// Replaces the current typing symbols table with the provided one.
     pub fn set_type_symbols(&mut self, table: SymbolRegistry<TypeId>) {
         self.type_symbols = table;
     }
@@ -201,24 +201,24 @@ impl Problem {
         &mut self.type_defs
     }
 
-    /// Replaces the current either_type parents list with the provided one.
+    /// Replaces the current typing parents list with the provided one.
     pub fn set_type_defs(&mut self, types: Vec<TypedSymbol<TypeId, TypeId>>) {
         self.type_defs = types;
     }
 
     // ---------- Type objects ----------
 
-    /// Returns a reference to the either_type domains (values associated with each either_type).
+    /// Returns a reference to the typing domains (values associated with each typing).
     pub fn type_objects(&self) -> &ValueRegistry {
         &self.type_objects
     }
 
-    /// Returns a mutable reference to the either_type domains.
+    /// Returns a mutable reference to the typing domains.
     pub fn type_objects_mut(&mut self) -> &mut ValueRegistry {
         &mut self.type_objects
     }
 
-    /// Replaces the current either_type domains with the provided one.
+    /// Replaces the current typing domains with the provided one.
     pub fn set_type_objects(&mut self, registry: ValueRegistry) {
         self.type_objects = registry;
     }
@@ -275,7 +275,7 @@ impl Problem {
     /// Returns a reference to the list of all **numeric fluents** (functions that return numeric values).
     ///
     /// Each `NumericFluent` represents a grounded numeric function in the problem,
-    /// including its symbol, parameters, and return either_type.
+    /// including its symbol, parameters, and return typing.
     pub fn numeric_fluents(&self) -> &Vec<NumericFluent> {
         &self.numeric_fluents
     }

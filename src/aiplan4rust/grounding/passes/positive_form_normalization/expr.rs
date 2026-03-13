@@ -20,7 +20,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Parameters
 /// * `node_id`: The root [`NodeId`] from which to start the encoding traversal.
-/// * `expr`: A mutable reference to the [`Expr`] arena for in-place tree mutation.
+/// * `logic`: A mutable reference to the [`Expr`] arena for in-place tree mutation.
 /// * `negated_atoms`: A mutable reference to a caller-owned [`Vec`]. This vector will be
 ///   populated with the [`AtomSkeletonId`] of every atom that gets negated during this pass.
 /// * `stack`: A mutable reference to a caller-owned [`Vec<NodeId>`] used as a scratchpad
@@ -136,7 +136,7 @@ pub fn to_pnf(
 ///
 /// # Parameters
 /// * `curr_id`: The [`NodeId`] of the `Not` node currently being processed.
-/// * `expr`: A mutable reference to the [`Expr`] arena. This allows the function
+/// * `logic`: A mutable reference to the [`Expr`] arena. This allows the function
 ///   to move the child's content into the current node's slot (absorption).
 /// * `negated_atoms`: A mutable reference to a caller-owned [`Vec`]. When an
 ///   `AtomicFormula` is successfully negated via MSB-masking, its updated
@@ -150,7 +150,7 @@ pub fn to_pnf(
 ///    comparison. No bit-flip is applied, and traversal stops for this branch.
 ///
 /// # Side Effects
-/// - Modifies the `expr` arena (node replacement).
+/// - Modifies the `logic` arena (node replacement).
 /// - Appends the negated [`AtomSkeletonId`] to the `negated_atoms` vector.
 ///
 /// # Errors
@@ -172,7 +172,7 @@ fn handle_not_node(
     let node_kind = ExprKind::Not;
 
     // 1. Safely extract the child ID.
-    // Using a scope to drop the immutable borrow of 'expr' immediately,
+    // Using a scope to drop the immutable borrow of 'logic' immediately,
     // allowing subsequent mutations.
     let child_id = {
         let node = expr.try_node(node_id)?;

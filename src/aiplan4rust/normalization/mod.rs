@@ -10,7 +10,7 @@
 //! structural uniformity of AST nodes. This is crucial for downstream components such as
 //! the type_checker checker, lifted IR builder, and planner ops.
 //!
-//! Key goals of expr include:
+//! Key goals of logic include:
 //!
 //! - Flattening or rewriting nested constructs (e.g., desugaring `TypedList` and `EitherType`).
 //! - Deduplicating or merging repeated entries (e.g., `:requirements`, type_checker definitions).
@@ -20,42 +20,42 @@
 //!
 //! This module is composed of several submodules and utilities:
 //!
-//! - [`passes`] — Contains the individual expr expr:
+//! - [`passes`] — Contains the individual logic logic:
 //!   - [`typed_list`] — Expands and validates `TypedList` declarations.
-//!   - [`either_type`] — Rewrites `either` expr into concrete disjunctions.
+//!   - [`either_type`] — Rewrites `either` logic into concrete disjunctions.
 //!   - [`require_def`] — Deduplicates and validates domain-level requirements.
 //!   - [`type_def`] — Consolidates type_checker hierarchies and removes redundancies.
 //!
-//! - [`normalizer`] — Provides the [`Normalizer`] struct, the main interface to apply all expr expr.
+//! - [`normalizer`] — Provides the [`Normalizer`] struct, the main interface to apply all logic logic.
 //!
-//! - [`result`] — Defines [`NormalizerResult`], the output of expr containing:
+//! - [`result`] — Defines [`NormalizerResult`], the output of logic containing:
 //!   - The possibly modified AST,
 //!   - A diagnostic log,
 //!   - And an indicator whether any structural change occurred.
 //!
-//! - [`error`] — Defines the [`NormalizationError`] enum for critical internal expr failures.
+//! - [`error`] — Defines the [`NormalizationError`] enum for critical internal logic failures.
 //!
 //! ## Error Handling
 //!
-//! Errors during expr are returned as a [`NormalizationError`], which can wrap:
+//! Errors during logic are returned as a [`NormalizationError`], which can wrap:
 //!
 //! - [`SyntaxTreeError`] — Errors in the tree's internal structure.
 //! - [`ArenaError`] — Memory arena allocation issues.
 //! - [`InternerError`] — Identifier resolution or interning issues.
 //!
 //! Non-fatal issues (e.g., unsupported types, naming warnings) are collected as diagnostics
-//! through the [`DiagnosticManager`] and can be reviewed post-expr.
+//! through the [`DiagnosticManager`] and can be reviewed post-logic.
 //!
 //! ## Re-exports
 //!
-//! - [`Normalizer`] — Main entry point to apply expr.
-//! - [`NormalizerResult`] — The resulting structure returned after expr.
-//! - [`NormalizationError`] — The fatal error type_checker used when expr cannot proceed.
+//! - [`Normalizer`] — Main entry point to apply logic.
+//! - [`NormalizerResult`] — The resulting structure returned after logic.
+//! - [`NormalizationError`] — The fatal error type_checker used when logic cannot proceed.
 //!
 //! ## Example
 //!
 //! ```rust
-//! use aiplan4rust::expr::{Normalizer, NormalizerResult};
+//! use aiplan4rust::logic::{Normalizer, NormalizerResult};
 //! use aiplan4rust::syntax::ast::Ast;
 //!
 //! let ast: Ast = /* parsed AST */;
@@ -77,17 +77,17 @@
 //! ## Notes
 //!
 //! - **AST validity is a precondition**: the input [`Ast`] must be structurally sound.
-//!   Invalid ASTs may trigger internal expr errors.
+//!   Invalid ASTs may trigger internal logic errors.
 //!
-//! - **Pass ordering is critical**: expr expr are executed in a specific sequence,
+//! - **Pass ordering is critical**: logic logic are executed in a specific sequence,
 //!   and skipping or reordering them may result in inconsistent or incorrect ASTs.
 //!
-//! - Diagnostics allow partial recovery: even if expr completes, collected diagnostics
+//! - Diagnostics allow partial recovery: even if logic completes, collected diagnostics
 //!   may indicate semantic issues that require user attention.
 //!
 //! ## See Also
 //!
-//! - [`DiagnosticManager`] — Responsible for logging all non-fatal issues during expr.
+//! - [`DiagnosticManager`] — Responsible for logging all non-fatal issues during logic.
 //! - [`Ast`] — The syntax tree structure being normalized.
 
 pub mod result;

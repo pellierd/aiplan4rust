@@ -13,10 +13,10 @@ use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::tree::{Node, NodeId};
 
-/// Checks the type_checker correctness of typed expr in the syntax arena, including comparisons,
+/// Checks the type_checker correctness of typed logic in the syntax arena, including comparisons,
 /// assignments, and arithmetic operations.
 ///
-/// This function traverses the annotated syntax arena to verify that expr have compatible
+/// This function traverses the annotated syntax arena to verify that logic have compatible
 /// types according to their operation kind. It supports:
 /// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand type_checker compatibility.
 /// - Other comparisons (`>`, `<`, `>=`, `<=`) and arithmetic assignments (`+=`, `-=`, `*=`, `/=`),
@@ -32,7 +32,7 @@ use crate::aiplan4rust::tree::{Node, NodeId};
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager for collecting errors.
 ///
 /// # Returns
-/// - `Ok(true)` if all typed expr are correct.
+/// - `Ok(true)` if all typed logic are correct.
 /// - `Ok(false)` if one or more type_checker mismatches were found and reported.
 /// - `Err(ParserInternalError)` if an internal error occurred during processing.
 ///
@@ -40,7 +40,7 @@ use crate::aiplan4rust::tree::{Node, NodeId};
 /// ```rust
 /// let result = check_typed_expressions(&ast_old, &type_checker, source, &mut diagnostic_manager)?;
 /// if result {
-///     println!("All typed expr are valid.");
+///     println!("All typed logic are valid.");
 /// }
 /// ```
 pub fn check_typed_expressions(
@@ -86,7 +86,7 @@ fn is_assign(node: &AstNode) -> bool {
     matches!(node.kind(), AstKind::Assignment) && node.as_assign_op() == Some(AssignOp::Assign)
 }
 
-/// Returns `true` if the syntax is a numeric comparison or a scale assignment expr.
+/// Returns `true` if the syntax is a numeric comparison or a scale assignment logic.
 ///
 /// This includes:
 /// - Comparison operators: `Greater`, `GreaterEq`, `Less`, `LessEq`.
@@ -110,7 +110,7 @@ fn is_numeric_expression(node: &AstNode) -> bool {
         )
 }
 
-/// Checks the type_checker compatibility of operands in equality (`=`) or assignment (`assign`) expr.
+/// Checks the type_checker compatibility of operands in equality (`=`) or assignment (`assign`) logic.
 ///
 /// This function verifies that the types of both operands involved in an equality or assignment
 /// operation are compatible. Equality comparisons (`=`) require operands of the same type_checker,
@@ -176,12 +176,12 @@ fn check_equal_and_assignment_expression(
     Ok(no_error)
 }
 
-/// Checks whether the operand types in a numeric comparison or assignment expr
+/// Checks whether the operand types in a numeric comparison or assignment logic
 /// are compatible with numeric operations (i.e., of type_checker `number`).
 ///
-/// This function is used specifically for expr involving numeric comparisons
+/// This function is used specifically for logic involving numeric comparisons
 /// (e.g., `greater`, `less`, `>=`, `<=`) and numeric assignment operations
-/// (e.g., `increase`, `decrease`, `scale-up`, `scale-down`). For such expr
+/// (e.g., `increase`, `decrease`, `scale-up`, `scale-down`). For such logic
 /// to be valid, both operands must have the `number` type_checker.
 ///
 /// If either operand does not have the `number` type_checker, the function logs a
@@ -189,7 +189,7 @@ fn check_equal_and_assignment_expression(
 ///
 /// # Parameters
 /// - `annotated_syntax_tree`: The annotated syntax arena containing the AST and metadata.
-/// - `syntax`: The syntax syntax representing the numeric expr.
+/// - `syntax`: The syntax syntax representing the numeric logic.
 /// - `ty1`: A reference to a vector of strings representing the type_checker of the left operand.
 /// - `ty2`: A reference to a vector of strings representing the type_checker of the right operand.
 /// - `source`: The diagnostic source indicating where this check is performed.
@@ -239,7 +239,7 @@ fn check_numeric_expression(
     no_error
 }
 
-/// Retrieves and returns the types of both operands in a binary expr.
+/// Retrieves and returns the types of both operands in a binary logic.
 ///
 /// This function ensures that the given syntax syntax represents a binary operation
 /// with exactly two children. It then looks up the types of both operand nodes
@@ -280,12 +280,12 @@ fn get_binary_operation_types(
     let arg2_id = node.try_child(1)?;
     let arg2 = ast.try_node(arg2_id)?;
 
-    // Get the either_type of the first operand, or return a specific error if missing
+    // Get the typing of the first operand, or return a specific error if missing
     let ty1 = get_type(arg1_id, arg1, context)?.ok_or_else(|| {
         SemanticCheckError::missing_operand_type(arg1_id, 0)
     })?;
 
-    // Get the either_type of the second operand, or return a specific error if missing
+    // Get the typing of the second operand, or return a specific error if missing
     let ty2 = get_type(arg2_id, arg2, context)?.ok_or_else(|| {
         SemanticCheckError::missing_operand_type(arg2_id, 1)
     })?;
@@ -299,7 +299,7 @@ fn get_binary_operation_types(
 /// This function supports several kinds of nodes: numbers, variables, constants,
 /// and function terms. It delegates type_checker resolution to specialized helper functions
 /// depending on the syntax kind. The function is used during type_checker checking to retrieve
-/// the declared or inferred type_checker of an expr or symbol.
+/// the declared or inferred type_checker of an logic or symbol.
 ///
 /// # Parameters
 /// - `index`: The index of the current syntax in the syntax arena.
@@ -480,12 +480,12 @@ fn get_declaration_type(
     }
 }
 
-/// Helper to handle a `FunctionTerm` node and retrieve its either_type.
+/// Helper to handle a `FunctionTerm` node and retrieve its typing.
 ///
 /// This function checks if the first child of the `FunctionTerm` AST node is a valid functor,
-/// retrieves its corresponding AST entry, and determines the either_type associated with the function term.
+/// retrieves its corresponding AST entry, and determines the typing associated with the function term.
 /// It specifically handles the special case where the functor is the `TOTAL_TIME` symbol and
-/// ensures the presence of the `NumericFluents` requirement before returning the number either_type.
+/// ensures the presence of the `NumericFluents` requirement before returning the number typing.
 ///
 /// If the functor is missing, invalid, or not of kind `FunctionSymbol`, an error is returned.
 ///
@@ -494,8 +494,8 @@ fn get_declaration_type(
 /// - `context`: Semantic checking context, providing access to the AST, symbol table, and requirements.
 ///
 /// # Returns
-/// - `Ok(Some(either_type))`: The either_type of the function term if determined successfully.
-/// - `Ok(None)`: If the function term has no functor or no either_type could be inferred.
+/// - `Ok(Some(typing))`: The typing of the function term if determined successfully.
+/// - `Ok(None)`: If the function term has no functor or no typing could be inferred.
 /// - `Err(SemanticCheckError)`: If the functor is missing, invalid, or of an unexpected kind.
 ///
 /// # Errors

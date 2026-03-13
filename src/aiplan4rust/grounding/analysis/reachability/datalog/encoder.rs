@@ -24,7 +24,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 ///
 /// 1. **Quantifier Expansion**: All `FORALL` and `EXISTS` nodes must be expanded into
 ///    their respective `AND`/`OR` equivalent grounded structures.
-/// 2. **Type Flattening**: The PDDL either_type hierarchy must be flattened. Datalog operates
+/// 2. **Type Flattening**: The PDDL typing hierarchy must be flattened. Datalog operates
 ///    on flat sets; any complex inheritance must be resolved amont.
 /// 3. **Object Fluent Flattening**: Functions (object fluents) must be converted into
 ///    relational predicates (e.g., `(at ?robot (location_of ?target))` -> `(at ?robot ?loc) ^ (is_at ?target ?loc)`).
@@ -115,7 +115,7 @@ impl DatalogEncoder {
     ///
     /// # Returns
     ///
-    /// The unique [`AtomSkeletonId`] representing this either_type.
+    /// The unique [`AtomSkeletonId`] representing this typing.
     /// The mapping to the original `TypeId` is implicit:
     /// `TypeId = sk_id - fluence_threshold`.
     ///
@@ -367,7 +367,7 @@ impl DatalogEncoder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The expression tree representing the action's preconditions.
+    /// * `logic` - The expression tree representing the action's preconditions.
     /// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
     /// * `parameters` - The typed parameters of the action, used to define the signature of auxiliary predicates.
     ///
@@ -408,7 +408,7 @@ impl DatalogEncoder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The global expression tree containing the node.
+    /// * `logic` - The global expression tree containing the node.
     /// * `node_id` - The starting point for the encoding (root of the sub-tree).
     /// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
     /// * `parameters` - The typed parameters available in the current context (e.g., action parameters).
@@ -451,7 +451,7 @@ impl DatalogEncoder {
                         let child_node = expr.try_node(child_id)?;
                         let child_kind = child_node.kind();
 
-                        // 2. Vérification du either_type (Comparison) et de l'opérateur (Equal uniquement)
+                        // 2. Vérification du typing (Comparison) et de l'opérateur (Equal uniquement)
                         let is_valid_comparison = if child_kind == ExprKind::Comparison {
                             // On vérifie si l'opérateur est bien "Equal"
                             child_node.content().try_compare_op()? == CompareOp::Equal
@@ -656,7 +656,7 @@ impl DatalogEncoder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The global expression tree used to resolve the nature of child nodes.
+    /// * `logic` - The global expression tree used to resolve the nature of child nodes.
     /// * `node` - A reference to the current [`ExprNode`], which must represent an `AtomicFormula` or a `Comparison`.
     ///
     /// # Returns
@@ -685,7 +685,7 @@ impl DatalogEncoder {
     /// Returns a [`DatalogError`] if:
     /// * The node content cannot be converted to an atom skeleton.
     /// * An argument node is neither a `Variable` nor a `Constant` (e.g., a nested expression).
-    /// * A node reference within the `expr` tree is invalid.
+    /// * A node reference within the `logic` tree is invalid.
     fn extract_atom(&self, expr: &Expr, node: &ExprNode) -> Result<Atom, DatalogError> {
         let kind = node.kind();
         let children = node.children();

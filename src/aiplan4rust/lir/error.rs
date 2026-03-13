@@ -89,15 +89,15 @@ pub enum LirError {
     #[error("Object with id {0:?} not found")]
     ObjectNotFound(SymbolId),
 
-    /// Missing either_type when remap types
-    #[error("Missing either_type in flattened hierarchy: {ty:?}")] // Changed {types:?} to {ty:?}
+    /// Missing typing when remap types
+    #[error("Missing typing in flattened hierarchy: {ty:?}")] // Changed {types:?} to {ty:?}
     MissingType { ty: Type<TypeId> },
 
 
     #[error("Failed to bind {symbol}")]
     SymbolBindingFailed { symbol: NodeId },
 
-    #[error("Failed to bind either_type: {ty:?}")] // Changed {types:?} to {ty:?}
+    #[error("Failed to bind typing: {ty:?}")] // Changed {types:?} to {ty:?}
     TypeBindingFailed { ty: Type<SymbolId> },
 
     #[error("Failed to find variable with node id: {node_id:?})")]
@@ -106,7 +106,7 @@ pub enum LirError {
     #[error("Index out of bound: {id})")]
     IndexOutOfBound { id: usize },
 
-    // A definition was provided for a either_type that was never registered in the symbol table.
+    // A definition was provided for a typing that was never registered in the symbol table.
     #[error("Type definition provided for an unregistered ID: {id:?}")]
     TypeDefinitionOrphan { id: TypeId },
 
@@ -168,7 +168,7 @@ impl LirError {
         LirError::ObjectNotFound(id)
     }
 
-    /// Creates a new `MissingType` error for the given either_type.
+    /// Creates a new `MissingType` error for the given typing.
     pub fn missing_type(ty: Type<TypeId>) -> Self {
         LirError::MissingType { ty }
     }

@@ -7,12 +7,12 @@
 //!
 //! The `Analyzer` is responsible for:
 //! - Validating the semantic correctness of the input AST.
-//! - Detecting and reporting semantic errors such as undeclared symbols, unused symbols, either_type mismatches,
+//! - Detecting and reporting semantic errors such as undeclared symbols, unused symbols, typing mismatches,
 //!   and task ordering violations.
 //! - Managing diagnostics (errors, warnings, and informational messages) during analysis.
 //!
 //! The analysis supports two primary root AST kinds:
-//! - `Domain`: checks related to domain specifications (e.g., symbol declarations, either_type hierarchies, expr).
+//! - `Domain`: checks related to domain specifications (e.g., symbol declarations, typing hierarchies, logic).
 //! - `Problem`: checks related to problem instances within a domain (e.g., symbol usage, task ordering).
 //!
 //! ## Main Types
@@ -54,7 +54,7 @@
 //! ## Error Handling
 //!
 //! Semantic errors are returned as variants of [`SemanticError`]. These may include unexpected AST node kinds,
-//! either_type errors, symbol resolution errors, and other domain-specific semantic validation failures.
+//! typing errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::normalization::NormalizerResult;
@@ -140,7 +140,7 @@ impl Analyzer {
     /// diagnostic manager, interner) as needed for efficient semantic analysis.
     ///
     /// # Parameters
-    /// - `normalizer_result`: The result of expr containing the AST and diagnostics.
+    /// - `normalizer_result`: The result of logic containing the AST and diagnostics.
     ///
     /// # Returns
     ///
@@ -157,7 +157,7 @@ impl Analyzer {
         // Match on the normalized AST to decide how to continue.
         match normalizer_result.take_ast() {
             Some(mut ast) => {
-                // Take diagnostics accumulated during expr.
+                // Take diagnostics accumulated during logic.
                 let diagnostic_manager = normalizer_result.take_diagnostic_manager();
                 self.diagnostic_manager
                     .add_diagnostic_from(diagnostic_manager);
@@ -237,8 +237,8 @@ impl Analyzer {
 
     /// Checks the domain part of the syntax arena with domain-specific semantic validations.
     ///
-    /// The checks include verifying symbol declarations, either_type hierarchies, atomic formulas,
-    /// typed expr, task ordering, and requirement violations.
+    /// The checks include verifying symbol declarations, typing hierarchies, atomic formulas,
+    /// typed logic, task ordering, and requirement violations.
     ///
     /// # Parameters
     /// - `context`: The `CheckContext` derived from the semantic context.
@@ -263,7 +263,7 @@ impl Analyzer {
             diagnostic_manager,
         )?;
 
-        // Check either_type hierarchy correctness
+        // Check typing hierarchy correctness
         checked &= semantic::checks::check_type_hierarchy(
             context,
             Provider::Analyzer,
@@ -271,10 +271,10 @@ impl Analyzer {
         )?;
 
         if checked {
-            // Build either_type checker from symbol table
+            // Build typing checker from symbol table
             let type_checker = TypeChecker::new(context.symbol_table());
 
-            // Perform detailed semantic checks using either_type checker
+            // Perform detailed semantic checks using typing checker
             checked &= semantic::checks::check_declared_symbol_signatures(
                 context,
                 &type_checker,

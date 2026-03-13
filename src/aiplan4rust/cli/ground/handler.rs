@@ -161,7 +161,7 @@ pub fn save_ground_output<P: Into<PathBuf>>(
 ///
 /// This function attempts to read the domain file from the given path and checks
 /// if it is either a RawDomain or ParsedDomain. If the domain cannot be read or
-/// is of an incompatible either_type, a warning is printed and `None` is returned.
+/// is of an incompatible typing, a warning is printed and `None` is returned.
 ///
 /// # Parameters
 ///
@@ -169,14 +169,14 @@ pub fn save_ground_output<P: Into<PathBuf>>(
 ///
 /// # Returns
 ///
-/// * `Some(Input)` - If the domain is successfully read and is of a valid either_type.
+/// * `Some(Input)` - If the domain is successfully read and is of a valid typing.
 /// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
 pub fn filter_domain(path: &PathBuf) -> Option<Source> {
     match Source::try_from_path(path) {
-        // Domain successfully read and has a valid either_type
+        // Domain successfully read and has a valid typing
         Ok(d) if d.is_domain() && d.is_raw() => Some(d),
 
-        // Domain read but either_type is invalid
+        // Domain read but typing is invalid
         Ok(d) => {
             println!(
                 "Warning: domain '{}' ignored: must be a RawDomain",
@@ -200,10 +200,10 @@ pub fn filter_domain(path: &PathBuf) -> Option<Source> {
 /// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
 pub fn filter_problem(path: &PathBuf) -> Option<Source> {
     match Source::try_from_path(path) {
-        // Domain successfully read and has a valid either_type
+        // Domain successfully read and has a valid typing
         Ok(d) if d.is_problem() && d.is_raw() => Some(d),
 
-        // Domain read but either_type is invalid
+        // Domain read but typing is invalid
         Ok(d) => {
             println!(
                 "Warning: problem '{}' ignored: must be a raw problem",

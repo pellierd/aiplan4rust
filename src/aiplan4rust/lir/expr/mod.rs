@@ -1,7 +1,7 @@
 //! Expression module for the AI Plan Rust project.
 //!
 //! This module provides the common types and functionality to represent,
-//! manipulate, and analyze logical and syntax expr within
+//! manipulate, and analyze logical and syntax logic within
 //! the system. It includes representations of expression nodes,
 //! kinds, contents, transformations, errors, and higher-level expression
 //! arenas.
@@ -15,7 +15,7 @@
 //! - [`kind`]: Defines the `Kind` enum representing the different
 //!   kinds of expression nodes (logical operators, symbols, predicates, etc.).
 //! - [`simplify`]: Contains utilities and functions for transforming
-//!   or rewriting expr.
+//!   or rewriting logic.
 //! - [`expr`]: Defines the `Expr` type_checker, a wrapper around an expression
 //!   arena (syntax tree) that holds `ExprNode` instances and provides
 //!   expression-level operations.
@@ -30,11 +30,11 @@
 //! # Usage example
 //!
 //! ```rust
-//! use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent};
+//! use crate::aiplan4rust::lir::logic::{Expr, ExprNode, ExprKind, ExprContent};
 //!
 //! // Create a new expression node with kind and content
 //! let node = ExprNode::new(ExprKind::And, ExprContent::None, None);
-//! // Build or manipulate expr...
+//! // Build or manipulate logic...
 //! ```
 //!
 //! This modular design promotes clear separation of concerns,

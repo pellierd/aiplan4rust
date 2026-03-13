@@ -14,7 +14,7 @@ pub fn render(
     ctx: &RenderContext,
 ) -> fmt::Result {
     // 1. Début du bloc et "head" (le nom du prédicat et ses arguments)
-    // On utilise expr::render pour le head car c'est une AtomicFormulaSkeleton
+    // On utilise logic::render pour le head car c'est une AtomicFormulaSkeleton
     write!(f, "(:derived ")?;
     atomic_formula_skeleton::render(f, &derived.head(), ctx)?;
 

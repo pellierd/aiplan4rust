@@ -19,7 +19,7 @@
 //!
 //! ```rust
 //! use crate::aiplan4rust::lir::task_network::TaskNetwork;
-//! use crate::aiplan4rust::lir::expr::Expr;
+//! use crate::aiplan4rust::lir::logic::Expr;
 //!
 //! let network = TaskNetwork::new(
 //!     Expr::empty_and(),
@@ -32,7 +32,7 @@
 //! Task networks are commonly used inside method definitions to describe how
 //! an abstract task is decomposed into a set of executable or further abstract tasks.
 //!
-//! The expr used are built from the [`Expr`] representation, which supports
+//! The logic used are built from the [`Expr`] representation, which supports
 //! logical combinations, references to task calls, and symbolic constructs parsed from ASTs.
 
 use std::fmt::{Display, Formatter};

@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 
 /// Normalizes an `Action` using the provided `LogicEngine`.
 ///
-/// This function applies expression expr to both the precondition
+/// This function applies expression logic to both the precondition
 /// and the effect of the given `Action`. It is intended for internal use
 /// within the `problem` module and is not part of the public API.
 ///
@@ -14,7 +14,7 @@ use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 ///
 /// # Errors
 ///
-/// Returns a `LogicError` if expr of either the precondition or
+/// Returns a `LogicError` if logic of either the precondition or
 /// the effect fails.
 pub fn normalize(action: &mut ActionDef) -> Result<(), ExprOpError> {
     // 1. Normalisation de la durée (uniquement si elle existe)
@@ -23,7 +23,7 @@ pub fn normalize(action: &mut ActionDef) -> Result<(), ExprOpError> {
     }
 
     // 2. Normalisation de la précondition / condition
-    // L'accesseur precondition_mut() renvoie la condition correcte selon le either_type d'action
+    // L'accesseur precondition_mut() renvoie la condition correcte selon le typing d'action
     ops::normalize(action.precondition_mut())?;
 
     // 3. Normalisation de l'effet

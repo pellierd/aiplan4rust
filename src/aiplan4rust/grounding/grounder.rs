@@ -65,7 +65,7 @@ impl Grounder {
         let table = InertiaTable::build(&lifted_problem)?;
 
         // 3. VALUE REGISTRY CONSTRUCTION
-        // We pass either_type/object definitions separately and inject the initial size config.
+        // We pass typing/object definitions separately and inject the initial size config.
         let registry = ValueRegistry::build(
             lifted_problem.type_defs(),
             lifted_problem.object_defs(),
@@ -203,7 +203,7 @@ impl Grounder {
 
         for fluent in reachable_fluents {
             // 1. Extraction de l'ID du prédicat (qui peut avoir le MSB à 1)
-            let sk_id = fluent.symbol(); // Supposons que cela retourne ton either_type PredicateId
+            let sk_id = fluent.symbol(); // Supposons que cela retourne ton typing PredicateId
 
             if let Some(predicat_def) = lifted_problem.predicate_defs().get(sk_id.as_usize()) {
                 let predicate_id = predicat_def.symbol();

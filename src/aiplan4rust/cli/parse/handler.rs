@@ -208,7 +208,7 @@ pub fn parse_inputs(
 ///
 /// 1. Checks that the path exists and is a regular file; otherwise prints a warning and skips it.
 /// 2. Attempts to convert the file to a `Source`; if reading fails, prints a warning and skips it.
-/// 3. Checks if the source is raw; if not, prints a warning describing the source either_type.
+/// 3. Checks if the source is raw; if not, prints a warning describing the source typing.
 ///
 /// # Warnings
 ///
@@ -285,7 +285,7 @@ fn filter_raw_sources(source_paths: &Vec<PathBuf>) -> Result<Vec<Source>, CliErr
 ///
 /// # Arguments
 ///
-/// * `input_path` - Path to the PDDL/HDDL input file to parse. Accepts any either_type implementing `AsRef<Path>`.
+/// * `input_path` - Path to the PDDL/HDDL input file to parse. Accepts any typing implementing `AsRef<Path>`.
 /// * `output_path` - Path to the output file where the serialized semantic context will be written.
 /// * `format` - The serialization format for the output file (e.g., JSON, YAML, TOML).
 ///
@@ -475,7 +475,7 @@ pub fn save_parse_output<P: Into<PathBuf>>(
     format: SerdeFormat,
     output_path: P,
 ) -> Result<(), ArtefactError> {
-    // Convert the generic path either_type into a PathBuf
+    // Convert the generic path typing into a PathBuf
     let output_path = output_path.into();
 
     // Create all parent directories if they do not exist

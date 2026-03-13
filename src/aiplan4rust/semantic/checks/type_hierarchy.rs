@@ -100,17 +100,17 @@ pub fn check_type_hierarchy(
     Ok(filtered_cycles.is_empty())
 }
 
-/// Reports diagnostics for cyclic either_type declarations detected in the either_type hierarchy.
+/// Reports diagnostics for cyclic typing declarations detected in the typing hierarchy.
 ///
-/// For each detected cycle (represented as a vector of either_type indices), this function reconstructs
-/// the corresponding either_type declarations and emits an error diagnostic describing the cycle and its
+/// For each detected cycle (represented as a vector of typing indices), this function reconstructs
+/// the corresponding typing declarations and emits an error diagnostic describing the cycle and its
 /// origin within the source code.
 ///
 /// # Parameters
 ///
-/// - `cycles`: A slice of either_type cycles, where each cycle is a list of indices corresponding to
+/// - `cycles`: A slice of typing cycles, where each cycle is a list of indices corresponding to
 ///   declared types forming a loop.
-/// - `type_bimap`: A bidirectional map between either_type identifiers (`Ident`) and their unique indices,
+/// - `type_bimap`: A bidirectional map between typing identifiers (`Ident`) and their unique indices,
 ///   used to resolve cycles back to declarations.
 /// - `types`: A list of references to `Declaration` objects representing all known types.
 /// - `source`: The interned `Literal` representing the name of the source file where
@@ -128,7 +128,7 @@ pub fn check_type_hierarchy(
 /// # Errors
 ///
 /// Returns `SemanticCheckError::empty_cycle_detail` if no declarations could be resolved for a cycle,
-/// which likely indicates a bug in the analysis phase or an invalid state in the either_type resolution.
+/// which likely indicates a bug in the analysis phase or an invalid state in the typing resolution.
 ///
 /// # Example
 ///
@@ -517,16 +517,16 @@ fn build_type_adjacency_matrix(
     // Preallocate adjacency matrix n x n with false
     let mut matrix = vec![vec![false; n]; n];
 
-    // Get index of the special "object" either_type once
+    // Get index of the special "object" typing once
     let object_index = type_bimap.get_by_left(&SymbolInterner::OBJECT_SYMBOL_ID).copied();
 
     for declaration in declarations {
         let Some(&type_idx) = type_bimap.get_by_left(&declaration.symbol_ident()) else {
-            // If either_type is not found in map, just skip (consistency assumption)
+            // If typing is not found in map, just skip (consistency assumption)
             continue;
         };
 
-        // Check either_type index bounds
+        // Check typing index bounds
         if type_idx >= n {
             return Err(SemanticCheckError::type_index_out_of_bounds(
                 type_idx,

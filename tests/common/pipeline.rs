@@ -92,9 +92,9 @@ pub fn parse_and_check_ast(file_path: &Path) -> Option<ParserResult> {
 }
 
 /// Normalizes the AST contained in a `ParserResult` and checks its correctness,
-/// returning the expr result.
+/// returning the logic result.
 ///
-/// This function runs the expr process on the AST extracted from the given
+/// This function runs the logic process on the AST extracted from the given
 /// `ParserResult`, validating the resulting normalized AST.
 /// It writes diagnostic information and, in case of errors, writes the normalized AST
 /// and diagnostic details to files to facilitate debugging.
@@ -106,14 +106,14 @@ pub fn parse_and_check_ast(file_path: &Path) -> Option<ParserResult> {
 ///
 /// # Returns
 ///
-/// Returns `Some(NormalizerResult)` if expr succeeds without blocking errors.
-/// Returns `None` if expr fails or errors are found.
+/// Returns `Some(NormalizerResult)` if logic succeeds without blocking errors.
+/// Returns `None` if logic fails or errors are found.
 ///
 /// # Side Effects
 ///
 /// - Writes diagnostic files for both success and error cases.
 /// - Writes the normalized AST to a file if validation fails or no AST is produced.
-/// - Writes an error diagnostic file on expr failure.
+/// - Writes an error diagnostic file on logic failure.
 ///
 /// # Panics
 ///
@@ -125,7 +125,7 @@ pub fn parse_and_check_ast(file_path: &Path) -> Option<ParserResult> {
 /// if let Some(normalizer_result) = normalize_and_check_ast(parser_result, &file_path) {
 ///     // proceed with normalizer_result
 /// } else {
-///     // handle expr failure
+///     // handle logic failure
 /// }
 /// ```
 pub fn normalize_and_check_ast(

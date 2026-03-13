@@ -11,7 +11,7 @@ pub enum InertiaError {
     #[error(transparent)]
     Arena(#[from] ArenaError),
 
-    /// An error originating from the expr.
+    /// An error originating from the logic.
     #[error(transparent)]
     Expr(#[from] ExprError),
 

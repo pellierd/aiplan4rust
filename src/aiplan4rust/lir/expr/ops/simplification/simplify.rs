@@ -28,13 +28,13 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Parameters
 /// - `root_id`: The ID of the root node of the expression tree.
-/// - `expr`: A mutable reference to the expression tree (`Expr`) to be simplified.
+/// - `logic`: A mutable reference to the expression tree (`Expr`) to be simplified.
 ///
 /// # Behavior
 /// 1. Performs a **depth-first search (DFS)** in post-order using an explicit stack to avoid recursion:
 ///     - Each stack entry is `(node_id, visited)` where `visited` indicates if children have already been processed.
 ///     - Children are pushed first, then the parent is revisited to ensure post-order processing.
-/// 2. After constructing the post-order list of node IDs, each node is simplified by calling `simplify_node(node_id, expr)`.
+/// 2. After constructing the post-order list of node IDs, each node is simplified by calling `simplify_node(node_id, logic)`.
 /// 3. Node-specific simplifications include:
 ///     - `And` / `Or`: flattening, deduplication, reducing single-child nodes.
 ///     - `Not`: already pushed down; can be further simplified if nested.
@@ -53,15 +53,15 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Example
 /// ```ignore
-/// let mut expr = build_expr_tree();
-/// let root_id = expr.root_id().unwrap();
+/// let mut logic = build_expr_tree();
+/// let root_id = logic.root_id().unwrap();
 ///
 /// // Preconditions must be satisfied before calling simplification:
 /// // - All Implies removed
 /// // - Negations pushed down
 /// // - Temporal specifiers factorized
 ///
-/// simplification(root_id, &mut expr)?;
+/// simplification(root_id, &mut logic)?;
 /// ```
 pub fn simplify_with(
     expr: &mut Expr,
@@ -139,30 +139,30 @@ fn is_simplifiable(kind: ExprKind, has_evaluator: bool) -> bool {
 
 /// Simplifies a node in a PDDL expression tree based on its kind.
 ///
-/// This function inspects the either_type of the node identified by `node_id` and applies
-/// the appropriate simplification routine for that either_type. Currently, it only handles
+/// This function inspects the typing of the node identified by `node_id` and applies
+/// the appropriate simplification routine for that typing. Currently, it only handles
 /// `AND` and `OR` nodes by delegating to `simplify_and_or_node`.
 /// Nodes of other kinds are left unchanged.
 ///
 /// # Parameters
 /// - `node_id`: The ID of the node to simplification.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
-/// - `Ok(())` if the simplification succeeds or the node either_type is not handled.
+/// - `Ok(())` if the simplification succeeds or the node typing is not handled.
 /// - `Err(ExprError)` if accessing the node fails.
 ///
 /// # Notes
 /// - This function is intended to be called from a post-order traversal of the
 ///   expression tree, so that children are simplified before their parent.
 /// - Extending this function to support additional node kinds (e.g., `NOT`,
-///   arithmetic expr) is straightforward: simply add a match arm
+///   arithmetic logic) is straightforward: simply add a match arm
 ///   for the new kind.
 ///
 /// # Example
 /// ```ignore
-/// let node_id = expr.root_id().unwrap();
-/// simplify_node(node_id, &mut expr)?;
+/// let node_id = logic.root_id().unwrap();
+/// simplify_node(node_id, &mut logic)?;
 /// ```
 fn simplify_node(
     node_id: NodeId,

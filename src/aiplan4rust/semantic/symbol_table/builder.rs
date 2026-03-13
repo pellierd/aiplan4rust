@@ -212,7 +212,7 @@ impl SymbolTableBuilder {
     /// - `ActionDef`, `DurativeActionDef`: Initialize action-related symbols.
     /// - `AtomicFormulaSkeleton`: Special symbol table handling for formula skeletons.
     /// - `AtomicFormula`, `FunctionTerm`: Recursively initialize atomic formulas and function terms.
-    /// - `Forall`, `Exists`: Handle quantified expr and logical scopes.
+    /// - `Forall`, `Exists`: Handle quantified logic and logical scopes.
     /// - `MethodDef`, `TaskDef`: Initialize HTN method and task definitions.
     /// - `Task`, `TaggedTask`: Handle HTN individual tasks and tagged tasks.
     /// - `TaskOrderingConstraint`: Initialize constraints between HTN tasks.
@@ -414,7 +414,7 @@ impl SymbolTableBuilder {
     /// This function processes AST nodes representing symbol usages, such as domain names,
     /// problem names, constants, variables, atomic formulas, function terms, and tasks.
     /// It first validates the AST syntax kind to ensure it is appropriate for symbol usage.
-    /// For certain syntax kinds that represent complex expr (e.g., atomic formulas),
+    /// For certain syntax kinds that represent complex logic (e.g., atomic formulas),
     /// it extracts the first child node to retrieve the symbol reference.
     ///
     /// The symbol's identifier and kind are extracted, and the function updates
@@ -496,7 +496,7 @@ impl SymbolTableBuilder {
     /// Initializes the symbol table from a `TypedList` AST syntax node.
     ///
     /// This function processes a `TypedList` node by iterating over its children, each representing
-    /// a typed item such as a either_type declaration, constant, or variable. It recursively initializes
+    /// a typed item such as a typing declaration, constant, or variable. It recursively initializes
     /// symbol declarations for each child within the given scope.
     ///
     /// # Parameters
@@ -545,13 +545,13 @@ impl SymbolTableBuilder {
     /// Initializes symbol declarations from a `TypedItem` AST syntax node.
     ///
     /// A `TypedItem` typically represents a declaration associating one or more symbols
-    /// (e.g., variables or constants) with an optional either_type annotation. For example:
+    /// (e.g., variables or constants) with an optional typing annotation. For example:
     /// ```text
-    /// (?x ?y - location)  // symbols: ?x, ?y; either_type: location
-    /// (?z)                // symbol: ?z; no associated either_type
+    /// (?x ?y - location)  // symbols: ?x, ?y; typing: location
+    /// (?z)                // symbol: ?z; no associated typing
     /// ```
     ///
-    /// This function parses the symbols and their optional either_type, then registers them
+    /// This function parses the symbols and their optional typing, then registers them
     /// in the symbol table within the given scope.
     ///
     /// # Parameters
@@ -565,8 +565,8 @@ impl SymbolTableBuilder {
     ///
     /// - Validates that the node kind is `TypedItem`.
     /// - Examines the number of children:
-    ///   - If there is exactly one child, treats it as an untyped declaration (empty either_type list).
-    ///   - If there are exactly two children, parses the second child as the either_type annotation.
+    ///   - If there is exactly one child, treats it as an untyped declaration (empty typing list).
+    ///   - If there are exactly two children, parses the second child as the typing annotation.
     ///   - Returns an error if the number of children differs from 1 or 2.
     /// - Processes the first child as the list of symbols, associating them with the parsed types.
     /// - Adds each symbol declaration to the symbol table under the given scope.
@@ -576,16 +576,16 @@ impl SymbolTableBuilder {
     /// Returns `SymbolTableError` if:
     /// - The node kind is not `TypedItem`.
     /// - The number of children is invalid (not 1 or 2).
-    /// - The either_type annotation fails to parse correctly.
+    /// - The typing annotation fails to parse correctly.
     /// - Adding declarations to the symbol table fails.
     ///
     /// # Example
     ///
     /// ```text
-    /// // Declare ?x and ?y with either_type 'location'
+    /// // Declare ?x and ?y with typing 'location'
     /// (?x ?y - location)
     ///
-    /// // Declare ?z with no associated either_type
+    /// // Declare ?z with no associated typing
     /// (?z)
     /// ```
     ///
@@ -600,9 +600,9 @@ impl SymbolTableBuilder {
 
         // Determine the types associated with the symbols
         let types = match node.arity() {
-            1 => Type::new(), // No either_type annotation, empty either_type vector
+            1 => Type::new(), // No typing annotation, empty typing vector
             2 => {
-                // Parse the either_type annotation from the second child
+                // Parse the typing annotation from the second child
                 let ty_id = node.try_child(1)?;
                 self.init_from_type(&syntax_tree.try_node_ref(ty_id)?, ast, scope.clone())?
             }
@@ -637,7 +637,7 @@ impl SymbolTableBuilder {
     ///   `PrimitiveType`, `Constant`, `Variable`, or `AtomicFunctionSkeleton`.
     /// * `ast` — Reference to the AST arena containing the syntax.
     /// * `scope` — The current symbol table scope where the element should be declared.
-    /// * `types` — Vector of either_type checker identifiers associated with the element.
+    /// * `types` — Vector of typing checker identifiers associated with the element.
     ///
     /// # Behavior
     ///
@@ -713,7 +713,7 @@ impl SymbolTableBuilder {
     /// * `node_ref` — Reference to the AST node representing the `AtomicFunctionSkeleton`.
     /// * `ast` — Reference to the AST arena containing all syntax nodes.
     /// * `scope` — The current scope in which the function is declared.
-    /// * `types` — A vector of either_type checker identifiers associated with the function.
+    /// * `types` — A vector of typing checker identifiers associated with the function.
     ///
     /// # Returns
     ///
@@ -755,8 +755,8 @@ impl SymbolTableBuilder {
         let node = node_ref.node();
 
         // --- Default Type Injection ---
-        // In PDDL, if a function's return either_type is omitted, it is implicitly
-        // treated as a numeric function (standard 'number' either_type).
+        // In PDDL, if a function's return typing is omitted, it is implicitly
+        // treated as a numeric function (standard 'number' typing).
         if types.is_empty() {
             // Ensure the "number" identifier matches your internal StringID conventions.
             types.add_type(ast.interner().try_lookup_symbol(NUMBER_TYPE)?);
@@ -1300,7 +1300,7 @@ impl SymbolTableBuilder {
     /// Returns [`SymbolTableError`] in the following cases:
     /// - The node has an unexpected number of children (not 1 or 2).
     /// - The first child is not a `Constant` or `Variable`.
-    /// - A either_type extraction fails.
+    /// - A typing extraction fails.
     ///
     /// # Example
     ///
@@ -1318,11 +1318,11 @@ impl SymbolTableBuilder {
         let syntax_tree = ast.syntax_tree();
         let node = typed_item_ref.node();
 
-        // Step 1: Extract the either_type information if present
+        // Step 1: Extract the typing information if present
         let types = match node.arity() {
-            1 => Type::new(), // No either_type specified → assume empty (default) either_type
+            1 => Type::new(), // No typing specified → assume empty (default) typing
             2 => {
-                let ty_id = node.try_child(1)?; // Get the either_type node
+                let ty_id = node.try_child(1)?; // Get the typing node
                 let ty_node_ref = syntax_tree.try_node_ref(ty_id)?;
                 self.extract_type(&ty_node_ref, ast)? // Extract types from it
             }
@@ -1369,7 +1369,7 @@ impl SymbolTableBuilder {
 
     /// Extracts primitive type_checker identifiers from a `Type` AST node without recording symbol usage.
     ///
-    /// This function is used to interpret a either_type declaration from the AST. It expects the node to be of kind `Type`,
+    /// This function is used to interpret a typing declaration from the AST. It expects the node to be of kind `Type`,
     /// and each of its children to be of kind `PrimitiveType`. The extracted identifiers are collected into a [`Type`] object.
     ///
     /// Unlike `init_from_type`, this function does **not** register symbol usage in the current scope—
@@ -1377,7 +1377,7 @@ impl SymbolTableBuilder {
     ///
     /// # Arguments
     ///
-    /// * `type_ref` - A reference to the AST node expected to represent a either_type (`AstKind::Type`).
+    /// * `type_ref` - A reference to the AST node expected to represent a typing (`AstKind::Type`).
     /// * `ast` - The complete AST arena, used to access nodes and symbol interners.
     ///
     /// # Returns
@@ -1425,18 +1425,18 @@ impl SymbolTableBuilder {
     /// Initializes type_checker information and records symbol usage in the given scope.
     ///
     /// This function processes an AST node of kind `Type`, which is expected to list one or more
-    /// `PrimitiveType` identifiers (e.g., either_type names). It extracts all these identifiers,
+    /// `PrimitiveType` identifiers (e.g., typing names). It extracts all these identifiers,
     /// constructs a `Type` object containing them, and registers each as a symbol usage in the provided scope.
     ///
     /// # Arguments
     ///
     /// * `type_ref` - A reference to the AST node expected to be of kind `Type`.
     /// * `ast` - The arena-backed AST structure used for looking up child nodes and interning.
-    /// * `scope` - The current lexical scope where either_type usages should be recorded.
+    /// * `scope` - The current lexical scope where typing usages should be recorded.
     ///
     /// # Returns
     ///
-    /// Returns a [`Type`] object containing all extracted either_type identifiers if successful.
+    /// Returns a [`Type`] object containing all extracted typing identifiers if successful.
     ///
     /// # Errors
     ///
@@ -1449,12 +1449,12 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<Type<SymbolId>, SymbolTableError> {
-        // --- Extract the either_type identifiers using existing ops ---
+        // --- Extract the typing identifiers using existing ops ---
         let super_types = self.extract_type(type_ref, ast)?; // Handles structure & kind checking internally
 
-        // --- Register each primitive either_type as a symbol usage ---
+        // --- Register each primitive typing as a symbol usage ---
         for ty in type_ref.node().children() {
-            let ty_ref = ast.syntax_tree().try_node_ref(*ty)?; // Get reference to each either_type node
+            let ty_ref = ast.syntax_tree().try_node_ref(*ty)?; // Get reference to each typing node
             self.add_symbol_usage(&ty_ref, ast, scope.clone())?; // Track usage in the current scope
         }
 

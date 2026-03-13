@@ -174,37 +174,37 @@ impl_display_prefix!(TaskSkeletonId, "TS");
 // --- TRAITS INTERNER (RESOLUTION) ---
 
 impl TypeId {
-    /// Reserved identifier for the "number" either_type, used for numeric fluents and functions.
+    /// Reserved identifier for the "number" typing, used for numeric fluents and functions.
     /// By convention, this corresponds to the second entry in a standard interner.
     pub const NUMBER_TYPE_ID: Self = Self::new(1);
 
-    /// Reserved sentinel identifier for the PDDL root either_type (the implicit 'object' either_type).
+    /// Reserved sentinel identifier for the PDDL root typing (the implicit 'object' typing).
     ///
-    /// This specific ID is used because the 'object' either_type is inconsistently defined
+    /// This specific ID is used because the 'object' typing is inconsistently defined
     /// in PDDL files: it can be explicitly declared, used implicitly as a parent,
-    /// or omitted entirely. In our Datalog engine, a "null" or empty either_type
+    /// or omitted entirely. In our Datalog engine, a "null" or empty typing
     /// specification always resolves to this root sentinel to ensure consistency.
     pub const ROOT_TYPE_ID: Self = Self::new(usize::MAX);
 
-    /// Returns the sentinel value representing the PDDL root either_type ('object').
+    /// Returns the sentinel value representing the PDDL root typing ('object').
     #[inline]
     pub const fn root() -> Self {
         Self::ROOT_TYPE_ID
     }
 
-    /// Checks if this either_type represents the PDDL root either_type.
+    /// Checks if this typing represents the PDDL root typing.
     #[inline]
     pub fn is_root(&self) -> bool {
         self.as_usize() == Self::ROOT_TYPE_ID.as_usize()
     }
 
-    /// Returns the reserved identifier for the "number" either_type.
+    /// Returns the reserved identifier for the "number" typing.
     #[inline]
     pub const fn number() -> Self {
         Self::NUMBER_TYPE_ID
     }
 
-    /// Checks if this either_type represents a numeric value.
+    /// Checks if this typing represents a numeric value.
     #[inline]
     pub fn is_number(&self) -> bool {
         self.as_usize() == Self::NUMBER_TYPE_ID.as_usize()

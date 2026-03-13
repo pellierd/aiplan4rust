@@ -30,7 +30,7 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
     let type_loc_id = problem.add_type_symbol(name_loc);
 
     let loc_def = TypedSymbol::new(type_loc_id, Type::primitive(type_obj_id));
-    problem.add_type_defs(loc_def).expect("Failed to add either_type def");
+    problem.add_type_defs(loc_def).expect("Failed to add typing def");
 
     // 3. Configuration des Objets
     let name_robot = problem.interner_mut().intern_symbol("robot");
@@ -154,7 +154,7 @@ fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
     let id_type_object = AtomSkeletonId::from(engine.type_segment_start);
     assert!(engine.is_type(id_type_object), "L'ID {} devrait être un type", id_type_object.as_usize());
 
-    // Le either_type ROOT est le dernier du segment des types
+    // Le typing ROOT est le dernier du segment des types
     let id_type_root = AtomSkeletonId::from(engine.type_threshold - 1);
     assert!(engine.is_type(id_type_root), "L'ID {} (ROOT) devrait être un type", id_type_root.as_usize());
 
@@ -247,7 +247,7 @@ fn test_type_inheritance_ingestion() -> Result<(), Box<dyn Error>> {
     engine.load_problem(&problem, &Vec::new())?;
 
     // --- 1. Récupération dynamique des IDs de types ---
-    // Dans ton mock, 'object' est le premier either_type (index 0)
+    // Dans ton mock, 'object' est le premier typing (index 0)
     // et 'location' est le second (index 1).
     let sk_obj = AtomSkeletonId::from(engine.type_segment_start);
     let sk_loc = AtomSkeletonId::from(engine.type_segment_start + 1);
@@ -268,8 +268,8 @@ fn test_type_inheritance_ingestion() -> Result<(), Box<dyn Error>> {
         "L'objet room_a devrait hériter du type parent 'object' (ID {})", sk_obj.as_usize()
     );
 
-    // --- 4. Vérification du either_type ROOT ---
-    // Tous les objets doivent être dans ROOT (le dernier either_type ajouté par le moteur)
+    // --- 4. Vérification du typing ROOT ---
+    // Tous les objets doivent être dans ROOT (le dernier typing ajouté par le moteur)
     let sk_root = AtomSkeletonId::from(engine.type_threshold - 1);
     assert!(
         engine.db.contains_delta(sk_root, &[id_room_a]),
@@ -308,7 +308,7 @@ fn test_action_rule_ingestion() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 4. Vérification de la logique (Préconditions & Auxiliaires)
-    // On filtre tout ce qui n'est pas un either_type (donc les fluents PDDL ou les auxiliaires PNF)
+    // On filtre tout ce qui n'est pas un typing (donc les fluents PDDL ou les auxiliaires PNF)
     let logical_atoms_count = rule.body().iter()
         .filter(|a| !engine.is_type(a.skeleton_id()))
         .count();
@@ -726,7 +726,7 @@ fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
 
     // 2. Récupération des IDs réels du mock via les seuils de l'engine
     let sk_at = AtomSkeletonId::from(0);
-    // On récupère dynamiquement l'ID du either_type 'location'
+    // On récupère dynamiquement l'ID du typing 'location'
     let sk_loc = AtomSkeletonId::from(engine.type_segment_start + 1);
     let type_loc_id = sk_loc.as_usize();
 

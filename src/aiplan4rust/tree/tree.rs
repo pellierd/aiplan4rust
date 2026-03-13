@@ -5,7 +5,7 @@
 //! This module defines the [`Tree`] struct, which supports allocation, traversal,
 //! mutation, and identifier remapping of syntax nodes. It is parameterized over types
 //! implementing the [`Node`] trait and is intended to be used for organizing
-//! syntax trees in a structured and either_type-safe way.
+//! syntax trees in a structured and typing-safe way.
 //!
 //! The tree is built on top of the low-level [`ArenaTree`] and provides ergonomic access to
 //! root nodes, children, parent lookups, tree traversal, and formatting utilities.

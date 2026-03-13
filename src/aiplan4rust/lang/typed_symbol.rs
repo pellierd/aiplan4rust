@@ -11,7 +11,7 @@ use std::fmt;
 pub struct TypedSymbol<SID: Id, TID: Id> {
     /// SID est l'ID du symbole (StringID, VariableID, etc.)
     symbol: SID,
-    /// TID est l'ID utilisé pour le either_type
+    /// TID est l'ID utilisé pour le typing
     ty: Type<TID>,
 }
 
@@ -34,7 +34,7 @@ where
     TID: Id + fmt::Display
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Affiche "symbole - either_type"
+        // Affiche "symbole - typing"
         write!(f, "{} - {}", self.symbol, self.ty)
     }
 }
@@ -53,7 +53,7 @@ where
     Type<TID>: InternerDisplay
 {
     fn fmt_with_interner(&self, w: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        // On délègue l'affichage du symbole à son propre either_type SID
+        // On délègue l'affichage du symbole à son propre typing SID
         self.symbol.fmt_with_interner(w, interner)?;
 
         if !self.types.is_empty() {
@@ -123,7 +123,7 @@ where
 pub struct TypedSymbol<ID: Id> {
     /// Le symbole reste généralement un StringID (le nom de la variable/constante)
     /// mais on pourrait aussi le rendre générique si besoin. 
-    /// Ici, on garde StringID pour le nom et ID pour le either_type.
+    /// Ici, on garde StringID pour le nom et ID pour le typing.
     symbol: StringID,
     types: Type<ID>,
 }

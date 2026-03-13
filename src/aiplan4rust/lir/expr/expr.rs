@@ -1,28 +1,28 @@
-//! Module `expr`
+//! Module `logic`
 //!
 //! This module defines the [`Expr`] struct, a wrapper around an abstract syntax tree (AST)
-//! specialized to represent expr in parsing and semantic analysis.
+//! specialized to represent logic in parsing and semantic analysis.
 //!
 //! The [`Expr`] struct encapsulates a generic [`Tree`] whose nodes are [`ExprNode`]s,
 //! each associating an expression kind (`ExprKind`) with semantic content (`ExprContent`).
 //!
-//! This module also provides utility methods to create common predefined expr,
-//! such as empty expr with logical `and` or `or` operators,
-//! or expr specific to metrics or length specifications.
+//! This module also provides utility methods to create common predefined logic,
+//! such as empty logic with logical `and` or `or` operators,
+//! or logic specific to metrics or length specifications.
 //!
 //! # Key Features
-//! - Construction of empty expr or with basic logical operators.
+//! - Construction of empty logic or with basic logical operators.
 //! - Conversion from a generic AST subtree into a fully typed expression tree.
 //! - Transparent access to the underlying tree via `Deref` and `DerefMut`.
-//! - Displaying expr with or without resolving interned identifiers via a `StringInterner`.
+//! - Displaying logic with or without resolving interned identifiers via a `StringInterner`.
 //!
 //! # Examples
 //!
 //! ```rust
-//! use aiplan4rust::lir::expr::Expr;
+//! use aiplan4rust::lir::logic::Expr;
 //!
-//! let expr = Expr::new();
-//! assert!(expr.is_empty());
+//! let logic = Expr::new();
+//! assert!(logic.is_empty());
 //!
 //! let expr_or = Expr::empty_or();
 //! println!("{}", expr_or);
@@ -54,16 +54,16 @@ use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///
-/// This struct enables manipulation of expr as syntax trees with precise semantic content,
-/// facilitating construction, transformation, and display of expr.
+/// This struct enables manipulation of logic as syntax trees with precise semantic content,
+/// facilitating construction, transformation, and display of logic.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use aiplan4rust::lir::expr::Expr;
+/// use aiplan4rust::lir::logic::Expr;
 ///
-/// let expr = Expr::new();
-/// assert!(expr.is_empty());
+/// let logic = Expr::new();
+/// assert!(logic.is_empty());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Expr {
@@ -463,7 +463,7 @@ impl Expr {
     /// Computes the hash of a subtree of the expression.
     ///
     /// The hash combines:
-    /// - the node's either_type (`kind`),
+    /// - the node's typing (`kind`),
     /// - the node's content (`content`),
     /// - the recursive hash of each child.
     ///
@@ -479,14 +479,14 @@ impl Expr {
     ///
     /// # Example
     /// ```ignore
-    /// let hash = expr.hash(node_id)?;
+    /// let hash = logic.hash(node_id)?;
     /// ```
     #[allow(dead_code)]
     fn hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
         let node = self.try_node(node_id)?;
         let mut hasher = DefaultHasher::new();
 
-        // Hash the node either_type and content
+        // Hash the node typing and content
         node.kind().hash(&mut hasher);
         node.content().hash(&mut hasher);
 
@@ -535,7 +535,7 @@ impl Expr {
     /// # Examples
     /// ```ignore
     /// let and_id = expr_builder.and(vec![]);
-    /// assert!(expr.is_empty_and(and_id)?);
+    /// assert!(logic.is_empty_and(and_id)?);
     /// ```
     pub fn is_empty_and(&self, node_id: NodeId) -> Result<bool, ExprError> {
         Ok(self.try_node(node_id)?.is_empty_and())
@@ -577,7 +577,7 @@ impl Expr {
     /// # Examples
     /// ```ignore
     /// let or_id = expr_builder.or(vec![]);
-    /// assert!(expr.is_empty_or(or_id)?);
+    /// assert!(logic.is_empty_or(or_id)?);
     /// ```
     pub fn is_empty_or(&self, node_id: NodeId) -> Result<bool, ExprError> {
         Ok(self.try_node(node_id)?.is_empty_or())

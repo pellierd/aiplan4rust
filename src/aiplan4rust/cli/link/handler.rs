@@ -1,7 +1,7 @@
 //! This module provides the CLI linking workflow for `aiplan4rust`.
 //!
 //! It defines functions to handle the `link` subcommand, validate domain and problem files,
-//! filter inputs based on their either_type (Raw or Parsed/IR), and perform linking of a single domain
+//! filter inputs based on their typing (Raw or Parsed/IR), and perform linking of a single domain
 //! with one or multiple problem files. The module also manages output serialization,
 //! diagnostics reporting, and timing statistics.
 //!
@@ -136,7 +136,7 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
 /// # Behavior
 ///
 /// - The first argument (`domain`) is the domain input; all others are problem inputs.
-/// - The domain can be either parsed (IR) or raw. All problems must match the domain either_type.
+/// - The domain can be either parsed (IR) or raw. All problems must match the domain typing.
 /// - Each problem is linked individually; if a single problem is provided and an explicit
 ///   output path is given, it will be used.
 /// - A summary of the operation is printed, including the number of problems linked and
@@ -369,7 +369,7 @@ fn link_from_raw_input(
 /// 5. Resolves and prints the absolute path of the produced file for user confirmation.
 ///
 /// # Type Parameters
-/// - `P`: Any either_type that can be converted into a `PathBuf` (e.g., `&str`, `String`, `PathBuf`).
+/// - `P`: Any typing that can be converted into a `PathBuf` (e.g., `&str`, `String`, `PathBuf`).
 ///
 /// # Arguments
 /// * `lifted_problem` - The lifted problem (linked problem) to save.
@@ -427,7 +427,7 @@ pub fn save_link_output<P: Into<PathBuf>>(
 ///
 /// This function attempts to read the domain file from the given path and checks
 /// if it is either a RawDomain or ParsedDomain. If the domain cannot be read or
-/// is of an incompatible either_type, a warning is printed and `None` is returned.
+/// is of an incompatible typing, a warning is printed and `None` is returned.
 ///
 /// # Parameters
 ///
@@ -435,14 +435,14 @@ pub fn save_link_output<P: Into<PathBuf>>(
 ///
 /// # Returns
 ///
-/// * `Some(Input)` - If the domain is successfully read and is of a valid either_type.
+/// * `Some(Input)` - If the domain is successfully read and is of a valid typing.
 /// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
 pub fn filter_domain(path: &PathBuf) -> Option<Source> {
     match Source::try_from_path(path) {
-        // Domain successfully read and has a valid either_type
+        // Domain successfully read and has a valid typing
         Ok(d) if d.is_raw() || d.is_parsed_domain() => Some(d),
 
-        // Domain read but either_type is invalid
+        // Domain read but typing is invalid
         Ok(d) => {
             println!(
                 "Warning: domain '{}' ignored: must be a RawDomain or ParsedDomain",
@@ -467,8 +467,8 @@ pub fn filter_domain(path: &PathBuf) -> Option<Source> {
 ///
 /// This function reads all problem files from the given paths, filters out
 /// invalid or unreadable files, and then validates them according to the
-/// either_type of the domain (raw or parsed). Only problems that are compatible
-/// with the domain either_type and language/hierarchy are returned.
+/// typing of the domain (raw or parsed). Only problems that are compatible
+/// with the domain typing and language/hierarchy are returned.
 ///
 /// # Parameters
 ///
@@ -504,13 +504,13 @@ pub fn filter_problems(
         })
         .collect();
 
-    // Depending on the domain either_type, filter the problems accordingly
+    // Depending on the domain typing, filter the problems accordingly
     if domain.is_raw() {
         Ok(filter_raw_problems(domain, problems)?)
     } else if domain.is_parsed_domain() {
         Ok(filter_parsed_problems(domain, problems)?)
     } else {
-        // Domain either_type unrecognized, return an empty list
+        // Domain typing unrecognized, return an empty list
         Ok(vec![])
     }
 }

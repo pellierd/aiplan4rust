@@ -1,28 +1,32 @@
-//! # Atomic Function Flattening
+//! # Atomic Function Normalization
 //!
-//! This module implements the type resolution and flattening logic for Atomic
-//! Functions (Fluents) within the LIR.
+//! This module implements the type resolution and normalization logic for Atomic
+//! Functions (Fluents) within the Lifted IR (LIR).
 //!
 //! ## Overview
 //! Atomic Functions map a specific set of typed parameters to a return type.
-//! To maintain consistency throughout the flattened domain, both the input
+//! To maintain consistency throughout the normalized domain, both the input
 //! signature and the output type must be resolved into unified atomic identifiers.
 //!
 //! The transformation process involves:
-//! 1. **Parameter Flattening**: Resolving the types of the function's arguments
+//! 1. **Parameter Normalization**: Resolving the types of the function's arguments
 //!    using the [`typed_list`] utility.
-//! 2. **Return Type Flattening**: Resolving the function's result type using
+//! 2. **Return Type Normalization**: Resolving the function's result type using
 //!    the core [`ty`] logic.
+//!
+//! This ensures that when a function is used as a term within an expression, its
+//! return type is already simplified, allowing for direct value comparison and
+//! grounding.
 
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::passes::either_type::{ty, typed_list};
-use crate::aiplan4rust::lir::passes::either_type::TypeRegistry;
+use crate::aiplan4rust::lir::passes::typing::{ty, typed_list};
+use crate::aiplan4rust::lir::passes::typing::TypeRegistry;
 
-/// Flattens an atomic function skeleton in-place.
+/// Normalizes an atomic function skeleton in-place.
 ///
 /// This function ensures that any composite types (e.g., `either` types) present
-/// in the parameters or the return type are replaced by unified atomic `TypeId`s
+/// in the parameters or the return type are replaced by unified atomic [`TypeId`]s
 /// managed by the [`TypeRegistry`].
 ///
 /// # Parameters
@@ -30,7 +34,7 @@ use crate::aiplan4rust::lir::passes::either_type::TypeRegistry;
 /// * `registry` - The [`TypeRegistry`] used to unify and resolve type signatures.
 ///
 /// # Returns
-/// * `Ok(())` if both the parameters and the return type were successfully flattened.
+/// * `Ok(())` if both the parameters and the return type were successfully normalized.
 /// * `Err(LirError)` if the parameter list or the return type transformation
 ///   encounters a registry resolution error.
 ///
@@ -38,20 +42,20 @@ use crate::aiplan4rust::lir::passes::either_type::TypeRegistry;
 /// Functions are dual-faceted: they act as predicates in their signature but
 /// as terms in their return value. This function ensures that both facets
 /// are normalized, preventing type mismatches when the function is evaluated
-/// within an expression.
-pub fn flatten(
+/// within an expression tree or an effect.
+pub fn normalize(
     atomic_function: &mut AtomicFunctionSkeleton,
     registry: &mut TypeRegistry,
 ) -> Result<(), LirError> {
-    // 1. Flatten the input parameters (the signature).
-    // This ensures that function applications in expressions match the flattened
+    // 1. Normalize the input parameters (the signature).
+    // This ensures that function applications in expressions match the normalized
     // domain types.
-    typed_list::flatten_typed_variable_list(atomic_function.parameters_mut(), registry)?;
+    typed_list::normalize_typed_variable_list(atomic_function.parameters_mut(), registry)?;
 
-    // 2. Flatten the return type.
+    // 2. Normalize the return type.
     // In many planning domains, functions may return values of composite types.
     // We collapse these into a single unified atomic TypeId.
-    ty::flatten(atomic_function.ty_mut(), registry)?;
+    ty::normalize(atomic_function.ty_mut(), registry)?;
 
     Ok(())
 }

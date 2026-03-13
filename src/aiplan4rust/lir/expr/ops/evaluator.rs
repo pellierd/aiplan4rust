@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::ObjectId;
 use crate::aiplan4rust::lir::expr::Expr;
 
 /// Représente une valeur constante extraite par une analyse statique (ex: Inertie).
-/// Ce either_type sert de langage commun entre le LIR et les modules externes.
+/// Ce typing sert de langage commun entre le LIR et les modules externes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StaticValue {
     /// Valeur booléenne (généralement pour un prédicat statique)

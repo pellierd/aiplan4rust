@@ -1,14 +1,14 @@
-//! # Problem-Wide Type Flattening
+//! # Problem-Wide Type Normalization
 //!
-//! This module orchestrates the complete flattening pass across a [`LiftedProblem`].
+//! This module orchestrates the complete normalization pass across a [`LiftedProblem`].
 //!
 //! ## Overview
-//! The flattening process is divided into two main phases to ensure data integrity
-//! and performance:
+//! The normalization process is divided into two main phases to ensure data integrity
+//! and performance within the Lifted IR (LIR):
 //!
 //! 1. **Discovery & Propagation**: The entire problem structure is traversed to
 //!    identify all unique type signatures. These signatures are unified into
-//!    "Pivot" IDs within the [`TypeRegistry`].
+//!    atomic "Pivot" IDs within the [`TypeRegistry`].
 //! 2. **Materialization**: Any virtual Pivot ID created during the first phase
 //!    is transformed into a formal **anonymous type** within the problem's
 //!    official symbol tables.
@@ -16,25 +16,36 @@
 //! ## Anonymous Types (Pivots)
 //! When a variable or parameter uses a composite type (e.g., `(either truck airplane)`),
 //! this module generates a stable, deterministic anonymous type (e.g.,
-//! `anonymous_either_airplane_truck`). This ensures that the grounding engine
-//! sees a flat, non-hierarchical type system.
+//! `anonymous_either_airplane_truck`).
+//!
+//! This transformation is essential for the **Grounding engine**, as it replaces
+//! complex runtime type-union checks with simple, direct atomic identifier comparisons.
+//! By the end of this pass, the LIR is guaranteed to have a flat, non-hierarchical
+//! type system where every symbol points to a single canonical [`TypeId`].
 
 use crate::aiplan4rust::lang::{Type, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::passes::either_type::{
+use crate::aiplan4rust::lir::passes::typing::{
     atomic_formula_skeleton, atomic_function_skeleton, derived_predicate,
     expr, typed_symbol, task, action, method, initial_task_network
 };
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::lir::passes::either_type::registry::TypeRegistry;
+use crate::aiplan4rust::lir::passes::typing::registry::TypeRegistry;
 
 /// Prefix used for the generation of unified anonymous type symbols.
 const ANONYMOUS_PREFIX: &str = "anonymous_either";
 /// Separator used between member names in anonymous type symbols.
 const ANONYMOUS_SEP: &str = "_";
 
-/// Flattens the problem's type hierarchy by resolving composite `either` types
+/// The reserved name for the root of all types in PDDL.
+pub const ROOT_TYPE_NAME: &str = "object";
+
+/// The fixed identifier for the root type.
+/// Using 0 is optimal for bitsets and array indexing in the grounder.
+pub const ROOT_TYPE_ID: TypeId = TypeId::new(0);
+
+/// Normalizes the problem's type hierarchy by resolving composite `either` types
 /// into stable, unified atomic identifiers.
 ///
 /// This transformation is a mandatory prerequisite for the Grounding phase. It
@@ -46,7 +57,7 @@ const ANONYMOUS_SEP: &str = "_";
 /// * `problem` - A mutable reference to the [`LiftedProblem`] to be transformed.
 ///
 /// # Returns
-/// * `Ok(())` if the flattening and remapping process completed successfully.
+/// * `Ok(())` if the normalization and remapping process completed successfully.
 /// * `Err(LirError)` if a type resolution fails or an internal inconsistency is detected.
 ///
 /// # Implementation Details
@@ -64,8 +75,14 @@ const ANONYMOUS_SEP: &str = "_";
 ///
 /// This implementation utilizes reusable buffers ([`Vec`] for tree walking and
 /// [`String`] for symbol generation) to minimize heap allocations.
-pub fn flatten(problem: &mut LiftedProblem) -> Result<(), LirError> {
+pub fn normalize(problem: &mut LiftedProblem) -> Result<(), LirError> {
+    // Ensure that even untyped problems have a formal 'object' root at ID 0.
+    if problem.type_defs().is_empty() {
+        create_root_type(problem)?;
+    }
+
     // Initialize the registry with the current state of the problem's type definitions.
+    // This registry acts as the source of truth for mapping unions to atomic IDs.
     let mut registry = TypeRegistry::new(problem.type_defs());
 
     // Pre-allocate buffers to optimize performance during the pass.
@@ -75,16 +92,70 @@ pub fn flatten(problem: &mut LiftedProblem) -> Result<(), LirError> {
     // --- PHASE 1: DISCOVERY & PROPAGATION ---
     // Traverse all problem components (actions, methods, predicates) and resolve
     // their types. This step populates the registry with any needed anonymous pivots.
-    flatten_problem(problem, &mut registry, &mut stack)?;
+    normalize_problem(problem, &mut registry, &mut stack)?;
 
     // --- PHASE 2: MATERIALIZATION ---
     // Inject the new anonymous type definitions into the LiftedProblem.
     // We consume the registry's new type cache to finalize the transformation.
+    // This ensures that new TypeIds are backed by real definitions in the LIR.
     for (id, members) in registry.into_new_types() {
         create_anonymous_either_type(problem, id, members, &mut pivot_name_buffer)?;
     }
 
     Ok(())
+}
+
+/// Materializes the root 'object' type at [`ROOT_TYPE_ID`] (0).
+///
+/// This is the first operation called at the beginning of the normalization pass.
+/// It ensures that even in STRIPS-style domains (where no explicit types are
+/// defined), there is a valid, atomic type available for all objects and
+/// variables to reference.
+///
+/// # Mechanism
+/// 1. **Interning**: The literal string "object" is interned to get a unique symbol ID.
+/// 2. **Registration**: The symbol is added to the problem's type registry.
+/// 3. **Definiton**: A [`Type::root()`] definition is associated with this ID.
+///
+/// # Safety and Invariants
+/// * **Order Dependence**: This function **must** be called before any other types
+///   are registered to guarantee that the root type receives `TypeId(0)`.
+/// * **Synchronization**: Uses a `debug_assert_eq!` to catch any desynchronization
+///   between the symbol registration and the expected global [`ROOT_TYPE_ID`].
+///
+/// # Parameters
+/// * `problem` - A mutable reference to the [`LiftedProblem`] being initialized.
+///
+/// # Returns
+/// * `Ok(TypeId)` containing the identifier for the root type (always 0).
+/// * `Err(LirError)` if the type definition could not be registered.
+fn create_root_type(problem: &mut LiftedProblem) -> Result<TypeId, LirError> {
+
+    // 1. Intern the "object" string
+    // This provides a consistent symbol name for the root of the hierarchy.
+    let name_id = problem.interner_mut().intern_symbol(ROOT_TYPE_NAME.to_string());
+
+    // 2. Register the symbol in the problem
+    // In a clean LIR state, the first type added must be ID 0.
+    let registered_id = problem.add_type_symbol(name_id);
+
+    // Safety Check: Catch logical errors where a type was registered before 'object'.
+    debug_assert_eq!(
+        registered_id,
+        ROOT_TYPE_ID,
+        "Root type 'object' desynchronized. Expected ID 0, got {:?}",
+        registered_id
+    );
+
+    // 3. Definition Registration
+    // The root type is the ultimate parent; in the LIR, it is defined as a
+    // Type::root() to stop recursive parent lookups.
+    problem.add_type_defs(TypedSymbol::new(
+        registered_id,
+        Type::root()
+    ))?;
+
+    Ok(registered_id)
 }
 
 /// Materializes a new anonymous `either` type and registers it within the problem.
@@ -180,69 +251,73 @@ fn create_anonymous_either_type(
 /// * `Err(LirError)` if a type reference in any component fails to resolve within the registry.
 ///
 /// # Propagation Scope
-/// This function coordinates the "Ripple Effect" of type flattening across:
+/// This function coordinates the "Ripple Effect" of type normalization across:
 /// 1. **Objects & Constants**: Re-typing physical entities in the problem domain.
 /// 2. **Skeletons**: Standardizing Predicate, Function, and HTN Task signatures.
 /// 3. **Global Logic**: Updating Domain/Problem constraints and Goal conditions.
 /// 4. **Operators**: Resolving types in Action/Method parameters, preconditions, and effects.
-fn flatten_problem(
+/// 5. **HTN Structure**: Ensuring the Initial Task Network and Abstract Tasks match the domain.
+fn normalize_problem(
     problem: &mut LiftedProblem,
     registry: &mut TypeRegistry,
     stack: &mut Vec<NodeId>,
 ) -> Result<(), LirError> {
 
-    // --- Objects & Constants ---
+    // --- 1. Objects & Constants ---
     // Re-type all objects and constants to match the unified type space.
+    // This is the foundation of the grounding domain.
     for object in problem.object_defs_mut() {
-        typed_symbol::flatten_typed_object(object, registry)?;
+        typed_symbol::normalize_typed_object(object, registry)?;
     }
 
-    // --- Atomic Signatures (Skeletons) ---
+    // --- 2. Atomic Signatures (Skeletons) ---
     // Update the parameter signatures for all predicates and functions.
+    // This ensures that any subsequent logic referencing these symbols is consistent.
     for atomic_formula in problem.predicate_defs_mut() {
-        atomic_formula_skeleton::flatten(atomic_formula, registry)?;
+        atomic_formula_skeleton::normalize(atomic_formula, registry)?;
     }
 
     for atomic_function in problem.function_defs_mut() {
-        atomic_function_skeleton::flatten(atomic_function, registry)?;
+        atomic_function_skeleton::normalize(atomic_function, registry)?;
     }
 
-    // --- Constraints & Global Logic ---
+    // --- 3. Constraints & Global Logic ---
     // Perform deep, non-recursive traversals of global expression trees.
-    expr::flatten(problem.domain_constraints_mut(), registry, stack)?;
-    expr::flatten(problem.problem_constraints_mut(), registry, stack)?;
+    expr::normalize(problem.domain_constraints_mut(), registry, stack)?;
+    expr::normalize(problem.problem_constraints_mut(), registry, stack)?;
 
-    // --- HTN Abstract Tasks ---
+    // --- 4. HTN Abstract Tasks ---
     // Update abstract task definitions within the HTN hierarchy.
     for task in problem.task_defs_mut() {
-        task::flatten(task, registry)?;
+        task::normalize(task, registry)?;
     }
 
-    // --- Derived Predicates (Axioms) ---
+    // --- 5. Derived Predicates (Axioms) ---
     // Resolve types in both the head (signature) and body (logic) of axioms.
     for derived_predicate in problem.derived_predicate_defs_mut() {
-        derived_predicate::flatten(derived_predicate, registry, stack)?;
+        derived_predicate::normalize(derived_predicate, registry, stack)?;
     }
 
-    // --- Primitive Actions ---
+    // --- 6. Primitive Actions ---
     // Resolve types in action parameters, preconditions, and effects.
+    // This is often the most computationally intensive part of the normalization.
     for action in problem.action_defs_mut() {
-        action::flatten(action, registry, stack)?;
+        action::normalize(action, registry, stack)?;
     }
 
-    // --- HTN Methods ---
+    // --- 7. HTN Methods ---
     // Resolve types in method parameters and applicability conditions.
     for method in problem.method_defs_mut() {
-        method::flatten(method, registry, stack)?;
+        method::normalize(method, registry, stack)?;
     }
 
-    // --- Goal State ---
+    // --- 8. Goal State ---
     // Finalize the goal expression tree.
-    expr::flatten(problem.goal_mut(), registry, stack)?;
+    expr::normalize(problem.goal_mut(), registry, stack)?;
 
-    // --- Initial Task Network ---
+    // --- 9. Initial Task Network ---
     // Ensure the HTN entry point is consistent with the unified type registry.
-    initial_task_network::flatten(problem.initial_task_network_mut(), registry)?;
+    initial_task_network::normalize(problem.initial_task_network_mut(), registry)?;
 
     Ok(())
 }
@@ -273,13 +348,13 @@ mod tests {
         problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?;
         problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?;
 
-        // 2. Construction d'une expression avec un either_type "Either" ad-hoc
+        // 2. Construction d'une expression avec un typing "Either" ad-hoc
         let mut builder = ExprBuilder::new();
 
         // On définit les membres [a, b] directement dans la variable
         let adhoc_members = vec![id_a.as_usize(), id_b.as_usize()];
 
-        // Création de la variable ?X associée à ce either_type composite
+        // Création de la variable ?X associée à ce typing composite
         let var_x = builder.typed_variable(1, &adhoc_members);
         let list_x = builder.typed_variable_list(vec![var_x]);
 
@@ -295,7 +370,7 @@ mod tests {
 
         // --- 3. EXECUTION DU FLATTEN ---
         // Phase 1 (Collecte dans l'expression) + Phase 2 (Matérialisation globale)
-        flatten(&mut problem)?;
+        normalize(&mut problem)?;
 
         // --- 4. VERIFICATIONS ---
         let final_expr = problem.problem_constraints();
@@ -304,18 +379,18 @@ mod tests {
         let vars = final_expr.try_root_node()?.content().try_quantifier_vars()?;
         let var_type = vars[0].ty();
 
-        // Verification 1 : Le either_type ad-hoc [a, b] doit avoir été remplacé par un ID unique (longueur 1)
+        // Verification 1 : Le typing ad-hoc [a, b] doit avoir été remplacé par un ID unique (longueur 1)
         assert_eq!(
             var_type.members().len(),
             1,
             "Le type dans le quantificateur doit être une redirection vers le nouveau type matérialisé"
         );
 
-        // Verification 2 : On récupère la définition du nouveau either_type créé
+        // Verification 2 : On récupère la définition du nouveau typing créé
         let new_type_id = var_type.members()[0];
         let new_type_def = problem.try_get_type(new_type_id)?.ty();
 
-        // Verification 3 : Le nouveau either_type doit contenir les racines originales
+        // Verification 3 : Le nouveau typing doit contenir les racines originales
         assert!(new_type_def.members().contains(&id_a), "Le nouveau type doit contenir 'a'");
         assert!(new_type_def.members().contains(&id_b), "Le nouveau type doit contenir 'b'");
 

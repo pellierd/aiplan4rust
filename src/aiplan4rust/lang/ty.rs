@@ -8,11 +8,11 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 
-/// Représente un either_type PDDL générique (atomique ou union via `either`).
+/// Représente un typing PDDL générique (atomique ou union via `either`).
 /// `ID` peut être un `StringID` (phase syntaxique) ou un `TypeID` (phase sémantique).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Type<ID: Id> {
-    /// Liste non vide des identifiants atomiques composant ce either_type.
+    /// Liste non vide des identifiants atomiques composant ce typing.
     members: Vec<ID>,
 }
 
@@ -56,7 +56,7 @@ impl<ID: Id> Type<ID> {
     pub fn is_primitive(&self) -> bool { self.members.len() == 1 }
     pub fn is_either(&self) -> bool { self.members.len() > 1 }
 
-    /// Retourne un itérateur sur les membres du either_type.
+    /// Retourne un itérateur sur les membres du typing.
     pub fn iter(&self) -> std::slice::Iter<'_, ID> {
         self.members.iter()
     }
@@ -108,9 +108,9 @@ impl Type<SymbolId> {
 }
 
 impl Type<TypeId> {
-    /// Returns true if this either_type represents a numeric value.
+    /// Returns true if this typing represents a numeric value.
     ///
-    /// A either_type is considered numeric if it is primitive and its
+    /// A typing is considered numeric if it is primitive and its
     /// single member is the reserved TypeId::NUMBER_TYPE_ID.
     pub fn is_number(&self) -> bool {
         self.is_primitive() && self.members[0].is_number()

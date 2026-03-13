@@ -14,7 +14,7 @@
 //! - The **lifted predicates** and **functions**, expressed as atomic formula skeletons.
 //! - The **lifted actions** and **methods**, representing parametrized operators and HTN methods.
 //! - The **lifted tasks**, forming the task skeletons for hierarchical syntax.
-//! - The **initial state** and **goal conditions** expressed as symbolic expr (`Expr`).
+//! - The **initial state** and **goal conditions** expressed as symbolic logic (`Expr`).
 //! - The **global domain constraints** and **problem-specific constraints**.
 //! - The **metric and length specifications** for optimization and bounding.
 //! - The **initial task network**, describing the starting point of hierarchical tasks.
@@ -67,7 +67,7 @@ pub struct Problem {
     requirements: HashSet<Requirement>,
 
     // --- SYMBOL TABLES (Identity Management) ---
-    /// Map between either_type names and their internal IDs.
+    /// Map between typing names and their internal IDs.
     type_symbols: SymbolRegistry<TypeId>,
     /// Map between object names and their internal IDs.
     object_symbols: SymbolRegistry<ObjectId>,
@@ -83,13 +83,13 @@ pub struct Problem {
     method_symbols: SymbolRegistry<MethodSymbolId>,
 
     // --- DEFINITIONS (Lifted Structure / Skeletons) ---
-    /// List of either_type definitions, including hierarchy (parent-child relations).
+    /// List of typing definitions, including hierarchy (parent-child relations).
     type_defs: Vec<TypedSymbol<TypeId, TypeId>>,
     /// List of objects defined in the domain or problem, associated with their types.
     object_defs: Vec<TypedSymbol<ObjectId, TypeId>>,
     /// Signatures of all predicates (name and typed parameters).
     predicate_defs: Vec<AtomicFormulaSkeleton>,
-    /// Signatures of all functions (name, typed parameters, and return either_type).
+    /// Signatures of all functions (name, typed parameters, and return typing).
     function_defs: Vec<AtomicFunctionSkeleton>,
     /// Signatures of all abstract tasks for HTN planning.
     task_defs: Vec<AtomicTaskSkeleton>,
@@ -329,7 +329,7 @@ impl Problem {
         std::mem::take(&mut self.requirements)
     }
 
-    /// Returns a read-only reference to the either_type symbol table.
+    /// Returns a read-only reference to the typing symbol table.
     ///
     /// # Returns
     /// A reference to the [`SymbolRegistry<TypeId>`]. To add new symbols,
@@ -338,16 +338,16 @@ impl Problem {
         &self.type_symbols
     }
 
-    /// Adds a new either_type symbol and ensures its definition exists.
+    /// Adds a new typing symbol and ensures its definition exists.
     ///
-    /// This method preserves the invariant that the index of the either_type in `type_defs`
+    /// This method preserves the invariant that the index of the typing in `type_defs`
     /// matches its [`TypeId`].
     ///
     /// # Arguments
-    /// * `symbol` - The [`SymbolId`] representing the either_type name.
+    /// * `symbol` - The [`SymbolId`] representing the typing name.
     ///
     /// # Returns
-    /// The unique [`TypeId`] assigned to this either_type.
+    /// The unique [`TypeId`] assigned to this typing.
     pub fn add_type_symbol(&mut self, symbol: SymbolId) -> TypeId {
         let id = self.type_symbols.insert(symbol);
         let idx = id.as_usize();
@@ -360,7 +360,7 @@ impl Problem {
         id
     }
 
-    /// Takes ownership of the either_type symbols table, leaving an empty one in its place.
+    /// Takes ownership of the typing symbols table, leaving an empty one in its place.
     ///
     /// This is used to transfer the symbol data to another structure (like a Grounder)
     /// without copying the underlying strings.
@@ -371,7 +371,7 @@ impl Problem {
         std::mem::take(&mut self.type_symbols)
     }
 
-    /// Returns a slice of all either_type definitions.
+    /// Returns a slice of all typing definitions.
     ///
     /// # Returns
     /// A slice of [`TypedSymbol<TypeId, TypeId>`].
@@ -379,10 +379,10 @@ impl Problem {
         &self.type_defs
     }
 
-    /// Returns a mutable slice of all either_type definitions.
+    /// Returns a mutable slice of all typing definitions.
     ///
-    /// This is particularly useful for transformation expr, such as
-    /// flattening either_type hierarchies.
+    /// This is particularly useful for transformation logic, such as
+    /// flattening typing hierarchies.
     ///
     /// # Returns
     /// A mutable slice of [`TypedSymbol<TypeId, TypeId>`].
@@ -390,25 +390,25 @@ impl Problem {
         &mut self.type_defs
     }
 
-    /// Checks if any either_type definitions have been registered.
+    /// Checks if any typing definitions have been registered.
     ///
     /// # Returns
-    /// `true` if the internal list of either_type definitions is not empty.
+    /// `true` if the internal list of typing definitions is not empty.
     pub fn has_type_defs(&self) -> bool {
         !self.type_defs.is_empty()
     }
 
-    /// Updates a pre-allocated either_type definition with its complete specification.
+    /// Updates a pre-allocated typing definition with its complete specification.
     ///
     /// This method replaces the placeholder definition at the index corresponding
     /// to the symbol's ID. It is typically used during the second pass of LIR
-    /// construction or during a either_type hierarchy flattening phase.
+    /// construction or during a typing hierarchy flattening phase.
     ///
     /// # Arguments
     /// * `ty` - The complete [`TypedSymbol`] definition to be stored.
     ///
     /// # Returns
-    /// * `Ok(TypeID)` - The ID of the successfully updated either_type.
+    /// * `Ok(TypeID)` - The ID of the successfully updated typing.
     /// * `Err(LirError::TypeDefinitionOrphan)` - If the ID's index exceeds the
     ///   allocated definitions, indicating the symbol was never registered via `add_type_symbol`.
     pub fn add_type_defs(&mut self, ty: TypedSymbol<TypeId, TypeId>) -> Result<TypeId, LirError> {
@@ -426,7 +426,7 @@ impl Problem {
         Ok(id)
     }
 
-    /// Takes ownership of the either_type definitions, leaving an empty vector in its place.
+    /// Takes ownership of the typing definitions, leaving an empty vector in its place.
     ///
     /// # Returns
     /// The [`Vec<TypedSymbol<TypeId, TypeId>>`] previously owned by the problem.
@@ -434,7 +434,7 @@ impl Problem {
         std::mem::take(&mut self.type_defs)
     }
 
-    /// Returns a reference to a either_type definition if it exists.
+    /// Returns a reference to a typing definition if it exists.
     ///
     /// # Arguments
     /// * `id` - The [`TypeId`] of the definition to retrieve.
@@ -445,7 +445,7 @@ impl Problem {
         self.type_defs.get(id.as_usize())
     }
 
-    /// Returns a mutable reference to a either_type definition if it exists.
+    /// Returns a mutable reference to a typing definition if it exists.
     ///
     /// # Arguments
     /// * `id` - The [`TypeId`] of the definition to retrieve.
@@ -456,7 +456,7 @@ impl Problem {
         self.type_defs.get_mut(id.as_usize())
     }
 
-    /// Attempts to retrieve a either_type definition or returns an error.
+    /// Attempts to retrieve a typing definition or returns an error.
     ///
     /// # Arguments
     /// * `id` - The [`TypeId`] of the definition to retrieve.
@@ -469,7 +469,7 @@ impl Problem {
             .ok_or_else(|| LirError::type_definition_orphan(id))
     }
 
-    /// Attempts to retrieve a mutable either_type definition or returns an error.
+    /// Attempts to retrieve a mutable typing definition or returns an error.
     ///
     /// # Arguments
     /// * `id` - The [`TypeId`] of the definition to retrieve.
@@ -495,7 +495,7 @@ impl Problem {
         let id = self.object_symbols.insert(symbol);
         let idx = id.as_usize();
         if idx >= self.object_defs.len() {
-            // Placeholder definition using the default either_type (usually 'object')
+            // Placeholder definition using the default typing (usually 'object')
             self.object_defs.push(TypedSymbol::new(id, Type::default()));
         }
         id
@@ -919,7 +919,7 @@ impl Problem {
     /// Returns a mutable slice of all atomic task skeletons in the problem.
     ///
     /// This allows for batch modification of task structures, which is useful
-    /// for expr or lifting expr.
+    /// for logic or lifting logic.
     ///
     /// # Returns
     /// A mutable slice of [`AtomicTaskSkeleton`].
@@ -1041,7 +1041,7 @@ impl Problem {
     /// Returns a mutable reference to the global domain constraints.
     ///
     /// This allows for in-place modification of constraints during
-    /// simplification or transformation expr.
+    /// simplification or transformation logic.
     ///
     /// # Returns
     /// A mutable reference to the [`Expr`] representing the constraints.
@@ -1117,7 +1117,7 @@ impl Problem {
 
     /// Returns a mutable slice of all actions in the problem.
     ///
-    /// This is used during the flattening or expr phases to modify
+    /// This is used during the flattening or logic phases to modify
     /// action signatures, preconditions, and effects in place without
     /// reallocating the underlying collection.
     ///
@@ -1216,7 +1216,7 @@ impl Problem {
 
     /// Returns a mutable reference to the initial state expression.
     ///
-    /// This is used to perform in-place transformations, such as either_type-checking
+    /// This is used to perform in-place transformations, such as typing-checking
     /// atoms in the initial state or normalizing numeric assignments.
     ///
     /// # Returns
@@ -1389,7 +1389,7 @@ impl Problem {
 
     /// Returns a mutable reference to the initial task network.
     ///
-    /// This is used during the flattening or expr process to remap
+    /// This is used during the flattening or logic process to remap
     /// parameter types, update task identifiers, or modify ordering constraints
     /// in the HTN problem's entry point.
     ///

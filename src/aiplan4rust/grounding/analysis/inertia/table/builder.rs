@@ -190,7 +190,7 @@ fn build_inertia_table(
 ///
 /// # Arguments
 ///
-/// * `expr` - The effect expression to analyze.
+/// * `logic` - The effect expression to analyze.
 /// * `fluent_predicates` - A set to be populated with IDs of modified predicates.
 /// * `fluent_functions` - A set to be populated with IDs of modified numeric functions.
 ///

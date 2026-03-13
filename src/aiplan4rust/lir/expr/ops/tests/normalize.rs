@@ -31,17 +31,17 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Run expr (includes flattening and structural deduplication)
+        // Run logic (includes flattening and structural deduplication)
         normalize(&mut expr)?;
 
         // --- VALIDATION ---
 
         // 1. Root must be an AND node
-        let root_id = expr.root_id().expect("Root should exist after expr");
+        let root_id = expr.root_id().expect("Root should exist after logic");
         assert_eq!(expr.get_node_kind(root_id), Some(ExprKind::And));
 
         // 2. Expected children count: 4 (predicates 1, 2, 3, and 4)
-        // The expr must have:
+        // The logic must have:
         // - Flattened all nested ANDs
         // - Removed the duplicate of predicate '2'
         // - Removed the duplicate of the subtree '(and 1 2)'
@@ -82,7 +82,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // 1. Flattening: merges inner1 and inner2 into the root.
         // 2. Deduplication: removes the duplicate results of B and C.
         normalize(&mut expr)?;
@@ -135,7 +135,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // 1. Flattening: Merges nested OR nodes into the root OR.
         // 2. Deduplication: Removes identical child nodes (B and C).
         normalize(&mut expr)?;
@@ -148,7 +148,7 @@ mod tests {
         // The root must be an OR node
         assert_eq!(root_node.kind(), ExprKind::Or);
 
-        // After expr, we expect exactly 3 unique children: A, B, and C.
+        // After logic, we expect exactly 3 unique children: A, B, and C.
         // Input: (or 1 (or 2 3) (or 2 3))
         // Processed: (or 1 2 3)
         assert_eq!(
@@ -189,7 +189,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // The pass should flatten both inner ORs and then realize
         // that the resulting sequence [1, 2, 2, 1, 3] contains duplicates.
         normalize(&mut expr)?;
@@ -235,7 +235,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // This should collapse both AND nodes since they only have one child,
         // leaving only the AtomicFormula (1).
         normalize(&mut expr)?;
@@ -279,7 +279,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // An empty AND should remain an empty AND (representing logical TRUE).
         normalize(&mut expr)?;
 
@@ -314,7 +314,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // An empty OR should remain an empty OR (representing logical FALSE).
         normalize(&mut expr)?;
 
@@ -354,14 +354,14 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // This should detect the double negation and strip both NOT nodes,
         // promoting the AtomicFormula to the root.
         normalize(&mut expr)?;
 
         // --- VALIDATION ---
 
-        let root_id = expr.root_id().expect("Root should exist after expr");
+        let root_id = expr.root_id().expect("Root should exist after logic");
 
         // The root should no longer be a NOT node.
         // It should be the AtomicFormula directly.
@@ -402,7 +402,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // (not true) should be simplified to false.
         // In LIR: (not (and)) -> (or)
         normalize(&mut expr)?;
@@ -449,7 +449,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // Both NOT layers should be stripped, leaving the AND node as the root.
         normalize(&mut expr)?;
 
@@ -499,7 +499,7 @@ mod tests {
         builder.set_root(outer_imply)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // 1. Convert outer imply: (or (not 1) (imply 2 3))
         // 2. Convert inner imply: (or (not 1) (or (not 2) 3))
         // 3. Flatten ORs: (or (not 1) (not 2) 3)
@@ -607,7 +607,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // 1. Evaluate (* 2 3) -> 6
         // 2. Evaluate (+ 1 6 4) -> 11
         normalize(&mut expr)?;
@@ -653,7 +653,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // 1. Evaluate (/ 20 2) -> 10.0
         // 2. Evaluate (- 10 3) -> 7.0
         normalize(&mut expr)?;
@@ -705,7 +705,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // Every arithmetic branch should be folded recursively.
         normalize(&mut expr)?;
 
@@ -753,7 +753,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // "reduce" will now perform partial reduction on (+ 2 (...)) and (* A 3)
         normalize(&mut expr)?;
 
@@ -822,7 +822,7 @@ mod tests {
         builder.set_root(imply)?;
         let mut expr = builder.finish();
 
-        // Apply expr:
+        // Apply logic:
         // The implication must be rewritten as a disjunction (OR).
         normalize(&mut expr)?;
 

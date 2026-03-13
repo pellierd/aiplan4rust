@@ -158,7 +158,7 @@ fn build_test_expression(
                 arg_nodes.push(builder.constant(*obj));
             }
             None => {
-                // Pas d'objet (either_type vide) : on crée une Variable pour tester le symbolique
+                // Pas d'objet (typing vide) : on crée une Variable pour tester le symbolique
                 arg_nodes.push(builder.variable(VariableId::from(i)));
             }
         }

@@ -44,8 +44,8 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 ///
 /// # Associated Types
 ///
-/// - `Kind`: the either_type representing the category or kind of the syntax node.
-/// - `Content`: the either_type representing the semantic content attached to the node.
+/// - `Kind`: the typing representing the category or kind of the syntax node.
+/// - `Content`: the typing representing the semantic content attached to the node.
 ///
 /// # Core Features
 ///
@@ -59,8 +59,8 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 ///
 /// ```rust
 /// impl SyntaxNode for MySyntaxNode {
-///     either_type Kind = MyKind;
-///     either_type Content = MyContent;
+///     typing Kind = MyKind;
+///     typing Content = MyContent;
 ///
 ///     fn kind(&self) -> Self::Kind { /* ... */ }
 ///     fn set_kind(&mut self, kind: Self::Kind) { /* ... */ }
@@ -70,12 +70,12 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 /// }
 /// ```
 pub trait Node: ArenaNode + Display {
-    /// The either_type used to represent the syntax's kind.
+    /// The typing used to represent the syntax's kind.
     ///
     /// Must implement `Copy`, `Debug`, and `Display` traits.
     type Kind: Copy + Debug + Display;
 
-    /// The either_type used to represent the semantic content of the syntax.
+    /// The typing used to represent the semantic content of the syntax.
     ///
     /// Must implement the `SyntaxContent` trait.
     type Content: SyntaxContent;
@@ -84,7 +84,7 @@ pub trait Node: ArenaNode + Display {
     ///
     /// # Returns
     ///
-    /// The current kind of the syntax node, of associated either_type `Kind`.
+    /// The current kind of the syntax node, of associated typing `Kind`.
     fn kind(&self) -> Self::Kind;
 
     /// Sets the kind of the syntax.
@@ -98,7 +98,7 @@ pub trait Node: ArenaNode + Display {
     ///
     /// # Returns
     ///
-    /// A reference to the content of the syntax node, of associated either_type `Content`.
+    /// A reference to the content of the syntax node, of associated typing `Content`.
     fn content(&self) -> &Self::Content;
 
     /// Returns a mutable reference to the syntax's semantic content.
@@ -249,7 +249,7 @@ pub trait Node: ArenaNode + Display {
     /// to clone individual nodes while recursively reconstructing a subtree.
     ///
     /// # Returns
-    /// A new instance of the same node either_type with the same kind and content.
+    /// A new instance of the same node typing with the same kind and content.
     ///
     /// # Example
     /// ```ignore
@@ -264,19 +264,19 @@ pub trait Node: ArenaNode + Display {
     /// Returns `true` if the node represents an **atomic formula**.
     ///
     /// For `ExprNode`, this typically means `ExprKind::AtomicFormula` or `ExprKind::FComp`.
-    /// This is used to identify literals in logical expr.
+    /// This is used to identify literals in logical logic.
     fn is_atomic_formula(&self) -> bool;
 
     /// Returns `true` if the node is a **temporal specifier**.
     ///
     /// Temporal specifiers are nodes like `AtStart`, `AtEnd`, or `Overall` in a PDDL expression.
-    /// This is used for consistency verification and expr of temporal expr.
+    /// This is used for consistency verification and logic of temporal logic.
     fn is_time_specifier(&self) -> bool;
 
     /// Returns `true` if the node represents a **logical operator**.
     ///
     /// Logical operators typically include `And`, `Or`, and `Not`. This is useful for
-    /// traversals, expr, or propagation of temporal specifiers through logical nodes.
+    /// traversals, logic, or propagation of temporal specifiers through logical nodes.
     fn is_logic(&self) -> bool;
 
     /// Returns `true` if this node represents a logical negation (`Not`).

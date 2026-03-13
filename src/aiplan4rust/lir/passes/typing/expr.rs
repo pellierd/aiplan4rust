@@ -1,40 +1,41 @@
-//! # Expression Tree Flattening
+//! # Expression Tree Normalization
 //!
 //! This module implements a non-recursive, stack-based traversal to resolve and
 //! unify type signatures within logical expression trees and quantifier scopes.
 //!
 //! ## Memory Optimization
 //! To ensure high performance and prevent stack overflows on deep or complex
-//! expression trees, this module avoids recursion. It utilizes an external
-//! [`Vec<NodeId>`] as a reusable stack buffer, minimizing heap reallocations
-//! when processing large domains with hundreds of actions or methods.
+//! expression trees (common in large PDDL domains), this module avoids recursion.
+//! It utilizes an external [`Vec<NodeId>`] as a reusable stack buffer, minimizing
+//! heap reallocations when processing hundreds of actions or methods.
 //!
 //! ## Quantifier Handling
-//! The primary objective of this module is resolving composite `either` types within
-//! `Forall` and `Exists` quantifiers. When a quantified variable is identified with
-//! a composite type, it is mutated in-place to a unified atomic `TypeId` managed
-//! by the [`TypeRegistry`].
+//! The primary objective here is resolving composite `either` types or missing root
+//! types within `Forall` and `Exists` quantifiers. When a quantified variable is
+//! identified, it is mutated in-place to a unified atomic [`TypeId`] managed by
+//! the [`TypeRegistry`]. This ensures that the grounder encounters a simplified
+//! first-order logic structure.
 
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::lir::passes::either_type::{typed_symbol, TypeRegistry};
+use crate::aiplan4rust::lir::passes::typing::{typed_symbol, TypeRegistry};
 
-/// Entry point for expression tree flattening.
+/// Entry point for expression tree normalization.
 ///
 /// This function initializes a depth-first search (DFS) traversal of the expression
 /// tree. It accepts an external stack buffer to allow for efficient reuse across
 /// multiple calls during the normalization pipeline.
 ///
 /// # Parameters
-/// * `expr` - A mutable reference to the [`Expr`] tree to be flattened.
+/// * `expr` - A mutable reference to the [`Expr`] tree to be normalized.
 /// * `registry` - The [`TypeRegistry`] used to unify and resolve type signatures.
 /// * `stack` - A mutable [`Vec<NodeId>`] buffer used for non-recursive traversal.
 ///
 /// # Returns
 /// * `Ok(())` if the expression tree was successfully traversed and resolved.
 /// * `Err(LirError)` if the tree structure is invalid or type resolution fails.
-pub fn flatten(
+pub fn normalize(
     expr: &mut Expr,
     registry: &mut TypeRegistry,
     stack: &mut Vec<NodeId>,
@@ -48,7 +49,7 @@ pub fn flatten(
     // Clear the stack to ensure a clean state before starting the new traversal.
     stack.clear();
 
-    flatten_from_node(expr, root_id, registry, stack)
+    normalize_from_node(expr, root_id, registry, stack)
 }
 
 /// Performs a non-recursive depth-first traversal starting from a specific node.
@@ -72,7 +73,7 @@ pub fn flatten(
 /// # Errors
 /// Returns a [`LirError`] if node access fails or if quantifier variables
 /// are missing expected type data.
-pub fn flatten_from_node(
+pub fn normalize_from_node(
     expr: &mut Expr,
     node_id: NodeId,
     registry: &mut TypeRegistry,
@@ -92,7 +93,8 @@ pub fn flatten_from_node(
 
                 for var in vars.iter_mut() {
                     // Resolve the type of each quantified variable.
-                    typed_symbol::flatten_typed_variable(var, registry)?;
+                    // This handles either-types and STRIPS-rooting.
+                    typed_symbol::normalize_typed_variable(var, registry)?;
                 }
             }
         } // <--- Mutable borrow is released here.

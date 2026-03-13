@@ -1,6 +1,6 @@
 //! Subtree abstraction for syntax trees.
 //!
-//! This module defines the [`SyntaxSubtree`] either_type, a lightweight wrapper that represents
+//! This module defines the [`SyntaxSubtree`] typing, a lightweight wrapper that represents
 //! a focused view over a node and its parent [`Tree`]. This abstraction is useful
 //! in contexts where operations require access to both a specific node and the tree
 //! structure it belongs to—such as analysis, transformation, or conversion ops.

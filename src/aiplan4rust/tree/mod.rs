@@ -8,10 +8,10 @@
 /// [`Tree`], and error types, enabling construction and manipulation
 /// of syntax trees representing language constructs.
 ///
-/// It also defines either_type aliases to decouple syntax-specific code
+/// It also defines typing aliases to decouple syntax-specific code
 /// from the underlying arena implementation, improving modularity and clarity.
 ///
-/// The following either_type aliases simplification the API by abstracting the generic
+/// The following typing aliases simplification the API by abstracting the generic
 /// `ArenaTree` types for syntax-specific usage:
 /// - `NodeId`: Unique node identifier.
 /// - `NodeRef<'a, T>`: Immutable node reference.

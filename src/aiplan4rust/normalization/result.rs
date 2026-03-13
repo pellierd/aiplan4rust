@@ -1,16 +1,16 @@
-//! Module for AST expr results and diagnostics management.
+//! Module for AST logic results and diagnostics management.
 //!
 //! This module defines the [`NormalizerResult`] enum, which encapsulates
-//! the outcome of an AST expr phase in the `aiplan4rust` pipeline.
+//! the outcome of an AST logic phase in the `aiplan4rust` pipeline.
 //!
 //! # Purpose
 //!
 //! `NormalizerResult` bundles together:
-//! - The normalized [`Ast`] if expr was successful.
+//! - The normalized [`Ast`] if logic was successful.
 //! - A [`DiagnosticManager`] that collects warnings, errors, and info messages
-//!   generated during expr.
+//!   generated during logic.
 //!
-//! This allows users to proceed with semantic analysis only if expr
+//! This allows users to proceed with semantic analysis only if logic
 //! succeeded, while also accessing any diagnostics that arose.
 
 use std::fmt;
@@ -19,35 +19,35 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::Ast;
 
-/// Represents the result of the AST expr phase.
+/// Represents the result of the AST logic phase.
 ///
 /// This enum has two variants:
-/// - `Success` — expr succeeded and produced a normalized AST.
-/// - `Failure` — expr failed; diagnostics and the interner are preserved.
+/// - `Success` — logic succeeded and produced a normalized AST.
+/// - `Failure` — logic failed; diagnostics and the interner are preserved.
 #[derive(Debug, Clone)]
 pub enum Result {
     /// Normalization succeeded.
     Success {
         /// The normalized AST.
         ast: Ast,
-        /// Diagnostics collected during expr.
+        /// Diagnostics collected during logic.
         diagnostic_manager: DiagnosticManager,
     },
     /// Normalization failed.
     Failure {
-        /// Diagnostics collected during expr.
+        /// Diagnostics collected during logic.
         diagnostic_manager: DiagnosticManager,
-        /// The string interner used during expr.
+        /// The string interner used during logic.
         interner: SymbolInterner,
     },
 }
 
 impl Result {
-    /// Creates a successful expr result.
+    /// Creates a successful logic result.
     ///
     /// # Parameters
     /// - `ast` — The normalized AST.
-    /// - `diagnostic_manager` — Diagnostics collected during expr.
+    /// - `diagnostic_manager` — Diagnostics collected during logic.
     ///
     /// # Returns
     /// A `NormalizerResult::Success` variant.
@@ -55,11 +55,11 @@ impl Result {
         Self::Success { ast, diagnostic_manager }
     }
 
-    /// Creates a failed expr result.
+    /// Creates a failed logic result.
     ///
     /// # Parameters
     /// - `diagnostic_manager` — Diagnostics explaining the failure.
-    /// - `interner` — The interner used during expr.
+    /// - `interner` — The interner used during logic.
     ///
     /// # Returns
     /// A `NormalizerResult::Failure` variant.
@@ -142,12 +142,12 @@ impl Result {
         }
     }
 
-    /// Returns `true` if expr succeeded.
+    /// Returns `true` if logic succeeded.
     pub fn is_success(&self) -> bool {
         matches!(self, Self::Success { .. })
     }
 
-    /// Returns `true` if expr failed.
+    /// Returns `true` if logic failed.
     pub fn is_failure(&self) -> bool {
         matches!(self, Self::Failure { .. })
     }

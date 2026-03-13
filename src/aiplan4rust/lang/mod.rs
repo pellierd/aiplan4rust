@@ -15,7 +15,7 @@
 //! - [`TypedSymbol`]: A named symbol with one or more associated types.
 //! - [`TypedList`]: A list of typed symbols (commonly used for parameters, variables, etc.).
 //! - [`Requirement`]: Declared requirements that affect parsing and validation.
-//! - [`ArithmeticOp`]: Arithmetic operations (`+`, `-`, `*`, `/`) used in expr.
+//! - [`ArithmeticOp`]: Arithmetic operations (`+`, `-`, `*`, `/`) used in logic.
 //! - [`AssignOp`]: Assignment-style operations for modifying fluent values.
 //! - [`CompareOp`]: Binary comparison operators used in conditions and constraints.
 //! - [`OptimizationOp`]: Declares whether to minimize, maximize, or ignore optimization goals.

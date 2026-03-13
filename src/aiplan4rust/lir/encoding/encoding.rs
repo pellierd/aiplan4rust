@@ -9,7 +9,7 @@
 //! 2. **Problem Encoding**: Captures state-specific data (objects, initial state, and goals).
 //!
 //! It relies on a `LinkedSemanticContext` to resolve identifiers and maintains internal
-//! mappings to ensure that references in the ops (expr/effects) point to the
+//! mappings to ensure that references in the ops (logic/effects) point to the
 //! correct LIR indices.
 
 use crate::aiplan4rust::lir::LirError;
@@ -64,7 +64,7 @@ pub fn encode_domain(
 /// # Errors
 ///
 /// This function will return an error if it encounters objects or types that were
-/// not defined in the domain, or if initial state expr are malformed.
+/// not defined in the domain, or if initial state logic are malformed.
 pub fn encode_problem(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,

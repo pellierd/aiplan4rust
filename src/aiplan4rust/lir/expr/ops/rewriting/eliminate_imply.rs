@@ -5,7 +5,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// Removes all `Imply` nodes in the subtree rooted at `node_id` by transforming
 /// each `A -> B` into `(Or(Not(A), B))`.
 ///
-/// This function is the first step in the expr pipeline. It ensures that
+/// This function is the first step in the logic pipeline. It ensures that
 /// implications are eliminated so that subsequent transformations (pushing negations,
 /// temporal factorization, simplification) can operate on a simpler logical structure.
 ///
@@ -19,7 +19,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Preconditions
 /// - None; this function can be called on any expression tree.
-/// - It should be the **first step** in the expr pipeline, before `push_negation` and
+/// - It should be the **first step** in the logic pipeline, before `push_negation` and
 ///   `push_time_specifier`.
 ///
 /// # Dependencies
@@ -29,7 +29,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Parameters
 /// - `node_id`: The root `NodeId` of the subtree to process.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 /// - `Ok(())` if all `Imply` nodes were successfully removed.
@@ -44,12 +44,12 @@ use crate::aiplan4rust::tree::NodeId;
 /// - Further simplifications (like flattening `Or` or handling double negations) should
 ///   be applied separately if desired.
 /// - The function is safe to call independently, but in practice it is used as the first step
-///   of the expr workflow orchestrated by the `normalize` module.
+///   of the logic workflow orchestrated by the `normalize` module.
 ///
 /// # Example
 /// ```ignore
-/// // Suppose `expr` contains multiple Imply nodes in a subtree rooted at node_id
-/// eliminate_imply(node_id, &mut expr)?;
+/// // Suppose `logic` contains multiple Imply nodes in a subtree rooted at node_id
+/// eliminate_imply(node_id, &mut logic)?;
 /// // All Imply nodes in that subtree are now replaced by Or(Not(premise), consequence)
 /// ```
 pub fn eliminate_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {

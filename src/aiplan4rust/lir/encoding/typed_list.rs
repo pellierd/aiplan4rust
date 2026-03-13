@@ -19,7 +19,7 @@ use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingRegistry};
 /// # Arguments
 ///
 /// * `subtree` - The AST subtree containing a sequence of typed symbols.
-/// * `evaluator` - The symbol evaluator used to resolve either_type identifiers.
+/// * `evaluator` - The symbol evaluator used to resolve typing identifiers.
 ///
 /// # Returns
 ///
@@ -31,7 +31,7 @@ use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingRegistry};
 ///
 /// This function returns an error if:
 /// * A child node cannot be retrieved from the AST.
-/// * The `typed_symbol::encoding` process fails (e.g., due to an unknown either_type).
+/// * The `typed_symbol::encoding` process fails (e.g., due to an unknown typing).
 pub fn encode_variable_list(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry, // Mutable pour enregistrer les variables

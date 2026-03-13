@@ -92,7 +92,7 @@ impl Atom {
     /// Returns a mutable slice of the atom's terms.
     ///
     /// This is primarily used during the encoding phase for variable aliasing,
-    /// expr, or grounding, allowing in-place modification of terms
+    /// logic, or grounding, allowing in-place modification of terms
     /// without reallocating the underlying vector.
     #[inline]
     pub fn terms_mut(&mut self) -> &mut [Term] {

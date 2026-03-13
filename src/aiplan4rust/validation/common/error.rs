@@ -7,7 +7,7 @@
 //!
 //! **Note:** This validation is **partial** and **not exhaustive**.
 //! It does not cover all possible validity aspects of an AST,
-//! including semantic consistency, expr, or other domain-specific rules.
+//! including semantic consistency, logic, or other domain-specific rules.
 //!
 //! For more advanced validation, additional mechanisms should be employed.
 //!

@@ -85,7 +85,7 @@ pub fn test_linker_all_files(domain_dir: &Path) -> bool {
 /// Integration test for linking HDDL domain and problem files in a given directory.
 ///
 /// This test is parameterized with many known benchmark directories (e.g., IPC domains).
-/// It ensures that parsing, expr, semantic analysis, and linking succeed without errors
+/// It ensures that parsing, logic, semantic analysis, and linking succeed without errors
 /// for every domain/problem pair in the specified directory.
 ///
 /// Each test case corresponds to a directory path containing HDDL files to link.
@@ -96,7 +96,7 @@ pub fn test_linker_all_files(domain_dir: &Path) -> bool {
 ///
 /// # Panics
 ///
-/// This function will panic if any step (parsing, expr, analysis, or linking)
+/// This function will panic if any step (parsing, logic, analysis, or linking)
 /// fails for any file in the directory. The panic message includes the directory
 /// that caused the failure.
 ///

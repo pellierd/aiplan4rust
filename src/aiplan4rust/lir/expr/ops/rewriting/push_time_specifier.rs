@@ -21,7 +21,7 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 /// # Preconditions
 /// - Must be called **after** `push_negation` to ensure all literals under `Not` nodes
 ///   are in a form suitable for temporal propagation.
-/// - Part of the expr pipeline orchestrated by the `normalize` module.
+/// - Part of the logic pipeline orchestrated by the `normalize` module.
 ///   Users should not call this directly; they should use the higher-level normalizer
 ///   functions to guarantee the correct order.
 ///
@@ -35,7 +35,7 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 ///
 /// # Parameters
 /// - `root_id`: NodeId of the root of the subtree to process.
-/// - `expr`: Mutable reference to the expression tree.
+/// - `logic`: Mutable reference to the expression tree.
 ///
 /// # Returns
 /// - `Ok(true)` if any modifications were made (new temporal nodes inserted).
@@ -51,12 +51,12 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 ///   If this invariant is violated, a `MalformedExprNode` or similar error should be raised
 ///   to indicate an IR structural problem.
 /// - After this step, all atomic formulas are guaranteed to be wrapped in a temporal specifier,
-///   making them ready for further expr or factorization.
+///   making them ready for further logic or factorization.
 ///
 /// # Example usage
 /// ```rust
-/// // Part of the expr pipeline managed by the `normalize` module
-/// push_time_specifier(root_id, &mut expr)?;
+/// // Part of the logic pipeline managed by the `normalize` module
+/// push_time_specifier(root_id, &mut logic)?;
 /// ```
 pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     // Initialize a stack for depth-first traversal starting with the root
@@ -128,7 +128,7 @@ pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 /// # Parameters
 /// - `temporal_id`: The NodeId of the temporal specifier node to propagate.
 /// - `kind`: The kind of temporal specifier to insert (`AtStart`, `AtEnd`, `Overall`).
-/// - `expr`: A mutable reference to the expression tree.
+/// - `logic`: A mutable reference to the expression tree.
 ///
 /// # Returns
 /// - `Ok(Vec<NodeId>)`: A vector of newly created temporal nodes that wrap the original children,
@@ -141,7 +141,7 @@ pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 #[allow(dead_code)]
 fn push_time_specifier_to_children(
     temporal_id: NodeId,      // ID of the initial temporal node (AtStart / AtEnd / Overall)
-    kind: ExprKind,           // Temporal specifier either_type to push
+    kind: ExprKind,           // Temporal specifier typing to push
     expr: &mut Expr,
 ) -> Result<Vec<NodeId>, ExprOpError> {
     // Retrieve the temporal node and assert it has exactly one child
@@ -191,7 +191,7 @@ fn push_time_specifier_to_children(
 ///
 /// # Parameters
 /// - `temporal_id`: NodeId of the temporal specifier node to push down.
-/// - `expr`: Mutable reference to the expression tree.
+/// - `logic`: Mutable reference to the expression tree.
 ///
 /// # Returns
 /// - `Ok(NodeId)` of the updated temporal node (root remains the same).
@@ -249,7 +249,7 @@ fn push_time_specifier_into_quantifier(
 ///
 /// # Arguments
 ///
-/// * `expr` - A reference to the expression tree to check.
+/// * `logic` - A reference to the expression tree to check.
 /// * `root_id` - The ID of the root node to start the check from.
 ///
 /// # Returns

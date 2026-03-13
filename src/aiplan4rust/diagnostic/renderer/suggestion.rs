@@ -4,7 +4,7 @@
 //! which can help users understand how to fix or improve their code based on compiler or analyzer feedback.
 //!
 //! Suggestions are returned as optional strings, since not all diagnostics include fix-it hints.
-//! Internally, suggestions may use a [`SymbolInterner`] to produce readable symbol and either_type names.
+//! Internally, suggestions may use a [`SymbolInterner`] to produce readable symbol and typing names.
 //!
 //! # Public API
 //! - [`format_suggestion`]: Formats a suggestion using a provided interner (for end users).
@@ -266,12 +266,12 @@ fn format_invalid_symbol_signature_suggestion(
 /// Returns a suggestion message for the `TypeMismatchInExpression` diagnostic kind.
 ///
 /// This function formats a message indicating that two types are incompatible in an expression,
-/// advising to ensure compatibility according to the either_type hierarchy.
+/// advising to ensure compatibility according to the typing hierarchy.
 ///
 /// # Arguments
 ///
-/// * `ty1` - The first either_type involved in the mismatch.
-/// * `ty2` - The second either_type involved in the mismatch.
+/// * `ty1` - The first typing involved in the mismatch.
+/// * `ty2` - The second typing involved in the mismatch.
 /// * `interner` - Optional reference to a string interner used to convert types to strings.
 ///
 /// # Returns
@@ -286,7 +286,7 @@ fn format_type_mismatch_in_expression_suggestion(
     let ty2_str = renderer::formatting::type_to_string(ty2, interner);
 
     format!(
-        "The either_type '{}' cannot be used with '{}' — make sure the types are compatible according to the either_type hierarchy.",
+        "The typing '{}' cannot be used with '{}' — make sure the types are compatible according to the typing hierarchy.",
         ty1_str,
         ty2_str
     )
@@ -295,12 +295,12 @@ fn format_type_mismatch_in_expression_suggestion(
 /// Returns a suggestion message for the `InvalidTypesInNumericExpression` diagnostic kind.
 ///
 /// This function formats a message indicating that operands in a numeric expression
-/// are not of either_type 'number', advising to ensure both operands are numeric types.
+/// are not of typing 'number', advising to ensure both operands are numeric types.
 ///
 /// # Arguments
 ///
-/// * `ty1` - The first operand's either_type.
-/// * `ty2` - The second operand's either_type.
+/// * `ty1` - The first operand's typing.
+/// * `ty2` - The second operand's typing.
 /// * `interner` - Optional reference to a string interner used to convert types to strings.
 ///
 /// # Returns
@@ -315,7 +315,7 @@ fn format_invalid_types_in_numeric_expression_suggestion(
     let ty2_str = renderer::formatting::type_to_string(ty2, interner);
 
     format!(
-        "Numeric expr require operands of either_type 'number', but found '{}' and '{}'. \
+        "Numeric logic require operands of typing 'number', but found '{}' and '{}'. \
         Ensure both operands are numeric types.",
         ty1_str,
         ty2_str
@@ -324,7 +324,7 @@ fn format_invalid_types_in_numeric_expression_suggestion(
 
 /// Returns a suggestion message for the `RequirementViolation` diagnostic kind.
 ///
-/// This function formats a message indicating that an expression either_type requires certain
+/// This function formats a message indicating that an expression typing requires certain
 /// requirements, listing them clearly.
 ///
 /// # Arguments
@@ -340,7 +340,7 @@ fn format_requirement_violation_suggestion(
     required: &[Requirement],
 ) -> String {
     format!(
-        "Expression either_type '{}' requires one of these requirements: {}.",
+        "Expression typing '{}' requires one of these requirements: {}.",
         node_kind, // or format!("{:?}", node_kind) if needed
         renderer::formatting::format_requirement_list(required)
     )
@@ -459,7 +459,7 @@ fn format_undeclared_symbol_suggestion(
             name
         )),
         SymbolKind::Variable => Some(format!(
-            "Variable '{}' is not declared. You likely need to add it to the ':parameters' list of the enclosing definition (e.g., '?x - either_type').",
+            "Variable '{}' is not declared. You likely need to add it to the ':parameters' list of the enclosing definition (e.g., '?x - typing').",
             name
         )),
     }
@@ -490,7 +490,7 @@ fn format_symbol_conflicts_with_keyword_suggestion(
     let reqs = renderer::formatting::format_requirement_list(requirements);
     Some(format!(
         "Symbol '{}' conflicts with a reserved keyword under requirements: {}. \
-         It must be declared as a {:?} (e.g., either_type, function, variable).",
+         It must be declared as a {:?} (e.g., typing, function, variable).",
         name,
         reqs,
         expected_kind
@@ -577,14 +577,14 @@ fn format_domain_problem_name_mismatch_suggestion(
     ))
 }
 
-/// Returns a suggestion message when a symbol is declared both as a either_type and a predicate.
+/// Returns a suggestion message when a symbol is declared both as a typing and a predicate.
 ///
 /// This function generates a message advising to rename one of the conflicting declarations
 /// to avoid ambiguity.
 ///
 /// # Arguments
 ///
-/// * `types` - The either_type symbol involved in the ambiguity.
+/// * `types` - The typing symbol involved in the ambiguity.
 /// * `interner` - Optional string interner to convert symbols to strings.
 ///
 /// # Returns
@@ -596,13 +596,13 @@ fn format_ambiguous_type_predicate_symbol_suggestion(
 ) -> Option<String> {
     let symbol = renderer::formatting::symbol_to_string(ty.symbol(), interner);
     Some(format!(
-        "The symbol '{}' is declared both as a either_type and a predicate. \
+        "The symbol '{}' is declared both as a typing and a predicate. \
          Consider renaming one of them to avoid ambiguity.",
         symbol
     ))
 }
 
-/// Returns a suggestion message when a task argument's either_type is a supertype of the declared either_type.
+/// Returns a suggestion message when a task argument's typing is a supertype of the declared typing.
 ///
 /// This function advises that argument types should match exactly and suggests defining
 /// a new method with matching types.
@@ -610,8 +610,8 @@ fn format_ambiguous_type_predicate_symbol_suggestion(
 /// # Arguments
 ///
 /// * `argument` - The argument symbol causing the issue.
-/// * `type_declared` - The declared either_type of the argument.
-/// * `type_used` - The actual either_type used which is a supertype.
+/// * `type_declared` - The declared typing of the argument.
+/// * `type_used` - The actual typing used which is a supertype.
 /// * `interner` - Optional string interner to convert symbols and types to strings.
 ///
 /// # Returns
@@ -624,7 +624,7 @@ fn format_task_argument_supertype_suggestion(
     interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     Some(format!(
-        "The argument '{}' uses either_type '{}' which is a supertype of the declared either_type '{}'. \
+        "The argument '{}' uses typing '{}' which is a supertype of the declared typing '{}'. \
          Argument types should match exactly. \
          Prefer defining a new method with matching types instead.",
         renderer::formatting::symbol_to_string(argument.symbol(), interner),
@@ -633,14 +633,14 @@ fn format_task_argument_supertype_suggestion(
     ))
 }
 
-/// Returns a suggestion message for duplicate types found in an 'either' either_type declaration.
+/// Returns a suggestion message for duplicate types found in an 'either' typing declaration.
 ///
 /// This function notifies that duplicate types are ignored but suggests removing them
 /// to clean up the code.
 ///
 /// # Arguments
 ///
-/// * `duplicate_types` - A slice of duplicated either_type identifiers.
+/// * `duplicate_types` - A slice of duplicated typing identifiers.
 /// * `interner` - Optional string interner to convert symbols and types to strings.
 ///
 /// # Returns
@@ -651,36 +651,36 @@ fn format_duplicate_either_type_suggestion(
     interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let listed_types = if duplicate_types.len() == 1 {
-        format!("either_type '{}'", renderer::formatting::format_ident_list(duplicate_types, interner))
+        format!("typing '{}'", renderer::formatting::format_ident_list(duplicate_types, interner))
     } else {
         format!("types '{}'", renderer::formatting::format_ident_list(duplicate_types, interner))
     };
     Some(format!(
-        "Duplicate {} found in an 'either' either_type declaration; \
+        "Duplicate {} found in an 'either' typing declaration; \
          these duplicates are ignored but consider removing them to clean up your code.",
         listed_types,
     ))
 }
 
-/// Returns a suggestion message for cycles detected in the either_type hierarchy.
+/// Returns a suggestion message for cycles detected in the typing hierarchy.
 ///
 /// This function informs about the types involved in a cyclic inheritance
 /// and suggests removing the cycle to resolve the issue.
 ///
 /// # Arguments
 ///
-/// * `cycle` - A slice of either_type declarations forming the cycle.
+/// * `cycle` - A slice of typing declarations forming the cycle.
 /// * `interner` - Optional string interner to convert symbols and types to strings.
 ///
 /// # Returns
 ///
 /// An optional suggestion string describing the detected cycle.
 fn format_cyclic_type_declaration_suggestion(
-    cycle: &[Declaration],  // Replace `TypeDeclaration` with the actual either_type used in your code
+    cycle: &[Declaration],  // Replace `TypeDeclaration` with the actual typing used in your code
     interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     Some(format!(
-        "Cycle detected in either_type hierarchy involving types: {}. \
+        "Cycle detected in typing hierarchy involving types: {}. \
          Remove the cyclic inheritance to resolve the issue.",
         renderer::formatting::format_declaration_list(cycle, interner)
     ))
@@ -729,13 +729,13 @@ fn format_cross_conflict_symbol_declaration_suggestion(
     ))
 }
 
-/// Formats a suggestion message for implicitly merged duplicate either_type declarations.
+/// Formats a suggestion message for implicitly merged duplicate typing declarations.
 ///
 /// Lists locations where the duplicates were found and advises explicit `(either ...)` declaration.
 ///
 /// # Arguments
 ///
-/// * `types` - The either_type identifier that is duplicated.
+/// * `types` - The typing identifier that is duplicated.
 /// * `duplicate_spans` - A slice of spans marking duplicate declarations.
 /// * `interner` - Optional string interner used for formatting identifiers.
 ///
@@ -763,9 +763,9 @@ fn format_implicit_either_type_declaration_suggestion(
     };
 
     Some(format!(
-        "The either_type `{}` was declared multiple times at locations: {}. \
-         These declarations were implicitly merged into an `(either ...)` either_type declaration. \
-         To avoid ambiguity, consider explicitly declaring the either_type using `(either ...)`.",
+        "The typing `{}` was declared multiple times at locations: {}. \
+         These declarations were implicitly merged into an `(either ...)` typing declaration. \
+         To avoid ambiguity, consider explicitly declaring the typing using `(either ...)`.",
         renderer::formatting::ident_to_string(ty, interner),
         formatted_locations,
     ))

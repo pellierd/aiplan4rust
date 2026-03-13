@@ -1,5 +1,5 @@
 use std::fmt;
-// either_type
+// typing
 use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::renderers::RenderContext; // Importe ton contexte
 
@@ -13,7 +13,7 @@ pub fn render(
     let members = ty.members();
 
     match members.len() {
-        0 => Ok(()), // Aucun either_type spécifié (ex: constantes sans either_type)
+        0 => Ok(()), // Aucun typing spécifié (ex: constantes sans typing)
         1 => {
             // Cas standard : " - type_name"
             write!(f, " - ")?;

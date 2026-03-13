@@ -10,7 +10,7 @@
 //! The module is composed of several submodules:
 //!
 //! - [`kind`] defines the [`DiagnosticKind`] enum, which enumerates all diagnostic variants
-//!   (e.g., either_type mismatches, undeclared symbols, PDDL requirement violations).
+//!   (e.g., typing mismatches, undeclared symbols, PDDL requirement violations).
 //! - [`severity`] defines the [`Severity`] enum that categorizes diagnostics as errors or warnings.
 //! - [`diagnostic`] provides the [`Diagnostic`] structure, the primary container for diagnostic information,
 //!   including kind, severity, location, and optional suggestions.

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::passes::{either_type, expr};
+use crate::aiplan4rust::lir::passes::{typing, logic};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::LirError;
 
@@ -13,13 +13,13 @@ use crate::aiplan4rust::lir::LirError;
 ///
 /// The process follows a strict order to ensure data integrity and performance:
 ///
-/// 1. **Logical Normalization ([`expr::normalize`]):**
+/// 1. **Logical Normalization ([`logic::normalize`]):**
 ///    - Rewrites logical connectors (e.g., eliminating `imply` in favor of `or` and `not`).
 ///    - Pushes negations down to atomic formulas (Negation Normal Form).
 ///    - Simplifies boolean expressions and arithmetic constants.
 ///    - *Goal:* Ensure the expression tree is semantically as simple as possible.
 ///
-/// 2. **Structural Normalization ([`either_type::flatten`]):**
+/// 2. **Structural Normalization ([`typing::normalize`]):**
 ///    - Scans all expressions for ad-hoc `Either` type signatures.
 ///    - Materializes these anonymous unions into formal, named types within the global
 ///      [`SymbolRegistry`].
@@ -46,13 +46,13 @@ use crate::aiplan4rust::lir::LirError;
 /// # }
 /// ```
 pub fn normalize(problem: &mut LiftedProblem) -> Result<(), LirError> {
-    // 1. Logical Normalization (passes/expr)
+    // 1. Logical Normalization (passes/logic)
     // Clean up semantics, simplify trees, and apply standard rewriting rules.
-    expr::normalize(problem)?;
+    logic::normalize(problem)?;
 
     // 2. Structural Normalization (passes/either-type)
     // Resolve ad-hoc types and flatten the type hierarchy into the global registry.
-    either_type::flatten(problem)?;
+    typing::normalize(problem)?;
 
     Ok(())
 }

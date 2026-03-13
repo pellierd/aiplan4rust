@@ -7,7 +7,7 @@ use crate::aiplan4rust::lang::ids::PredicateSymbolId;
 ///
 /// A `Fluent` is a symbolic relation or property that can be true or false in a given state.
 /// It is identified by a `symbol` and may have a list of arguments (`arguments`), which are
-/// indices pointing to either_type definitions.
+/// indices pointing to typing definitions.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Fluent {
     /// Symbolic identifier of the fluent.
@@ -38,7 +38,7 @@ impl Fluent {
     /// Returns the symbolic identifier of the fluent.
     ///
     /// # Returns
-    /// The `symbol` of either_type `usize`.
+    /// The `symbol` of typing `usize`.
     pub fn symbol(&self) -> PredicateSymbolId {
         self.symbol
     }
@@ -54,7 +54,7 @@ impl Fluent {
     /// Returns a reference to the arguments of the fluent.
     ///
     /// # Returns
-    /// Reference to a `Vec<usize>` containing the argument either_type indices.
+    /// Reference to a `Vec<usize>` containing the argument typing indices.
     pub fn parameters(&self) -> &Vec<ObjectId> {
         &self.parameters
     }
@@ -62,7 +62,7 @@ impl Fluent {
     /// Returns a mutable reference to the arguments of the fluent.
     ///
     /// # Returns
-    /// Mutable reference to a `Vec<usize>` containing the argument either_type indices.
+    /// Mutable reference to a `Vec<usize>` containing the argument typing indices.
     pub fn parameters_mut(&mut self) -> &mut Vec<ObjectId> {
         &mut self.parameters
     }

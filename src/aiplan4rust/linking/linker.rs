@@ -18,7 +18,7 @@
 //! # Key Functions
 //!
 //! - [`Linker::link`]: Performs full semantic linking and verification.
-//! - [`perform_linking_checks`]: Runs semantic and structural verification expr.
+//! - [`perform_linking_checks`]: Runs semantic and structural verification logic.
 //!
 //! # Usage Example
 //!
@@ -180,7 +180,7 @@ impl Linker {
 
 /// Performs semantic and structural linking checks between a domain and a problem.
 ///
-/// This function runs a sequence of verification expr to ensure the compatibility and
+/// This function runs a sequence of verification logic to ensure the compatibility and
 /// coherence between a domain and a problem during the linking phase. It emits diagnostics
 /// (warnings and errors) via the provided `DiagnosticManager`.
 ///
@@ -194,7 +194,7 @@ impl Linker {
 ///
 /// 2. **Type-Dependent Checks** (executed only if no errors found in phase 1):
 ///     - Signature validation of declared symbols (`check_declared_symbol_signatures`)
-///     - Type correctness of expr (`check_typed_expressions`)
+///     - Type correctness of logic (`check_typed_expressions`)
 ///     - Task ordering consistency (`check_task_ordering`)
 ///     - Requirement compliance (`check_requirement_violations`)
 ///
@@ -261,7 +261,7 @@ fn perform_linking_checks(
             diagnostic_manager,
         )?;
 
-        // Verify the type_checker correctness of expr in the problem
+        // Verify the type_checker correctness of logic in the problem
         semantic::checks::check_typed_expressions(
             problem,
             &type_checker,

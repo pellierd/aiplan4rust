@@ -320,7 +320,7 @@ mod tests {
             TypedSymbol::new(obj_11, Type::either(vec![type_id])),
         ]));
 
-        // 2. On définit manuellement le squelette pour inclure le either_type de l'argument
+        // 2. On définit manuellement le squelette pour inclure le typing de l'argument
         let p_defs = vec![
             AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()),
             AtomicFormulaSkeleton::new(
@@ -452,7 +452,7 @@ mod tests {
         let obj20 = ObjectId::from(20);
         let obj21 = ObjectId::from(21); // Second objet pour que MAX = 2
 
-        // 1. Setup du ValueRegistry (pour que le either_type de ?y ait 2 objets)
+        // 1. Setup du ValueRegistry (pour que le typing de ?y ait 2 objets)
         let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(obj10, Type::either(vec![type_id])),
             TypedSymbol::new(obj20, Type::either(vec![type_id])),
@@ -642,7 +642,7 @@ mod tests {
         // ANALYSE :
         // - extract_mask_dynamic voit que seul le 2ème argument est fixe => masque 0b01.
         // - N = 1 (P(10, 51) est présent).
-        // - MAX = domaine du either_type de la variable ?x (type_robot) = {obj10} => cardinality 1.
+        // - MAX = domaine du typing de la variable ?x (type_robot) = {obj10} => cardinality 1.
         // - N(1) == MAX(1) et Inerte Négatif => TRUE.
 
         assert_eq!(
@@ -783,7 +783,7 @@ mod tests {
             ),
         ];
 
-        // 2. Setup du ValueRegistry (Indispensable pour que le either_type soit connu)
+        // 2. Setup du ValueRegistry (Indispensable pour que le typing soit connu)
         let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
             TypedSymbol::new(obj10, Type::either(vec![type_id])),
             TypedSymbol::new(obj99, Type::either(vec![type_id])),

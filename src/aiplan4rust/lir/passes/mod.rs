@@ -8,10 +8,10 @@
 //!
 //! The transformation is divided into two specialized sub-modules:
 //!
-//! * **[`expr`]**: Focuses on **Semantic Normalization**. It rewrites the logic of expressions 
+//! * **[`logic`]**: Focuses on **Semantic Normalization**. It rewrites the logic of expressions
 //!   (e.g., simplifying boolean operators, removing implications) without altering the 
 //!   problem's type structure.
-//! * **[`either_type`]**: Focuses on **Structural Normalization**. It handles "Type Flattening" 
+//! * **[`typing`]**: Focuses on **Structural Normalization**. It handles "Type Flattening"
 //!   by resolving `either` types into atomic types and updating the global symbol registry.
 //!
 //! ## The Facade Pattern
@@ -20,8 +20,8 @@
 //! [`normalization`] module orchestrates the execution order, and the top-level 
 //! [`normalize`] function is re-exported as the single point of contact for the encoder.
 
-mod expr;
-mod either_type;
+mod logic;
+mod typing;
 
 /// Orchestration logic for running multiple passes in the correct sequence.
 pub mod normalization;

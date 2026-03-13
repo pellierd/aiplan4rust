@@ -1,4 +1,4 @@
-//! Core validation module for AST correctness and expr.
+//! Core validation module for AST correctness and logic.
 //!
 //! This module groups fundamental validation functionalities for abstract syntax trees (AST),
 //! ensuring both structural correctness and well-normalized form of AST nodes.
@@ -7,7 +7,7 @@
 //!
 //! - [`syntax`]: Validates structural and syntactic correctness of AST nodes, such as child counts,
 //!   node kinds, and content validity.
-//! - [`normalization`]: Checks that AST nodes conform to expr rules,
+//! - [`normalization`]: Checks that AST nodes conform to logic rules,
 //!   ensuring semantic consistency and canonical form.
 //!
 //! These modules and their functions can be used to enforce robust validation

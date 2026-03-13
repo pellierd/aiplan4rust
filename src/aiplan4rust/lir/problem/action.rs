@@ -29,7 +29,7 @@ pub struct Action {
 
 /// Énumération interne pour distinguer les types d'actions tout en gardant un LIR unifié.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(tag = "either_type")]
+#[serde(tag = "typing")]
 pub enum ActionBody {
     /// Action instantanée standard.
     Snap {

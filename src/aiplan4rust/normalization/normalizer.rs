@@ -1,4 +1,4 @@
-//! Provides the [`Normalizer`] struct, which performs expr of an [`Ast`] (Abstract Syntax Tree)
+//! Provides the [`Normalizer`] struct, which performs logic of an [`Ast`] (Abstract Syntax Tree)
 //! as part of the AI syntax pipeline.
 //!
 //! Normalization is a crucial preprocessing stage that transforms the parsed AST into a cleaner,
@@ -6,12 +6,12 @@
 //! and eliminates syntactic variations that may hinder interpretation.
 //!
 //! This module supports:
-//! - A fixed sequence of expr expr (e.g., typed list flattening, disjunction simplification).
+//! - A fixed sequence of logic logic (e.g., typed list flattening, disjunction simplification).
 //! - Internal and external [`DiagnosticManager`] support for error/warning reporting.
 //! - Graceful failure with detailed diagnostics on malformed or unsupported constructs.
 //!
 //! # Normalization Passes
-//! The expr process applies the following transformations, in order:
+//! The logic process applies the following transformations, in order:
 //! 1. `normalize_typed_list`: Converts complex typed list syntax into a uniform structure.
 //! 2. `normalize_either_type`: Resolves `either` types into disjunctions or intersections.
 //! 3. `normalize_require_def`: Processes `:requirements` to ensure semantic validity.
@@ -22,7 +22,7 @@
 //!
 //! # Example
 //! ```rust
-//! use aiplan4rust::expr::Normalizer;
+//! use aiplan4rust::logic::Normalizer;
 //! use aiplan4rust::syntax::ast::Ast;
 //!
 //! let ast: Ast = /* parsed from input */;
@@ -51,11 +51,11 @@ use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ParserResult;
 use crate::aiplan4rust::validation::normalization::check_well_normalized;
 
-/// Performs AST expr by applying canonical transformation expr.
+/// Performs AST logic by applying canonical transformation logic.
 ///
-/// The `Normalizer` collects diagnostics and reports expr errors through
+/// The `Normalizer` collects diagnostics and reports logic errors through
 /// [`NormalizationError`] or the internal [`DiagnosticManager`]. It can be reused across multiple
-/// expr operations.
+/// logic operations.
 #[derive(Debug, Clone, Default)]
 pub struct Normalizer {
     diagnostic_manager: DiagnosticManager,
@@ -71,12 +71,12 @@ impl Normalizer {
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
-    /// Normalizes the result of parsing by applying standard expr expr.
+    /// Normalizes the result of parsing by applying standard logic logic.
     ///
     /// This method consumes the input [`ParserResult`], extracts the AST if present,
-    /// applies expr expr on it, and returns a [`NormalizerResult`] with the
+    /// applies logic logic on it, and returns a [`NormalizerResult`] with the
     /// normalized AST and any diagnostics. If the parsing result contains no AST,
-    /// expr is skipped and an error is returned.
+    /// logic is skipped and an error is returned.
     ///
     /// # Arguments
     ///
@@ -84,24 +84,24 @@ impl Normalizer {
     ///
     /// # Returns
     ///
-    /// * `Ok(NormalizerResult)` if expr succeeds.
+    /// * `Ok(NormalizerResult)` if logic succeeds.
     /// * `Err(NormalizationError)` if the parsing result contains no AST or
-    ///   if any expr pass fails irrecoverably.
+    ///   if any logic pass fails irrecoverably.
     pub fn normalize(&mut self, mut parser_result: ParserResult) -> Result<NormalizerResult, NormalizationError> {
         match parser_result.take_ast() {
             Some(raw_ast) => {
                 // Add diagnostics collected during parsing to the current diagnostic manager
                 self.diagnostic_manager.add_diagnostic_from(parser_result.take_diagnostic_manager());
 
-                // Perform expr on the extracted raw AST
+                // Perform logic on the extracted raw AST
                 let normalizer_result = self.perform_normalization(raw_ast)?;
 
-                // If expr produced a normalized AST, verify it is well-formed
+                // If logic produced a normalized AST, verify it is well-formed
                 if let Some(normalized_ast) = normalizer_result.ast() {
                     check_well_normalized(normalized_ast)?;
                 }
 
-                // Return the successful expr result
+                // Return the successful logic result
                 Ok(normalizer_result)
             }
             None => {
@@ -113,9 +113,9 @@ impl Normalizer {
         }
     }
 
-    /// Internal method: orchestrates the expr pipeline.
+    /// Internal method: orchestrates the logic pipeline.
     ///
-    /// Applies a fixed sequence of expr that simplification the AST in place.
+    /// Applies a fixed sequence of logic that simplification the AST in place.
     /// Any diagnostics encountered during the process are accumulated internally.
     ///
     /// # Arguments

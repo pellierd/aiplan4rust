@@ -8,7 +8,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 /// Simplifies an arithmetic expression node.
 ///
 /// This function centralizes the arithmetic simplification process, ensuring that
-/// arithmetic expr are normalized and constants are evaluated. It performs
+/// arithmetic logic are normalized and constants are evaluated. It performs
 /// two main steps:
 ///
 /// 1. **Normalization (flattening)**: Nested arithmetic operations of the same kind
@@ -23,7 +23,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 /// # Parameters
 ///
 /// * `node_id` - The ID of the arithmetic operation node to simplification.
-/// * `expr` - The mutable reference to the expression tree containing the node.
+/// * `logic` - The mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 ///
@@ -35,7 +35,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 /// - Only arithmetic operation nodes (`ExprKind::Operation`) are affected.
 /// - Non-arithmetic nodes are skipped silently.
 /// - Flattening and constant evaluation are applied sequentially, preserving
-///   the tree structure while simplifying expr.
+///   the tree structure while simplifying logic.
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
@@ -46,7 +46,7 @@ pub fn simplify(
         return Ok(());
     }
 
-    // Step 1: Flatten nested operations of the same either_type
+    // Step 1: Flatten nested operations of the same typing
     flatten_arithmetic_expression(node_id, expr)?;
 
     // Step 2: Evaluate constants
@@ -56,10 +56,10 @@ pub fn simplify(
 }
 
 
-/// Flattens nested arithmetic expr of the same operator.
+/// Flattens nested arithmetic logic of the same operator.
 ///
-/// This function normalizes arithmetic expr by pulling up children from
-/// nested operations of the same kind (`+` or `*`). It ensures that expr
+/// This function normalizes arithmetic logic by pulling up children from
+/// nested operations of the same kind (`+` or `*`). It ensures that logic
 /// like nested sums or products are represented in a flat, normalized form.
 ///
 /// # Examples
@@ -70,7 +70,7 @@ pub fn simplify(
 /// # Parameters
 ///
 /// * `node_id` - The ID of the arithmetic operation node to types.
-/// * `expr` - The mutable reference to the expression tree containing the node.
+/// * `logic` - The mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 ///
@@ -132,7 +132,7 @@ fn flatten_arithmetic_expression(
 /// # Parameters
 ///
 /// * `node_id` - The ID of the node to simplification.
-/// * `expr` - The expression tree containing the node.
+/// * `logic` - The expression tree containing the node.
 ///
 /// # Returns
 ///

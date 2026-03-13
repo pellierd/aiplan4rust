@@ -5,7 +5,7 @@
 //!
 //! The transformation is designed as a two-pass compiler:
 //! 1. **Structural Collection**: Registering names and signatures to build a global symbol map.
-//! 2. **Logic Binding**: Encoding expr and actions by resolving symbols
+//! 2. **Logic Binding**: Encoding logic and actions by resolving symbols
 //!    against the maps created in the first pass.
 //!
 use crate::aiplan4rust::lir::LirError;
@@ -17,7 +17,7 @@ use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
 
 /// Encodes the PDDL domain into the Lifted Intermediate Representation (LIR).
 ///
-/// This process is performed in two distinct expr:
+/// This process is performed in two distinct logic:
 /// 1. **Collection Pass**: Populates the IR with structural definitions (types, constants,
 ///    and signatures for predicates/functions) and maps their AST NodeIds to LIR indices.
 /// 2. **Logic Pass**: Encodes complex business ops (action bodies, durative actions,
@@ -69,7 +69,7 @@ pub(crate) fn encode(
 /// - Task skeletons for HTN (Hierarchical Task Network) planning.
 ///
 /// This phase must be completed before `encode_logic` to ensure all symbols are
-/// registered and available for resolution in expr.
+/// registered and available for resolution in logic.
 ///
 /// # Arguments
 ///

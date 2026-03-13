@@ -6,10 +6,10 @@ use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
 
-/// Errors specific to the `expr` module, primarily related to conversion failures.
+/// Errors specific to the `logic` module, primarily related to conversion failures.
 ///
 /// This enum represents the various error conditions that can occur during
-/// the parsing and conversion of syntax tree nodes into expr.
+/// the parsing and conversion of syntax tree nodes into logic.
 ///
 /// # Variants
 ///
@@ -27,7 +27,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// # Examples
 ///
 /// ```
-/// use aiplan4rust::lir::expr::ExprError;
+/// use aiplan4rust::lir::logic::ExprError;
 /// use aiplan4rust::syntax::ast::{AstContent, AstKind};
 ///
 /// let err = ExprError::unsupported_content(AstContent::Ident(42));
@@ -70,7 +70,7 @@ pub enum ExprError {
     },
 
     /// Indicates that an expression node in the IR is invalid for the current transformation.
-    /// The node may be misplaced or of a either_type that cannot be processed in this context.
+    /// The node may be misplaced or of a typing that cannot be processed in this context.
     #[error("Invalid expression node kind {kind:?} at node {node_id}")]
     InvalidExprNode {
         /// The ID of the expression node that is invalid.

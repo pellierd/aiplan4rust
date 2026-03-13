@@ -30,7 +30,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 /// # Arguments
 ///
 /// * `node_id` - The ID of the FComp node.
-/// * `expr` - The expression tree containing the node.
+/// * `logic` - The expression tree containing the node.
 ///
 /// # Returns
 ///
@@ -82,7 +82,7 @@ fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOp
         None => return Ok(false), // should not happen normally
     };
 
-    // Only > and >= need expr
+    // Only > and >= need logic
     let new_op = match op {
         CompareOp::Greater => Some(CompareOp::Less),
         CompareOp::GreaterEq => Some(CompareOp::LessEq),
@@ -162,7 +162,7 @@ fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 /// # Parameters
 ///
 /// * `node_id` - The ID of the comparison node to simplification.
-/// * `expr` - A mutable reference to the expression tree (`Expr`) containing the node.
+/// * `logic` - A mutable reference to the expression tree (`Expr`) containing the node.
 ///
 /// # Returns
 ///
@@ -179,7 +179,7 @@ fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
 
-    // Ensure the node is of either_type FComp
+    // Ensure the node is of typing FComp
     if node.kind() != ExprKind::Comparison {
         return Ok(false);
     }
@@ -242,7 +242,7 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
 /// # Arguments
 ///
 /// * `node_id` - The ID of the FComp node to simplification.
-/// * `expr` - Mutable reference to the expression tree containing the node.
+/// * `logic` - Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 ///
@@ -260,7 +260,7 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
 /// # Arguments
 ///
 /// * `node_id` - The ID of the FComp node to simplification.
-/// * `expr` - Mutable reference to the expression tree containing the node.
+/// * `logic` - Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 ///

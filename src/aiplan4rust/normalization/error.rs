@@ -1,11 +1,11 @@
 //! Defines the [`NormalizationError`] enum, which represents errors that may occur
-//! during the expr phase of the AI syntax compilation pipeline.
+//! during the logic phase of the AI syntax compilation pipeline.
 //!
-//! The expr phase is responsible for converting parsed and lifted syntax
+//! The logic phase is responsible for converting parsed and lifted syntax
 //! (such as task networks, methods, and actions) into a more canonical or simplified form
 //! suitable for subsequent reasoning, compilation, or execution.
 //!
-//! This error either_type encapsulates failures originating from expr expr, such as:
+//! This error typing encapsulates failures originating from logic logic, such as:
 //!
 //! - [`SyntaxTreeError`]: Structural or semantic issues found in the syntax tree.
 //! - [`ArenaError`]: Memory allocation or referencing problems within arena-based storage.
@@ -17,12 +17,12 @@
 //! # Example
 //!
 //! ```rust
-//! use aiplan4rust::expr::NormalizationError;
+//! use aiplan4rust::logic::NormalizationError;
 //!
 //! fn normalize_something() -> Result<(), NormalizationError> {
 //!     // ...
 //!     Err(NormalizationError::from(
-//!         aiplan4rust::expr::expr::NormalizationPassError::Interner(
+//!         aiplan4rust::logic::logic::NormalizationPassError::Interner(
 //!             some_interner_error
 //!         )
 //!     ))
@@ -34,21 +34,21 @@ use thiserror::Error;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::validation::common::WellNormalizedError;
 
-/// Represents errors that can occur during the expr process.
+/// Represents errors that can occur during the logic process.
 ///
 /// These errors cover various failure scenarios such as structural
 /// problems in the AST, allocation failures, or violations of
-/// expr invariants.
+/// logic invariants.
 ///
 /// # Variants
-/// - `NormalizationPass`: Errors originating from specific expr expr,
+/// - `NormalizationPass`: Errors originating from specific logic logic,
 ///   typically caused by invalid or unexpected nodes in the syntax tree.
 /// - `WellNormalized`: Errors detected during the verification that the AST
 ///   is well normalized after processing.
 #[derive(Debug, Error)]
 pub enum NormalizationError {
 
-    /// An error originating from a expr pass.
+    /// An error originating from a logic pass.
     ///
     /// This usually indicates that an invalid or unexpected node
     /// was encountered during the traversal or transformation of

@@ -184,7 +184,7 @@ mod tests {
         let obj_r1 = ObjectId::from(10);
         let obj_r2 = ObjectId::from(20);
 
-        // 2. Setup the ValueRegistry with two objects for the 'robot' either_type
+        // 2. Setup the ValueRegistry with two objects for the 'robot' typing
         let mut object_list = TypedList::new();
         object_list.push(TypedSymbol::new(obj_r1, Type::primitive(type_robot)));
         object_list.push(TypedSymbol::new(obj_r2, Type::primitive(type_robot)));
@@ -242,7 +242,7 @@ mod tests {
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 
         // 2. On construit le registre directement.
-        // Comme l'objet 999 appartient au either_type 1, from_objects va créer :
+        // Comme l'objet 999 appartient au typing 1, from_objects va créer :
         // index 0 -> ValueDomain vide (ton type_vide)
         // index 1 -> ValueDomain avec [999] (ton type_autre)
         let registry = ValueRegistry::from_objects(objects);
@@ -366,7 +366,7 @@ mod tests {
         let type_autre = TypeId::from(1); // Type auxiliaire pour forcer l'allocation
         let var_x = VariableId::from(1);
 
-        // Initialisation avec un objet dans le either_type 1 pour que l'index 0 soit alloué
+        // Initialisation avec un objet dans le typing 1 pour que l'index 0 soit alloué
         let mut objects = TypedList::new();
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 

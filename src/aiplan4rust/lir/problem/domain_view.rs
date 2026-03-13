@@ -87,7 +87,7 @@ impl<'a> DomainDef<'a> {
     /// # Returns
     ///
     /// An iter over references to [`TypedSymbol`]s in the domain. Each
-    /// [`TypedSymbol`] is associated with a unique either_type identifier (`Ident`).
+    /// [`TypedSymbol`] is associated with a unique typing identifier (`Ident`).
     ///
     /// # Examples
     ///
@@ -100,7 +100,7 @@ impl<'a> DomainDef<'a> {
         self.problem.type_defs()
     }
 
-    /// Checks if the problem contains any either_type definitions.
+    /// Checks if the problem contains any typing definitions.
     ///
     /// This is typically true for PDDL domains that use the `:typing` requirement.
     pub fn has_type_defs(&self) -> bool {

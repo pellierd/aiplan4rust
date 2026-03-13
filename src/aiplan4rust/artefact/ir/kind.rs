@@ -44,7 +44,7 @@
 //! # Integration with the Pipeline
 //!
 //! `IRKind` is typically used to select appropriate processing functions
-//! (parsing, linking, analysis) depending on the either_type of artifact. For example,
+//! (parsing, linking, analysis) depending on the typing of artifact. For example,
 //! a `ParsedDomain` may be linked with a problem, while a `LiftedProblem` may
 //! be used directly in reasoning or planning algorithms.
 
@@ -54,7 +54,7 @@ use serde::{Deserialize, Serialize};
 
 /// Semantic classification of an intermediate representation (IR) artifact.
 ///
-/// Indicates the either_type and stage of a serialized planning file, enabling correct
+/// Indicates the typing and stage of a serialized planning file, enabling correct
 /// processing within the pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IRKind {

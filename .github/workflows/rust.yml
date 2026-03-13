@@ -1,4 +1,4 @@
-name: Rust CI (Low Memory & Swap)
+name: Rust CI 'AIPlan4Rust'
 
 on:
   push:
@@ -9,9 +9,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: false
-  # Optimisation agressive pour la RAM
+  # Aggressive RAM optimization: use LLD linker, disable debuginfo, and strip symbols
   RUSTFLAGS: "-C link-arg=-fuse-ld=lld -C debuginfo=0 -C strip=symbols"
-  # Un seul cœur pour la compilation pour éviter les pics de RAM
+  # Single-core compilation to prevent RAM spikes during the build phase
   CARGO_BUILD_JOBS: 1
   RUST_LOG: info
   RUST_BACKTRACE: 1
@@ -38,7 +38,7 @@ jobs:
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
-          echo "=== MÉMOIRE DISPONIBLE ==="
+          echo "=== MEMORY STATS ==="
           free -h
 
       - name: Cache Cargo
@@ -57,22 +57,28 @@ jobs:
         run: |
           set -o pipefail
           
-          # --- CONFIGURATION DU FILTRE ---
-          # Modifie cette ligne pour choisir tes tests (ex: "test(syntax) or test(linking)")
-          # Pour tout lancer, utilise : FILTER="all()"
-          FILTER="test(syntax) or test(semantic) or test(normalization) or test(encoder) or test(linking)"
+          # 1. PRE-COMPILATION
+          echo "=== COMPILING ALL TARGETS ==="
+          # Compiling without --locked to prevent Error 101 on outdated lockfiles
+          cargo test --no-run
 
-          echo "=== COMPILATION DU BINAIRE D'INTÉGRATION ==="
-          # On compile sans --locked pour éviter l'erreur 101
-          cargo test --test integration_tests --no-run
+          # 2. UNIT TESTS (Library)
+          echo "=== RUNNING UNIT TESTS (LIB) ==="
+          # Unit tests are usually light; we run them with default concurrency
+          cargo nextest run --lib \
+            --status-level pass \
+            --failure-output immediate \
+            --color always
 
-          echo "=== LISTE DES TESTS SÉLECTIONNÉS ==="
-          cargo nextest list --test integration_tests -E "$FILTER"
-
-          echo "=== EXÉCUTION (JOBS=1) ==="
-          # Logs de debug spécifiques pour tes modules
+          # 3. INTEGRATION TESTS (Heavy IPC Benchmarks)
+          echo "=== RUNNING INTEGRATION TESTS ==="
+          # Selection filter for specific integration modules
+          FILTER="test(syntax) or test(normalization) or test(semantic) or test(encoder) or test(linking)"
+          
+          # Enable detailed debugging for grounding and LIR logic
           export RUST_LOG="info,aiplan4rust::grounding=debug,aiplan4rust::lir::expr=debug"
           
+          # Force JOBS=1 to ensure the heavy grounding process doesn't trigger OOM
           cargo nextest run \
             --test integration_tests \
             -E "$FILTER" \

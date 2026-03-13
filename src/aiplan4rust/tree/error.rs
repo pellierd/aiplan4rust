@@ -4,7 +4,7 @@
 //! all errors that can occur during the processing and manipulation
 //! of syntax trees within the system.
 //!
-//! These errors primarily arise from either_type mismatches when
+//! These errors primarily arise from typing mismatches when
 //! extracting semantic content from syntax nodes, or from arena
 //! allocation errors.
 //!

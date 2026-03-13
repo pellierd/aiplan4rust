@@ -20,14 +20,14 @@ const ONE: OrderedFloat<f64> = OrderedFloat(1.0);
 ///
 /// # Parameters
 /// - `node_id`: The ID of the node to normalize. Must correspond to an `Assign` node.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 /// - `Err(ExprError)` if accessing nodes or contents fails.
 ///
 /// # Notes
 /// - This function is intended for internal use within the parent module,
-///   and should be called as part of the assignment expr pipeline.
+///   and should be called as part of the assignment logic pipeline.
 /// - The function preserves the expression tree structure by replacing trivial
 ///   assignments rather than removing nodes from the parent.
 pub fn simplify(
@@ -45,7 +45,7 @@ pub fn simplify(
 ///
 /// # Parameters
 /// - `node_id`: ID of the node to simplification (must be of kind `Assign`).
-/// - `expr`: Mutable reference to the expression tree.
+/// - `logic`: Mutable reference to the expression tree.
 ///
 /// # Returns
 /// - `Ok(true)` if the node was simplified.

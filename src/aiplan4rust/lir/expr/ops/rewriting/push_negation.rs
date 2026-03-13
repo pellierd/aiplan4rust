@@ -20,13 +20,13 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Preconditions
 /// - Typically called after implications have been eliminated via `eliminate_imply`.
-/// - This function is part of the **expr pipeline**, orchestrated by the
+/// - This function is part of the **logic pipeline**, orchestrated by the
 ///   `normalize` module. Users should not call this directly unless implementing
-///   a custom expr sequence.
+///   a custom logic sequence.
 ///
 /// # Parameters
 /// - `root_id`: NodeId of the root of the subtree to process.
-/// - `expr`: Mutable reference to the expression tree.
+/// - `logic`: Mutable reference to the expression tree.
 ///
 /// # Returns
 /// - `Ok(())` if all negations are successfully pushed down.
@@ -46,8 +46,8 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Example usage
 /// ```rust
-/// // Part of the expr pipeline managed by the `normalize` module
-/// push_negation(root_id, &mut expr)?;
+/// // Part of the logic pipeline managed by the `normalize` module
+/// push_negation(root_id, &mut logic)?;
 /// ```
 pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     let mut stack = vec![root_id];
@@ -110,7 +110,7 @@ pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError
 ///
 /// # Parameters
 /// - `node_id`: NodeId of the `Not` node to rewriting.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 /// - `Vec<NodeId>` containing the newly created `Not` nodes for each child of
@@ -179,11 +179,11 @@ fn apply_de_morgan(node_id: NodeId, expr: &mut Expr) -> Result<Vec<NodeId>, Expr
 ///
 /// This is part of the `push_negations` preprocessing: it pushes negations down
 /// the tree without simplifying double negations, allowing further processing
-/// or expr later.
+/// or logic later.
 ///
 /// # Parameters
 /// - `node_id`: The `NodeId` of the `Not` node in the expression tree.
-/// - `expr`: Mutable reference to the expression tree.
+/// - `logic`: Mutable reference to the expression tree.
 ///
 /// # Returns
 /// - `NodeId` of the newly created `Not` node applied to the quantifier body.

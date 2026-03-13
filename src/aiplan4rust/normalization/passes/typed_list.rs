@@ -4,19 +4,19 @@
 //! within an AST subtree by transforming them so that each `TypedItem` syntax contains
 //! exactly one element along with its optional type_checker annotation.
 //!
-//! The expr process involves a depth-first traversal starting from the root
+//! The logic process involves a depth-first traversal starting from the root
 //! syntax of the AST. For each `TypedList` syntax encountered:
 //! - It verifies that each child is a `TypedItem` syntax containing at least one child.
 //! - Extracts the first child as the element (which must be a valid element kind).
 //! - Optionally clones the second child if present, representing the type_checker annotation.
 //! - Rebuilds the `TypedItem` nodes so that each contains exactly one element plus an optional type_checker.
 //!
-//! This transformation ensures that after expr, type_checker annotations are duplicated
+//! This transformation ensures that after logic, type_checker annotations are duplicated
 //! per element, which simplifies subsequent semantic analysis and code generation.
 //!
 //! # Example of the transformation
 //!
-//! Before expr:
+//! Before logic:
 //! ```pddl
 //! (:types
 //!     e1 e2 - types
@@ -24,7 +24,7 @@
 //! )
 //! ```
 //!
-//! After expr:
+//! After logic:
 //! ```pddl
 //! (:types
 //!    e1 - types
@@ -37,15 +37,15 @@
 //!
 //! - The AST must be syntactically valid.
 //! - `TypedList` nodes must not be normalized yet.
-//! - This should be the first expr pass on the AST.
+//! - This should be the first logic pass on the AST.
 //!
-//! Running expr multiple times or on an already normalized AST may cause
+//! Running logic multiple times or on an already normalized AST may cause
 //! incorrect behavior or internal errors due to assumptions about AST structure.
 //!
 //! # Errors
 //!
 //! Returns `ParserInternalError` if structural inconsistencies or unexpected syntax kinds
-//! are encountered during expr.
+//! are encountered during logic.
 //!
 //! # Usage example
 //!
@@ -79,11 +79,11 @@ use crate::aiplan4rust::tree::Tree;
 /// - Rebuilds each `TypedItem` syntax to contain exactly one element plus an optional type_checker.
 ///
 /// After normalizing a `TypedList` syntax, its children are pushed onto the stack to continue
-/// the expr recursively.
+/// the logic recursively.
 ///
 /// # Example of the transformation
 ///
-/// Before expr:
+/// Before logic:
 /// ```pddl
 /// (:types
 ///     e1 e2 - types
@@ -91,7 +91,7 @@ use crate::aiplan4rust::tree::Tree;
 /// )
 /// ```
 ///
-/// After expr:
+/// After logic:
 /// ```pddl
 /// (:types
 ///    e1 - types
@@ -104,7 +104,7 @@ use crate::aiplan4rust::tree::Tree;
 ///
 /// - The AST must already be syntactically valid.
 /// - `TypedList` nodes are expected **not** to be normalized yet.
-/// - This function should be the **first expr pass** on the AST.
+/// - This function should be the **first logic pass** on the AST.
 ///
 /// Running this on an already normalized or partially normalized AST may cause
 /// incorrect behavior or internal panics due to violated structural assumptions.
@@ -122,7 +122,7 @@ use crate::aiplan4rust::tree::Tree;
 ///
 /// # Returns
 ///
-/// * `Ok(())` if expr completes successfully.
+/// * `Ok(())` if logic completes successfully.
 /// * `Err(ParserInternalError)` if structural inconsistencies are detected.
 ///
 /// # Examples
@@ -135,7 +135,7 @@ use crate::aiplan4rust::tree::Tree;
 /// # Notes
 ///
 /// This function uses an explicit stack to avoid deep recursion and possible stack overflow
-/// on very large ASTs. It is typically the first expr step before semantic analysis,
+/// on very large ASTs. It is typically the first logic step before semantic analysis,
 /// type_checker inference, or code generation.
 pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationPassError> {
     if !ast.syntax_tree().is_empty() {
@@ -155,7 +155,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationPassError>
 ///   and optional type_checker annotation.
 /// 4. Replaces the original `TypedList` children with these normalized `TypedItem` nodes.
 ///
-/// The expr guarantees that after processing:
+/// The logic guarantees that after processing:
 /// - Each `TypedItem` syntax contains **exactly one element**.
 /// - Shared type_checker annotations are duplicated appropriately for each element.
 ///
@@ -165,7 +165,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationPassError>
 ///
 /// # Returns
 ///
-/// * `Ok(())` if the expr completes successfully.
+/// * `Ok(())` if the logic completes successfully.
 /// * `Err(NormalizationPassError)` if the AST contains unexpected syntax kinds, invalid children
 ///   indices, or any structural inconsistencies encountered during traversal.
 ///
@@ -189,7 +189,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationPassError>
 ///
 /// # Notes
 ///
-/// This expr step is important to simplification downstream processing,
+/// This logic step is important to simplification downstream processing,
 /// ensuring that each `TypedItem` corresponds to a single element, which simplifies
 /// type_checker checking and code generation phases.
 fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError> {
@@ -217,7 +217,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError
 /// Normalizes the children of a `TypedList` syntax by expanding each `TypedItem`
 /// so that each new `TypedItem` syntax contains exactly one element and an optional type_checker.
 ///
-/// This function performs the tree expr step for `TypedList` nodes:
+/// This function performs the tree logic step for `TypedList` nodes:
 /// - It extracts the existing children (which are `TypedItem` nodes that may contain multiple
 ///   elements).
 /// - For each old `TypedItem`, it creates one new `TypedItem` per element, preserving optional type_checker
@@ -231,7 +231,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError
 ///
 /// # Returns
 ///
-/// * `Ok(())` if the expr completes successfully.
+/// * `Ok(())` if the logic completes successfully.
 /// * `Err(NormalizationPassError)` if any syntax access or manipulation fails.
 ///
 /// # Errors
@@ -291,7 +291,7 @@ fn normalize_typed_list_node_children(
 
 /// Checks whether a given syntax is a `TypedList` syntax.
 ///
-/// This function is used during AST expr to identify nodes
+/// This function is used during AST logic to identify nodes
 /// that represent a `TypedList`, which require special processing.
 ///
 /// # Arguments
@@ -325,8 +325,8 @@ fn is_typed_list_node(
 
 /// Extracts the child element IDs, optional type_checker ID, and span from a `TypedItem` syntax.
 ///
-/// This function is used during expr to decompose a `TypedItem` syntax into:
-/// - the IDs of its contained elements (which may be multiple before expr),
+/// This function is used during logic to decompose a `TypedItem` syntax into:
+/// - the IDs of its contained elements (which may be multiple before logic),
 /// - an optional type_checker syntax,
 /// - and the span information.
 ///
@@ -381,30 +381,30 @@ fn extract_typed_item_data(
     Ok((element_ids, type_id_opt, span))
 }
 
-/// Creates a new `TypedItem` syntax containing exactly one element and optionally a cloned either_type.
+/// Creates a new `TypedItem` syntax containing exactly one element and optionally a cloned typing.
 ///
-/// This function is used during expr of `TypedList` nodes to reconstruct
+/// This function is used during logic of `TypedList` nodes to reconstruct
 /// each `TypedItem` in a uniform structure.
-/// The element is included as-is, but if a either_type node is provided, it is **cloned**
-/// to ensure each `TypedItem` has its own independent either_type subtree.
+/// The element is included as-is, but if a typing node is provided, it is **cloned**
+/// to ensure each `TypedItem` has its own independent typing subtree.
 ///
 /// # Arguments
 ///
 /// * `element_id` - The syntax ID of the single element to include. This is **not cloned**.
-/// * `type_id_opt` - An optional syntax ID representing the either_type. If present, it is **cloned**.
+/// * `type_id_opt` - An optional syntax ID representing the typing. If present, it is **cloned**.
 /// * `span` - The source span associated with the new syntax.
 /// * `parent_id` - The parent syntax ID, typically referring to the `TypedList`.
-/// * `syntax_tree` - A mutable reference to the `SyntaxTree`, required for cloning the either_type.
+/// * `syntax_tree` - A mutable reference to the `SyntaxTree`, required for cloning the typing.
 ///
 /// # Returns
 ///
 /// * `Ok(AstNode)` - A new `AstNode` instance representing the normalized `TypedItem`.
-/// * `Err(NormalizationPassError)` - If cloning the either_type subtree fails.
+/// * `Err(NormalizationPassError)` - If cloning the typing subtree fails.
 ///
 /// # Notes
 ///
 /// This function guarantees that each normalized `TypedItem` has an independent
-/// either_type node, preventing accidental sharing of AST subtrees that could
+/// typing node, preventing accidental sharing of AST subtrees that could
 /// lead to incorrect analysis or mutations.
 fn create_typed_item_node(
     element_id: NodeId,
@@ -416,7 +416,7 @@ fn create_typed_item_node(
     // Initialize children with the mandatory element syntax
     let mut children = vec![element_id];
 
-    // Clone the either_type subtree if present
+    // Clone the typing subtree if present
     if let Some(type_id) = type_id_opt {
         let clone_type = syntax_tree.clone_subtree(type_id)?;
         children.push(clone_type);

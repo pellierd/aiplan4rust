@@ -4,7 +4,7 @@
 //! # Overview
 //!
 //! `ExprNode` is a wrapper around a generic syntax tree node (`SyntaxBaseNode`) specialized
-//! for expr, with `ExprKind` as the node kind and `ExprContent` as its content.
+//! for logic, with `ExprKind` as the node kind and `ExprContent` as its content.
 //! This struct supports parent-child relationships and integrates with the arena allocator model
 //! through the `ArenaNode` trait, enabling efficient tree manipulation.
 //!
@@ -24,8 +24,8 @@
 //! # Usage Example
 //!
 //! ```rust
-//! use crate::aiplan4rust::lir::expr::ExprNode;
-//! use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent};
+//! use crate::aiplan4rust::lir::logic::ExprNode;
+//! use crate::aiplan4rust::lir::logic::{ExprKind, ExprContent};
 //!
 //! let node = ExprNode::new(ExprKind::Variable, ExprContent::None, None);
 //! println!("{}", node);
@@ -193,12 +193,12 @@ impl Node for ExprNode {
 
     /// Returns the kind of the node.
     ///
-    /// The kind represents the either_type of expression the node encodes,
+    /// The kind represents the typing of expression the node encodes,
     /// for example `AtomicFormula`, `FComp`, `And`, `Or`, `AtStart`, etc.
     ///
     /// # Returns
     ///
-    /// The current kind of the node, of either_type `ExprKind`.
+    /// The current kind of the node, of typing `ExprKind`.
     ///
     /// # Example
     /// ```
@@ -213,7 +213,7 @@ impl Node for ExprNode {
     /// Sets the kind of the node.
     ///
     /// This replaces the current kind of the node with the specified one.
-    /// It does not modify the node's children or content; it only changes the either_type of the node.
+    /// It does not modify the node's children or content; it only changes the typing of the node.
     ///
     /// # Arguments
     ///
@@ -324,7 +324,7 @@ impl Node for ExprNode {
     /// - `AtEnd`
     /// - `Overall`
     ///
-    /// They indicate when the literal should hold in PDDL temporal expr.
+    /// They indicate when the literal should hold in PDDL temporal logic.
     ///
     /// # Example
     /// ```
@@ -342,7 +342,7 @@ impl Node for ExprNode {
     /// - `Not`
     /// - `Imply`
     ///
-    /// Useful for expression traversal, expr, and propagation of temporal specifiers.
+    /// Useful for expression traversal, logic, and propagation of temporal specifiers.
     ///
     /// # Example
     /// ```

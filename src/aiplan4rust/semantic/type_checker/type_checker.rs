@@ -1,31 +1,31 @@
-//! Provides semantic either_type checking for domain-specific symbols.
+//! Provides semantic typing checking for domain-specific symbols.
 //!
-//! This module defines the [`TypeChecker`] struct and its associated ops used for validating either_type
-//! relationships in PDDL-like languages. It ensures that either_type declarations and usages are consistent,
-//! and computes either_type hierarchies such as subtype and supertype relations.
+//! This module defines the [`TypeChecker`] struct and its associated ops used for validating typing
+//! relationships in PDDL-like languages. It ensures that typing declarations and usages are consistent,
+//! and computes typing hierarchies such as subtype and supertype relations.
 //!
 //! # Overview
 //!
-//! The either_type checking ops relies on a [`SymbolTable`] containing either_type declarations and their
+//! The typing checking ops relies on a [`SymbolTable`] containing typing declarations and their
 //! hierarchical relationships. The [`TypeChecker`] uses this information to answer questions like:
 //!
-//! - Is either_type `A` a subtype of `B`?
+//! - Is typing `A` a subtype of `B`?
 //! - Do types `A` and `B` share a common supertype?
-//! - What is the transitive closure of supertypes for a given either_type?
+//! - What is the transitive closure of supertypes for a given typing?
 //!
-//! This is useful in validating domain semantics and ensuring either_type correctness across
+//! This is useful in validating domain semantics and ensuring typing correctness across
 //! predicates, actions, and object declarations.
 //!
 //! # Key Components
 //!
-//! - [`TypeChecker`] — The main struct performing the actual either_type hierarchy analysis.
-//! - [`TypeCheckError`] — Error either_type used when either_type resolution fails unexpectedly.
+//! - [`TypeChecker`] — The main struct performing the actual typing hierarchy analysis.
+//! - [`TypeCheckError`] — Error typing used when typing resolution fails unexpectedly.
 //!
 //! # Features
 //!
 //! - Type hierarchy traversal via `ascending_type_closure`.
-//! - Built-in PDDL either_type recognition (e.g., `object`, `number`).
-//! - Caching of computed either_type closures to improve performance.
+//! - Built-in PDDL typing recognition (e.g., `object`, `number`).
+//! - Caching of computed typing closures to improve performance.
 //!
 //! # Example
 //!
@@ -51,7 +51,7 @@
 //!
 //! # Notes
 //!
-//! This module assumes that the symbol table has been fully populated before either_type checking.
+//! This module assumes that the symbol table has been fully populated before typing checking.
 
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::Type;
@@ -67,17 +67,17 @@ use std::cell::{Ref, RefCell};
 /// PDDL Built-in symbols.
 const PDDL_BUILTIN_TYPES: [SymbolId; 2] = [SymbolInterner::OBJECT_SYMBOL_ID, SymbolInterner::NUMBER_SYMBOL_ID];
 
-/// A struct for performing either_type checking within a given domain.
+/// A struct for performing typing checking within a given domain.
 ///
 /// The `TypeChecker` is responsible for verifying subtype and supertype relationships between
 /// types defined in a domain. It works in conjunction with a [`SymbolTable`] that holds symbol
-/// declarations and either_type definitions, and provides utilities for validating either_type compatibility
+/// declarations and typing definitions, and provides utilities for validating typing compatibility
 /// between objects, actions, and predicates.
 ///
 /// # Fields
 ///
 /// * `domain_symbol_table` - A reference to the [`SymbolTable`] containing the domain's symbol
-///   declarations and either_type hierarchy.
+///   declarations and typing hierarchy.
 /// * `type_closure_cache` - A cache for storing computed transitive closures of supertypes
 ///   for efficient repeated lookups.
 ///
@@ -106,16 +106,16 @@ pub struct TypeChecker<'a> {
 impl<'a> TypeChecker<'a> {
     /// Creates a new `TypeChecker` instance using the given domain symbol table.
     ///
-    /// The symbol table provides access to all either_type declarations and their relationships.
-    /// This is essential for checking subtyping relationships, common supertypes, and either_type closure.
+    /// The symbol table provides access to all typing declarations and their relationships.
+    /// This is essential for checking subtyping relationships, common supertypes, and typing closure.
     ///
     /// # Arguments
     ///
-    /// * `domain_symbol_table` - A reference to the symbol table that defines the domain's either_type hierarchy.
+    /// * `domain_symbol_table` - A reference to the symbol table that defines the domain's typing hierarchy.
     ///
     /// # Returns
     ///
-    /// A new instance of `TypeChecker` with caching enabled for transitive either_type closure.
+    /// A new instance of `TypeChecker` with caching enabled for transitive typing closure.
     pub fn new(domain_symbol_table: &'a SymbolTable) -> Self {
         TypeChecker {
             domain_symbol_table,
@@ -123,10 +123,10 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    /// Returns `true` if any either_type in `ty2` is a subtype of any either_type in `ty1`.
+    /// Returns `true` if any typing in `ty2` is a subtype of any typing in `ty1`.
     ///
     /// This checks whether the second list of types (e.g., expected or declared types) contains
-    /// any either_type that is a descendant of at least one either_type in the first list.
+    /// any typing that is a descendant of at least one typing in the first list.
     ///
     /// # Arguments
     ///
@@ -135,7 +135,7 @@ impl<'a> TypeChecker<'a> {
     ///
     /// # Returns
     ///
-    /// * `Ok(true)` if any either_type in `ty2` is a subtype of any either_type in `ty1`.
+    /// * `Ok(true)` if any typing in `ty2` is a subtype of any typing in `ty1`.
     /// * `Ok(false)` if no subtype relation exists.
     /// * `Err(TypeCheckError)` if an internal resolution error occurs.
     pub fn is_any_subtype_of(
@@ -155,9 +155,9 @@ impl<'a> TypeChecker<'a> {
         Ok(false)
     }
 
-    /// Returns `true` if any either_type in `ty1` is a supertype of any either_type in `ty2`.
+    /// Returns `true` if any typing in `ty1` is a supertype of any typing in `ty2`.
     ///
-    /// This is equivalent to checking whether any either_type in `ty2` is a subtype of any either_type in `ty1`.
+    /// This is equivalent to checking whether any typing in `ty2` is a subtype of any typing in `ty1`.
     ///
     /// # Arguments
     ///
@@ -175,7 +175,7 @@ impl<'a> TypeChecker<'a> {
         self.is_any_subtype_of(ty2, ty1)
     }
 
-    /// Returns `true` if any either_type in `ty1` is a subtype or supertype of any either_type in `ty2`.
+    /// Returns `true` if any typing in `ty1` is a subtype or supertype of any typing in `ty2`.
     ///
     /// Combines both [`is_any_subtype_of`] and [`is_any_supertype_of`] checks.
     ///
@@ -183,7 +183,7 @@ impl<'a> TypeChecker<'a> {
     ///
     /// * `Ok(true)` if at least one relationship exists.
     /// * `Ok(false)` otherwise.
-    /// * `Err(TypeCheckError)` if an error occurs in either_type resolution.
+    /// * `Err(TypeCheckError)` if an error occurs in typing resolution.
     pub fn is_any_sub_or_supertype_of(
         &self,
         ty1: &Type<SymbolId>,
@@ -194,13 +194,13 @@ impl<'a> TypeChecker<'a> {
 
     /// Returns `true` if two sets of types share at least one common supertype.
     ///
-    /// In PDDL semantics, an empty either_type set is unconstrained and represents the root
-    /// `object` either_type. Therefore, if either set is empty, they are considered to share
+    /// In PDDL semantics, an empty typing set is unconstrained and represents the root
+    /// `object` typing. Therefore, if either set is empty, they are considered to share
     /// the universal root supertype.
     ///
     /// # Optimization
     ///
-    /// This function implements a fast path for identical either_type sets and unconstrained
+    /// This function implements a fast path for identical typing sets and unconstrained
     /// types before computing the full transitive closure of supertypes.
     ///
     /// # Arguments
@@ -212,31 +212,31 @@ impl<'a> TypeChecker<'a> {
     ///
     /// * `Ok(true)` if:
     ///     - Both sets are identical.
-    ///     - Either set is empty (representing the universal `object` either_type).
+    ///     - Either set is empty (representing the universal `object` typing).
     ///     - An intersection is found between their respective transitive supertype closures.
-    /// * `Ok(false)` if the either_type hierarchies are strictly disjoint.
-    /// * `Err(TypeCheckError)` if a either_type identifier cannot be resolved in the symbol table.
+    /// * `Ok(false)` if the typing hierarchies are strictly disjoint.
+    /// * `Err(TypeCheckError)` if a typing identifier cannot be resolved in the symbol table.
     pub fn have_common_supertype(
         &self,
         ty1: &Type<SymbolId>,
         ty2: &Type<SymbolId>,
     ) -> Result<bool, TypeCheckError> {
         // 1. Fast path: Direct equality or unconstrained types.
-        // In PDDL, an empty either_type list represents the root 'object' either_type,
+        // In PDDL, an empty typing list represents the root 'object' typing,
         // which is the universal supertype for all other types.
         if ty1 == ty2 || ty1.is_root() || ty2.is_root() {
             return Ok(true);
         }
 
         // 2. Comprehensive check for cross-hierarchy relationships.
-        // Compute the transitive closure of all supertypes for the first either_type set.
+        // Compute the transitive closure of all supertypes for the first typing set.
         let mut supertypes1 = HashSet::new();
         for t1 in ty1.iter() {
-            // ascending_type_closure includes the either_type itself.
+            // ascending_type_closure includes the typing itself.
             supertypes1.extend(self.ascending_type_closure(*t1)?.iter().cloned());
         }
 
-        // Check if any supertype of the second either_type set intersects with the first one.
+        // Check if any supertype of the second typing set intersects with the first one.
         for t2 in ty2.iter() {
             if self.ascending_type_closure(*t2)?
                 .iter()
@@ -251,23 +251,23 @@ impl<'a> TypeChecker<'a> {
         Ok(false)
     }
 
-    /// Returns all supertypes (including itself) of the given either_type.
+    /// Returns all supertypes (including itself) of the given typing.
     ///
-    /// Performs a depth-first traversal of the either_type hierarchy starting from
-    /// the provided primitive either_type, and collects all supertypes.
+    /// Performs a depth-first traversal of the typing hierarchy starting from
+    /// the provided primitive typing, and collects all supertypes.
     ///
     /// # Arguments
     ///
-    /// * `primitive_type` - The base either_type from which the closure is computed.
+    /// * `primitive_type` - The base typing from which the closure is computed.
     ///
     /// # Returns
     ///
     /// * `Ok(Ref<HashSet<Ident>>)` containing the closure.
-    /// * `Err(TypeCheckError)` if either_type resolution fails.
+    /// * `Err(TypeCheckError)` if typing resolution fails.
     ///
     /// # Caching
     ///
-    /// If the closure for the either_type has already been computed, the cached result is reused.
+    /// If the closure for the typing has already been computed, the cached result is reused.
     pub fn ascending_type_closure(
         &self,
         primitive_type: SymbolId,
@@ -312,9 +312,9 @@ impl<'a> TypeChecker<'a> {
         Ok(Ref::map(cache_ref, |c| c.get(&primitive_type).unwrap()))
     }
 
-    /// Checks if the given either_type is a built-in PDDL either_type.
+    /// Checks if the given typing is a built-in PDDL typing.
     ///
-    /// Built-in types are terminal in the either_type hierarchy and should not be resolved
+    /// Built-in types are terminal in the typing hierarchy and should not be resolved
     /// or traversed further during closure computation.
     ///
     /// # Arguments
@@ -323,7 +323,7 @@ impl<'a> TypeChecker<'a> {
     ///
     /// # Returns
     ///
-    /// * `true` if the either_type is built-in.
+    /// * `true` if the typing is built-in.
     /// * `false` otherwise.
     pub fn is_pddl_builtin_types(ty: SymbolId) -> bool {
         PDDL_BUILTIN_TYPES.contains(&ty)

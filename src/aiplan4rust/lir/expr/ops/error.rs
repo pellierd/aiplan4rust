@@ -13,7 +13,7 @@ pub enum ExprOpError {
     #[error(transparent)]
     Inertia(#[from] InertiaError),
 
-    /// An error originating from the expr.
+    /// An error originating from the logic.
     #[error(transparent)]
     Expr(#[from] ExprError),
 
@@ -50,7 +50,7 @@ pub enum ExprOpError {
     },
 
     /// Indicates that an expression node in the IR is invalid for the current transformation.
-    /// The node may be misplaced or of a either_type that cannot be processed in this context.
+    /// The node may be misplaced or of a typing that cannot be processed in this context.
     #[error("Invalid expression node kind {kind:?} at node {node_id}")]
     InvalidExprNode {
         /// The ID of the expression node that is invalid.

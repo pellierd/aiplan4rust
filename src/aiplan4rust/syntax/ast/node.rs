@@ -358,7 +358,7 @@ impl Node for AstNode {
     /// - `AtEnd`
     /// - `Overall`
     ///
-    /// They indicate when the literal should hold in PDDL temporal expr.
+    /// They indicate when the literal should hold in PDDL temporal logic.
     ///
     /// # Example
     /// ```
@@ -376,7 +376,7 @@ impl Node for AstNode {
     /// - `Not`
     /// - `Imply`
     ///
-    /// Useful for expression traversal, expr, and propagation of temporal specifiers.
+    /// Useful for expression traversal, logic, and propagation of temporal specifiers.
     ///
     /// # Example
     /// ```
@@ -411,7 +411,7 @@ impl Node for AstNode {
 impl RemapSymbol for AstNode {
     /// Remaps identifiers in this syntax node's content using the provided map.
     ///
-    /// This default implementation works for any either_type implementing [`Node`],
+    /// This default implementation works for any typing implementing [`Node`],
     /// delegating the remapping to `content_mut()`.
     ///
     /// # Parameters

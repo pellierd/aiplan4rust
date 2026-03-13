@@ -4,7 +4,7 @@
 //! in an abstract syntax tree (AST).
 //!
 //! The struct encapsulates a `BaseNode` (managing parent-child relationships),
-//! a generic `kind` identifying the node either_type,
+//! a generic `kind` identifying the node typing,
 //! and a generic `content` holding node-specific data.
 //!
 //! # Key Features
@@ -16,7 +16,7 @@
 //!
 //! # Typical Usage
 //!
-//! This either_type is used to represent nodes in syntax trees within a compiler or parser,
+//! This typing is used to represent nodes in syntax trees within a compiler or parser,
 //! where each node has a user-defined kind and associated content.
 //!
 //! # Example
@@ -48,16 +48,16 @@ use crate::aiplan4rust::tree::SyntaxContent;
 ///
 /// The `SyntaxBaseNode` struct combines:
 /// - A [`BaseNode`] which manages the parent-child relationships within an arena,
-/// - A generic `kind` that identifies the specific either_type of the syntax node,
+/// - A generic `kind` that identifies the specific typing of the syntax node,
 /// - A generic `content` holding the node-specific data.
 ///
 /// This struct is designed to be flexible and reusable across different syntax
-/// tree implementations, requiring the `kind` either_type to implement `Copy`, `Debug`, and `Display`,
-/// and the `content` either_type to implement the `SyntaxContent` trait.
+/// tree implementations, requiring the `kind` typing to implement `Copy`, `Debug`, and `Display`,
+/// and the `content` typing to implement the `SyntaxContent` trait.
 ///
 /// # Fields
 /// - `base_node`: Manages the hierarchical structure with parent and children node IDs.
-/// - `kind`: The either_type or classification of this syntax node.
+/// - `kind`: The typing or classification of this syntax node.
 /// - `content`: Additional information or data associated with this node.
 ///
 /// # Example
@@ -114,7 +114,7 @@ impl<K: Copy + Debug + Display + PartialEq, C: SyntaxContent + PartialEq> Syntax
     /// Returns the kind of this syntax node.
     ///
     /// # Returns
-    /// The kind of the node of either_type `K`.
+    /// The kind of the node of typing `K`.
     pub fn kind(&self) -> K {
         self.kind
     }
@@ -130,7 +130,7 @@ impl<K: Copy + Debug + Display + PartialEq, C: SyntaxContent + PartialEq> Syntax
     /// Returns an immutable reference to the content of this syntax node.
     ///
     /// # Returns
-    /// A reference to the content of either_type `C`.
+    /// A reference to the content of typing `C`.
     pub fn content(&self) -> &C {
         &self.content
     }
@@ -138,7 +138,7 @@ impl<K: Copy + Debug + Display + PartialEq, C: SyntaxContent + PartialEq> Syntax
     /// Returns a mutable reference to the content of this syntax node.
     ///
     /// # Returns
-    /// A mutable reference to the content of either_type `C`.
+    /// A mutable reference to the content of typing `C`.
     pub fn content_mut(&mut self) -> &mut C {
         &mut self.content
     }

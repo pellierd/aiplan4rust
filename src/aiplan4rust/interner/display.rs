@@ -188,7 +188,7 @@ pub trait SelfInternerDisplay {
     }
 }
 
-/// Wrapper struct used to implement [`std::fmt::Display`] for any either_type implementing [`SelfInternerDisplay`].
+/// Wrapper struct used to implement [`std::fmt::Display`] for any typing implementing [`SelfInternerDisplay`].
 ///
 /// This allows using `write!` and other formatting macros with `SelfInternerDisplay`.
 pub struct SelfInternerDisplayWrapper<'a, T: ?Sized> {

@@ -98,7 +98,7 @@ pub fn apply_in_place_with(
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<NodeId, BindingError> {
     // Pile de travail : (ID du noeud source, est_traité)
-    // On utilise un parcours de either_type Post-Order (reconstruction des parents après les enfants)
+    // On utilise un parcours de typing Post-Order (reconstruction des parents après les enfants)
     let mut stack = vec![(root_id, false)];
     let mut id_map: HashMap<NodeId, NodeId> = HashMap::new();
 
@@ -200,7 +200,7 @@ mod tests {
 
         // 3. Exécution du Grounding
         // On récupère explicitement le nouvel ID.
-        // L'arène 'expr' contient maintenant l'ancien arbre ET le nouveau.
+        // L'arène 'logic' contient maintenant l'ancien arbre ET le nouveau.
         let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
 
         // 4. VALIDATIONS
@@ -379,7 +379,7 @@ mod tests {
         builder.set_root(root)?; // On définit la racine
         let mut expr = builder.finish();
 
-        // 2. Préparation de la binding via ton nouveau either_type
+        // 2. Préparation de la binding via ton nouveau typing
         let mut sub = Bindings::new();
         sub.insert(x_id, ObjectId::from(100));
         sub.insert(y_id, ObjectId::from(200));

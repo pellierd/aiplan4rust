@@ -1,6 +1,6 @@
-//! Module defining the `ParserResult` either_type, representing the outcome of a PDDL parsing operation.
+//! Module defining the `ParserResult` typing, representing the outcome of a PDDL parsing operation.
 //!
-//! This module provides a unified enum-based result either_type for parsing,
+//! This module provides a unified enum-based result typing for parsing,
 //! including diagnostics and optional AST.
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;

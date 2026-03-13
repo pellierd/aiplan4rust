@@ -4,7 +4,7 @@
 //! possible errors that can occur while working with the Abstract Syntax Tree (AST)
 //! or its related parsing context.
 //!
-//! The error either_type encapsulates lower-level issues such as arena allocation failures,
+//! The error typing encapsulates lower-level issues such as arena allocation failures,
 //! syntax tree errors, and other internal ops errors that may arise during AST
 //! construction or transformation.
 //!
@@ -19,7 +19,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 /// Represents all possible errors that can occur while working with the AST
 /// or its related parsing context.
 ///
-/// This error either_type encapsulates lower-level issues such as arena allocation failures,
+/// This error typing encapsulates lower-level issues such as arena allocation failures,
 /// syntax tree errors, as well as internal ops errors that may arise during AST
 /// construction or transformation.
 #[derive(Error, Debug)]

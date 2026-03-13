@@ -9,7 +9,7 @@
 //!
 //! - [`encoder`]: Provides the `LirBuilder` for constructing LIR entities
 //!   using a builder pattern.
-//! - [`expr`]: Contains definitions related to expr used within the LIR.
+//! - [`expr`]: Contains definitions related to logic used within the LIR.
 //! - [`problem`]: Defines the `LiftedProblem` struct representing a lifted syntax problem.
 //! - [`action`]: Defines the `LiftedAction` struct for parameterized actions.
 //! - [`method`]: Contains `LiftedMethod` representing hierarchical syntax methods.

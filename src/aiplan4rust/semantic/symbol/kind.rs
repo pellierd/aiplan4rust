@@ -58,7 +58,7 @@ pub enum Kind {
     /// Represents a predicate symbol (used for logical conditions).
     Predicate,
 
-    /// Represents a primitive data either_type (e.g., integer, boolean).
+    /// Represents a primitive data typing (e.g., integer, boolean).
     PrimitiveType,
 
     /// Represents the name of the problem being solved.
@@ -87,7 +87,7 @@ impl Kind {
     ///
     /// * **Type vs Constant:**
     ///     * Returns `true`. This supports the "Singleton" idiom where a unique
-    ///       object shares the name of its either_type (e.g., `fireExtinguisher - FireExtinguisher`).
+    ///       object shares the name of its typing (e.g., `fireExtinguisher - FireExtinguisher`).
     ///
     /// * **Type vs Predicate:**
     ///     * Returns `true`. While syntactically distinct due to parentheses `(p ...)`,

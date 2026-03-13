@@ -4,8 +4,8 @@
 //! It supports atomic types and compound types (using the `either` construct).
 //!
 //! The encoding process follows a strict two-pass architecture:
-//! 1. **Phase 1 (Collection)**: All either_type identifiers are collected and assigned a [`TypeId`].
-//! 2. **Phase 2 (Resolution)**: This module resolves the actual either_type references and
+//! 1. **Phase 1 (Collection)**: All typing identifiers are collected and assigned a [`TypeId`].
+//! 2. **Phase 2 (Resolution)**: This module resolves the actual typing references and
 //!    inheritance hierarchies using the pre-populated [`EncodingRegistry`].
 
 use crate::aiplan4rust::lang::{Type, TypeId};
@@ -17,7 +17,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a PDDL Type from the syntax tree by resolving its identifiers.
 ///
-/// This function transforms a either_type-related AST node into a resolved [`Type<TypeId>`].
+/// This function transforms a typing-related AST node into a resolved [`Type<TypeId>`].
 /// It is responsible for:
 /// - Resolving single parent types (e.g., in `:types` declarations).
 /// - Resolving complex types in typed lists (e.g., `?obj - (either type1 type2)`).
@@ -25,13 +25,13 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 ///
 /// # Arguments
 ///
-/// * `subtree` - The syntax subtree representing the either_type definition.
-/// * `evaluator` - The encoding evaluator containing the resolved symbol-to-either_type mapping.
+/// * `subtree` - The syntax subtree representing the typing definition.
+/// * `evaluator` - The encoding evaluator containing the resolved symbol-to-typing mapping.
 ///
 /// # Returns
 ///
-/// * `Ok(Type<TypeID>)` - A resolved LIR either_type object.
-/// * `Err(LirError)` - If a either_type symbol is unknown or the AST structure is malformed.
+/// * `Ok(Type<TypeID>)` - A resolved LIR typing object.
+/// * `Err(LirError)` - If a typing symbol is unknown or the AST structure is malformed.
 ///
 /// # Errors
 ///
@@ -58,7 +58,7 @@ pub fn encode(
             if let Some(type_id) = registry.resolve_type_symbol_by_name(name_id) {
                 ty.add_type(type_id);
             } else {
-                // Si même par nom on ne trouve rien, le either_type n'existe vraiment pas
+                // Si même par nom on ne trouve rien, le typing n'existe vraiment pas
                 return Err(SymbolTableError::declaration_not_found_for_usage(*primitive_id).into());
             }
         }

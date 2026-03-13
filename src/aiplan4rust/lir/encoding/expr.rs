@@ -14,7 +14,7 @@
 //!
 //! The encoder is built around three main pillars:
 //!
-//! 1.  **Iterative Traversal**: To handle potentially deep PDDL expr without
+//! 1.  **Iterative Traversal**: To handle potentially deep PDDL logic without
 //!     risking stack overflows, the encoder uses an explicit [`Vec`]-based stack
 //!     instead of recursion.
 //! 2.  **Symbol Resolution**: During encoding, every identifier in the AST is
@@ -71,7 +71,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 /// 2. **Root Allocation**: Encodes and allocates the root AST node. This ID is set as the
 ///    entry point of the LIR expression.
 /// 3. **Iterative Traversal**: Uses a manual stack to visit every child node. This avoids
-///    stack overflow issues associated with deep recursion in complex expr.
+///    stack overflow issues associated with deep recursion in complex logic.
 /// 4. **Incremental Building**: For each node popped from the stack:
 ///     - It is encoded and allocated via [`alloc_node`].
 ///     - Its valid children are pushed back onto the stack for subsequent processing.
@@ -123,7 +123,7 @@ pub fn encode(
 ///
 /// # Arguments
 ///
-/// * `expr` - The mutable LIR [`Expr`] container where the node will be persisted.
+/// * `logic` - The mutable LIR [`Expr`] container where the node will be persisted.
 /// * `ast_node` - A reference to the source node from the AST.
 /// * `ast_node_id` - The unique identifier of the node in the source AST, essential for
 ///   resolving symbol declarations.
@@ -191,7 +191,7 @@ fn alloc_node(
 ///
 /// * **Stack Order (LIFO):** Children are pushed in **reverse order**. This ensures that when
 ///   popped, they are processed in the original left-to-right order found in the PDDL source.
-/// * **Filtered Nodes:** Nodes of either_type [`AstKind::TypedList`] are ignored here. Because they
+/// * **Filtered Nodes:** Nodes of typing [`AstKind::TypedList`] are ignored here. Because they
 ///   represent structural groupings (like variable declarations), they are typically
 ///   collapsed or handled by the parent's `encode_content` ops.
 fn push_children_to_stack<'a>(

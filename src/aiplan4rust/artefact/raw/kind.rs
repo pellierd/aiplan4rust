@@ -1,4 +1,4 @@
-//! Module defining the either_type of raw planning files.
+//! Module defining the typing of raw planning files.
 //!
 //! This module provides the `RawKind` enum, which represents the kind of a raw
 //! input file used in planning formalisms such as PDDL or HDDL. It distinguishes
@@ -19,7 +19,7 @@
 
 use std::fmt;
 
-/// Represents the either_type of a raw planning file.
+/// Represents the typing of a raw planning file.
 ///
 /// `RawKind` is used to distinguish between domain and problem files
 /// in planning formalisms such as PDDL or HDDL.

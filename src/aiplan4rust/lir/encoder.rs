@@ -17,7 +17,7 @@
 //!
 //! # Purpose
 //! This IR is a crucial intermediate step for:
-//! - Subsequent compiler expr or transformations.
+//! - Subsequent compiler logic or transformations.
 //! - Planning solvers that instantiate and search for plans.
 //! - Frontends for visualization or debugging.
 //!
@@ -60,7 +60,7 @@ use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
 ///
 /// # Why is this useful?
 /// - This lifted problem can then be used by:
-///   - Other compiler expr or transformations.
+///   - Other compiler logic or transformations.
 ///   - A solver to instantiate and search for plans.
 ///   - A visualization frontend.
 ///
@@ -173,7 +173,7 @@ pub fn encode_lifted_problem(
     registry.set_symbol_table(problem_symbol_table);
     encoding::encode_problem(&problem_syntax_tree, &mut registry, &mut problem)?;
 
-    // 5. Normalize all expr in the problem
+    // 5. Normalize all logic in the problem
     passes::normalize(&mut problem)?;
 
     // 6. Return the fully constructed and normalized problem

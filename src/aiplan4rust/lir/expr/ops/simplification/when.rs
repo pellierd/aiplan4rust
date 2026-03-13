@@ -10,7 +10,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Parameters
 /// - `node_id`: Identifier of the `When` node to normalize.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 /// - `Err(ExprError)` if accessing or modifying the node fails.
@@ -23,7 +23,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// ```rust
 /// // Given: (when (and) E)
 /// // Result: E
-/// normalize(when_id, &mut expr)?;
+/// normalize(when_id, &mut logic)?;
 /// ```
 pub fn simplify(
     node_id: NodeId,
@@ -55,7 +55,7 @@ pub fn simplify(
 ///
 /// # Parameters
 /// - `node_id`: The ID of the `When` node to simplification.
-/// - `expr`: Mutable reference to the expression tree.
+/// - `logic`: Mutable reference to the expression tree.
 ///
 /// # Returns
 /// - `Ok(true)` if a simplification was performed.

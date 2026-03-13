@@ -1,8 +1,8 @@
 //! PDDL Type Definition Encoding
 //!
 //! This module implements the two-pass encoding process for PDDL types:
-//! 1. **Phase 1 (Discovery):** Scans all either_type names to populate the evaluator with unique `TypeID`s.
-//! 2. **Phase 2 (Definition):** Resolves inheritance relationships and adds full either_type declarations to the LIR.
+//! 1. **Phase 1 (Discovery):** Scans all typing names to populate the evaluator with unique `TypeID`s.
+//! 2. **Phase 2 (Definition):** Resolves inheritance relationships and adds full typing declarations to the LIR.
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::LirError;
@@ -19,14 +19,14 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
 /// * `evaluator` - The encoding context used to map symbols to unique `TypeID`s.
-/// * `ir` - The Lifted Problem where the final either_type declarations are stored.
+/// * `ir` - The Lifted Problem where the final typing declarations are stored.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
 
-    // Phase 1: Register all either_type symbols to generate their TypeIDs
+    // Phase 1: Register all typing symbols to generate their TypeIDs
     collect_type_ids(subtree, registry, ir)?;
 
     // Phase 2: Encode the semantic definitions (inheritance and properties)
@@ -35,21 +35,21 @@ pub fn encode(
     Ok(())
 }
 
-/// Phase 1: Collects all either_type identifiers (types and their supertypes)
+/// Phase 1: Collects all typing identifiers (types and their supertypes)
 /// and assigns them unique IDs in the evaluator.
 ///
 /// This pass performs an initial scan of the `:types` block to register
-/// every either_type name before inheritance resolution occurs. It ensures
+/// every typing name before inheritance resolution occurs. It ensures
 /// that types appearing only as parents (e.g., 'object' in 'number - object')
 /// are assigned a `TypeID`.
 ///
-/// This prevents "unknown either_type" errors during Phase 2, especially when
+/// This prevents "unknown typing" errors during Phase 2, especially when
 /// parents are used before being defined or are implicit root types.
 ///
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `evaluator` - The mutable encoding context where either_type symbols are mapped to `TypeID`s.
+/// * `evaluator` - The mutable encoding context where typing symbols are mapped to `TypeID`s.
 ///
 /// # Returns
 ///
@@ -86,11 +86,11 @@ fn collect_type_ids(
     Ok(())
 }
 
-/// Phase 2: Resolves inheritance and adds full either_type declarations to the LIR.
+/// Phase 2: Resolves inheritance and adds full typing declarations to the LIR.
 ///
-/// This pass iterates through the same either_type list as Phase 1, but focuses on
+/// This pass iterates through the same typing list as Phase 1, but focuses on
 /// semantic resolution. It uses the `typed_symbol` module to parse the
-/// relationship between either_type names and their parent types, then stores the
+/// relationship between typing names and their parent types, then stores the
 /// final `TypeDeclaration` in the LIR.
 ///
 /// # Arguments
@@ -101,14 +101,14 @@ fn collect_type_ids(
 ///
 /// # Returns
 ///
-/// * `Ok(())` - If all either_type definitions were successfully resolved and added to the LIR.
-/// * `Err(LirError)` - If a either_type reference cannot be found in the evaluator or the AST is invalid.
+/// * `Ok(())` - If all typing definitions were successfully resolved and added to the LIR.
+/// * `Err(LirError)` - If a typing reference cannot be found in the evaluator or the AST is invalid.
 ///
 /// # Errors
 ///
 /// This function will return an error if:
-/// * `typed_symbol::encoding` fails (e.g., a parent either_type was not declared in Phase 1).
-/// * The AST structure prevents navigating to the child nodes of the either_type list.
+/// * `typed_symbol::encoding` fails (e.g., a parent typing was not declared in Phase 1).
+/// * The AST structure prevents navigating to the child nodes of the typing list.
 fn encode_definitions(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,

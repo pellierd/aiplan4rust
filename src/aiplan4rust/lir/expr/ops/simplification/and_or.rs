@@ -4,9 +4,9 @@ use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
 use crate::aiplan4rust::tree::NodeId;
 
-/// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN expr.
+/// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN logic.
 ///
-/// This function performs several simplifications on a node of either_type `AND` or `OR`,
+/// This function performs several simplifications on a node of typing `AND` or `OR`,
 /// processing the node in place. It does nothing if the node is of another kind.
 ///
 /// The simplifications are performed in the following order:
@@ -19,8 +19,8 @@ use crate::aiplan4rust::tree::NodeId;
 /// 3. **Structural deduplication**: Duplicate subtrees are removed using a
 ///    structural hash (`sub_expr_hash`). For example:
 ///    `(and (and A B) (and A B))` becomes `(and (and A B))`.
-/// 4. **Merge WHEN expr**:
-///    - All `When` expr among the children are grouped by their effect.
+/// 4. **Merge WHEN logic**:
+///    - All `When` logic among the children are grouped by their effect.
 ///    - Conditions with the same effect are merged; if multiple conditions exist,
 ///      they are combined under a new `Or` node.
 ///    - Non-`When` children remain unchanged.
@@ -36,14 +36,14 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Parameters
 /// - `node_id`: The ID of the node to simplification.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 /// - `Ok(())` if the simplification succeeds.
 /// - `Err(ExprError)` if accessing a node fails.
 ///
 /// # Notes
-/// - This function assumes that `expr` is a well-formed tree and that `node_id` exists.
+/// - This function assumes that `logic` is a well-formed tree and that `node_id` exists.
 /// - Only AND or OR nodes are simplified; other nodes are skipped silently.
 /// - The `merge_when_in_place` step ensures that logically equivalent WHEN conditions
 ///   are grouped and avoids redundant branches in the expression.
@@ -52,9 +52,9 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Example
 /// ```ignore
-/// // Suppose expr represents: (and A (and B C) (when X Y) (when Z Y))
-/// let node_id = expr.root_id().unwrap();
-/// normalize(node_id, &mut expr)?;
+/// // Suppose logic represents: (and A (and B C) (when X Y) (when Z Y))
+/// let node_id = logic.root_id().unwrap();
+/// normalize(node_id, &mut logic)?;
 /// // After simplification, the expression becomes: (and A B C (when (or X Z) Y))
 /// ```
 pub fn simplify(
@@ -71,8 +71,8 @@ pub fn simplify(
     // Step 3: Deduplicate structurally
     deduplicate_and_or_node(node_id, expr)?;
 
-    // Step 4: Merge WHEN expr
-    merge_when(node_id, expr)?; // merge WHEN expr grouped by effect
+    // Step 4: Merge WHEN logic
+    merge_when(node_id, expr)?; // merge WHEN logic grouped by effect
 
     // Step 5: Simplify tautologies and contradictions
     if simplify_tautologies_and_contradictions(node_id, expr)? {
@@ -100,7 +100,7 @@ pub fn simplify(
 ///
 /// # Parameters
 /// - `node_id`: The ID of the node to types. Only AND/OR nodes are affected.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Behavior
 /// - If `node_id` corresponds to an AND or OR node, any child nodes of the same kind
@@ -117,12 +117,12 @@ pub fn simplify(
 /// # Notes
 /// - Uses `std::mem::take` to temporarily take ownership of children vectors, avoiding
 ///   borrow checker conflicts.
-/// - Useful for simplifying logical expr in PDDL-like ASTs by reducing unnecessary nesting.
+/// - Useful for simplifying logical logic in PDDL-like ASTs by reducing unnecessary nesting.
 fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let kind = expr.try_node(node_id)?.kind();
     debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
 
-    // 1. Vérification rapide : est-ce qu'un enfant est du même either_type ?
+    // 1. Vérification rapide : est-ce qu'un enfant est du même typing ?
     let needs_flattening = expr.try_node(node_id)?.children().iter().any(|&c| {
         expr.try_node(c).map(|n| n.kind() == kind).unwrap_or(false)
     });
@@ -157,7 +157,7 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpE
 ///
 /// # Parameters
 /// - `node_id`: The ID of the node whose children should be canonicalized. Only AND/OR nodes are affected.
-/// - `expr`: A mutable reference to the expression tree.
+/// - `logic`: A mutable reference to the expression tree.
 ///
 /// # Behavior
 /// - For AND/OR nodes, children are sorted in ascending order of `NodeId` (or any other canonical key).
@@ -175,7 +175,7 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpE
 /// # Example
 /// ```ignore
 /// // Before canonicalization: AND node with children [3, 1, 2]
-/// // After calling `canonicalize_and_or_children(node_id, &mut expr)`:
+/// // After calling `canonicalize_and_or_children(node_id, &mut logic)`:
 /// // Children are [1, 2, 3]
 /// ```
 fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
@@ -200,7 +200,7 @@ fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Expr
 ///
 /// # Parameters
 /// - `node_id`: The ID of the AND/OR node to deduplicate.
-/// - `expr`: Mutable reference to the expression tree.
+/// - `logic`: Mutable reference to the expression tree.
 ///
 /// # Behavior
 /// - Iterates over the children of the node and keeps only the first occurrence of each child.
@@ -267,7 +267,7 @@ fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 ///
 /// # Parameters
 /// - `node_id`: [`NodeId`] of the AND/OR node to simplification.
-/// - `expr`: Mutable reference to the expression arena.
+/// - `logic`: Mutable reference to the expression arena.
 /// - `fact_registry`: Optional reference to the [`InertiaRegistry`] for static analysis (Koehler/Inertia).
 ///
 /// # Returns
@@ -342,7 +342,7 @@ fn simplify_tautologies_and_contradictions(
 ///
 /// # Arguments
 /// * `node_id` - The ID of the parent node to be reduced.
-/// * `expr` - A mutable reference to the expression arena.
+/// * `logic` - A mutable reference to the expression arena.
 /// * `kind` - The kind of the parent node (must be `And` or `Or`).
 ///
 /// # Errors
@@ -368,7 +368,7 @@ fn short_circuit_tautology(
 ///
 /// # Parameters
 /// - `node_id`: the `NodeId` of the node to reduce. Only AND/OR nodes are considered.
-/// - `expr`: mutable reference to the expression tree.
+/// - `logic`: mutable reference to the expression tree.
 ///
 /// # Behavior
 /// - If the node is an AND or OR and has exactly one child:
@@ -388,7 +388,7 @@ fn reduce_single_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<bool, ExprOpError> {
-    // 1. On récupère l'ID de l'enfant unique sans bloquer l'emprunt mutable d'expr
+    // 1. On récupère l'ID de l'enfant unique sans bloquer l'emprunt mutable d'logic
     let single_child = {
         let node = expr.try_node(node_id)?;
         debug_assert!(node.kind() == ExprKind::And || node.kind() == ExprKind::Or);
@@ -411,17 +411,17 @@ fn reduce_single_and_or_node(
 ///
 /// # Parameters
 /// - `node_id`: the `NodeId` of the node to simplification. Only AND/OR nodes are affected.
-/// - `expr`: mutable reference to the `Expr` tree, used to access and mutate child nodes.
+/// - `logic`: mutable reference to the `Expr` tree, used to access and mutate child nodes.
 ///
 /// # Behavior
 /// The function handles three main cases for AND/OR nodes:
 ///
-/// 1. **Absorbing child**: If a child is an empty node of the **opposite either_type**, the parent node
+/// 1. **Absorbing child**: If a child is an empty node of the **opposite typing**, the parent node
 ///    is replaced by the child's kind and its children are cleared.
 ///    - Example: `(and (or))` → becomes `(or)`
 ///    - Semantically, `(or)` with no children evaluates to `false`, `(and)` with no children evaluates to `true`.
 ///
-/// 2. **Neutral child**: If a child is an empty node of the **same either_type**, it is ignored and
+/// 2. **Neutral child**: If a child is an empty node of the **same typing**, it is ignored and
 ///    not included in the simplified children list.
 ///    - Example: `(and (and))` → becomes `(and)` (still true)
 ///
@@ -488,7 +488,7 @@ fn simplify_empty_and_or_node(
     Ok(modified)
 }
 
-/// Main function that merges `When` expr under an `And` or `Or` node
+/// Main function that merges `When` logic under an `And` or `Or` node
 /// and updates the node in-place.
 ///
 /// This function collects all `When` children, merges conditions that share
@@ -499,13 +499,13 @@ fn simplify_empty_and_or_node(
 /// # Arguments
 ///
 /// * `node_id` - The ID of the parent node (`And` or `Or`) whose children will be updated.
-/// * `expr` - Mutable reference to the `Expr` tree being updated.
+/// * `logic` - Mutable reference to the `Expr` tree being updated.
 ///
 /// # Returns
 ///
 /// * `Ok(true)` if any fusion occurred (an `Or` was created).
 /// * `Ok(false)` if no fusion occurred (all `When`s had a single condition).
-/// * `Err(ExprError)` if an error occurs during collection, allocation, or expr.
+/// * `Err(ExprError)` if an error occurs during collection, allocation, or logic.
 ///
 /// # Behavior
 ///
@@ -516,7 +516,7 @@ fn simplify_empty_and_or_node(
 /// # Example
 ///
 /// ```ignore
-/// let fusion_occurred = merge_when_in_place(node_id, &mut expr)?;
+/// let fusion_occurred = merge_when_in_place(node_id, &mut logic)?;
 /// if fusion_occurred {
 ///     println!("Some WHEN conditions were merged into OR nodes");
 /// }
@@ -536,21 +536,21 @@ pub fn merge_when(
 }
 
 /// Iterates over the children of a node, collects non-`When` children,
-/// and merges `When` expr by their effect.
+/// and merges `When` logic by their effect.
 ///
 /// This function processes a logical `And` or `Or` node. It separates out the children
-/// that are **not** `When` expr, and merges all `When` expr that have
+/// that are **not** `When` logic, and merges all `When` logic that have
 /// the same effect. If multiple conditions share the same effect, they are grouped together.
 ///
 /// # Arguments
 ///
 /// * `node_id` - The ID of the parent node (`And` or `Or`) whose children are being processed.
-/// * `expr` - A reference to the expression tree containing the node.
+/// * `logic` - A reference to the expression tree containing the node.
 ///
 /// # Returns
 ///
 /// * `Ok((non_when, merged_when))` where:
-///     - `non_when` is a vector of NodeIds for children that are not `When` expr.
+///     - `non_when` is a vector of NodeIds for children that are not `When` logic.
 ///     - `merged_when` is a vector of tuples `(effect_node, conditions)`:
 ///         - `effect_node` is the NodeId of the effect of the `When`.
 ///         - `conditions` is a vector of NodeIds representing all conditions associated with that effect.
@@ -580,8 +580,8 @@ pub fn merge_when(
 /// # Example
 ///
 /// ```ignore
-/// // Suppose node_id is an AND node containing WHEN expr
-/// let (non_when, merged_when) = collect_and_merge_when(node_id, &expr)?;
+/// // Suppose node_id is an AND node containing WHEN logic
+/// let (non_when, merged_when) = collect_and_merge_when(node_id, &logic)?;
 /// // non_when contains all non-WHEN children
 /// // merged_when groups WHEN conditions by effect
 /// ```
@@ -638,7 +638,7 @@ fn collect_and_merge_when(
     Ok((non_when, merged_map))
 }
 
-/// Rebuilds the children of a logical `And` or `Or` node by merging `When` expr.
+/// Rebuilds the children of a logical `And` or `Or` node by merging `When` logic.
 /// Returns `true` if any fusion occurred (i.e., if multiple conditions were combined into an `Or`).
 ///
 /// This function replaces `When` nodes with merged versions, combining conditions
@@ -647,16 +647,16 @@ fn collect_and_merge_when(
 /// # Arguments
 ///
 /// * `node_id` - The ID of the parent node (`And` or `Or`) whose children will be updated.
-/// * `non_when` - A vector of NodeIds representing children that are **not** `When` expr.
-/// * `merged_when` - A vector of tuples `(effect_node, conditions)` representing merged `When` expr.
+/// * `non_when` - A vector of NodeIds representing children that are **not** `When` logic.
+/// * `merged_when` - A vector of tuples `(effect_node, conditions)` representing merged `When` logic.
 ///                   Each tuple contains the effect node ID and a vector of condition node IDs.
-/// * `expr` - Mutable reference to the `Expr` tree being updated.
+/// * `logic` - Mutable reference to the `Expr` tree being updated.
 ///
 /// # Returns
 ///
 /// * `Ok(true)` if a fusion occurred (an `Or` node was created for multiple conditions).
 /// * `Ok(false)` if no fusion occurred (all `When` nodes had a single condition).
-/// * `Err(ExprError)` if an error occurs during node allocation or expr.
+/// * `Err(ExprError)` if an error occurs during node allocation or logic.
 ///
 /// # Behavior
 ///
@@ -679,7 +679,7 @@ fn collect_and_merge_when(
 /// # Example
 ///
 /// ```ignore
-/// let fusion = rebuild_children_with_merged_when(node_id, non_when_vec, merged_when_vec, &mut expr)?;
+/// let fusion = rebuild_children_with_merged_when(node_id, non_when_vec, merged_when_vec, &mut logic)?;
 /// if fusion {
 ///     println!("Some WHEN conditions were merged into OR nodes");
 /// }

@@ -1,11 +1,11 @@
 use crate::aiplan4rust::lir::expr::ops;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::passes::expr::{action, derived_predicate, initial_task_network, method};
+use crate::aiplan4rust::lir::passes::logic::{action, derived_predicate, initial_task_network, method};
 
 /// Normalizes all normalizable components of a `Problem` using the provided `LogicEngine`.
 ///
-/// This function applies expr to:
+/// This function applies logic to:
 /// - Problem-level expressions (`goal`, `domain_constraints`, `problem_constraints`, `metric_spec`)
 /// - All derived predicates
 /// - All actions
@@ -13,7 +13,7 @@ use crate::aiplan4rust::lir::passes::expr::{action, derived_predicate, initial_t
 /// - All methods
 /// - Initial task network
 pub fn normalize(problem: &mut LiftedProblem) -> Result<(), ExprOpError> {
-    // Problem-level expr
+    // Problem-level logic
     ops::normalize(&mut problem.goal_mut())?;
     ops::normalize(&mut problem.domain_constraints_mut())?;
     ops::normalize(&mut problem.problem_constraints_mut())?;

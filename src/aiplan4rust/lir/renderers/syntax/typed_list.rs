@@ -18,7 +18,7 @@ pub fn render_typed_variable_list(
         // 1. Nom de la variable
         write!(f, "?x{}", param.symbol().as_usize())?;
 
-        // 2. Utilisation de la fonction de rendu de either_type
+        // 2. Utilisation de la fonction de rendu de typing
         ty::render(f, param.ty(), ctx)?;
     }
     Ok(())
@@ -41,7 +41,7 @@ pub fn render_typed_object_list(
         let name = ctx.resolve_object(obj.symbol());
         write!(f, "{}", name)?;
 
-        // 3. Rendu du either_type associé
+        // 3. Rendu du typing associé
         // On réutilise la fonction render_type qui utilise aussi le Context
         ty::render(f, obj.ty(), ctx)?;
     }

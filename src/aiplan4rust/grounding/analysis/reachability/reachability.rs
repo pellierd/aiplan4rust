@@ -4,10 +4,10 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::grounding::iter::DomainIterator;
 use crate::aiplan4rust::grounding::evaluator::value::ValueRegistry;
 use crate::aiplan4rust::lang::ConstantId;
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
+use crate::aiplan4rust::lir::logic::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
-/// Calcule l'ensemble des valeurs (constantes et fluents) atteignables pour chaque either_type.
+/// Calcule l'ensemble des valeurs (constantes et fluents) atteignables pour chaque typing.
 /// C'est le cœur du grounding dynamique qui évite l'explosion combinatoire initiale.
 pub fn compute_reachability(
     problem: &LiftedProblem,
@@ -58,7 +58,7 @@ pub fn compute_reachability(
 
                                     let lhs_node = effect_expr.try_node(lhs_id)?;
 
-                                    // 1. Récupérer la définition de la fonction pour le either_type de retour
+                                    // 1. Récupérer la définition de la fonction pour le typing de retour
                                     let skeleton_id = lhs_node.try_function_skeleton()?;
                                     let function_def = problem.try_get_function(skeleton_id)?;
 
@@ -108,12 +108,12 @@ pub fn compute_reachability(
 /// Helper pour résoudre un nœud en ObjectId (Constant ou Fluent) selon le contexte.
 fn extract_object_id_from_node(
     node_id: NodeId,
-    expr: &Expr,
+    logic: &Expr,
     combo: &[ConstantId],
     problem: &LiftedProblem,
     fluent_reg: &mut FluentRegistry
 ) -> Result<Option<ConstantId>, GroundingError> {
-    let node = expr.try_node(node_id)?;
+    let node = logic.try_node(node_id)?;
 
     match node.kind() {
         // C'est une constante (ex: 'city1')
@@ -130,7 +130,7 @@ fn extract_object_id_from_node(
         // C'est un fluent (ex: '(at ?p)')
         ExprKind::FunctionTerm => {
             // Utilisation de la méthode statique définie dans ValueRegistry
-            let fid = ValueRegistry::extract_fluent_from_node(node_id, expr, problem, fluent_reg)?;
+            let fid = ValueRegistry::extract_fluent_from_node(node_id, logic, problem, fluent_reg)?;
             Ok(Some(ArgumentId::Fluent(fid)))
         },
         _ => Ok(None)

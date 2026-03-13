@@ -5,11 +5,11 @@ use crate::aiplan4rust::lang::{Type, TypedSymbol, VariableId, TypeId, ObjectId, 
 /// Helper to create a list of typed objects and populate the value evaluator.
 ///
 /// This function generates a sequence of object identifiers, wraps them
-/// as [`TypedSymbol`]s with a primitive either_type, and registers them into
+/// as [`TypedSymbol`]s with a primitive typing, and registers them into
 /// a new [`ValueRegistry`].
 ///
 /// # Parameters
-/// - `type_id`: The either_type identifier to assign to all created objects.
+/// - `type_id`: The typing identifier to assign to all created objects.
 /// - `num_objs`: The number of objects to generate (indexed from 0 to `num_objs - 1`).
 ///
 /// # Returns
@@ -47,13 +47,13 @@ fn test_iterator_basic_product_with_registry() {
     // 1. Use a single TypeId for simplicity
     let tid = TypeId::from(0);
 
-    // 2. Create 2 variables of either_type 'tid'
+    // 2. Create 2 variables of typing 'tid'
     let vars = TypedList::from(vec![
         TypedSymbol::new(VariableId::from(0), Type::primitive(tid)),
         TypedSymbol::new(VariableId::from(1), Type::primitive(tid)),
     ]);
 
-    // 3. Create a evaluator with 2 objects for this either_type.
+    // 3. Create a evaluator with 2 objects for this typing.
     // The domain for 'tid' will be [Obj0, Obj1].
     let registry = create_registry_with_objects(tid, 2);
 
@@ -85,7 +85,7 @@ fn test_iterator_basic_product_with_registry() {
 //            ObjectIds from the domain for a single variable.
 //
 // INPUT:
-//         - 1 variable of either_type 'tid'.
+//         - 1 variable of typing 'tid'.
 //         - A evaluator containing 2 objects: [ObjectId(0), ObjectId(1)].
 //
 // EXPECTED OUTPUT:
@@ -129,7 +129,7 @@ fn test_iterator_direct_constants() {
 //            combinations of subsequent variables.
 //
 // INPUT:
-//         - 2 variables [Var0, Var1] sharing the same either_type.
+//         - 2 variables [Var0, Var1] sharing the same typing.
 //         - A evaluator with 2 objects [Obj0, Obj1] (Domain size 2x2 = 4).
 //
 // EXPECTED OUTPUT:
@@ -177,7 +177,7 @@ fn test_skip_at_logic() {
 //            without altering the pre-calculated `total_count`.
 //
 // INPUT:
-//         - 1 variable of either_type 'tid'.
+//         - 1 variable of typing 'tid'.
 //         - A evaluator with 3 objects [Obj0, Obj1, Obj2].
 //
 // EXPECTED OUTPUT:

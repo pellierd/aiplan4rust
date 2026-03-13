@@ -100,7 +100,7 @@ pub fn check_undeclared_symbols(
 /// # Arguments
 ///
 /// * `symbol` - The symbol to check. This is typically a symbol from the symbol table that may
-///   be used in the program or expr being analyzed.
+///   be used in the program or logic being analyzed.
 /// * `annotated_syntax_tree` - A reference to the `AnnotatedSyntaxTree` that provides access to
 ///   the problem’s requirements and other metadata affecting symbol definitions.
 /// * `usage_kind` - The kind of symbol usage, which determines the context in which the symbol
