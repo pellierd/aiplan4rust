@@ -21,7 +21,6 @@
 use std::collections::HashSet;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
-use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::problem::LiftedProblem;

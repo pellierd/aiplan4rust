@@ -26,7 +26,7 @@ use std::backtrace::Backtrace;
 use std::panic::Location;
 use log::debug;
 use thiserror::Error;
-
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 
@@ -118,12 +118,13 @@ impl ValidationError {
     /// - `expected`: The exact number of children that was expected.
     /// - `found`: The actual number of children found in the AST node.
     /// - `parent`: The AST node whose children were being validated.
+    #[track_caller]
     pub fn children_arity_mismatch(expected: usize, found: usize, parent: AstNode) -> Self {
         ValidationError::ChildrenArityMismatch {
             expected,
             found,
             parent,
-        }
+        }.trace()
     }
 
     /// Creates a `ChildrenArityOutOfRange` error.
@@ -133,6 +134,7 @@ impl ValidationError {
     /// - `expected_max`: The maximum number of children allowed (inclusive).
     /// - `found`: The actual number of children found.
     /// - `parent`: The AST node whose children were being validated.
+    #[track_caller]
     pub fn children_arity_out_of_range(
         expected_min: usize,
         expected_max: usize,
@@ -144,7 +146,7 @@ impl ValidationError {
             expected_max,
             found,
             parent,
-        }
+        }.trace()
     }
 
     /// Creates an `UnexpectedChildKind` error.
@@ -161,24 +163,12 @@ impl ValidationError {
         found: AstKind,
         parent: AstNode,
     ) -> Self {
-        let caller = Location::caller();
-        let bt = Backtrace::capture();
-        debug!(
-            "[{}:{}] Unexpected child kind at index {}. Expected {:?}, found {:?}\nStack backtrace:\n{}",
-            caller.file(),
-            caller.line(),
-            index,
-            expected,
-            found,
-            bt
-        );
-
         ValidationError::UnexpectedChildKind {
             index,
             expected,
             found,
             parent,
-        }
+        }.trace()
     }
 
     /// Creates a `MissingChildNode` error.
@@ -186,8 +176,9 @@ impl ValidationError {
     /// # Parameters
     /// - `child_id`: The node ID of the expected but missing child.
     /// - `parent`: The parent AST node that was expected to have this child.
+    #[track_caller]
     pub fn missing_child_node(child_id: NodeId, parent: AstNode) -> Self {
-        ValidationError::MissingChildNode { child_id, parent }
+        ValidationError::MissingChildNode { child_id, parent }.trace()
     }
 
     /// Creates an `UnexpectedNodeContent` error.
@@ -195,29 +186,35 @@ impl ValidationError {
     /// # Parameters
     /// - `found`: The actual content of the node that did not match expectations.
     /// - `node`: The AST node containing the unexpected content.
+    #[track_caller]
     pub fn unexpected_node_content(found: AstContent, node: AstNode) -> Self {
         debug!("Validation error: unexpected content '{:?}' found in node '{:?}'", found, node);
-        ValidationError::UnexpectedNodeContent { found, node }
+        ValidationError::UnexpectedNodeContent { found, node }.trace()
     }
 
     /// Creates an `InvalidNodeKind` error.
     ///
     /// # Parameters
     /// - `found`: The AST node with a kind that is considered invalid in the current context.
+    #[track_caller]
     pub fn invalid_node_kind(found: AstNode) -> Self {
         ValidationError::InvalidNodeKind { found }
     }
 
     /// Creates a `CycleDetected` error.
+    #[track_caller]
     pub fn cycle_detected() -> Self {
-        ValidationError::CycleDetected
+        ValidationError::CycleDetected.trace()
     }
 
     /// Creates a generic `Custom` validation error.
     ///
     /// # Parameters
     /// - `msg`: A human-readable message describing the error.
+    #[track_caller]
     pub fn custom<T: Into<String>>(msg: T) -> Self {
-        ValidationError::Custom(msg.into())
+        ValidationError::Custom(msg.into()).trace()
     }
 }
+
+impl Traceable for ValidationError {}

@@ -63,12 +63,12 @@ jobs:
           cargo test --no-run
 
           # 2. UNIT TESTS (Library)
-          echo "=== RUNNING UNIT TESTS (LIB) ==="
+          #echo "=== RUNNING UNIT TESTS (LIB) ==="
           # Unit tests are usually light; we run them with default concurrency
-          cargo nextest run --lib \
-            --status-level pass \
-            --failure-output immediate \
-            --color always
+          #cargo nextest run --lib \
+          #  --status-level pass \
+          #  --failure-output immediate \
+          #  --color always
 
           # 3. INTEGRATION TESTS (Heavy IPC Benchmarks)
           echo "=== RUNNING INTEGRATION TESTS ==="

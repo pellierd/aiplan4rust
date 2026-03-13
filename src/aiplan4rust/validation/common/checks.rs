@@ -54,6 +54,27 @@ pub const EXPRESSION: &[AstKind] = &[
     AstKind::TaskOrderingConstraint,
 ];
 
+/// Kinds of nodes allowed within a PDDL metric optimization expression.
+///
+/// A metric expression (found under `(:metric minimize ...)` or `(:metric maximize ...)`)
+/// specifically expects numeric terms or fluents. This list defines the
+/// legal syntactic vocabulary for these expressions, distinct from logical goal
+/// descriptions.
+///
+/// # Allowed Components
+/// * **Arithmetic**: Complex numeric expressions (e.g., `(+ (total-cost) 5)`).
+/// * **Function**: Direct references to numeric fluents or functions.
+/// * **Number**: Literal numeric values.
+/// * **Variable**: Variables that resolve to numeric values in the current context.
+/// * **IsViolated**: Special PDDL construct for preferences/constraints.
+pub const METRIC_EXPRESSION: &[AstKind] = &[
+    AstKind::Arithmetic,
+    AstKind::Function,
+    AstKind::Number,
+    AstKind::Variable,
+    AstKind::IsViolated,
+];
+
 /// Enumeration representing the expected kind of content inside an AST node.
 #[derive(Debug)]
 pub enum ContentKind {

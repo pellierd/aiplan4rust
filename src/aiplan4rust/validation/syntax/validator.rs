@@ -21,6 +21,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::common::{checks, WellFormedError};
 use crate::aiplan4rust::validation::{common, syntax};
+use crate::aiplan4rust::validation::common::checks::METRIC_EXPRESSION;
 
 /// Checks whether the AST is structurally well-formed.
 ///
@@ -245,9 +246,12 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         | AstKind::AtMostOnce
         | AstKind::Goal
         | AstKind::Constraints
-        | AstKind::Metric
         | AstKind::TaskLogicalConstraintDef => {
             syntax::checks::check_unary_child_expression(ast, node)
+        }
+        | AstKind::Metric => {
+            common::checks::check_children_count(node.arity(), 1, node)?;
+            common::checks::check_child_kind(ast, node, 0, METRIC_EXPRESSION)
         }
         AstKind::Imply | AstKind::When | AstKind::SometimeAfter | AstKind::SometimeBefore => {
             syntax::checks::check_binary_child_expression(ast, node)
