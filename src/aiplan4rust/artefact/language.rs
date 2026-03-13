@@ -1,4 +1,4 @@
-//! This module defines the `Language` type, representing the language
+//! This module defines the `Language` either_type, representing the language
 //! used for raw content in planning systems.
 //!
 //! # Description

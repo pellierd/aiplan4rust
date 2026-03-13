@@ -21,7 +21,7 @@ use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton};
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the predicate (e.g., `(at ?r - robot ?l - location)`).
-/// * `evaluator` - The symbol evaluator for type resolution.
+/// * `evaluator` - The symbol evaluator for either_type resolution.
 ///
 /// # Returns
 ///
@@ -31,7 +31,7 @@ use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton};
 /// # Errors
 ///
 /// Returns an error if the underlying `named_typed_list::encoding` fails,
-/// typically due to a missing identifier or an unknown type.
+/// typically due to a missing identifier or an unknown either_type.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,

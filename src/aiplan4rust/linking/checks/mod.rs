@@ -12,7 +12,7 @@
 //!   declared in the problem, helping to ensure semantic consistency.
 //!
 //! Additionally, this module re-exports key checking functions and the
-//! `LinkingCheckError` type at its root for convenient access during
+//! `LinkingCheckError` either_type at its root for convenient access during
 //! linking and semantic analysis phases.
 
 /// Module for verifying that the declared domain name matches

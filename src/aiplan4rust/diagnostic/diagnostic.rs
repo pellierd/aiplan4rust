@@ -8,7 +8,7 @@
 //!
 //! The diagnostic system is organized into several components:
 //!
-//! - [`diagnostic`] defines the common `Diagnostic` type and its conversion from parsing errors.
+//! - [`diagnostic`] defines the common `Diagnostic` either_type and its conversion from parsing errors.
 //! - [`kind`] contains a rich set of `Kind` variants to describe different types of issues.
 //! - [`severity`] categorizes diagnostics by severity (e.g., error, warning).
 //! - [`diagnostic_manager`] manages a collection of diagnostics and associated source files.
@@ -61,7 +61,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// it occurred (`source`), and the specific location (`span`) for accurate reporting.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Diagnostic {
-    /// The specific type of diagnostic, such as a syntax error, type mismatch, or unused symbol.
+    /// The specific either_type of diagnostic, such as a syntax error, either_type mismatch, or unused symbol.
     ///
     /// This defines what kind of issue was detected.
     pub kind: Kind,
@@ -87,7 +87,7 @@ impl Diagnostic {
     ///
     /// # Arguments
     ///
-    /// * `kind` - Describes the type of diagnostic (e.g., syntax error, type mismatch).
+    /// * `kind` - Describes the either_type of diagnostic (e.g., syntax error, either_type mismatch).
     /// * `provider` - Indicates the source or subsystem that generated the diagnostic (e.g., Domain, Problem, Parser).
     /// * `source` - A `Literal` identifying the source file where the issue occurred (via the interner).
     /// * `span` - The precise location in the file where the issue is found.
@@ -411,11 +411,11 @@ impl Diagnostic {
         }
     }
 
-    /// Constructs a diagnostic for a type mismatch error in an expression.
+    /// Constructs a diagnostic for a either_type mismatch error in an expression.
     ///
     /// # Arguments
-    /// - `ty1`: The first type involved in the mismatch.
-    /// - `ty2`: The second type involved in the mismatch.
+    /// - `ty1`: The first either_type involved in the mismatch.
+    /// - `ty2`: The second either_type involved in the mismatch.
     /// - `provider`: The origin of the diagnostic.
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source of the mismatch.
@@ -437,8 +437,8 @@ impl Diagnostic {
     /// Constructs a diagnostic for invalid types used in a numeric expression.
     ///
     /// # Arguments
-    /// - `ty1`: The first invalid type.
-    /// - `ty2`: The second invalid type.
+    /// - `ty1`: The first invalid either_type.
+    /// - `ty2`: The second invalid either_type.
     /// - `provider`: The origin of the diagnostic.
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source of the invalid types.
@@ -675,12 +675,12 @@ impl Diagnostic {
         }
     }
 
-    /// Constructs a warning for ambiguous symbol declared as both type and predicate.
+    /// Constructs a warning for ambiguous symbol declared as both either_type and predicate.
     ///
     /// Indicates potential semantic confusion when the same name is used for both.
     ///
     /// # Arguments
-    /// - `types`: Declaration of the symbol as a primitive type.
+    /// - `types`: Declaration of the symbol as a primitive either_type.
     /// - `predicate`: Declaration of the symbol as a predicate.
     /// - `provider`: Origin of the diagnostic.
     /// - `source`: Interned source identifier.
@@ -700,15 +700,15 @@ impl Diagnostic {
         }
     }
 
-    /// Constructs a warning for a task argument that uses a supertype of the declared type.
+    /// Constructs a warning for a task argument that uses a supertype of the declared either_type.
     ///
-    /// This warns about an argument type that is more general than the declaration,
+    /// This warns about an argument either_type that is more general than the declaration,
     /// which violates PDDL typing rules but is allowed here with a warning for compatibility.
     ///
     /// # Arguments
     /// - `argument`: The argument's declaration in the action or method.
-    /// - `type_declared`: The declared type of the argument.
-    /// - `type_used`: The actual type used in the task invocation (a supertype).
+    /// - `type_declared`: The declared either_type of the argument.
+    /// - `type_used`: The actual either_type used in the task invocation (a supertype).
     /// - `provider`: Origin of the diagnostic.
     /// - `source`: Interned source identifier.
     /// - `span`: Location in source related to the argument usage.
@@ -738,7 +738,7 @@ impl Diagnostic {
     /// are unavailable during expr.
     ///
     /// # Arguments
-    /// - `duplicate_types`: List of duplicated type identifiers.
+    /// - `duplicate_types`: List of duplicated either_type identifiers.
     /// - `provider`: Origin of the diagnostic.
     /// - `source`: Interned source identifier.
     /// - `span`: Location in source related to the `Either` construct.
@@ -756,9 +756,9 @@ impl Diagnostic {
         }
     }
 
-    /// Constructs an error for cycles detected in the type declaration hierarchy.
+    /// Constructs an error for cycles detected in the either_type declaration hierarchy.
     ///
-    /// Indicates a circular type inheritance or extension preventing expr.
+    /// Indicates a circular either_type inheritance or extension preventing expr.
     ///
     /// # Arguments
     /// - `cycle`: Vector of declarations forming the cycle.
@@ -807,15 +807,15 @@ impl Diagnostic {
         }
     }
 
-    /// Constructs a warning for an implicit `(either ...)` type declaration caused by multiple conflicting parent types.
+    /// Constructs a warning for an implicit `(either ...)` either_type declaration caused by multiple conflicting parent types.
     ///
     /// # Arguments
-    /// - `types`: Identifier of the type being declared.
-    /// - `duplicate_types`: Conflicting parent type identifiers merged implicitly.
-    /// - `duplicate_spans`: Source code spans of each conflicting parent type declaration.
+    /// - `types`: Identifier of the either_type being declared.
+    /// - `duplicate_types`: Conflicting parent either_type identifiers merged implicitly.
+    /// - `duplicate_spans`: Source code spans of each conflicting parent either_type declaration.
     /// - `provider`: Origin of the diagnostic.
     /// - `source`: Interned source identifier.
-    /// - `span`: Location in source related to the implicit either type declaration.
+    /// - `span`: Location in source related to the implicit either either_type declaration.
     pub fn warning_implicit_either_type_declaration(
         ty: SymbolId,
         duplicate_types: Vec<SymbolId>,

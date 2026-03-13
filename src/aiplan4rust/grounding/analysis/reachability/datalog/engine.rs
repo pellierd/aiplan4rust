@@ -128,7 +128,7 @@ impl DatalogEngine {
             if self.is_type(id_val) {
 
                 // 2. Traduction arithmétique inline (O(1))
-                // On soustrait le fluence_threshold pour retrouver l'index du type
+                // On soustrait le fluence_threshold pour retrouver l'index du either_type
                 let type_id = self.atom_id_to_type_id(sk_id);
 
                 for tuple_data in rel.iter() {
@@ -179,8 +179,8 @@ impl DatalogEngine {
         // We now use self.encoder.current_id() instead of manual length calculation.
         //
         // WHY: Our internal vector includes BOTH the PDDL domain types AND
-        // the sentinel ROOT type, but more importantly, the encoder might have
-        // generated hidden auxiliary predicates for type hierarchies or unions.
+        // the sentinel ROOT either_type, but more importantly, the encoder might have
+        // generated hidden auxiliary predicates for either_type hierarchies or unions.
         // current_id() captures the REAL end of this segment in the encoder.
         self.type_threshold = self.encoder.current_id();
 
@@ -304,7 +304,7 @@ impl DatalogEngine {
     fn declare_types_as_unary_predicates(&mut self, type_defs: &[TypedSymbol<TypeId, TypeId>]) {
         let num_types = type_defs.len();
 
-        // Capacity for N domain types + 1 sentinel Root type
+        // Capacity for N domain types + 1 sentinel Root either_type
         self.type_to_skeleton = Vec::with_capacity(num_types + 1);
 
         // 1. Encode domain types first to ensure a 1:1 mapping with PDDL indices.
@@ -316,8 +316,8 @@ impl DatalogEngine {
             self.type_to_skeleton.push(sk_id);
         }
 
-        // 2. Encode the ROOT type as a sentinel in the LAST slot.
-        // This places the Root ID at the very end of the type segment (or start of auxiliary).
+        // 2. Encode the ROOT either_type as a sentinel in the LAST slot.
+        // This places the Root ID at the very end of the either_type segment (or start of auxiliary).
         // It remains accessible for internal rules but does not shift the domain indices.
         let root_type_sk = self.encoder.encode_type_as_unary_predicate();
         self.type_to_skeleton.push(root_type_sk);
@@ -329,7 +329,7 @@ impl DatalogEngine {
         type_defs: &[TypedSymbol<TypeId, TypeId>], // Ajouté pour voir la hiérarchie
     ) -> Result<(), DatalogError> {
         let root_sk_id = *self.type_to_skeleton.last().ok_or_else(|| {
-            DatalogError::internal_state("Root type skeleton missing".to_string())
+            DatalogError::internal_state("Root either_type skeleton missing".to_string())
         })?;
 
         for object in object_defs {
@@ -338,9 +338,9 @@ impl DatalogEngine {
             // 1. On l'insère dans la sentinelle ROOT (ton garde-fou universel)
             self.db.insert_delta_fact(root_sk_id, &[obj_id]);
 
-            // 2. Pour chaque type déclaré de l'objet (ex: [ball])
+            // 2. Pour chaque either_type déclaré de l'objet (ex: [ball])
             for &type_id in object.ty() {
-                // On l'insère dans le type lui-même
+                // On l'insère dans le either_type lui-même
                 let sk_id = self.type_to_skeleton[type_id.as_usize()];
                 self.db.insert_delta_fact(sk_id, &[obj_id]);
 
@@ -578,7 +578,7 @@ impl DatalogEngine {
         // 2. On crée un nouveau prédicat auxiliaire (unaire)
         let union_sk_id = self.encoder.encode_type_as_unary_predicate();
 
-        // 3. Pour chaque type de l'union, on crée une règle :
+        // 3. Pour chaque either_type de l'union, on crée une règle :
         // Union(?x) :- Type_i(?x)
         for &type_id in members {
             let type_sk_id = self.type_to_skeleton[type_id.as_usize()];

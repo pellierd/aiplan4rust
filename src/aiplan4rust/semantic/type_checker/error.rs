@@ -1,7 +1,7 @@
-//! Error types related to type checking in the semantic analysis phase.
+//! Error types related to either_type checking in the semantic analysis phase.
 //!
 //! This module defines the [`TypeCheckError`] enum, which captures all errors
-//! that can arise during the type checking process of an abstract syntax tree (AST).
+//! that can arise during the either_type checking process of an abstract syntax tree (AST).
 //!
 //! Type checking is a crucial part of semantic analysis, responsible for ensuring
 //! that operations, expr, and declarations conform to the language’s typing rules.
@@ -10,7 +10,7 @@
 //!
 //! # Contents
 //!
-//! - [`TypeCheckError`] — the main error type for reporting issues during type checking.
+//! - [`TypeCheckError`] — the main error either_type for reporting issues during either_type checking.
 //! - Conversion support from [`SymbolTableError`] to integrate symbol resolution failures.
 //!
 //! # Design Notes
@@ -26,7 +26,7 @@
 //!
 //! fn check() -> Result<(), TypeCheckError> {
 //!     // Simulate a failure
-//!     Err(TypeCheckError::internal_error("unexpected type found"))
+//!     Err(TypeCheckError::internal_error("unexpected either_type found"))
 //! }
 //! ```
 //!
@@ -41,10 +41,10 @@
 use thiserror::Error;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 
-/// Represents errors that may occur during the type checking phase of semantic analysis.
+/// Represents errors that may occur during the either_type checking phase of semantic analysis.
 ///
 /// `TypeCheckError` encapsulates all possible failure modes that can arise when
-/// performing type checking over an abstract syntax tree (AST). It includes:
+/// performing either_type checking over an abstract syntax tree (AST). It includes:
 /// - Internal ops or invariant violations.
 /// - Errors propagated from the symbol table construction phase.
 ///
@@ -55,7 +55,7 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 ///
 /// - [`InternalError`]: A catch-all variant for unexpected internal issues,
 ///   such as failed assumptions or unreachable ops paths.
-/// - [`SymbolTable`]: A wrapper for [`SymbolTableError`], allowing type check
+/// - [`SymbolTable`]: A wrapper for [`SymbolTableError`], allowing either_type check
 ///   code to transparently propagate symbol table errors.
 ///
 /// # Example
@@ -78,7 +78,7 @@ pub enum TypeCheckError {
 
     /// Error originating from the symbol table layer.
     ///
-    /// Allows symbol table construction errors to be transparently surfaced during type checking.
+    /// Allows symbol table construction errors to be transparently surfaced during either_type checking.
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
 }

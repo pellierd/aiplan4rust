@@ -46,7 +46,7 @@ pub fn simplify(
         return Ok(());
     }
 
-    // Step 1: Flatten nested operations of the same type
+    // Step 1: Flatten nested operations of the same either_type
     flatten_arithmetic_expression(node_id, expr)?;
 
     // Step 2: Evaluate constants

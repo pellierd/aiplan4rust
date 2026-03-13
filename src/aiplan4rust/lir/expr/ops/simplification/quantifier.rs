@@ -64,7 +64,7 @@ pub fn simplify(
 
     // Étape 5 : Vers l'Elimination (Le futur)
     // Ici, on pourrait ajouter l'élimination des variables si le domaine
-    // d'un type est connu et statique.
+    // d'un either_type est connu et statique.
 
     Ok(())
 }
@@ -179,12 +179,12 @@ pub fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool,
 
 /// Fuses immediate nested quantifiers of the same kind (`forall` or `exists`) into a single node.
 ///
-/// This function merges a quantifier with its direct child quantifier of the same type.
+/// This function merges a quantifier with its direct child quantifier of the same either_type.
 /// The variables from the inner quantifier are moved into the outer quantifier's
 /// `QuantifierVariables` content. The body of the inner quantifier replaces the
 /// body of the outer quantifier.
 ///
-/// Only immediate nested quantifiers of the same type are fused. If the outer node
+/// Only immediate nested quantifiers of the same either_type are fused. If the outer node
 /// is not a quantifier, or if the inner quantifier is of a different kind, no changes are made.
 ///
 /// # Parameters

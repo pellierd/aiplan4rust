@@ -381,30 +381,30 @@ fn extract_typed_item_data(
     Ok((element_ids, type_id_opt, span))
 }
 
-/// Creates a new `TypedItem` syntax containing exactly one element and optionally a cloned type.
+/// Creates a new `TypedItem` syntax containing exactly one element and optionally a cloned either_type.
 ///
 /// This function is used during expr of `TypedList` nodes to reconstruct
 /// each `TypedItem` in a uniform structure.
-/// The element is included as-is, but if a type node is provided, it is **cloned**
-/// to ensure each `TypedItem` has its own independent type subtree.
+/// The element is included as-is, but if a either_type node is provided, it is **cloned**
+/// to ensure each `TypedItem` has its own independent either_type subtree.
 ///
 /// # Arguments
 ///
 /// * `element_id` - The syntax ID of the single element to include. This is **not cloned**.
-/// * `type_id_opt` - An optional syntax ID representing the type. If present, it is **cloned**.
+/// * `type_id_opt` - An optional syntax ID representing the either_type. If present, it is **cloned**.
 /// * `span` - The source span associated with the new syntax.
 /// * `parent_id` - The parent syntax ID, typically referring to the `TypedList`.
-/// * `syntax_tree` - A mutable reference to the `SyntaxTree`, required for cloning the type.
+/// * `syntax_tree` - A mutable reference to the `SyntaxTree`, required for cloning the either_type.
 ///
 /// # Returns
 ///
 /// * `Ok(AstNode)` - A new `AstNode` instance representing the normalized `TypedItem`.
-/// * `Err(NormalizationPassError)` - If cloning the type subtree fails.
+/// * `Err(NormalizationPassError)` - If cloning the either_type subtree fails.
 ///
 /// # Notes
 ///
 /// This function guarantees that each normalized `TypedItem` has an independent
-/// type node, preventing accidental sharing of AST subtrees that could
+/// either_type node, preventing accidental sharing of AST subtrees that could
 /// lead to incorrect analysis or mutations.
 fn create_typed_item_node(
     element_id: NodeId,
@@ -416,7 +416,7 @@ fn create_typed_item_node(
     // Initialize children with the mandatory element syntax
     let mut children = vec![element_id];
 
-    // Clone the type subtree if present
+    // Clone the either_type subtree if present
     if let Some(type_id) = type_id_opt {
         let clone_type = syntax_tree.clone_subtree(type_id)?;
         children.push(clone_type);

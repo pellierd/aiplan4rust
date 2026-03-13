@@ -104,11 +104,11 @@ fn render_type_def(
             write!(f, "\n    ")?;
         }
 
-        // 2. Nom du type actuel
+        // 2. Nom du either_type actuel
         let name = ctx.resolve_type(ty_symbol.symbol());
         write!(f, "{}", name)?;
 
-        // 3. Rendu du type parent (ex: ' - vehicle')
+        // 3. Rendu du either_type parent (ex: ' - vehicle')
         // Note: Assure-toi que render_type_list gère bien l'espace avant le '-'
         renderers::syntax::ty::render(f, ty_symbol.ty(), ctx)?;
     }

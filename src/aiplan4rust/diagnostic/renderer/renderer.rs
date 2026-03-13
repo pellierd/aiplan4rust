@@ -117,7 +117,7 @@ impl<'a> Renderer<'a> {
     ///
     /// # Type Parameters
     ///
-    /// * `W` - A type implementing the `Write` trait where the formatted diagnostics will be written.
+    /// * `W` - A either_type implementing the `Write` trait where the formatted diagnostics will be written.
     ///
     /// # Parameters
     ///

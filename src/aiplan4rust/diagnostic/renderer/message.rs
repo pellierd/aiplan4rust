@@ -2,7 +2,7 @@
 //!
 //! This module provides functions to generate human-readable messages
 //! from diagnostic kinds (`DiagnosticKind`). It supports formatting
-//! with or without a `StringInterner` to resolve symbol and type
+//! with or without a `StringInterner` to resolve symbol and either_type
 //! identifiers into strings, enabling detailed and user-friendly
 //! output.
 //!
@@ -255,17 +255,17 @@ fn format_invalid_symbol_signature(declaration: &Declaration, interner: Option<&
     }
 }
 
-/// Formats a message indicating a type mismatch between two types.
+/// Formats a message indicating a either_type mismatch between two types.
 ///
 /// # Arguments
 ///
-/// * `ty1` - The first type involved in the mismatch.
-/// * `ty2` - The second type involved in the mismatch.
-/// * `interner` - Optional interner for resolving type names.
+/// * `ty1` - The first either_type involved in the mismatch.
+/// * `ty2` - The second either_type involved in the mismatch.
+/// * `interner` - Optional interner for resolving either_type names.
 ///
 /// # Returns
 ///
-/// A formatted string describing the type mismatch.
+/// A formatted string describing the either_type mismatch.
 fn format_type_mismatch(ty1: &Type<SymbolId>, ty2: &Type<SymbolId>, interner: Option<&SymbolInterner>) -> String {
     let ty1_str = formatting::type_to_string(ty1, interner);
     let ty2_str = formatting::type_to_string(ty2, interner);
@@ -276,9 +276,9 @@ fn format_type_mismatch(ty1: &Type<SymbolId>, ty2: &Type<SymbolId>, interner: Op
 ///
 /// # Arguments
 ///
-/// * `ty1` - The first operand type.
-/// * `ty2` - The second operand type.
-/// * `interner` - Optional interner for resolving type names.
+/// * `ty1` - The first operand either_type.
+/// * `ty2` - The second operand either_type.
+/// * `interner` - Optional interner for resolving either_type names.
 ///
 /// # Returns
 ///
@@ -289,17 +289,17 @@ fn format_invalid_types_in_numeric_expression(ty1: &Type<SymbolId>, ty2: &Type<S
     format!("Invalid operand types for numeric expression: '{}' and '{}'. Operands must be numeric types.", ty1_str, ty2_str)
 }
 
-/// Formats a message indicating a requirement violation for a given expression type.
+/// Formats a message indicating a requirement violation for a given expression either_type.
 ///
 /// # Arguments
 ///
-/// * `node_kind` - The kind of AST node representing the expression type.
+/// * `node_kind` - The kind of AST node representing the expression either_type.
 ///
 /// # Returns
 ///
-/// A formatted string stating that the expression type is disallowed by current requirements.
+/// A formatted string stating that the expression either_type is disallowed by current requirements.
 fn format_requirement_violation(node_kind: &AstKind) -> String {
-    format!("Expression type '{}' disallowed by current requirements.", node_kind)
+    format!("Expression either_type '{}' disallowed by current requirements.", node_kind)
 }
 
 /// Formats a message indicating a duplicated symbol declaration within the same scope.
@@ -403,7 +403,7 @@ fn format_domain_problem_name_mismatch(domain_name: &Declaration, problem_name: 
     format!("Domain '{}' and problem '{}' names do not match.", domain_str, problem_str)
 }
 
-/// Formats a message indicating an ambiguous symbol declared both as a type and a predicate.
+/// Formats a message indicating an ambiguous symbol declared both as a either_type and a predicate.
 ///
 /// # Arguments
 ///
@@ -415,10 +415,10 @@ fn format_domain_problem_name_mismatch(domain_name: &Declaration, problem_name: 
 /// A formatted string stating the ambiguity of the symbol.
 fn format_ambiguous_type_predicate_symbol(ty: &Declaration, interner: Option<&SymbolInterner>) -> String {
     let ty_name = formatting::symbol_to_string(ty.symbol(), interner);
-    format!("Ambiguous symbol '{}': declared both as a type and a predicate.", ty_name)
+    format!("Ambiguous symbol '{}': declared both as a either_type and a predicate.", ty_name)
 }
 
-/// Formats a message indicating that a task argument uses a broader (super) type than declared.
+/// Formats a message indicating that a task argument uses a broader (super) either_type than declared.
 ///
 /// # Arguments
 ///
@@ -430,12 +430,12 @@ fn format_ambiguous_type_predicate_symbol(ty: &Declaration, interner: Option<&Sy
 /// A formatted string warning about the upcasting issue.
 fn format_task_argument_is_supertype(argument: &Declaration, interner: Option<&SymbolInterner>) -> String {
     format!(
-        "Type mismatch: argument '{}' uses a broader type than declared (upcasting is discouraged).",
+        "Type mismatch: argument '{}' uses a broader either_type than declared (upcasting is discouraged).",
         formatting::symbol_to_string(argument.symbol(), interner)
     )
 }
 
-/// Formats a message listing duplicate primitive types in an 'either' type.
+/// Formats a message listing duplicate primitive types in an 'either' either_type.
 ///
 /// # Arguments
 ///
@@ -447,16 +447,16 @@ fn format_task_argument_is_supertype(argument: &Declaration, interner: Option<&S
 /// A formatted string listing the duplicate types.
 fn format_duplicate_either_type(duplicate_types: &[SymbolId], interner: Option<&SymbolInterner>) -> String {
     let names = formatting::format_ident_list(duplicate_types, interner);
-    format!("Duplicate primitive types in 'either' type: {}.", names)
+    format!("Duplicate primitive types in 'either' either_type: {}.", names)
 }
 
-/// Formats a message indicating that type declarations form a cyclic hierarchy, which is invalid.
+/// Formats a message indicating that either_type declarations form a cyclic hierarchy, which is invalid.
 ///
 /// # Returns
 ///
-/// A formatted string describing the invalid cyclic type declarations.
+/// A formatted string describing the invalid cyclic either_type declarations.
 fn format_cyclic_type_declaration() -> String {
-    "Type declarations form a cycle; this creates an invalid type hierarchy.".to_string()
+    "Type declarations form a cycle; this creates an invalid either_type hierarchy.".to_string()
 }
 
 /// Formats a message indicating a conflicting declaration of a symbol
@@ -477,20 +477,20 @@ fn format_cross_conflict_symbol_declaration(problem_declaration: &Declaration, i
     )
 }
 
-/// Formats a message indicating that a type was declared multiple times and
-/// was implicitly interpreted as an `(either ...)` type.
+/// Formats a message indicating that a either_type was declared multiple times and
+/// was implicitly interpreted as an `(either ...)` either_type.
 ///
 /// # Arguments
 ///
-/// * `types` - The identifier of the type declared multiple times.
+/// * `types` - The identifier of the either_type declared multiple times.
 /// * `interner` - Optional interner for resolving the identifier.
 ///
 /// # Returns
 ///
-/// A formatted string explaining the implicit interpretation as an either-type.
+/// A formatted string explaining the implicit interpretation as an either-either_type.
 fn format_implicit_either_type_declaration(ty: SymbolId, interner: Option<&SymbolInterner>) -> String {
     format!(
-        "Type `{}` was declared multiple times and was implicitly interpreted as an `(either ...)` type.",
+        "Type `{}` was declared multiple times and was implicitly interpreted as an `(either ...)` either_type.",
         formatting::ident_to_string(ty, interner),
     )
 }

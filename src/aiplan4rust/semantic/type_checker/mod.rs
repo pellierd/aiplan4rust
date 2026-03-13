@@ -1,19 +1,19 @@
 //! Type checking infrastructure for the AIPLan4Rust semantic analyzer.
 //!
-//! This module exposes the main components involved in the **type checking phase**
+//! This module exposes the main components involved in the **either_type checking phase**
 //! of semantic analysis. It is responsible for validating types across the abstract syntax tree (AST),
 //! ensuring correct usage of symbols, expr, and declarations according to the language's rules.
 //!
 //! # Modules
 //!
 //! - [`type_checker`] — Contains the common ops of the [`TypeChecker`] struct, which traverses
-//!   the AST and performs type validation.
-//! - [`error`] — Defines [`TypeCheckError`], the error type used to report issues during type checking.
+//!   the AST and performs either_type validation.
+//! - [`error`] — Defines [`TypeCheckError`], the error either_type used to report issues during either_type checking.
 //!
 //! # Re-exports
 //!
-//! - [`TypeChecker`] — The entry point for invoking type checking on an AST.
-//! - [`TypeCheckError`] — The unified error type for type checking failures.
+//! - [`TypeChecker`] — The entry point for invoking either_type checking on an AST.
+//! - [`TypeCheckError`] — The unified error either_type for either_type checking failures.
 //!
 //! # Example
 //!

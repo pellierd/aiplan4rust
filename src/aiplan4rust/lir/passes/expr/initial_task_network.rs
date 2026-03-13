@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::InitialTaskNetwork;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::passes::normalization::task_network;
+use crate::aiplan4rust::lir::passes::expr::task_network;
 
 /// Normalizes an `InitialTaskNetwork` using the provided `LogicEngine`.
 ///

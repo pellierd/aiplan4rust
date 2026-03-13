@@ -52,7 +52,7 @@ pub fn encode(
         registry
     )?;
 
-    // --- ÉTAPE 3 : Bifurcation selon le type d'Action ---
+    // --- ÉTAPE 3 : Bifurcation selon le either_type d'Action ---
     match kind {
         AstKind::ActionDef => {
             // Encodage du corps d'une action simple

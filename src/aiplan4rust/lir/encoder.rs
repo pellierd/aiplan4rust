@@ -17,7 +17,7 @@
 //!
 //! # Purpose
 //! This IR is a crucial intermediate step for:
-//! - Subsequent compiler normalization or transformations.
+//! - Subsequent compiler expr or transformations.
 //! - Planning solvers that instantiate and search for plans.
 //! - Frontends for visualization or debugging.
 //!
@@ -32,16 +32,15 @@
 //!
 //! # Example
 //! ```ignore
-//! let mut builder = IRBuilder::new();
-//! let lifted_problem = builder.build(&linked_context)?;
+//! let mut encoder = LirEncoder::new();
+//! let lifted_problem = encoder.encode(&linked_context)?;
 //! ```
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::{encoding, LirEncoderResult, LirError};
+use crate::aiplan4rust::lir::{encoding, passes, LirEncoderResult, LirError};
 use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
-use crate::aiplan4rust::lir::passes::normalization;
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
 /// syntax domain/problem into a *lifted intermediate representation* (LiftedProblem).
@@ -61,7 +60,7 @@ use crate::aiplan4rust::lir::passes::normalization;
 ///
 /// # Why is this useful?
 /// - This lifted problem can then be used by:
-///   - Other compiler normalization or transformations.
+///   - Other compiler expr or transformations.
 ///   - A solver to instantiate and search for plans.
 ///   - A visualization frontend.
 ///
@@ -175,7 +174,7 @@ pub fn encode_lifted_problem(
     encoding::encode_problem(&problem_syntax_tree, &mut registry, &mut problem)?;
 
     // 5. Normalize all expr in the problem
-    normalization::normalize_problem(&mut problem)?;
+    passes::normalize(&mut problem)?;
 
     // 6. Return the fully constructed and normalized problem
     Ok(problem)

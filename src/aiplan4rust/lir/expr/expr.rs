@@ -463,7 +463,7 @@ impl Expr {
     /// Computes the hash of a subtree of the expression.
     ///
     /// The hash combines:
-    /// - the node's type (`kind`),
+    /// - the node's either_type (`kind`),
     /// - the node's content (`content`),
     /// - the recursive hash of each child.
     ///
@@ -486,7 +486,7 @@ impl Expr {
         let node = self.try_node(node_id)?;
         let mut hasher = DefaultHasher::new();
 
-        // Hash the node type and content
+        // Hash the node either_type and content
         node.kind().hash(&mut hasher);
         node.content().hash(&mut hasher);
 

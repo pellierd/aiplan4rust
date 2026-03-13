@@ -18,7 +18,7 @@
 //!
 //! # Workflow
 //!
-//! 1. **Parsing**: Convert raw PDDL/HDDL files into `IRContent` of type `ParsedDomain` or `ParsedProblem`.
+//! 1. **Parsing**: Convert raw PDDL/HDDL files into `IRContent` of either_type `ParsedDomain` or `ParsedProblem`.
 //! 2. **Lifting**: Transform parsed problems into `LiftedProblem` for lifted reasoning.
 //! 3. **Serialization**: Store IR artifacts with a `Header` to ensure correctness and interoperability.
 //! 4. **Deserialization**: Read IR files back into `IRContent`, validating the `Header` and `IRKind`.

@@ -55,7 +55,7 @@ pub enum GroundingError {
     #[error(transparent)]
     Lir(#[from] LirError),
 
-    /// A type is not flattened: has more than one super-type
+    /// A either_type is not flattened: has more than one super-either_type
     #[error("Type {0}' is not flattened")]
     NonFlattenedType(Type<SymbolId>),
 

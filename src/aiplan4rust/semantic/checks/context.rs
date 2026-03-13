@@ -41,7 +41,7 @@ use crate::aiplan4rust::tree::Tree;
 /// - Operating on transformed or synthesized ASTs
 ///
 /// # Advantages
-/// - Simplifies function signatures for verification normalization
+/// - Simplifies function signatures for verification expr
 /// - Makes verification ops more modular and testable
 /// - Clearly expresses a verification function’s data dependencies
 ///
@@ -73,7 +73,7 @@ impl<'a> Context<'a> {
     ///
     /// This constructor is used when you want to manually assemble a semantic context,
     /// typically outside the standard `SemanticContext` flow — for example, during
-    /// cross-file linking or when testing semantic normalization in isolation.
+    /// cross-file linking or when testing semantic expr in isolation.
     ///
     /// # Parameters
     ///

@@ -65,7 +65,7 @@ use crate::aiplan4rust::tree::Tree;
 /// for each duplicate found and removed.
 ///
 /// This pass is **self-contained** and **stateless**—it does not depend on or affect any other
-/// expr normalization, and can safely be run independently at any point, provided the AST is
+/// expr expr, and can safely be run independently at any point, provided the AST is
 /// valid.
 ///
 /// # Arguments
@@ -84,7 +84,7 @@ use crate::aiplan4rust::tree::Tree;
 ///
 /// * The AST must be valid and conform to the parser's grammar and invariants.
 /// * The `RequireDef` syntax—if present—must contain only `Requirement` children.
-/// * No other expr normalization are required before or after this one.
+/// * No other expr expr are required before or after this one.
 /// * This function is deterministic and has no side effects outside its scope.
 ///
 /// # Panics

@@ -14,7 +14,7 @@ use crate::aiplan4rust::lir::ActionDef;
 /// * `value_registry` - The evaluator containing all object constants used for variable substitution.
 ///
 /// # Errors
-/// Returns [`GroundingError`] if a quantifier references an unknown type or if
+/// Returns [`GroundingError`] if a quantifier references an unknown either_type or if
 /// the expansion exceeds system limits.
 pub fn expand(
     action: &mut ActionDef,

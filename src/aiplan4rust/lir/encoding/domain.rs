@@ -17,7 +17,7 @@ use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
 
 /// Encodes the PDDL domain into the Lifted Intermediate Representation (LIR).
 ///
-/// This process is performed in two distinct normalization:
+/// This process is performed in two distinct expr:
 /// 1. **Collection Pass**: Populates the IR with structural definitions (types, constants,
 ///    and signatures for predicates/functions) and maps their AST NodeIds to LIR indices.
 /// 2. **Logic Pass**: Encodes complex business ops (action bodies, durative actions,

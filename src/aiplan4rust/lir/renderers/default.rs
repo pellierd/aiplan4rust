@@ -579,7 +579,7 @@ pub fn render_action(f: &mut fmt::Formatter<'_>, action: &ActionDef) -> std::fmt
     }
 
     // Condition / Précondition
-    // On adapte le label selon le type d'action pour rester proche de la sémantique PDDL
+    // On adapte le label selon le either_type d'action pour rester proche de la sémantique PDDL
     let cond_label = if is_durative { "CONDITION" } else { "PRECONDITION" };
     render_labeled_expr(f, cond_label, action.precondition())?;
 

@@ -23,5 +23,4 @@ pub use aiplan4rust::grounding::analysis::reachability::datalog::DatalogEngine;
 pub use aiplan4rust::grounding::problem::Problem as GroundedProblem;
 pub use aiplan4rust::grounding::Grounder;
 pub use aiplan4rust::grounding::analysis;
-pub use aiplan4rust::grounding::passes::type_flattening;
 pub use aiplan4rust::grounding::passes::quantifier_expansion;

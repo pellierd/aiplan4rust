@@ -2,7 +2,7 @@
 //! parsing, expr, and semantic analysis of PDDL domains and problems.
 //!
 //! This module defines a comprehensive `Kind` enum that encodes various types of
-//! issues such as syntax errors, type mismatches, undeclared symbols, cyclic definitions,
+//! issues such as syntax errors, either_type mismatches, undeclared symbols, cyclic definitions,
 //! ambiguous declarations, and more.
 //!
 //! Each variant in the enum corresponds to a specific kind of diagnostic, and many of them
@@ -27,7 +27,7 @@ use crate::aiplan4rust::syntax::Span;
 /// parsing, expr, or semantic analysis of PDDL structures.
 ///
 /// Each variant of this enum corresponds to a specific class of diagnostic,
-/// such as parsing errors, type mismatches, undeclared symbols, requirement
+/// such as parsing errors, either_type mismatches, undeclared symbols, requirement
 /// violations, ambiguous or duplicated declarations, and more.
 ///
 /// This enum is the common abstraction used by the diagnostic system to classify
@@ -89,7 +89,7 @@ pub enum Kind {
 
     /// Error indicating that a symbol is used with a signature that does not match any declaration.
     ///
-    /// This occurs when the symbol's usage signature (types of arguments and return type)
+    /// This occurs when the symbol's usage signature (types of arguments and return either_type)
     /// is incompatible or undefined compared to its declaration.
     ///
     /// # Note
@@ -103,7 +103,7 @@ pub enum Kind {
     /// Represents an error where two types in an expression do not match as expected.
     ///
     /// This error is raised when the expression involves incompatible types that
-    /// cannot be reconciled, indicating a type mismatch.
+    /// cannot be reconciled, indicating a either_type mismatch.
     TypeMismatchInExpression { ty1: Type<SymbolId>, ty2: Type<SymbolId> },
 
     /// Represents an error where two types used in a numeric expression are incompatible.
@@ -181,8 +181,8 @@ pub enum Kind {
     /// special meaning when certain features are enabled. Declaring a symbol with such
     /// an identifier leads to this error if the declaration does not match the expected usage.
     ///
-    /// For example, declaring a new type named `object` is invalid when `:typing` is enabled,
-    /// since `object` is a built-in primitive type in that context.
+    /// For example, declaring a new either_type named `object` is invalid when `:typing` is enabled,
+    /// since `object` is a built-in primitive either_type in that context.
     ///
     /// ### Fields:
     /// - `declaration`: The user’s declaration that introduces the conflicting symbol.
@@ -202,7 +202,7 @@ pub enum Kind {
     },
 
     /// Represents a warning when a symbol is declared in a way that ambiguously overlaps
-    /// with a reserved PDDL language keyword, but its kind matches the expected type.
+    /// with a reserved PDDL language keyword, but its kind matches the expected either_type.
     ///
     /// This situation typically occurs when a symbol uses a name reserved by the language,
     /// but the symbol's kind aligns with what is expected for that name, given the current
@@ -268,13 +268,13 @@ pub enum Kind {
         problem_name: Declaration,
     },
 
-    /// Warning for ambiguous symbol names that are declared both as a primitive type and a predicate.
+    /// Warning for ambiguous symbol names that are declared both as a primitive either_type and a predicate.
     ///
     /// This warning is emitted when the same identifier is used for both a `PrimitiveType` and a
     /// `Predicate` symbol kind, which can lead to confusion or unexpected behavior in semantic analysis.
     ///
     /// # Fields
-    /// - `types`: The declaration of the symbol as a primitive type.
+    /// - `types`: The declaration of the symbol as a primitive either_type.
     /// - `predicate`: The declaration of the symbol as a predicate.
     ///
     /// ```
@@ -283,9 +283,9 @@ pub enum Kind {
         predicate: Declaration,
     },
 
-    /// Warning issued when a task argument uses a type that is a supertype of the one declared.
+    /// Warning issued when a task argument uses a either_type that is a supertype of the one declared.
     ///
-    /// This warning highlights a semantic inconsistency where a task uses a more general type
+    /// This warning highlights a semantic inconsistency where a task uses a more general either_type
     /// than what is declared by an action or method. According to standard PDDL typing rules,
     /// argument types must match or be more specific (i.e., subtypes), and this form of
     /// upcasting is not permitted.
@@ -298,8 +298,8 @@ pub enum Kind {
     /// # Fields
     ///
     /// - `argument`: The declaration of the argument as defined in the action or method.
-    /// - `type_declared`: The declared type of the argument in the action or method.
-    /// - `type_used`: The actual type used in the task invocation, which is a supertype of the declared type.
+    /// - `type_declared`: The declared either_type of the argument in the action or method.
+    /// - `type_used`: The actual either_type used in the task invocation, which is a supertype of the declared either_type.
     TaskArgumentIsSupertypeOfDeclaration {
         argument: Declaration,
         type_declared: Type<SymbolId>,
@@ -325,31 +325,31 @@ pub enum Kind {
     /// is available in subsequent analysis phases.
     DuplicateEitherType { duplicate_types: Vec<SymbolId> },
 
-    /// Represents an error indicating a cycle in the type hierarchy defined in the domain.
+    /// Represents an error indicating a cycle in the either_type hierarchy defined in the domain.
     ///
     /// This diagnostic is triggered when user-defined types reference each other
     /// in a circular manner (directly or indirectly), forming a cycle that prevents
-    /// correct expr or analysis of the type system.
+    /// correct expr or analysis of the either_type system.
     ///
-    /// For example, if type `A` extends `B`, and `B` extends `A`, this creates a cycle
+    /// For example, if either_type `A` extends `B`, and `B` extends `A`, this creates a cycle
     /// that cannot be resolved.
     ///
     /// # Fields
     ///
-    /// - `cycle`: A vector of `Declaration` items representing the chain of type
+    /// - `cycle`: A vector of `Declaration` items representing the chain of either_type
     ///   declarations involved in the cycle. The first and last elements may be equal
     ///   to indicate a closed loop.
     ///
     /// # Context
     ///
     /// This error is typically emitted during the domain expr phase, when the
-    /// hierarchy of type declarations is being validated.
+    /// hierarchy of either_type declarations is being validated.
     ///
     /// # Example
     ///
     /// ```text
-    /// type A extends B
-    /// type B extends A
+    /// either_type A extends B
+    /// either_type B extends A
     /// ```
     ///
     /// This will result in a `CyclicTypeDeclaration` error with a cycle including both `A` and `B`.
@@ -378,22 +378,22 @@ pub enum Kind {
         conflicting_domain_declarations: Vec<Declaration>,
     },
 
-    /// Warning emitted when a type is implicitly declared as an `(either ...)` type due to
-    /// multiple conflicting parent type declarations.
+    /// Warning emitted when a either_type is implicitly declared as an `(either ...)` either_type due to
+    /// multiple conflicting parent either_type declarations.
     ///
-    /// This warning indicates that the type `types` has been declared with different parent types
+    /// This warning indicates that the either_type `types` has been declared with different parent types
     /// listed in `duplicate_types`. The system has automatically merged these into an implicit
-    /// `(either ...)` type to resolve ambiguity.
+    /// `(either ...)` either_type to resolve ambiguity.
     ///
     /// # Fields
     ///
-    /// - `types`: The identifier of the type being declared.
-    /// - `duplicate_types`: A list of conflicting parent type identifiers causing the implicit merge.
-    /// - `duplicate_spans`: The source code spans corresponding to each conflicting parent type declaration.
+    /// - `types`: The identifier of the either_type being declared.
+    /// - `duplicate_types`: A list of conflicting parent either_type identifiers causing the implicit merge.
+    /// - `duplicate_spans`: The source code spans corresponding to each conflicting parent either_type declaration.
     ///
     /// # Suggestion
     ///
-    /// To avoid ambiguity, it is recommended to declare the type explicitly using the `(either ...)`
+    /// To avoid ambiguity, it is recommended to declare the either_type explicitly using the `(either ...)`
     /// syntax, listing all parent types.
     ImplicitEitherTypeDeclaration {
         ty: SymbolId,
@@ -403,7 +403,7 @@ pub enum Kind {
     /// A warning emitted when a requirement is declared multiple times.
     ///
     /// This diagnostic is used to indicate that the same requirement appears more than once
-    /// in a given context (e.g., in a type, operator, or action definition). Although duplicate
+    /// in a given context (e.g., in a either_type, operator, or action definition). Although duplicate
     /// requirements may not cause immediate semantic issues, they are usually unintended and
     /// may clutter the specification.
     ///

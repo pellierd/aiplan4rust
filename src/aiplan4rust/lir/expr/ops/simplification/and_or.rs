@@ -6,7 +6,7 @@ use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN expr.
 ///
-/// This function performs several simplifications on a node of type `AND` or `OR`,
+/// This function performs several simplifications on a node of either_type `AND` or `OR`,
 /// processing the node in place. It does nothing if the node is of another kind.
 ///
 /// The simplifications are performed in the following order:
@@ -122,7 +122,7 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpE
     let kind = expr.try_node(node_id)?.kind();
     debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
 
-    // 1. Vérification rapide : est-ce qu'un enfant est du même type ?
+    // 1. Vérification rapide : est-ce qu'un enfant est du même either_type ?
     let needs_flattening = expr.try_node(node_id)?.children().iter().any(|&c| {
         expr.try_node(c).map(|n| n.kind() == kind).unwrap_or(false)
     });
@@ -416,12 +416,12 @@ fn reduce_single_and_or_node(
 /// # Behavior
 /// The function handles three main cases for AND/OR nodes:
 ///
-/// 1. **Absorbing child**: If a child is an empty node of the **opposite type**, the parent node
+/// 1. **Absorbing child**: If a child is an empty node of the **opposite either_type**, the parent node
 ///    is replaced by the child's kind and its children are cleared.
 ///    - Example: `(and (or))` → becomes `(or)`
 ///    - Semantically, `(or)` with no children evaluates to `false`, `(and)` with no children evaluates to `true`.
 ///
-/// 2. **Neutral child**: If a child is an empty node of the **same type**, it is ignored and
+/// 2. **Neutral child**: If a child is an empty node of the **same either_type**, it is ignored and
 ///    not included in the simplified children list.
 ///    - Example: `(and (and))` → becomes `(and)` (still true)
 ///

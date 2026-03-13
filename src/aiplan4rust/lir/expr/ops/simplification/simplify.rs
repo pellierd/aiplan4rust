@@ -139,8 +139,8 @@ fn is_simplifiable(kind: ExprKind, has_evaluator: bool) -> bool {
 
 /// Simplifies a node in a PDDL expression tree based on its kind.
 ///
-/// This function inspects the type of the node identified by `node_id` and applies
-/// the appropriate simplification routine for that type. Currently, it only handles
+/// This function inspects the either_type of the node identified by `node_id` and applies
+/// the appropriate simplification routine for that either_type. Currently, it only handles
 /// `AND` and `OR` nodes by delegating to `simplify_and_or_node`.
 /// Nodes of other kinds are left unchanged.
 ///
@@ -149,7 +149,7 @@ fn is_simplifiable(kind: ExprKind, has_evaluator: bool) -> bool {
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
-/// - `Ok(())` if the simplification succeeds or the node type is not handled.
+/// - `Ok(())` if the simplification succeeds or the node either_type is not handled.
 /// - `Err(ExprError)` if accessing the node fails.
 ///
 /// # Notes

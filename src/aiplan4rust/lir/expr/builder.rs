@@ -62,7 +62,7 @@ impl ExprBuilder {
     /// that take a single argument, such as `not`, `at_start`, `always`, etc.
     ///
     /// # Arguments
-    /// * `kind` - The type of node (`ExprKind`) to create.
+    /// * `kind` - The either_type of node (`ExprKind`) to create.
     /// * `child` - NodeId of the single child.
     ///
     /// # Returns
@@ -78,7 +78,7 @@ impl ExprBuilder {
     /// functional comparisons, and other expr that take two arguments.
     ///
     /// # Arguments
-    /// * `kind` - The type of node (`ExprKind`) to create.
+    /// * `kind` - The either_type of node (`ExprKind`) to create.
     /// * `left` - NodeId of the left child.
     /// * `right` - NodeId of the right child.
     ///
@@ -95,7 +95,7 @@ impl ExprBuilder {
     /// or any expression that can take a dynamic number of children.
     ///
     /// # Arguments
-    /// * `kind` - The type of node (`ExprKind`) to create.
+    /// * `kind` - The either_type of node (`ExprKind`) to create.
     /// * `children` - A vector of NodeIds representing the children.
     ///
     /// # Returns
@@ -110,7 +110,7 @@ impl ExprBuilder {
 
     /// Creates a constant (object) node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into an [`ObjectId`],
+    /// This helper accepts any either_type that can be converted into an [`ObjectId`],
     /// making it easy to use either a typed ID or a raw `usize` (especially in tests).
     ///
     /// # Arguments
@@ -128,7 +128,7 @@ impl ExprBuilder {
 
     /// Creates a variable node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`VariableId`],
+    /// This helper accepts any either_type that can be converted into a [`VariableId`],
     /// allowing the use of typed IDs or raw `usize`.
     ///
     /// Note: PDDL-specific naming (like the `?` prefix) should be handled
@@ -149,7 +149,7 @@ impl ExprBuilder {
 
     /// Creates a function symbol (functor) node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`FunctionSymbolId`],
+    /// This helper accepts any either_type that can be converted into a [`FunctionSymbolId`],
     /// making it easy to use either a pre-resolved ID or a raw `usize`.
     ///
     /// # Arguments
@@ -167,7 +167,7 @@ impl ExprBuilder {
 
     /// Creates a predicate node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`PredicateSymbolId`],
+    /// This helper accepts any either_type that can be converted into a [`PredicateSymbolId`],
     /// allowing for the use of typed identifiers or raw `usize` for quick prototyping.
     ///
     /// # Arguments
@@ -185,7 +185,7 @@ impl ExprBuilder {
 
     /// Creates a task symbol node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`TaskSymbolId`],
+    /// This helper accepts any either_type that can be converted into a [`TaskSymbolId`],
     /// which is useful for HTN (Hierarchical Task Network) expr where
     /// task identifiers are already resolved.
     ///
@@ -204,7 +204,7 @@ impl ExprBuilder {
 
     /// Creates a preference name node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`PreferenceSymbolId`].
+    /// This helper accepts any either_type that can be converted into a [`PreferenceSymbolId`].
     /// It is typically used for preference constraints in PDDL or HTN problems.
     ///
     /// # Arguments
@@ -617,7 +617,7 @@ impl ExprBuilder {
     /// Common operations include direct assignment, incrementing, or decrementing.
     ///
     /// # Arguments
-    /// * `op` - The type of assignment operation (e.g., [`AssignOp::Assign`], [`AssignOp::Increase`]).
+    /// * `op` - The either_type of assignment operation (e.g., [`AssignOp::Assign`], [`AssignOp::Increase`]).
     /// * `target` - The [`NodeId`] of the fluent (function term) being modified.
     /// * `value` - The [`NodeId`] of the numeric expression to apply.
     ///

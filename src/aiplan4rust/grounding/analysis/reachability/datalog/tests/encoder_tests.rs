@@ -11,7 +11,7 @@ use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind};
 /// - **Encoder**: A `DatalogEncoder` initialized with an auxiliary predicate offset of 100
 ///   to avoid ID collisions with domain predicates.
 /// - **Parameters**: A `TypedList` pre-populated with three default variables
-///   (`?v0`, `?v1`, `?v2`) mapped to the root type.
+///   (`?v0`, `?v1`, `?v2`) mapped to the root either_type.
 ///
 /// # Output
 /// - A fresh `DatalogEncoder` instance.

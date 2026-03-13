@@ -104,7 +104,7 @@ impl Function {
         &self.ty
     }
 
-    /// Returns a mutable reference to the return type.
+    /// Returns a mutable reference to the return either_type.
     pub fn ty_mut(&mut self) -> &mut Type<TypeId> {
         &mut self.ty
     }

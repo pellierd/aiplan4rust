@@ -141,7 +141,7 @@ pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 #[allow(dead_code)]
 fn push_time_specifier_to_children(
     temporal_id: NodeId,      // ID of the initial temporal node (AtStart / AtEnd / Overall)
-    kind: ExprKind,           // Temporal specifier type to push
+    kind: ExprKind,           // Temporal specifier either_type to push
     expr: &mut Expr,
 ) -> Result<Vec<NodeId>, ExprOpError> {
     // Retrieve the temporal node and assert it has exactly one child

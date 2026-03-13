@@ -38,7 +38,7 @@ pub mod error;
 /// Main symbol table interface for semantic resolution.
 pub use table::Table as SymbolTable;
 
-/// Public error type for symbol table construction/resolution.
+/// Public error either_type for symbol table construction/resolution.
 pub use error::SymbolTableError;
 
 /// Describes the origin of the symbol table (domain/problem/merged).

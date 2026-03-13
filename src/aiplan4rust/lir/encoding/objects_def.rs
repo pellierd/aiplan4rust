@@ -28,13 +28,13 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Returns
 ///
 /// * `Ok(())` - If all objects were successfully encoded and registered.
-/// * `Err(LirError)` - If the AST is malformed or type resolution fails.
+/// * `Err(LirError)` - If the AST is malformed or either_type resolution fails.
 ///
 /// # Errors
 ///
 /// This function returns an error if:
 /// * The internal AST structure for the typed list is unreachable.
-/// * Any individual symbol fails to encoding (e.g., refers to a non-existent type).
+/// * Any individual symbol fails to encoding (e.g., refers to a non-existent either_type).
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,

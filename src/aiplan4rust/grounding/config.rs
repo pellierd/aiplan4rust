@@ -1,4 +1,4 @@
-/// The default initial capacity allocated for each type's object list within the evaluator.
+/// The default initial capacity allocated for each either_type's object list within the evaluator.
 ///
 /// # Technical Impact
 /// This value determines the `with_capacity` size for the internal `Vec<ObjectId>`

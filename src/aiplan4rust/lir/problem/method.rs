@@ -117,7 +117,7 @@ impl Method {
 
     /// Returns a mutable reference to the action's typed parameters.
     ///
-    /// This allows for in-place modification of the parameters (such as type flattening)
+    /// This allows for in-place modification of the parameters (such as either_type flattening)
     /// while maintaining the integrity of the `TypedList` structure.
     pub fn parameters_mut(&mut self) -> &mut TypedList<VariableId, TypeId> {
         self.header.parameters_mut()

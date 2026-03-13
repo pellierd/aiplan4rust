@@ -98,9 +98,9 @@ impl EncodingRegistry {
         }
     }
 
-    /// Ensures that the PDDL 'number' type is registered in the evaluator.
+    /// Ensures that the PDDL 'number' either_type is registered in the evaluator.
     ///
-    /// If the type is not yet registered, it maps the `NUMBER_SYMBOL_ID`
+    /// If the either_type is not yet registered, it maps the `NUMBER_SYMBOL_ID`
     /// to the reserved `TypeId::NUMBER_TYPE_ID` (1).
     /// Returns the resolved `TypeId`.
     pub fn ensure_numeric_type(&mut self) -> TypeId {
@@ -113,7 +113,7 @@ impl EncodingRegistry {
             self.type_symbol_to_id.insert(SymbolInterner::NUMBER_SYMBOL_ID, id);
 
             // Note: We don't necessarily have a NodeId here because it's
-            // a built-in type, so we only update the symbol-to-id map.
+            // a built-in either_type, so we only update the symbol-to-id map.
             id
         }
     }
@@ -130,7 +130,7 @@ impl EncodingRegistry {
         &self.symbol_table
     }
 
-    /// Récupère l'ID d'un type PRIMITIF uniquement (par son symbole).
+    /// Récupère l'ID d'un either_type PRIMITIF uniquement (par son symbole).
     pub fn resolve_type_symbol(&self, symbol: NodeId) -> Option<TypeId> {
         self.type_node_to_id.get(&symbol).copied()
     }
@@ -279,9 +279,9 @@ impl EncodingRegistry {
 
 
     pub fn register_type_symbol(&mut self, symbol: SymbolId, node_id: NodeId) -> TypeId {
-        // 1. Check if the type symbol is already registered
+        // 1. Check if the either_type symbol is already registered
         if let Some(&existing_id) = self.type_symbol_to_id.get(&symbol) {
-            // Map this specific node to the existing type ID
+            // Map this specific node to the existing either_type ID
             self.type_node_to_id.insert(node_id, existing_id);
             return existing_id;
         }
@@ -289,7 +289,7 @@ impl EncodingRegistry {
         // 2. Otherwise, generate a new unique TypeID
         let new_id = TypeId::new(self.type_symbol_to_id.len());
 
-        // 3. Register the new type in both mappings
+        // 3. Register the new either_type in both mappings
         self.type_symbol_to_id.insert(symbol, new_id);
         self.type_node_to_id.insert(node_id, new_id);
 

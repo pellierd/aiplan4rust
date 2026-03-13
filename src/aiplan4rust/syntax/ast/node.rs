@@ -411,7 +411,7 @@ impl Node for AstNode {
 impl RemapSymbol for AstNode {
     /// Remaps identifiers in this syntax node's content using the provided map.
     ///
-    /// This default implementation works for any type implementing [`Node`],
+    /// This default implementation works for any either_type implementing [`Node`],
     /// delegating the remapping to `content_mut()`.
     ///
     /// # Parameters

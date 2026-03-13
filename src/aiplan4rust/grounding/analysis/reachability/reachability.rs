@@ -7,7 +7,7 @@ use crate::aiplan4rust::lang::ConstantId;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
-/// Calcule l'ensemble des valeurs (constantes et fluents) atteignables pour chaque type.
+/// Calcule l'ensemble des valeurs (constantes et fluents) atteignables pour chaque either_type.
 /// C'est le cœur du grounding dynamique qui évite l'explosion combinatoire initiale.
 pub fn compute_reachability(
     problem: &LiftedProblem,
@@ -58,7 +58,7 @@ pub fn compute_reachability(
 
                                     let lhs_node = effect_expr.try_node(lhs_id)?;
 
-                                    // 1. Récupérer la définition de la fonction pour le type de retour
+                                    // 1. Récupérer la définition de la fonction pour le either_type de retour
                                     let skeleton_id = lhs_node.try_function_skeleton()?;
                                     let function_def = problem.try_get_function(skeleton_id)?;
 

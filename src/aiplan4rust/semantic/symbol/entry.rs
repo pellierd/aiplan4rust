@@ -154,7 +154,7 @@ impl RemapSymbol for SymbolEntry {
     ///
     /// Any `Ident` present in `map` is replaced with the corresponding new value.
     /// This is useful for renaming or aliasing symbols consistently, e.g.,
-    /// after type flattening or interner merging.
+    /// after either_type flattening or interner merging.
     ///
     /// # Parameters
     ///

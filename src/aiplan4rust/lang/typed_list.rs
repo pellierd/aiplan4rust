@@ -5,14 +5,14 @@ use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// A collection of symbols where each symbol is associated with a specific type.
+/// A collection of symbols where each symbol is associated with a specific either_type.
 ///
 /// `TypedList` acts as a container for [`TypedSymbol`], maintaining the relationship
-/// between a symbol identifier and its corresponding type identifier.
+/// between a symbol identifier and its corresponding either_type identifier.
 ///
 /// # Generic Parameters
-/// - `SID`: The identifier type for the symbol (e.g., `StringID`, `VariableID`). Must implement [`Id`].
-/// - `TID`: The identifier type for the symbol's type (e.g., `TypeID`). Must implement [`Id`].
+/// - `SID`: The identifier either_type for the symbol (e.g., `StringID`, `VariableID`). Must implement [`Id`].
+/// - `TID`: The identifier either_type for the symbol's either_type (e.g., `TypeID`). Must implement [`Id`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedList<SID: Id, TID: Id> {
     typed_symbols: Vec<TypedSymbol<SID, TID>>,
@@ -44,7 +44,7 @@ where
     /// Adds a typed symbol to the end of the list.
     ///
     /// # Parameters
-    /// - `typed_symbol`: The symbol-type pair to add.
+    /// - `typed_symbol`: The symbol-either_type pair to add.
     pub fn push(&mut self, typed_symbol: TypedSymbol<SID, TID>) {
         self.typed_symbols.push(typed_symbol);
     }

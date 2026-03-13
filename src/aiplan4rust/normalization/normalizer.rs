@@ -6,7 +6,7 @@
 //! and eliminates syntactic variations that may hinder interpretation.
 //!
 //! This module supports:
-//! - A fixed sequence of expr normalization (e.g., typed list flattening, disjunction simplification).
+//! - A fixed sequence of expr expr (e.g., typed list flattening, disjunction simplification).
 //! - Internal and external [`DiagnosticManager`] support for error/warning reporting.
 //! - Graceful failure with detailed diagnostics on malformed or unsupported constructs.
 //!
@@ -51,7 +51,7 @@ use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ParserResult;
 use crate::aiplan4rust::validation::normalization::check_well_normalized;
 
-/// Performs AST expr by applying canonical transformation normalization.
+/// Performs AST expr by applying canonical transformation expr.
 ///
 /// The `Normalizer` collects diagnostics and reports expr errors through
 /// [`NormalizationError`] or the internal [`DiagnosticManager`]. It can be reused across multiple
@@ -71,10 +71,10 @@ impl Normalizer {
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
-    /// Normalizes the result of parsing by applying standard expr normalization.
+    /// Normalizes the result of parsing by applying standard expr expr.
     ///
     /// This method consumes the input [`ParserResult`], extracts the AST if present,
-    /// applies expr normalization on it, and returns a [`NormalizerResult`] with the
+    /// applies expr expr on it, and returns a [`NormalizerResult`] with the
     /// normalized AST and any diagnostics. If the parsing result contains no AST,
     /// expr is skipped and an error is returned.
     ///
@@ -115,7 +115,7 @@ impl Normalizer {
 
     /// Internal method: orchestrates the expr pipeline.
     ///
-    /// Applies a fixed sequence of normalization that simplification the AST in place.
+    /// Applies a fixed sequence of expr that simplification the AST in place.
     /// Any diagnostics encountered during the process are accumulated internally.
     ///
     /// # Arguments

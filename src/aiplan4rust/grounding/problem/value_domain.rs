@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lang::ids::ObjectId;
 use std::fmt;
 
-/// Domaine de valeurs pour un type donné
+/// Domaine de valeurs pour un either_type donné
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ValueDomain {
     objects: Vec<ObjectId>, // objets constants

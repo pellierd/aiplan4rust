@@ -4,21 +4,21 @@ use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
-/// A central evaluator managing value domains for every type within a planning problem.
+/// A central evaluator managing value domains for every either_type within a planning problem.
 ///
 /// The `ValueRegistry` handles the collection, deduplication, and sorting of objects
 /// from a [`LiftedProblem`]. It is optimized for the grounding phase, providing
-/// $O(1)$ access to type domains via [`TypeId`].
+/// $O(1)$ access to either_type domains via [`TypeId`].
 ///
 /// # Internal Structure
 /// Domains are stored contiguously in a vector to maximize CPU cache locality during
 /// the intensive iterations required for quantifier expansion and action grounding.
 #[derive(Debug, Clone)]
 pub struct ValueRegistry {
-    /// Main storage indexed by `TypeId`. Each [`ValueDomain`] contains a sorted 
+    /// Main storage indexed by `TypeId`. Each [`ValueDomain`] contains a sorted
     /// and unique list of [`ObjectId`]s.
     type_domains: Vec<ValueDomain>,
-    /// The initial capacity allocated for each type bucket during object collection.
+    /// The initial capacity allocated for each either_type bucket during object collection.
     init_size: usize,
 }
 
@@ -27,7 +27,7 @@ impl ValueRegistry {
     /// Creates a valid but empty `ValueRegistry`.
     ///
     /// This is primarily intended for unit testing or scenarios where a evaluator
-    /// is required but no type/object data is available yet. It bypasses the
+    /// is required but no either_type/object data is available yet. It bypasses the
     /// collection and optimization logic.
     pub fn empty() -> Self {
         Self {
@@ -36,7 +36,7 @@ impl ValueRegistry {
         }
     }
 
-    /// Builds and finalizes the evaluator from decoupled type and object definitions.
+    /// Builds and finalizes the evaluator from decoupled either_type and object definitions.
     ///
     /// Unique point d'entrée pour construire un registre validé et optimisé.
     /// Cette fonction combine la collecte, le tri et le dédoublonnage.
@@ -49,12 +49,12 @@ impl ValueRegistry {
     /// 3. **Finalization**: Encapsulating data into immutable [`ValueDomain`]s.
     ///
     /// # Arguments
-    /// * `type_defs` - The complete list of type declarations.
+    /// * `type_defs` - The complete list of either_type declarations.
     /// * `object_defs` - The objects (constants and problem objects) to be registered.
-    /// * `init_size` - The initial capacity for each type bucket to minimize reallocations.
+    /// * `init_size` - The initial capacity for each either_type bucket to minimize reallocations.
     ///
     /// # Errors
-    /// Returns a [`GroundingError`] if the type hierarchy is inconsistent.
+    /// Returns a [`GroundingError`] if the either_type hierarchy is inconsistent.
     pub fn build(
         type_defs: &[TypedSymbol<TypeId, TypeId>],
         object_defs: &[TypedSymbol<ObjectId, TypeId>],
@@ -86,22 +86,22 @@ impl ValueRegistry {
     /// Scans the provided definitions to extract and categorize objects by their types.
     ///
     /// This method performs a "decoupled" collection, meaning it does not require
-    /// a full `LiftedProblem` but only the relevant slices of type and object definitions.
+    /// a full `LiftedProblem` but only the relevant slices of either_type and object definitions.
     ///
     /// # Memory Management
     /// To minimize reallocations, this method uses `init_size` to pre-allocate internal
-    /// buckets for each type. This is particularly efficient for problems with a
+    /// buckets for each either_type. This is particularly efficient for problems with a
     /// large number of objects (e.g., logistics or satellite domains).
     ///
     /// # Type Hierarchy
     /// PDDL/HDDL objects can belong to multiple types via inheritance. This method
-    /// respects that hierarchy by iterating over all `members()` of an object's type
-    /// and pushing the [`ObjectId`] into every corresponding type bucket.
+    /// respects that hierarchy by iterating over all `members()` of an object's either_type
+    /// and pushing the [`ObjectId`] into every corresponding either_type bucket.
     ///
     /// # Arguments
-    /// * `type_defs` - The complete list of type declarations to determine the number of buckets.
+    /// * `type_defs` - The complete list of either_type declarations to determine the number of buckets.
     /// * `object_defs` - The objects (constants or problem-specific objects) to be registered.
-    /// * `init_size` - The initial capacity allocated for each type bucket.
+    /// * `init_size` - The initial capacity allocated for each either_type bucket.
     fn collect_objects(
         type_defs: &[TypedSymbol<TypeId, TypeId>],
         object_defs: &[TypedSymbol<ObjectId, TypeId>],
@@ -141,13 +141,13 @@ impl ValueRegistry {
     /// Retrieves the value domain for a specific [`Type`].
     ///
     /// # Panics
-    /// Panics if the provided type contains no primitive members or if the
+    /// Panics if the provided either_type contains no primitive members or if the
     /// internal hierarchy is malformed.
     pub fn get_type_domain(&self, ty: &Type<TypeId>) -> &ValueDomain {
         self.get_primitive_type_domain(ty.members()[0])
     }
 
-    /// Direct $O(1)$ access to a type domain via its [`TypeId`].
+    /// Direct $O(1)$ access to a either_type domain via its [`TypeId`].
     ///
     /// # Panics
     /// Panics if the `type_id` is out of bounds for this evaluator.
@@ -168,7 +168,7 @@ impl  ValueRegistry {
         }
 
         // --- MODIFICATION ICI ---
-        // Au lieu de quitter si c'est vide, on regarde l'ID de type le plus élevé
+        // Au lieu de quitter si c'est vide, on regarde l'ID de either_type le plus élevé
         // que l'on veut supporter, ou on s'assure d'une taille minimale.
         let max_id = grouped.keys()
             .map(|&tid| usize::from(tid))

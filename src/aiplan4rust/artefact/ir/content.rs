@@ -5,7 +5,7 @@
 //!
 //! Each `IRContent` variant corresponds directly to an `IRKind` and stores the
 //! associated content along with its serialization format (`SerdeFormat`). This
-//! design ensures type-safe access to the underlying data while preserving format
+//! design ensures either_type-safe access to the underlying data while preserving format
 //! information for serialization and deserialization.
 //!
 //! ## IRContent Variants
@@ -92,7 +92,7 @@ impl IRContent {
     /// - `&self`: Reference to the current `IRContent`.
     ///
     /// # Returns
-    /// - `IRKind`: The semantic type of this IR content (`ParsedDomain`, `ParsedProblem`, or `LiftedProblem`).
+    /// - `IRKind`: The semantic either_type of this IR content (`ParsedDomain`, `ParsedProblem`, or `LiftedProblem`).
     pub fn kind(&self) -> IRKind {
         match self {
             IRContent::ParsedDomain(_, _) => IRKind::ParsedDomain,

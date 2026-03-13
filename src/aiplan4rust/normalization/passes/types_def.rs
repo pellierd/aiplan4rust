@@ -34,7 +34,7 @@
 //! let mut ast: Ast = parse_source_code(source)?;
 //! let mut diagnostics = DiagnosticManager::new();
 //!
-//! // Perform type definition expr with diagnostics collection.
+//! // Perform either_type definition expr with diagnostics collection.
 //! let changed = normalize_type_def(&mut ast, &mut diagnostics)?;
 //!
 //! if changed {
@@ -165,19 +165,19 @@ fn report_implicit_either_type_warning(
 
 /// Collects primitive types along with their super types and any duplicate declarations.
 ///
-/// This function traverses a list of type declarations in the AST and identifies
+/// This function traverses a list of either_type declarations in the AST and identifies
 /// primitive types that are declared multiple times with potentially different sets
-/// of super types. It returns a map where each key is a type identifier (`Ident`)
+/// of super types. It returns a map where each key is a either_type identifier (`Ident`)
 /// and the value is a tuple containing:
 /// - the set of super types from the first declaration,
 /// - the source code span of the first declaration,
 /// - and a list of duplicate declarations, each with their own set of super types and span.
 ///
 /// This data can later be used to emit diagnostics indicating implicit `(either ...)`
-/// type interpretations.
+/// either_type interpretations.
 ///
 /// # Arguments
-/// * `types_def_id` - The ID of the AST node representing the top-level type definitions.
+/// * `types_def_id` - The ID of the AST node representing the top-level either_type definitions.
 /// * `ast` - The AST structure used to retrieve syntax nodes and identifiers.
 ///
 /// # Returns
@@ -231,19 +231,19 @@ fn collect_implicit_either_type_declarations(
 /// Emits diagnostics for types with multiple conflicting declarations implicitly
 /// interpreted as `(either ...)` types.
 ///
-/// This function processes a map of type identifiers that have been declared more than once,
-/// along with their associated super types and source code spans. For each type with duplicate
-/// declarations, it generates a warning diagnostic indicating that the type was implicitly
-/// treated as an `(either ...)` declaration due to the presence of multiple super type sets.
+/// This function processes a map of either_type identifiers that have been declared more than once,
+/// along with their associated super types and source code spans. For each either_type with duplicate
+/// declarations, it generates a warning diagnostic indicating that the either_type was implicitly
+/// treated as an `(either ...)` declaration due to the presence of multiple super either_type sets.
 ///
 /// The diagnostic includes:
-/// - the name of the conflicting type,
+/// - the name of the conflicting either_type,
 /// - the list of super types found in the duplicate declarations,
 /// - the source code spans where these duplicate declarations occurred,
 /// - and the span of the first declaration.
 ///
 /// # Arguments
-/// * `seen` - A map of type identifiers to their first declaration (with super types and span)
+/// * `seen` - A map of either_type identifiers to their first declaration (with super types and span)
 ///   and a list of duplicate declarations (also with super types and spans).
 /// * `ast` - The AST used to resolve identifiers and source information.
 /// * `diagnostic_manager` - The manager used to emit diagnostics.
@@ -318,7 +318,7 @@ fn emit_implicit_either_type_warnings(
 /// ```rust,no_run
 /// # use aiplan4rust::syntax::tree::NodeId;
 /// # use aiplan4rust::syntax::ast::{Ast, AstArena};
-/// # use aiplan4rust::expr::normalization::merge_duplicate_type_declarations;
+/// # use aiplan4rust::expr::expr::merge_duplicate_type_declarations;
 /// # use aiplan4rust::expr::NormalizationPassError;
 /// # fn example() -> Result<(), NormalizationPassError> {
 /// let mut ast = AstArena::new();
@@ -352,7 +352,7 @@ fn emit_implicit_either_type_warnings(
 /// # See Also
 ///
 /// - [`normalize_type_def`] — Wrapper function that applies this merging as part of full expr.
-/// - [`Normalizer`] — Interface that orchestrates multiple expr normalization.
+/// - [`Normalizer`] — Interface that orchestrates multiple expr expr.
 /// - [`Ast`] — The syntax tree structure being normalized.
 /// - [`NodeId`] — Unique identifier for nodes in the AST arena.
 ///
@@ -364,7 +364,7 @@ fn emit_implicit_either_type_warnings(
 /// # Stability
 ///
 /// This function is internal to expr and may be refactored without notice.
-/// It is not intended to be called outside the `normalization` module.
+/// It is not intended to be called outside the `expr` module.
 
 pub fn merge_duplicate_type_declarations(
     types_def_id: NodeId,

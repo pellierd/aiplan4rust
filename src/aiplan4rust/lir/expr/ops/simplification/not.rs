@@ -254,7 +254,7 @@ mod tests {
         // 3. Validation
         let root_node = expr.try_root_node()?;
 
-        // Le nœud doit rester de type Not
+        // Le nœud doit rester de either_type Not
         assert_eq!(root_node.kind(), ExprKind::Not);
 
         Ok(())

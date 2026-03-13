@@ -4,7 +4,6 @@ use test_case::test_case;
 use crate::common::io::*;
 use crate::common::pipeline::*;
 
-use aiplan4rust::type_flattening;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use aiplan4rust::aiplan4rust::lang::AtomSkeletonId;
@@ -37,9 +36,6 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
         let linking = link(d_res, p_res, &domain_path, problem_path).expect("Link failed");
         let mut lir_result = encode(linking, &domain_path, problem_path).expect("Encoding failed");
         let mut pb = lir_result.take_lifted_problem().expect("No lifted problem");
-
-        // --- Transformations ---
-        type_flattening::flatten(&mut pb).unwrap();
 
         // --- Analyse d'Inertie ---
         let table = analyze_inertia(&pb).unwrap();

@@ -6,14 +6,14 @@
 //! # Overview
 //!
 //! The semantic analysis phase verifies the correctness of the syntax tree beyond parsing,
-//! including symbol resolution, semantic checks, and type checking. This module defines:
+//! including symbol resolution, semantic checks, and either_type checking. This module defines:
 //!
 //! - **`Context`**: The main semantic context structure holding the semantically enriched AST,
 //!   symbol table, semantic requirements, and associated metadata.
 //! - **Error Types**: Semantic-related error enumerations and specific error types such as
 //!   `SemanticError`, `UnexpectedNodeKindError`, and `InvalidNodeArityError`.
 //! - **Symbol Table Management**: Structures and utilities for symbol resolution during semantic analysis.
-//! - **Analyzer Components**: Components that perform semantic checking and type checking.
+//! - **Analyzer Components**: Components that perform semantic checking and either_type checking.
 //!
 //! # Submodules
 //!
@@ -24,7 +24,7 @@
 //! - `checks`: Implements various semantic checks.
 //! - `context`: Defines the `Context` structure and its associated functionality.
 //! - `error`: Contains semantic error definitions and error handling utilities.
-//! - `type_checker`: Handles type checking ops and related operations.
+//! - `type_checker`: Handles either_type checking ops and related operations.
 //!
 //! # Usage Example
 //!
@@ -44,9 +44,9 @@
 //!
 //! # Error Handling
 //!
-//! The module uses `SemanticError` as a unified error type that encompasses
+//! The module uses `SemanticError` as a unified error either_type that encompasses
 //! errors from various semantic subcomponents such as symbol table errors,
-//! type checking errors, and unexpected AST node errors.
+//! either_type checking errors, and unexpected AST node errors.
 //!
 //! This design enables streamlined error propagation and reporting during
 //! semantic analysis.

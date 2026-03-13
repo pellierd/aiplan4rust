@@ -1,17 +1,12 @@
-use itertools::Itertools;
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::{config, problem, GroundingResult};
+use crate::aiplan4rust::grounding::{config, GroundingResult};
 use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaEvaluator;
-use crate::aiplan4rust::grounding::analysis::reachability::datalog::DatalogEngine;
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::grounding::passes::{positive_form_normalization, quantifier_expansion, type_flattening};
+use crate::aiplan4rust::grounding::passes::quantifier_expansion;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lang::ids;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::renderers;
-use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 use crate::analysis::inertia::InertiaTable;
-use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::DiagnosticManager;
 
 /// The `Grounder` is responsible for converting a lifted planning problem
@@ -62,15 +57,6 @@ impl Grounder {
         mut lifted_problem: LiftedProblem,
     ) -> Result<GroundingResult, GroundingError> {
 
-        // 1. TYPE FLATTENING : On résout la hiérarchie (A est un B).
-        // Obligatoire avant tout car tout le reste en dépend.
-        let types_before = lifted_problem.type_defs().len();
-        let objects_before = lifted_problem.object_defs().len();
-        println!("--- DEBUG PRE-FLATTEN ---");
-        println!("Types count: {}", types_before);
-        println!("Objects count: {}", objects_before);
-        type_flattening::flatten(&mut lifted_problem)?;
-        println!("{}", lifted_problem);
 
         let types_after = lifted_problem.type_defs().len();
         let objects_after = lifted_problem.object_defs().len();
@@ -82,7 +68,7 @@ impl Grounder {
         for obj in lifted_problem.object_defs() {
             for &ty_id in obj.ty().members() {
                 if ty_id.as_usize() >= types_after {
-                    println!("FATAL: Object {} has type ID {} but max type ID is {}",
+                    println!("FATAL: Object {} has either_type ID {} but max either_type ID is {}",
                              obj.symbol().as_usize(), ty_id.as_usize(), types_after - 1);
                 }
             }
@@ -97,7 +83,7 @@ impl Grounder {
             println!("Object {:?}: Type Members={:?}", obj.symbol(), obj.ty().members());
         }
 
-        panic!("");
+
         // 2. OBJECT FLUENT FLATTENING
         // TO DO
 
@@ -106,7 +92,7 @@ impl Grounder {
         println!("--- DIAGNOSTIC DES INERTIES ---");
         println!("{}", table.to_string());
         // 3. VALUE REGISTRY CONSTRUCTION
-        // We pass type/object definitions separately and inject the initial size config.
+        // We pass either_type/object definitions separately and inject the initial size config.
         let registry = ValueRegistry::build(
             lifted_problem.type_defs(),
             lifted_problem.object_defs(),
@@ -136,7 +122,7 @@ impl Grounder {
         //print!("{}", lifted_problem.problem_view().to_syntax_string());
         //println!("{}", lifted_problem);
         // 6. PNF
-
+        panic!();
         /*let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
 
         let mut datalog = DatalogEngine::new();
@@ -239,7 +225,7 @@ impl Grounder {
 
         for fluent in reachable_fluents {
             // 1. Extraction de l'ID du prédicat (qui peut avoir le MSB à 1)
-            let sk_id = fluent.symbol(); // Supposons que cela retourne ton type PredicateId
+            let sk_id = fluent.symbol(); // Supposons que cela retourne ton either_type PredicateId
 
             if let Some(predicat_def) = lifted_problem.predicate_defs().get(sk_id.as_usize()) {
                 let predicate_id = predicat_def.symbol();

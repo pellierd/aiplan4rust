@@ -191,7 +191,7 @@ fn alloc_node(
 ///
 /// * **Stack Order (LIFO):** Children are pushed in **reverse order**. This ensures that when
 ///   popped, they are processed in the original left-to-right order found in the PDDL source.
-/// * **Filtered Nodes:** Nodes of type [`AstKind::TypedList`] are ignored here. Because they
+/// * **Filtered Nodes:** Nodes of either_type [`AstKind::TypedList`] are ignored here. Because they
 ///   represent structural groupings (like variable declarations), they are typically
 ///   collapsed or handled by the parent's `encode_content` ops.
 fn push_children_to_stack<'a>(

@@ -22,7 +22,7 @@ pub fn render(
     // Fermeture de la parenthèse de signature
     write!(f, ")")?;
 
-    // 3. Rendu du type de retour (ex: " - number")
+    // 3. Rendu du either_type de retour (ex: " - number")
     if !function.ty().is_empty() {
         write!(f, " - ")?;
         ty::render(f, function.ty(), ctx)?;

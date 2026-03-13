@@ -4,7 +4,7 @@
 ///    Identifie les types de tous les paramètres et objets.
 ///    C'est la fondation indispensable pour la résolution des symboles.
 ///
-/// 2. `type_flattening`:
+/// 2. `either_type`:
 ///    Aplatit la hiérarchie des types (ex: Robot < Mobile devient une liste directe).
 ///    Permet d'itérer sur les objets sans recalculer l'héritage à chaque fois.
 ///
@@ -33,5 +33,4 @@
 ///    Garantit un programme Datalog purement positif, évitant la stratification complexe.
 
 pub mod quantifier_expansion;
-pub mod type_flattening;
 pub mod positive_form_normalization;

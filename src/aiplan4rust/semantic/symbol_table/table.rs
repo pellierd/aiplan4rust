@@ -717,7 +717,7 @@ impl Table {
     /// This function calls [`resolve_declaration`] internally to attempt to find a declaration
     /// matching the provided symbol name, usage kind, and scope. Unlike `resolve_declaration`
     /// which returns an `Option`, this method converts the `None` case into a `SymbolTableError`
-    /// of type `SymbolDeclarationNotFound`, enforcing that a declaration *must* be found.
+    /// of either_type `SymbolDeclarationNotFound`, enforcing that a declaration *must* be found.
     ///
     /// # Parameters
     /// - `symbol_name`: The identifier of the symbol to resolve.
@@ -830,7 +830,7 @@ impl Table {
     /// - One other compatible kind may exist, but not more.
     ///
     /// # Returns
-    /// - `Ok(Some(&Declaration))`: If validation normalization.
+    /// - `Ok(Some(&Declaration))`: If validation expr.
     /// - `Ok(None)`: If no matching declaration exists.
     /// - `Err`: If validation fails due to ambiguity or incompatible kinds.
     fn validate_type_or_predicate_declarations<'a>(
@@ -1065,7 +1065,7 @@ impl TryFrom<&Ast> for SymbolTable {
 impl fmt::Display for Table {
     /// Formats the entire `Table` as a user-friendly string.
     ///
-    /// This method implements the `Display` trait for the `Table` type,
+    /// This method implements the `Display` trait for the `Table` either_type,
     /// allowing the table to be printed or logged conveniently. It
     /// formats each symbol stored in the table on its own line.
     ///

@@ -6,7 +6,7 @@
 //! # Submodules
 //!
 //! - [`content`]: Defines the `RawContent` struct and related methods for representing
-//!   the textual content of raw domain and problem files, along with their type and language.
+//!   the textual content of raw domain and problem files, along with their either_type and language.
 //!
 //! - [`kind`]: Defines the `RawKind` enum used to distinguish between domain and problem files.
 
@@ -20,7 +20,7 @@
 /// This module provides constructors, accessors, and formatting utilities.
 pub(super) mod content;
 
-/// Defines the type of raw planning file.
+/// Defines the either_type of raw planning file.
 ///
 /// `RawKind` distinguishes between domain and problem files, enabling
 /// the pipeline to correctly handle parsing, linking, and validation.

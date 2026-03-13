@@ -2,7 +2,7 @@
 //!
 //! This module provides abstractions and utilities for handling different types of sources
 //! (raw, intermediate representation, unknown text, unknown binary) used in the planning pipeline.
-//! It allows reading, identifying, and accessing content in a type-safe way while preserving
+//! It allows reading, identifying, and accessing content in a either_type-safe way while preserving
 //! file provenance information.
 //!
 //! # Concepts
@@ -10,7 +10,7 @@
 //! - **Source**: Represents a single input artifact. A `Source` can be:
 //!   - `Raw`: A raw textual source, e.g., PDDL or HDDL.
 //!   - `IR`: An intermediate representation of a domain or problem.
-//!   - `Text`: An unknown text source whose type could not be determined.
+//!   - `Text`: An unknown text source whose either_type could not be determined.
 //!   - `Binary`: An unknown binary source.
 //!
 //! - **ArtefactError**: Enumerates all possible errors that can occur while reading,
@@ -29,7 +29,7 @@
 //! match source {
 //!     Source::Raw { .. } => println!("Raw source detected"),
 //!     Source::IR { .. } => println!("IR source detected"),
-//!     Source::Text { .. } | Source::Binary { .. } => println!("Unknown source type"),
+//!     Source::Text { .. } | Source::Binary { .. } => println!("Unknown source either_type"),
 //! }
 //! # Ok::<(), ArtefactError>(())
 //! ```
@@ -45,12 +45,12 @@
 //!
 //! # Detection helpers
 //!
-//! `Source` provides utility methods to check its type and contents:
+//! `Source` provides utility methods to check its either_type and contents:
 //! - `is_raw`, `is_ir`, `is_text`, `is_binary`
 //! - `is_raw_domain`, `is_raw_problem`, `is_raw_pddl`, `is_raw_hddl`
 //! - `is_parsed_domain`, `is_parsed_problem`, `is_lifted_problem`
 //!
-//! These helpers make it easy to branch ops depending on the type of the source.
+//! These helpers make it easy to branch ops depending on the either_type of the source.
 //!
 //! # Example: Reading and accessing content
 //!
@@ -84,7 +84,7 @@ use crate::aiplan4rust::syntax::lexer::Token;
 /// A `Source` can be one of several types, representing different stages or forms of input:
 /// - `Raw`: A textual source in PDDL or HDDL format, containing a `RawContent`.
 /// - `IR`: An intermediate representation (IR) of a domain or problem, containing an `IRContent`.
-/// - `Text`: An unknown text source whose structure or type could not be determined.
+/// - `Text`: An unknown text source whose structure or either_type could not be determined.
 /// - `Binary`: An unknown binary source whose content could not be classified.
 ///
 /// Each variant stores the path from which the source was read, allowing for
@@ -126,7 +126,7 @@ pub enum Source {
         content: IRContent,
     },
 
-    /// An unknown text source, where the type or structure could not be determined.
+    /// An unknown text source, where the either_type or structure could not be determined.
     /// Stores the file path and raw string content.
     Text {
         /// Path to the text source file.
@@ -135,7 +135,7 @@ pub enum Source {
         content: String,
     },
 
-    /// An unknown binary source, where the type could not be determined.
+    /// An unknown binary source, where the either_type could not be determined.
     /// Stores the file path and binary content.
     Binary {
         /// Path to the binary source file.
@@ -217,7 +217,7 @@ impl Source {
         }
     }
 
-    /// Attempts to create a `Source` from any type that implements `AsRef<Path>`.
+    /// Attempts to create a `Source` from any either_type that implements `AsRef<Path>`.
     ///
     /// This is a convenience wrapper around `TryFrom<&Path>` which allows passing
     /// `Path`, `PathBuf`, or `&str`.
@@ -270,7 +270,7 @@ impl TryFrom<&Path> for Source {
     /// match source {
     ///     Source::Raw { .. } => println!("Raw source detected"),
     ///     Source::IR { .. } => println!("IR source detected"),
-    ///     Source::Text { .. } | Source::Binary { .. } => println!("Unknown source type"),
+    ///     Source::Text { .. } | Source::Binary { .. } => println!("Unknown source either_type"),
     /// }
     /// # Ok::<(), ArtefactError>(())
     /// ```
@@ -584,7 +584,7 @@ impl Source {
     /// ```rust,ignore
     /// let source: Source = ...;
     /// if let Some(ir) = source.ir_content() {
-    ///     println!("IR content type: {:?}", ir.kind());
+    ///     println!("IR content either_type: {:?}", ir.kind());
     /// }
     /// ```
     pub fn ir_content(&self) -> Option<&IRContent> {
@@ -607,7 +607,7 @@ impl Source {
     /// ```rust,ignore
     /// let source: Source = ...;
     /// match source.try_ir_content() {
-    ///     Ok(ir) => println!("IR content type: {:?}", ir.kind()),
+    ///     Ok(ir) => println!("IR content either_type: {:?}", ir.kind()),
     ///     Err(e) => eprintln!("Source is not IR: {}", e),
     /// }
     /// ```
@@ -922,7 +922,7 @@ impl Source {
     }
 }
 
-/// Infers the type of a raw source based on its textual content.
+/// Infers the either_type of a raw source based on its textual content.
 ///
 /// This function attempts to determine whether the raw source represents
 /// a PDDL/HDDL domain or problem by scanning the initial tokens for the
@@ -936,7 +936,7 @@ impl Source {
 ///
 /// * `Some(RawKind::Domain)` if the source appears to define a domain.
 /// * `Some(RawKind::Problem)` if the source appears to define a problem.
-/// * `None` if the type cannot be inferred.
+/// * `None` if the either_type cannot be inferred.
 ///
 /// # Notes
 ///

@@ -1,7 +1,7 @@
 //! Module representing raw planning file content.
 //!
 //! This module defines the `RawContent` struct, which encapsulates the
-//! contents of a raw planning file (PDDL or HDDL). It stores the type of
+//! contents of a raw planning file (PDDL or HDDL). It stores the either_type of
 //! the file (`RawKind`), its planning language (`Language`), and the actual
 //! textual content. `RawContent` is typically used as part of the `Source`
 //! abstraction in the planning pipeline.
@@ -34,7 +34,7 @@ use crate::Language;
 /// Represents the contents of a raw planning file (domain or problem).
 ///
 /// `RawContent` stores:
-/// - The type of the file (`RawKind`),
+/// - The either_type of the file (`RawKind`),
 /// - The planning language (`Language`),
 /// - The actual textual content (`inner`).
 ///

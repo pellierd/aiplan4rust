@@ -314,7 +314,7 @@ impl<'a> InertiaEvaluator<'a> {
         // 4. Logique de décision et Fallback PDDL
         if self.all_args_grounded(node, expr) {
             if value.is_none() {
-                // Si aucune valeur n'est trouvée, on vérifie le type de retour
+                // Si aucune valeur n'est trouvée, on vérifie le either_type de retour
                 let def = &self.function_defs[func_id.as_usize()];
 
                 // Standard PDDL : une fonction numérique non initialisée vaut 0.0

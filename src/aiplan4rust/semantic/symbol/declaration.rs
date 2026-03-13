@@ -9,7 +9,7 @@
 //! - **SymbolRef**: A reference to a declared symbol, including its identifier and kind (variable, function, etc.).
 //! - **Scope**: The visibility and lifetime context of the declaration (e.g., global, local).
 //! - **SymbolOrigin**: Origin domain of the symbol, typically indicating if it comes from the domain model or problem context.
-//! - **Type** and **TypedList**: Optional type annotations for the symbol and its parameters.
+//! - **Type** and **TypedList**: Optional either_type annotations for the symbol and its parameters.
 //! - **Span**: Source code range indicating where the declaration occurs.
 //! - **NodeId**: The unique AST node identifier associated with the declaration.
 //!
@@ -17,7 +17,7 @@
 //!
 //! The `Declaration` struct:
 //! - Encapsulates all relevant data about a symbol declaration for semantic analysis.
-//! - Supports remapping of identifiers, useful in symbol transformations or expr normalization.
+//! - Supports remapping of identifiers, useful in symbol transformations or expr expr.
 //! - Provides formatting helpers to display symbol types and arguments, with or without resolving interned strings.
 //! - Implements `fmt::Display` for human-readable string representations of declarations.
 //! - Implements `InternerDisplay` to format declarations using a `StringInterner` for readable names.

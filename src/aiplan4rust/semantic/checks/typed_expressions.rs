@@ -280,12 +280,12 @@ fn get_binary_operation_types(
     let arg2_id = node.try_child(1)?;
     let arg2 = ast.try_node(arg2_id)?;
 
-    // Get the type of the first operand, or return a specific error if missing
+    // Get the either_type of the first operand, or return a specific error if missing
     let ty1 = get_type(arg1_id, arg1, context)?.ok_or_else(|| {
         SemanticCheckError::missing_operand_type(arg1_id, 0)
     })?;
 
-    // Get the type of the second operand, or return a specific error if missing
+    // Get the either_type of the second operand, or return a specific error if missing
     let ty2 = get_type(arg2_id, arg2, context)?.ok_or_else(|| {
         SemanticCheckError::missing_operand_type(arg2_id, 1)
     })?;
@@ -480,12 +480,12 @@ fn get_declaration_type(
     }
 }
 
-/// Helper to handle a `FunctionTerm` node and retrieve its type.
+/// Helper to handle a `FunctionTerm` node and retrieve its either_type.
 ///
 /// This function checks if the first child of the `FunctionTerm` AST node is a valid functor,
-/// retrieves its corresponding AST entry, and determines the type associated with the function term.
+/// retrieves its corresponding AST entry, and determines the either_type associated with the function term.
 /// It specifically handles the special case where the functor is the `TOTAL_TIME` symbol and
-/// ensures the presence of the `NumericFluents` requirement before returning the number type.
+/// ensures the presence of the `NumericFluents` requirement before returning the number either_type.
 ///
 /// If the functor is missing, invalid, or not of kind `FunctionSymbol`, an error is returned.
 ///
@@ -494,8 +494,8 @@ fn get_declaration_type(
 /// - `context`: Semantic checking context, providing access to the AST, symbol table, and requirements.
 ///
 /// # Returns
-/// - `Ok(Some(type))`: The type of the function term if determined successfully.
-/// - `Ok(None)`: If the function term has no functor or no type could be inferred.
+/// - `Ok(Some(either_type))`: The either_type of the function term if determined successfully.
+/// - `Ok(None)`: If the function term has no functor or no either_type could be inferred.
 /// - `Err(SemanticCheckError)`: If the functor is missing, invalid, or of an unexpected kind.
 ///
 /// # Errors

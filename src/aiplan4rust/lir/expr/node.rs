@@ -193,12 +193,12 @@ impl Node for ExprNode {
 
     /// Returns the kind of the node.
     ///
-    /// The kind represents the type of expression the node encodes,
+    /// The kind represents the either_type of expression the node encodes,
     /// for example `AtomicFormula`, `FComp`, `And`, `Or`, `AtStart`, etc.
     ///
     /// # Returns
     ///
-    /// The current kind of the node, of type `ExprKind`.
+    /// The current kind of the node, of either_type `ExprKind`.
     ///
     /// # Example
     /// ```
@@ -213,7 +213,7 @@ impl Node for ExprNode {
     /// Sets the kind of the node.
     ///
     /// This replaces the current kind of the node with the specified one.
-    /// It does not modify the node's children or content; it only changes the type of the node.
+    /// It does not modify the node's children or content; it only changes the either_type of the node.
     ///
     /// # Arguments
     ///

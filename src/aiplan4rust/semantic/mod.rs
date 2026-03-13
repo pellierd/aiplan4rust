@@ -1,7 +1,7 @@
 //! Semantic analysis module for AIPlan4Rust.
 //!
 //! This module provides the common functionality and types for performing semantic analysis,
-//! including AST validation, symbol table construction, type checking, and context management.
+//! including AST validation, symbol table construction, either_type checking, and context management.
 //!
 //! It is organized into several submodules:
 //!
@@ -17,7 +17,7 @@
 //! This module re-exports the key types and traits to provide a unified API:
 //! - [`AnalyzerResult`]: Result of the semantic analysis process.
 //! - [`Analyzer`]: The semantic analyzer struct.
-//! - [`SymbolTable`]: Symbol table type.
+//! - [`SymbolTable`]: Symbol table either_type.
 //! - [`TypeChecker`]: Type checking utility.
 //! - [`SemanticError`], [`UnexpectedNodeKindError`], [`InvalidNodeArityError`]: Error types.
 //! - [`SemanticContext`]: Context wrapper for semantic verification.

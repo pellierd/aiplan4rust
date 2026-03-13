@@ -24,7 +24,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 ///
 /// 1. **Quantifier Expansion**: All `FORALL` and `EXISTS` nodes must be expanded into
 ///    their respective `AND`/`OR` equivalent grounded structures.
-/// 2. **Type Flattening**: The PDDL type hierarchy must be flattened. Datalog operates
+/// 2. **Type Flattening**: The PDDL either_type hierarchy must be flattened. Datalog operates
 ///    on flat sets; any complex inheritance must be resolved amont.
 /// 3. **Object Fluent Flattening**: Functions (object fluents) must be converted into
 ///    relational predicates (e.g., `(at ?robot (location_of ?target))` -> `(at ?robot ?loc) ^ (is_at ?target ?loc)`).
@@ -115,7 +115,7 @@ impl DatalogEncoder {
     ///
     /// # Returns
     ///
-    /// The unique [`AtomSkeletonId`] representing this type.
+    /// The unique [`AtomSkeletonId`] representing this either_type.
     /// The mapping to the original `TypeId` is implicit:
     /// `TypeId = sk_id - fluence_threshold`.
     ///
@@ -451,7 +451,7 @@ impl DatalogEncoder {
                         let child_node = expr.try_node(child_id)?;
                         let child_kind = child_node.kind();
 
-                        // 2. Vérification du type (Comparison) et de l'opérateur (Equal uniquement)
+                        // 2. Vérification du either_type (Comparison) et de l'opérateur (Equal uniquement)
                         let is_valid_comparison = if child_kind == ExprKind::Comparison {
                             // On vérifie si l'opérateur est bien "Equal"
                             child_node.content().try_compare_op()? == CompareOp::Equal

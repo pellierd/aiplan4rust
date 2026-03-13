@@ -38,7 +38,7 @@ pub enum SemanticCheckError {
     #[error(transparent)]
     UnexpectedAstKind(#[from] UnexpectedNodeKindError),
 
-    #[error("No type declared for operand {operand_index} in binary operation at node {node_id:?}.")]
+    #[error("No either_type declared for operand {operand_index} in binary operation at node {node_id:?}.")]
     MissingOperandType {
         node_id: NodeId,
         operand_index: usize,
@@ -70,21 +70,21 @@ pub enum SemanticCheckError {
     #[error("Cycle detail cannot be empty — internal inconsistency")]
     EmptyCycleDetail,
 
-    #[error("Type index {index} for type '{type_name}' is out of bounds (max {max})")]
+    #[error("Type index {index} for either_type '{type_name}' is out of bounds (max {max})")]
     TypeIndexOutOfBounds {
         index: usize,
         type_name: SymbolId,
         max: usize,
     },
 
-    #[error("Parent index {index} for parent type '{parent_name}' is out of bounds (max {max})")]
+    #[error("Parent index {index} for parent either_type '{parent_name}' is out of bounds (max {max})")]
     ParentIndexOutOfBounds {
         index: usize,
         parent_name: SymbolId,
         max: usize,
     },
 
-    #[error("Object type index {index} is out of bounds (max {max})")]
+    #[error("Object either_type index {index} is out of bounds (max {max})")]
     ObjectIndexOutOfBounds {
         index: usize,
         max: usize,
@@ -126,7 +126,7 @@ impl SemanticCheckError {
         let caller = Location::caller();
 
         let msg = format!(
-            "[{}:{}] Missing operand type for node {:?} at index {}",
+            "[{}:{}] Missing operand either_type for node {:?} at index {}",
             caller.file(),
             caller.line(),
             node_id,

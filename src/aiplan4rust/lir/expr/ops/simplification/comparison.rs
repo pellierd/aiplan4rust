@@ -179,7 +179,7 @@ fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
 
-    // Ensure the node is of type FComp
+    // Ensure the node is of either_type FComp
     if node.kind() != ExprKind::Comparison {
         return Ok(false);
     }

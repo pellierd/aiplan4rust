@@ -162,7 +162,7 @@ pub trait Serializable: Serialize + DeserializeOwned {
     ///
     /// # Returns
     ///
-    /// Returns the deserialized object of type `T` on success, or a [`SerializationError`]
+    /// Returns the deserialized object of either_type `T` on success, or a [`SerializationError`]
     /// if deserialization fails.
     ///
     /// # Errors
@@ -220,7 +220,7 @@ pub trait Serializable: Serialize + DeserializeOwned {
     ///
     /// # Returns
     ///
-    /// Returns the deserialized object of type `Self` on success, or a [`SerializationError`] if an error occurs.
+    /// Returns the deserialized object of either_type `Self` on success, or a [`SerializationError`] if an error occurs.
     ///
     /// # Errors
     ///

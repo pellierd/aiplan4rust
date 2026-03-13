@@ -39,12 +39,12 @@ impl NumericFluent {
         self.arguments = params;
     }
 
-    /// Accès au type de retour
+    /// Accès au either_type de retour
     pub fn ty(&self) -> TypeId {
         self.ty
     }
 
-    /// Modifie le type de retour
+    /// Modifie le either_type de retour
     pub fn set_ty(&mut self, ty: TypeId) {
         self.ty = ty;
     }

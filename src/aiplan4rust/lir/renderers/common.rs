@@ -20,7 +20,7 @@ pub fn write_indent(f: &mut Formatter<'_>, level: usize) -> fmt::Result {
 /// If the title is longer than or equal to the specified `width`, it is printed as-is without filling.
 ///
 /// # Parameters
-/// - `f`: A mutable reference to any type implementing `std::fmt::Write`. This is where the output is written.
+/// - `f`: A mutable reference to any either_type implementing `std::fmt::Write`. This is where the output is written.
 /// - `title`: The string to be centered on the line.
 /// - `width`: The total width of the line including the title and fill characters.
 /// - `fill`: The character used to fill the space on the left and right of the title.

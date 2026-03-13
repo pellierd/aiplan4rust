@@ -9,7 +9,7 @@
 //! - **Magic Number**: A fixed identifier (`AIPL`) to distinguish files created by this application.
 //! - **Version**: Tracks the version of the serialized format.
 //! - **Format**: Serialization format used (`SerdeFormat`), e.g., JSON or binary.
-//! - **IRKind**: Indicates the type of intermediate representation (e.g., parsed domain, parsed problem, lifted problem).
+//! - **IRKind**: Indicates the either_type of intermediate representation (e.g., parsed domain, parsed problem, lifted problem).
 //! - **Generated Timestamp**: Stores the UTC time when the file was created.
 //!
 //! The `Header` is always serialized before the payload, separated by a constant delimiter `HEADER_PAYLOAD_SEPARATOR`.
@@ -93,7 +93,7 @@ impl Header {
     /// Returns the serialization format used.
     pub fn format(&self) -> SerdeFormat { self.format }
 
-    /// Returns the type of intermediate representation.
+    /// Returns the either_type of intermediate representation.
     pub fn ir_kind(&self) -> IRKind { self.kind }
 
     /// Returns the UTC timestamp when the file was generated.

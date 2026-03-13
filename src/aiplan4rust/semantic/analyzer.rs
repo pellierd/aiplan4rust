@@ -7,12 +7,12 @@
 //!
 //! The `Analyzer` is responsible for:
 //! - Validating the semantic correctness of the input AST.
-//! - Detecting and reporting semantic errors such as undeclared symbols, unused symbols, type mismatches,
+//! - Detecting and reporting semantic errors such as undeclared symbols, unused symbols, either_type mismatches,
 //!   and task ordering violations.
 //! - Managing diagnostics (errors, warnings, and informational messages) during analysis.
 //!
 //! The analysis supports two primary root AST kinds:
-//! - `Domain`: checks related to domain specifications (e.g., symbol declarations, type hierarchies, expr).
+//! - `Domain`: checks related to domain specifications (e.g., symbol declarations, either_type hierarchies, expr).
 //! - `Problem`: checks related to problem instances within a domain (e.g., symbol usage, task ordering).
 //!
 //! ## Main Types
@@ -54,7 +54,7 @@
 //! ## Error Handling
 //!
 //! Semantic errors are returned as variants of [`SemanticError`]. These may include unexpected AST node kinds,
-//! type errors, symbol resolution errors, and other domain-specific semantic validation failures.
+//! either_type errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::normalization::NormalizerResult;
@@ -237,7 +237,7 @@ impl Analyzer {
 
     /// Checks the domain part of the syntax arena with domain-specific semantic validations.
     ///
-    /// The checks include verifying symbol declarations, type hierarchies, atomic formulas,
+    /// The checks include verifying symbol declarations, either_type hierarchies, atomic formulas,
     /// typed expr, task ordering, and requirement violations.
     ///
     /// # Parameters
@@ -263,7 +263,7 @@ impl Analyzer {
             diagnostic_manager,
         )?;
 
-        // Check type hierarchy correctness
+        // Check either_type hierarchy correctness
         checked &= semantic::checks::check_type_hierarchy(
             context,
             Provider::Analyzer,
@@ -271,10 +271,10 @@ impl Analyzer {
         )?;
 
         if checked {
-            // Build type checker from symbol table
+            // Build either_type checker from symbol table
             let type_checker = TypeChecker::new(context.symbol_table());
 
-            // Perform detailed semantic checks using type checker
+            // Perform detailed semantic checks using either_type checker
             checked &= semantic::checks::check_declared_symbol_signatures(
                 context,
                 &type_checker,

@@ -17,7 +17,7 @@
 //!
 //! # Usage
 //!
-//! This error type is used throughout arena node operations to provide precise
+//! This error either_type is used throughout arena node operations to provide precise
 //! feedback on failure modes, aiding in debugging and robust error handling.
 //!
 //! # Example

@@ -4,12 +4,11 @@ use test_case::test_case;
 use crate::common::io::*;
 use crate::common::pipeline::*;
 
-use aiplan4rust::type_flattening;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
 use aiplan4rust::aiplan4rust::grounding::config;
 use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use aiplan4rust::aiplan4rust::lang::{TypeId, Type, ObjectId, VariableId, AtomSkeletonId, PredicateSymbolId};
+use aiplan4rust::aiplan4rust::lang::{AtomSkeletonId, ObjectId, PredicateSymbolId, Type, TypeId, VariableId};
 use aiplan4rust::aiplan4rust::lir::expr::Expr;
 use aiplan4rust::aiplan4rust::lir::expr::builder::ExprBuilder;
 use aiplan4rust::aiplan4rust::lir::expr::ops::StaticEvaluator;
@@ -63,7 +62,6 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
         let mut pb = lir_result.take_lifted_problem().expect("No lifted problem");
 
         // 1. Préparation de l'évaluateur
-        type_flattening::flatten(&mut pb).unwrap();
         let table = analyze_inertia(&pb).expect("Inertia analysis failed");
 
         let registry = ValueRegistry::build(
@@ -161,7 +159,7 @@ fn build_test_expression(
                 arg_nodes.push(builder.constant(*obj));
             }
             None => {
-                // Pas d'objet (type vide) : on crée une Variable pour tester le symbolique
+                // Pas d'objet (either_type vide) : on crée une Variable pour tester le symbolique
                 arg_nodes.push(builder.variable(VariableId::from(i)));
             }
         }

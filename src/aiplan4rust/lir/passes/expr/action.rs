@@ -23,7 +23,7 @@ pub fn normalize(action: &mut ActionDef) -> Result<(), ExprOpError> {
     }
 
     // 2. Normalisation de la précondition / condition
-    // L'accesseur precondition_mut() renvoie la condition correcte selon le type d'action
+    // L'accesseur precondition_mut() renvoie la condition correcte selon le either_type d'action
     ops::normalize(action.precondition_mut())?;
 
     // 3. Normalisation de l'effet

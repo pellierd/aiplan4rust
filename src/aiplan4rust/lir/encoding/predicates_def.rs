@@ -35,11 +35,11 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Returns
 ///
 /// * `Ok(())` - If all predicate signatures were successfully encoded and registered.
-/// * `Err(LirError)` - If a predicate structure is invalid or type resolution fails.
+/// * `Err(LirError)` - If a predicate structure is invalid or either_type resolution fails.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem, // On utilise le type Problem tel que défini dans ton fichier
+    ir: &mut LiftedProblem, // On utilise le either_type Problem tel que défini dans ton fichier
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
 

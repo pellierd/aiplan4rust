@@ -13,7 +13,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Represents errors that may occur during the expr pass of the compiler.
 ///
-/// This error type wraps various underlying error types from different stages of the compiler pipeline,
+/// This error either_type wraps various underlying error types from different stages of the compiler pipeline,
 /// including arena allocation, syntax tree analysis, and symbol interning.
 ///
 /// Each variant uses the `#[from]` attribute to allow automatic conversion via the `?` operator.

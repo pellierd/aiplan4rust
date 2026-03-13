@@ -69,8 +69,8 @@ pub enum SerializationError {
     #[error("Invalid or missing header in serialized data")]
     InvalidHeader,
 
-    /// Returned when the type of the serialized object is not supported.
-    #[error("Unsupported object type for serialization")]
+    /// Returned when the either_type of the serialized object is not supported.
+    #[error("Unsupported object either_type for serialization")]
     SerializationUnsupportedType,
 }
 
@@ -122,8 +122,8 @@ impl SerializationError {
 
     /// Constructs a `SerializationUnsupportedType` error.
     ///
-    /// This error occurs when attempting to serialize an object whose type
-    /// is not supported by the serialization system, e.g., a type not listed
+    /// This error occurs when attempting to serialize an object whose either_type
+    /// is not supported by the serialization system, e.g., a either_type not listed
     /// in `SerdeSerializableType`.
     pub fn unsupported_serialization_type() -> Self {
         Self::SerializationUnsupportedType

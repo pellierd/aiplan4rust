@@ -18,7 +18,7 @@
 //! # Key Functions
 //!
 //! - [`Linker::link`]: Performs full semantic linking and verification.
-//! - [`perform_linking_checks`]: Runs semantic and structural verification normalization.
+//! - [`perform_linking_checks`]: Runs semantic and structural verification expr.
 //!
 //! # Usage Example
 //!
@@ -180,7 +180,7 @@ impl Linker {
 
 /// Performs semantic and structural linking checks between a domain and a problem.
 ///
-/// This function runs a sequence of verification normalization to ensure the compatibility and
+/// This function runs a sequence of verification expr to ensure the compatibility and
 /// coherence between a domain and a problem during the linking phase. It emits diagnostics
 /// (warnings and errors) via the provided `DiagnosticManager`.
 ///
