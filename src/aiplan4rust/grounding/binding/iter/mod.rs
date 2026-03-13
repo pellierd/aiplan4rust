@@ -13,5 +13,8 @@ pub mod iter;
 /// Error types specific to the binding iteration process.
 pub mod error;
 
+#[cfg(test)]
+mod iter_tests;
+
 pub use iter::BindingsIterator;
 pub use error::BindingsIteratorError;

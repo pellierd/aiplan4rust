@@ -1,6 +1,5 @@
 use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ObjectId, PredicateSymbolId, TypeId};
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
-use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::grounding::problem::Fluent;
 use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
@@ -10,6 +9,7 @@ use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
+use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 
 /// Represents a fully grounded PDDL problem.
@@ -40,7 +40,7 @@ pub struct Problem {
 
     constant_offset: usize,
     /// List of value domains for types
-    type_objects: Vec<ValueDomain>,
+    type_objects: ValueRegistry,
 
     /// List of fluents (predicates grounded)
     fluents: Vec<Fluent>,
@@ -85,7 +85,7 @@ impl Problem {
 
             // Value domains and fluents are initialized empty.
             // They serve as placeholders for the subsequent grounding phase.
-            type_objects: Vec::new(),
+            type_objects: ValueRegistry::empty(),
             fluents: Vec::new(),
             numeric_fluents: Vec::new(),
         }
@@ -114,7 +114,7 @@ impl Problem {
             functions_def: Vec::new(),
             task_symbols: SymbolRegistry::new(),
             object_symbols: SymbolRegistry::new(),
-            type_objects: Vec::new(),
+            type_objects: ValueRegistry::empty(),
             object_defs: Vec::new(),
             fluents: Vec::new(),
             numeric_fluents: Vec::new(),
@@ -209,18 +209,18 @@ impl Problem {
     // ---------- Type objects ----------
 
     /// Returns a reference to the either_type domains (values associated with each either_type).
-    pub fn type_objects(&self) -> &Vec<ValueDomain> {
+    pub fn type_objects(&self) -> &ValueRegistry {
         &self.type_objects
     }
 
     /// Returns a mutable reference to the either_type domains.
-    pub fn type_objects_mut(&mut self) -> &mut Vec<ValueDomain> {
+    pub fn type_objects_mut(&mut self) -> &mut ValueRegistry {
         &mut self.type_objects
     }
 
     /// Replaces the current either_type domains with the provided one.
-    pub fn set_type_objects(&mut self, domains: Vec<ValueDomain>) {
-        self.type_objects = domains;
+    pub fn set_type_objects(&mut self, registry: ValueRegistry) {
+        self.type_objects = registry;
     }
 
     // ------------------- PREDICATES -------------------
@@ -387,14 +387,8 @@ impl fmt::Display for Problem {
         }
 
         // ---------- Object Type Domains ----------
-        writeln!(f, "\nType Domains Table:")?;
-        if self.type_objects().is_empty() {
-            writeln!(f, "<None>")?;
-        } else {
-            for (idx, values) in self.type_objects().iter().enumerate() {
-                writeln!(f, "{}: {}", idx, values)?;
-            }
-        }
+        writeln!(f, "\nType Domains Table:\n{}\n", self.type_objects())?;
+
 
 
         // ---------- Fluents ----------

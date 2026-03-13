@@ -273,7 +273,7 @@ impl<'a> InertiaEvaluator<'a> {
                         if child_node.kind() == ExprKind::Variable {
                             let type_id = arg_types[i].ty();
                             let domain_size =
-                                self.value_registry.get_type_domain(type_id).cardinality();
+                                self.value_registry.get_type_domain(type_id).len();
                             max_val *= domain_size;
                         }
                     }

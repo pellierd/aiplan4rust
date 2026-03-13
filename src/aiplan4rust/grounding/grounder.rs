@@ -60,31 +60,9 @@ impl Grounder {
 
         let types_after = lifted_problem.type_defs().len();
         let objects_after = lifted_problem.object_defs().len();
-        println!("--- DEBUG POST-FLATTEN ---");
-        println!("Types count: {}", types_after); // <--- DOIT ÊTRE > types_before si des Either existaient
-        println!("Objects count: {}", objects_after);
-
-        // 4. Vérification de la cohérence des IDs d'objets
-        for obj in lifted_problem.object_defs() {
-            for &ty_id in obj.ty().members() {
-                if ty_id.as_usize() >= types_after {
-                    println!("FATAL: Object {} has either_type ID {} but max either_type ID is {}",
-                             obj.symbol().as_usize(), ty_id.as_usize(), types_after - 1);
-                }
-            }
-        }
-
-        println!("--- POST-FLATTEN CHECK ---");
-        for (i, ty_def) in lifted_problem.type_defs().iter().enumerate() {
-            println!("Type index {}: ID={:?}, Members={:?}", i, ty_def.symbol(), ty_def.ty().members());
-        }
-
-        for obj in lifted_problem.object_defs().iter().take(5) {
-            println!("Object {:?}: Type Members={:?}", obj.symbol(), obj.ty().members());
-        }
 
 
-        // 2. OBJECT FLUENT FLATTENING
+        // 1. OBJECT FLUENT FLATTENING
         // TO DO
 
         // 3. ANALYSE D'INERTIE : On identifie ce qui ne change jamais.
@@ -96,7 +74,6 @@ impl Grounder {
         let registry = ValueRegistry::build(
             lifted_problem.type_defs(),
             lifted_problem.object_defs(),
-            config::DEFAULT_VALUE_REGISTRY_SIZE,
         )?;
 
 

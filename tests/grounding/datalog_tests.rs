@@ -52,7 +52,7 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
         let mut pb = lir_result.take_lifted_problem().expect("No lifted problem");
 
         let table = analyze_inertia(&pb).unwrap();
-        let registry = ValueRegistry::build(pb.type_defs(), pb.object_defs(), config::DEFAULT_VALUE_REGISTRY_SIZE).unwrap();
+        let registry = ValueRegistry::build(pb.type_defs(), pb.object_defs()).unwrap();
         let evaluator = InertiaEvaluator::build(pb.predicate_defs(), pb.function_defs(), pb.init(), &table, &registry, config::DEFAULT_MAX_ARITY, config::DEFAULT_MAX_PROJ).unwrap();
         expand_with(&mut pb, &registry, Some(&evaluator)).unwrap();
         let negated_predicates = to_pnf(&mut pb).unwrap();

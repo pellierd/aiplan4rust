@@ -1,158 +1,181 @@
 use std::collections::HashMap;
+use std::fmt;
+use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, TypedSymbol, VariableId};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 
-/// A central evaluator managing value domains for every either_type within a planning problem.
-///
-/// The `ValueRegistry` handles the collection, deduplication, and sorting of objects
-/// from a [`LiftedProblem`]. It is optimized for the grounding phase, providing
-/// $O(1)$ access to either_type domains via [`TypeId`].
-///
-/// # Internal Structure
-/// Domains are stored contiguously in a vector to maximize CPU cache locality during
-/// the intensive iterations required for quantifier expansion and action grounding.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ValueRegistry {
-    /// Main storage indexed by `TypeId`. Each [`ValueDomain`] contains a sorted
-    /// and unique list of [`ObjectId`]s.
-    type_domains: Vec<ValueDomain>,
-    /// The initial capacity allocated for each either_type bucket during object collection.
-    init_size: usize,
+    /// Stockage contigu de tous les objets du problème, triés par la hiérarchie.
+    all_values: Vec<ObjectId>,
+    /// Index permettant de retrouver la plage [start, end[ pour chaque TypeId.
+    ranges: Vec<TypeRange>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct TypeRange {
+    pub start: usize,
+    pub end: usize,
+}
+
+enum Frame { Enter(TypeId), Exit(TypeId, usize) }
 
 impl ValueRegistry {
 
-    /// Creates a valid but empty `ValueRegistry`.
-    ///
-    /// This is primarily intended for unit testing or scenarios where a evaluator
-    /// is required but no either_type/object data is available yet. It bypasses the
-    /// collection and optimization logic.
+
+
     pub fn empty() -> Self {
         Self {
-            type_domains: Vec::new(),
-            init_size: 0,
+            all_values: Vec::new(),
+            ranges: Vec::new(),
         }
     }
 
-    /// Builds and finalizes the evaluator from decoupled either_type and object definitions.
-    ///
-    /// Unique point d'entrée pour construire un registre validé et optimisé.
-    /// Cette fonction combine la collecte, le tri et le dédoublonnage.
-    ///
-    /// # Process
-    /// 1. **Collection**: Extracting objects and mapping them to all applicable types
-    ///    in the hierarchy using [`Self::collect_objects`].
-    /// 2. **Optimization**: Sorting and deduplicating each domain to ensure $O(\log n)$
-    ///    search speed and deterministic grounding results.
-    /// 3. **Finalization**: Encapsulating data into immutable [`ValueDomain`]s.
-    ///
-    /// # Arguments
-    /// * `type_defs` - The complete list of either_type declarations.
-    /// * `object_defs` - The objects (constants and problem objects) to be registered.
-    /// * `init_size` - The initial capacity for each either_type bucket to minimize reallocations.
-    ///
-    /// # Errors
-    /// Returns a [`GroundingError`] if the either_type hierarchy is inconsistent.
-    pub fn build(
-        type_defs: &[TypedSymbol<TypeId, TypeId>],
-        object_defs: &[TypedSymbol<ObjectId, TypeId>],
-        init_size: usize,
-    ) -> Result<Self, GroundingError> {
 
-        // 1. COLLECTION: Call the bucket distribution logic.
-        // We pass init_size explicitly as we don't have an instance yet.
-        let raw_objects = Self::collect_objects(type_defs, object_defs, init_size);
-
-        // 2. OPTIMIZATION: Sort and Deduplicate each domain.
-        // We use into_iter to move the raw vectors into the domains without deep-copying.
-        let type_domains = raw_objects
-            .into_iter()
-            .map(|mut objs| {
-                objs.sort_unstable();
-                objs.dedup();
-                ValueDomain::new(objs)
-            })
-            .collect();
-
-        // 3. ASSEMBLY: Return the finalized object.
-        Ok(Self {
-            type_domains,
-            init_size,
-        })
+    pub fn with_types(num_types: usize) -> Self {
+        Self {
+            all_values: Vec::new(),
+            ranges: vec![TypeRange { start: 0, end: 0 }; num_types],
+        }
     }
 
-    /// Scans the provided definitions to extract and categorize objects by their types.
-    ///
-    /// This method performs a "decoupled" collection, meaning it does not require
-    /// a full `LiftedProblem` but only the relevant slices of either_type and object definitions.
-    ///
-    /// # Memory Management
-    /// To minimize reallocations, this method uses `init_size` to pre-allocate internal
-    /// buckets for each either_type. This is particularly efficient for problems with a
-    /// large number of objects (e.g., logistics or satellite domains).
-    ///
-    /// # Type Hierarchy
-    /// PDDL/HDDL objects can belong to multiple types via inheritance. This method
-    /// respects that hierarchy by iterating over all `members()` of an object's either_type
-    /// and pushing the [`ObjectId`] into every corresponding either_type bucket.
-    ///
-    /// # Arguments
-    /// * `type_defs` - The complete list of either_type declarations to determine the number of buckets.
-    /// * `object_defs` - The objects (constants or problem-specific objects) to be registered.
-    /// * `init_size` - The initial capacity allocated for each either_type bucket.
-    fn collect_objects(
-        type_defs: &[TypedSymbol<TypeId, TypeId>],
-        object_defs: &[TypedSymbol<ObjectId, TypeId>],
-        init_size: usize,
-    ) -> Vec<Vec<ObjectId>> {
-        let num_types = type_defs.len();
 
-        // repeat_with ensures each inner Vec is initialized with its own capacity.
-        let mut tmp_objects: Vec<Vec<ObjectId>> = std::iter::repeat_with(|| Vec::with_capacity(init_size))
-            .take(num_types)
-            .collect();
+    fn dfs_flatten(
+        u: TypeId,
+        adj: &[Vec<TypeId>],
+        direct_objects: &[Vec<ObjectId>], // Objets uniquement du type atomique
+        all_values: &mut Vec<ObjectId>,
+        ranges: &mut [TypeRange],
+        current_idx: &mut usize,
+    ) {
+        let mut stack = vec![Frame::Enter(u)];
 
-        for typed_object in object_defs {
-            let obj_id = typed_object.symbol();
-            // An object can belong to multiple types in a hierarchy.
-            for &ty_id in typed_object.ty().members() {
-                if let Some(bucket) = tmp_objects.get_mut(ty_id.as_usize()) {
-                    bucket.push(obj_id);
+        while let Some(frame) = stack.pop() {
+            match frame {
+                Frame::Enter(u) => {
+                    let u_idx = u.as_usize();
+                    let start = *current_idx;
+
+                    // 1. Ajouter les objets qui appartiennent DIRECTEMENT à ce type
+                    for &obj in &direct_objects[u_idx] {
+                        all_values.push(obj);
+                        *current_idx += 1;
+                    }
+
+                    // 2. Prévoir la sortie pour fermer le range
+                    stack.push(Frame::Exit(u, start));
+
+                    // 3. Ajouter les enfants (sous-types)
+                    for &v in adj[u_idx].iter().rev() {
+                        stack.push(Frame::Enter(v));
+                    }
+                },
+                Frame::Exit(u, start) => {
+                    // L'intervalle de u englobe ses objets + ceux de tous ses descendants
+                    ranges[u.as_usize()] = TypeRange { start, end: *current_idx };
                 }
             }
         }
-        tmp_objects
     }
+
+    /// Prépare les structures intermédiaires pour la construction du registre de valeurs.
+    ///
+    /// Cette étape extrait la topologie de la hiérarchie des types et distribue les objets
+    /// dans leurs types respectifs de manière isolée (sans héritage à ce stade).
+    fn prepare_data(
+        num_types: usize,
+        type_defs: &[TypedSymbol<TypeId, TypeId>],
+        object_defs: &[TypedSymbol<ObjectId, TypeId>],
+    ) -> (Vec<Vec<TypeId>>, Vec<bool>, Vec<Vec<ObjectId>>) {
+        let mut adj = vec![Vec::new(); num_types];
+        let mut has_parent = vec![false; num_types];
+        let mut direct_objects = vec![Vec::new(); num_types];
+
+        // 1. Construction du graphe d'adjacence (Parents -> Enfants)
+        // On parcourt les définitions de types. Chaque 'member' d'un type est ici
+        // considéré comme son parent dans la hiérarchie.
+        for def in type_defs {
+            let child = def.symbol();
+            for &parent in def.ty().members() {
+                adj[parent.as_usize()].push(child);
+                has_parent[child.as_usize()] = true;
+            }
+        }
+
+        // 2. Distribution des objets
+        // Grâce à la passe de flattening, chaque objet possède un type atomique unique.
+        for obj_def in object_defs {
+            let obj_id = obj_def.symbol();
+
+            // Sécurité : Après flattening, un objet doit avoir au moins (et normalement un seul) type.
+            if let Some(&t_id) = obj_def.ty().members().first() {
+                direct_objects[t_id.as_usize()].push(obj_id);
+            }
+        }
+
+        (adj, has_parent, direct_objects)
+    }
+
+    pub fn build(
+        type_defs: &[TypedSymbol<TypeId, TypeId>],
+        object_defs: &[TypedSymbol<ObjectId, TypeId>],
+    ) -> Result<Self, GroundingError> {
+        let num_types = type_defs.len();
+        let (adj, has_parent, direct_objects) = Self::prepare_data(num_types, type_defs, object_defs);
+
+        // 1. Identifier les types racines
+        let mut roots: Vec<TypeId> = (0..num_types)
+            .filter(|&i| !has_parent[i])
+            .map(TypeId::from)
+            .collect();
+        roots.sort();
+
+        // 2. Lancer la mise à plat
+        let mut all_values = Vec::with_capacity(object_defs.len());
+        let mut ranges = vec![TypeRange { start: 0, end: 0 }; num_types];
+        let mut current_idx = 0;
+
+        for root in roots {
+            Self::dfs_flatten(root, &adj, &direct_objects, &mut all_values, &mut ranges, &mut current_idx);
+        }
+
+        Ok(Self { all_values, ranges })
+    }
+
 
     /// Retrieves the domains corresponding to a list of typed variables.
     ///
-    /// This is typically used to initialize iterators for quantifier expansion 
-    /// or action instantiation. Returns a vector of references to the internal 
+    /// This is typically used to initialize iterators for quantifier expansion
+    /// or action instantiation. Returns a vector of references to the internal
     /// [`ValueDomain`]s.
-    pub fn get_variable_domains(&self, variables: &TypedList<VariableId, TypeId>) -> Vec<&ValueDomain> {
+    /// Retrieves the domains corresponding to a list of typed variables.
+    ///
+    /// This is typically used to initialize iterators for quantifier expansion
+    /// or action instantiation. Returns a vector of references to the internal
+    /// [`ValueDomain`]s.
+    pub fn get_variable_domains(&self, variables: &TypedList<VariableId, TypeId>) -> Vec<&[ObjectId]> {
         variables
             .iter()
             .map(|var| self.get_type_domain(var.ty()))
-            .collect()
+            .collect() // OK : Collecte des &[ObjectId] dans un Vec<&[ObjectId]>
     }
 
     /// Retrieves the value domain for a specific [`Type`].
     ///
     /// # Panics
-    /// Panics if the provided either_type contains no primitive members or if the
+    /// Panics if the provided type contains no primitive members or if the
     /// internal hierarchy is malformed.
-    pub fn get_type_domain(&self, ty: &Type<TypeId>) -> &ValueDomain {
+    pub fn get_type_domain(&self, ty: &Type<TypeId>) ->  &[ObjectId] {
         self.get_primitive_type_domain(ty.members()[0])
     }
 
-    /// Direct $O(1)$ access to a either_type domain via its [`TypeId`].
+    /// Direct $O(1)$ access to a type domain via its [`TypeId`].
     ///
     /// # Panics
     /// Panics if the `type_id` is out of bounds for this evaluator.
-    pub fn get_primitive_type_domain(&self, type_id: TypeId) -> &ValueDomain {
-        &self.type_domains[type_id.as_usize()]
+    pub fn get_primitive_type_domain(&self, type_id: TypeId) -> &[ObjectId] {
+        let r = &self.ranges[type_id.as_usize()];
+        &self.all_values[r.start..r.end]
     }
 }
 
@@ -168,7 +191,7 @@ impl  ValueRegistry {
         }
 
         // --- MODIFICATION ICI ---
-        // Au lieu de quitter si c'est vide, on regarde l'ID de either_type le plus élevé
+        // Au lieu de quitter si c'est vide, on regarde l'ID de type le plus élevé
         // que l'on veut supporter, ou on s'assure d'une taille minimale.
         let max_id = grouped.keys()
             .map(|&tid| usize::from(tid))
@@ -187,10 +210,10 @@ impl  ValueRegistry {
         self
     }*/
 
-    /// Helper for unit tests to build a evaluator directly from a list of objects.
-    ///
-    /// This bypasses the standard `build` pipeline and is intended ONLY for
-    /// testing isolated logic where a full `LiftedProblem` is not available.
+
+    /// Helper pour les tests unitaires : construit un registre à partir d'une liste d'objets.
+    /// Note : Dans cette version de test, on considère que les types sont indépendants
+    /// (pas de calcul de hiérarchie récursive, juste le mapping direct).
     pub fn from_objects<I>(objects: I) -> Self
     where
         I: IntoIterator<Item = TypedSymbol<ObjectId, TypeId>>
@@ -200,28 +223,68 @@ impl  ValueRegistry {
         let mut grouped: HashMap<TypeId, Vec<ObjectId>> = HashMap::new();
         let mut max_id = 0;
 
+        // 1. Groupement initial
         for ts in objects {
-            for tid in ts.ty().members() {
-                let id_idx = usize::from(*tid);
+            let obj_id = ts.symbol();
+            for &tid in ts.ty().members() {
+                let id_idx = tid.as_usize();
                 if id_idx > max_id {
                     max_id = id_idx;
                 }
-                grouped.entry(*tid).or_default().push(ts.symbol());
+                grouped.entry(tid).or_default().push(obj_id);
             }
         }
 
-        // Initialize domains up to the highest TypeId found.
-        let mut type_domains = vec![ValueDomain::new(Vec::new()); max_id + 1];
+        // 2. Construction du stockage contigu
+        let mut all_values = Vec::new();
+        let mut ranges = vec![TypeRange { start: 0, end: 0 }; max_id + 1];
 
-        for (tid, mut objs) in grouped {
+        // On trie les IDs de types pour que le stockage soit déterministe dans les tests
+        let mut sorted_keys: Vec<_> = grouped.keys().cloned().collect();
+        sorted_keys.sort();
+
+        for tid in sorted_keys {
+            let mut objs = grouped.remove(&tid).unwrap();
             objs.sort_unstable();
             objs.dedup();
-            type_domains[usize::from(tid)] = ValueDomain::new(objs);
+
+            let start = all_values.len();
+            all_values.extend(&objs);
+            let end = all_values.len();
+
+            ranges[tid.as_usize()] = TypeRange { start, end };
         }
 
         Self {
-            type_domains,
-            init_size: 0, // No pre-allocation needed for static test lists
+            all_values,
+            ranges,
         }
+    }
+}
+
+impl fmt::Display for ValueRegistry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "ValueRegistry ({} objects total):", self.all_values.len())?;
+
+        writeln!(f, "--- Type Domains ---")?;
+        for (type_idx, range) in self.ranges.iter().enumerate() {
+            // On ne print que les types qui ont des domaines (start != end)
+            // ou tous les types si on veut debugger la hiérarchie complète.
+            if range.start != range.end {
+                let domain = &self.all_values[range.start..range.end];
+                writeln!(
+                    f,
+                    "  Type {:<3} => [start: {:<3}, end: {:<3}] | Values: {:?}",
+                    type_idx, range.start, range.end, domain
+                )?;
+            } else {
+                writeln!(f, "  Type {:<3} => Empty", type_idx)?;
+            }
+        }
+
+        writeln!(f, "--- Raw Contiguous Storage ---")?;
+        writeln!(f, "  {:?}", self.all_values)?;
+
+        Ok(())
     }
 }

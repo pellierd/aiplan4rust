@@ -67,7 +67,6 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
         let registry = ValueRegistry::build(
             pb.type_defs(),
             pb.object_defs(),
-            config::DEFAULT_VALUE_REGISTRY_SIZE,
         ).expect("Failed to build ValueRegistry");
 
         let evaluator = InertiaEvaluator::build(
@@ -135,14 +134,14 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
 
 fn pick_obj_by_index(registry: &ValueRegistry, ty: &Type<TypeId>, index: usize) -> Option<ObjectId> {
     let domain = registry.get_type_domain(ty);
-    let card = domain.cardinality();
+    let card = domain.len();
 
     if card == 0 {
         return None;
     }
 
     // Accès sécurisé : on est sûr que card > 0
-    Some(domain.get_value_at(index % card))
+    Some(domain[index % card])
 }
 fn build_test_expression(
     predicate_id: PredicateSymbolId,
