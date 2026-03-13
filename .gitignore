@@ -1,1 +1,3 @@
 *.diag
+.DS_Store
+*.ast
