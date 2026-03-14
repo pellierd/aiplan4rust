@@ -381,9 +381,8 @@ pub AtomicFormulaSkeleton: Result<NodeId, ParseContextError> = {
 }
 
 pub FunctionsDef: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" ":functions" <functions:AtomicFunctionSkeleton+> ")" <end:@R> => {
-        let functions = functions.into_iter().collect::<Result<Vec<_>, _>>()?;
-        context.alloc_node(AstKind::FunctionsDef, AstContent::None, functions, start, end)
+    <start:@L> "(" ":functions" <functions:TypedList<AtomicFunctionSkeleton>> ")" <end:@R> => {
+        context.alloc_node(AstKind::FunctionsDef, AstContent::None, vec![functions?], start, end)
     }
 }
 

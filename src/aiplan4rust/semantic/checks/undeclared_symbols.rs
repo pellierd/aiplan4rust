@@ -3,7 +3,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::lang::Requirement::Adl;
+use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Requirement::Typing;
@@ -240,7 +240,6 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
 /// - `object_type`: Predefined when the `Typing` or `Adl` requirements are enabled.
 /// - `number_type` and `total_time`: Predefined when the `NumericFluents` requirement is enabled.
 /// - `duration_variable`: Predefined when the `DurativeActions` requirement is enabled.
-
 fn is_pddl_builtin_symbol(
     symbol: &SymbolEntry,
     context: &CheckContext,
@@ -249,20 +248,15 @@ fn is_pddl_builtin_symbol(
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
         SymbolInterner::OBJECT_SYMBOL_ID
             if context.requirements().contains(&Typing)
-                || context.requirements().contains(&Adl) =>
-        {
-            true
-        }
-
+                || context.requirements().contains(&Adl) => true,
         // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
         // present.
-        SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID if context.requirements().contains(&NumericFluents) => {
-            true
-        }
-
+        SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID
+            if context.requirements().contains(&NumericFluents)
+                || context.requirements().contains(&Fluents)=> true,
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
-        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if context.requirements().contains(&DurativeActions) => true,
-
+        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
+            if context.requirements().contains(&DurativeActions) => true,
         // Default case for any other symbols.
         _ => false,
     }

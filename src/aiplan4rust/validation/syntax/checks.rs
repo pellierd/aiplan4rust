@@ -228,21 +228,19 @@ pub fn check_atomic_formula_skeleton(ast: &Ast, node: &AstNode) -> Result<(), We
     }
 }
 
-/// Checks that the given node of kind `FunctionsDef` contains only
-/// children of kind `AtomicFunctionSkeleton`.
-///
-/// This node represents the `:functions` block in a PDDL domain.
-/// Following the grammar flattening, the functions are now direct children
-/// of this node instead of being wrapped in an intermediate `TypedList`.
+/// Checks that the given node of kind `FunctionsDef`
+/// has exactly one child of kind `TypedList`.
 ///
 /// # Arguments
 /// * `ast` - Reference to the AST containing the node.
 /// * `node` - The AST node to validate.
 ///
 /// # Errors
-/// Returns an error if any child is not of kind `AtomicFunctionSkeleton`.
+/// Returns an error if the node does not have exactly one child,
+/// or if that child is not of kind `TypedList`.
 pub fn check_functions_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    common::checks::check_all_children_kind(ast, node, &[AstKind::AtomicFunctionSkeleton])
+    common::checks::check_children_count(node.arity(), 1, node)?;
+    common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
 }
 
 /// Checks that the given node of kind `AtomicFunctionSkeleton`

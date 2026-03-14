@@ -164,6 +164,7 @@ pub fn test_hddl_parser(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc00/logistics/strips/untyped"; "ipc00_pddl_untyped_strips_logistics")]
 #[test_case("tests/fixtures/pddl/ipc00/schedule/adl/typed"; "ipc00_pddl_typed_adl_schedule")]
 #[test_case("tests/fixtures/pddl/ipc00/schedule/adl/untyped"; "ipc00_pddl_untyped_adl_schedule")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/numeric_automatic/"; "ipc02_pddl_numeric_automatic_depot")]
 pub fn test_pddl_parser(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(

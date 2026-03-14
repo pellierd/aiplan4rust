@@ -30,6 +30,9 @@
 //! }
 //! ```
 
+use std::mem::take;
+use std::collections::HashSet;
+
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::lang::SymbolId;
@@ -40,7 +43,6 @@ use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
-use std::mem::take;
 
 /// The `Linker` struct is responsible for performing the linking phase
 /// between domain and problem semantic contexts.
@@ -139,12 +141,15 @@ impl Linker {
 
                 // Step 4: Create a check context for the problem using the global interner
                 // and perform semantic and structural linking checks on the problem
+                let mut requirements = HashSet::new();
+                requirements.extend(problem_ctx.declared_requirements().clone());
+                requirements.extend(domain_ctx.declared_requirements().clone());
                 let problem_check_ctx = CheckContext::new(
                     problem_ctx.syntax_tree(),
                     problem_ctx.symbol_table(),
                     &global_interner,
                     problem_ctx.source_id(),
-                    problem_ctx.declared_requirements(),
+                    &requirements,
                 );
                 perform_linking_checks(&domain_ctx, &problem_check_ctx, &mut self.diagnostic_manager)?;
 

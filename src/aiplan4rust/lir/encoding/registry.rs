@@ -103,7 +103,7 @@ impl EncodingRegistry {
     /// If the typing is not yet registered, it maps the `NUMBER_SYMBOL_ID`
     /// to the reserved `TypeId::NUMBER_TYPE_ID` (1).
     /// Returns the resolved `TypeId`.
-    pub fn ensure_numeric_type(&mut self) -> TypeId {
+    pub fn register_number_type(&mut self) -> TypeId {
         // Check if the symbol is already mapped to a TypeId
         if let Some(&existing_id) = self.type_symbol_to_id.get(&SymbolInterner::NUMBER_SYMBOL_ID) {
             existing_id
@@ -117,6 +117,7 @@ impl EncodingRegistry {
             id
         }
     }
+
 
     pub fn types_count(&self) -> usize {
         self.type_node_to_id.len()

@@ -5,8 +5,7 @@
 //! representing the declaration of a predicate and its parameter signature.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{FunctionSymbolId, SymbolId};
+use crate::aiplan4rust::lang::{FunctionSymbolId, Type, TypeId};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
@@ -36,17 +35,21 @@ use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    functor_id: FunctionSymbolId, // Reçu du parent (déjà résolu)
+    functor_id: FunctionSymbolId, // Received from parent (already resolved)
+    return_type: Type<TypeId>,
 ) -> Result<AtomicFunctionSkeleton, LirError> {
-    // 1. Assertions de sécurité pour le développement
-    debug_assert!(functor_id.as_usize() != usize::MAX, "L'ID du functor passé est invalide.");
+    // 1. Development safety assertions
+    debug_assert!(functor_id.as_usize() != usize::MAX, "The provided functor ID is invalid.");
 
+    // Clear variables registry to ensure a clean scope for this function skeleton
     registry.clear_variables();
 
     let node = subtree.node();
     let ast = subtree.tree();
 
-    // 2. Encodage des paramètres (second enfant : index 1)
+    // 2. Encoding parameters (second child: index 1)
+    // Following grammar flattening, AtomicFunctionSkeleton nodes now
+    // consistently hold the variable list at index 1.
     let params_node_id = node.try_child(1)?;
     let params_node = ast.try_node(params_node_id)?;
     let parameters = typed_list::encode_variable_list(
@@ -54,29 +57,15 @@ pub fn encode(
         registry
     )?;
 
-    // 3. Return typing encoding (third child: index 2)
-    let return_type_node_id = node.try_child(2)?;
-    let return_type_node = ast.try_node(return_type_node_id)?;
-
-    // If the return typing is explicitly "number", we ensure it's registered
-    // with the reserved TypeId::NUMBER_TYPE_ID (1) before encoding.
-    if return_type_node.try_ident().ok() == Some(SymbolInterner::NUMBER_SYMBOL_ID) {
-        registry.ensure_numeric_type();
-    }
-
-    let return_type = ty::encode(
-        &SyntaxSubtree::new(return_type_node, return_type_node_id, ast),
-        registry
-    )?;
-
-    // 4. Construction du squelette final
-    // On utilise NamedTypedList pour lier l'ID sémantique aux paramètres
+    // 3. Construction of the final skeleton
+    // We bind the semantic functor ID with its encoded parameters and return type.
+    // Variable symbols captured during 'encode_variable_list' are attached to the skeleton.
     let variables_symbols = registry.get_variable_symbols();
     let function = AtomicFunctionSkeleton::new(
         functor_id,
         parameters,
         return_type
-    )
-        .with_variable_symbols(variables_symbols);
+    ).with_variable_symbols(variables_symbols);
+
     Ok(function)
 }

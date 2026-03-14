@@ -39,9 +39,12 @@
 //! traversal.
 
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
+use crate::aiplan4rust::lir::encoding::problem::TOTAL_TIME_NODE_ID;
+use crate::aiplan4rust::lir::problem::problem::Problem;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
@@ -308,9 +311,19 @@ fn encode_content(
         },
         AstKind::Function => {
             let function_id = ast_node.children()[0];
-            let function_skeleton_declaration = registry.symbol_table()
-                .try_resolve_declaration_by_usage(function_id, SymbolKind::Function)?;
-            let function_skeleton_id = registry.try_resolve_function_skeleton(function_skeleton_declaration.node_id())?;
+            let symbol = subtree.tree().try_node(function_id)?.try_ident()?;
+
+            let function_skeleton_id = match symbol {
+                SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
+                    registry.try_resolve_function_skeleton(TOTAL_TIME_NODE_ID)?
+                }
+                // Cas utilisateur : Résolution via la table des symboles
+                _ => {
+                    let declaration = registry.symbol_table()
+                        .try_resolve_declaration_by_usage(function_id, SymbolKind::Function)?;
+                    registry.try_resolve_function_skeleton(declaration.node_id())?
+                }
+            };
             Ok(ExprContent::FunctionSkeleton(function_skeleton_id))
         },
         AstKind::Task => {
@@ -368,8 +381,18 @@ fn encode_content(
             Ok(ExprContent::PredicateSymbol(predicate_id))
         },
         AstKind::FunctionSymbol => {
-            let functor_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Function)?;
-            let functor_id = registry.try_resolve_functor(functor_declaration.node_id())?;
+            let symbol = ast_node.try_ident()?;
+            let functor_id = match symbol {
+                SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
+                    registry.try_resolve_functor(TOTAL_TIME_NODE_ID)?
+                }
+                _ => {
+                    let declaration = registry.symbol_table()
+                        .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Function)?;
+                    registry.try_resolve_functor(declaration.node_id())?
+                }
+            };
+
             Ok(ExprContent::FunctionSymbol(functor_id))
         },
         AstKind::Object => {
