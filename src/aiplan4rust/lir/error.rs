@@ -1,5 +1,6 @@
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, SymbolId, TaskSkeletonId, Type, TypeId};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
@@ -129,18 +130,21 @@ pub enum LirError {
 
 impl LirError {
     /// Constructs a `LirError` from an [`ExprError`].
+    #[track_caller]
     pub fn expr(err: ExprError) -> Self {
-        LirError::Expr(err)
+        LirError::Expr(err).trace()
     }
 
     /// Constructs a `LirError` from a [`SyntaxTreeError`].
+    #[track_caller]
     pub fn syntax_tree(err: SyntaxTreeError) -> Self {
-        LirError::SyntaxTree(err)
+        LirError::SyntaxTree(err).trace()
     }
 
     /// Creates an [`ActionAstKindError`] error from the unexpected [`AstKind`].
+    #[track_caller]
     pub fn action_ast_kind_error(kind: AstKind) -> Self {
-        LirError::ActionAstKindError(kind)
+        LirError::ActionAstKindError(kind).trace()
     }
 
     /// Creates an [`UnsupportedTaskNetwork`] error with a custom message.
@@ -149,28 +153,33 @@ impl LirError {
     ///
     /// * `msg` - A string describing the unsupported task network structure.
     /// Creates a `TaskNetworkAstKindError` from the unexpected `AstKind`.
+    #[track_caller]
     pub fn task_network_ast_kind_error(kind: AstKind) -> Self {
-        LirError::TaskNetworkAstKindError(kind)
+        LirError::TaskNetworkAstKindError(kind).trace()
     }
 
     /// Creates a `TypeNotFound` error for the given `Ident`.
+    #[track_caller]
     pub fn type_not_found(id: SymbolId) -> Self {
-        LirError::TypeNotFound(id)
+        LirError::TypeNotFound(id).trace()
     }
 
     /// Creates a `ConstantNotFound` error for the given `Ident`.
+    #[track_caller]
     pub fn constant_not_found(id: SymbolId) -> Self {
-        LirError::ConstantNotFound(id)
+        LirError::ConstantNotFound(id).trace()
     }
 
     /// Creates an `ObjectNotFound` error for the given `Ident`.
+    #[track_caller]
     pub fn object_not_found(id: SymbolId) -> Self {
-        LirError::ObjectNotFound(id)
+        LirError::ObjectNotFound(id).trace()
     }
 
     /// Creates a new `MissingType` error for the given typing.
+    #[track_caller]
     pub fn missing_type(ty: Type<TypeId>) -> Self {
-        LirError::MissingType { ty }
+        LirError::MissingType { ty }.trace()
     }
 
 
@@ -182,67 +191,54 @@ impl LirError {
     /// - `node_id`: The ID of the AST node.
     #[track_caller]
     pub fn symbol_binding_failed(symbol: NodeId) -> Self {
-        let err = Self::SymbolBindingFailed { symbol };
-        Self::log_error(&err, std::panic::Location::caller());
-        err
+        Self::SymbolBindingFailed { symbol }.trace()
     }
 
     #[track_caller]
     pub fn type_binding_failed(ty: Type<SymbolId>) -> Self {
-        let err = Self::TypeBindingFailed { ty };
-        Self::log_error(&err, std::panic::Location::caller());
-        err
+        Self::TypeBindingFailed { ty }.trace()
     }
 
     #[track_caller]
     pub fn variable_not_found(node_id: NodeId) -> Self {
-        let err = Self::VariableNotFound { node_id };
-        Self::log_error(&err, std::panic::Location::caller());
-        err
+        Self::VariableNotFound { node_id }.trace()
     }
 
+    #[track_caller]
     pub fn index_out_of_bounds(id: usize) -> Self {
-        Self::IndexOutOfBound { id }
+        Self::IndexOutOfBound { id }.trace()
     }
 
+    #[track_caller]
     pub fn type_definition_orphan(id: TypeId) -> Self {
-        Self::TypeDefinitionOrphan { id }
+        Self::TypeDefinitionOrphan { id }.trace()
     }
 
     // In the LirError impl block
+    #[track_caller]
     pub fn object_definition_orphan(id: ObjectId) -> Self {
-        Self::ObjectDefinitionOrphan { id }
+        Self::ObjectDefinitionOrphan { id }.trace()
     }
 
+    #[track_caller]
     pub fn predicate_definition_orphan(id: AtomSkeletonId) -> Self {
         Self::PredicateDefinitionOrphan { id }
     }
 
     /// Constructeur pour l'erreur de fonction
+
+    #[track_caller]
     pub fn function_definition_orphan(id: FunctionSkeletonId) -> Self {
-        Self::FunctionDefinitionOrphan { id }
+        Self::FunctionDefinitionOrphan { id }.trace()
     }
 
     // In your impl LirError block
+    #[track_caller]
     pub fn task_definition_orphan(id: TaskSkeletonId) -> Self {
-        Self::TaskDefinitionOrphan { id }
+        Self::TaskDefinitionOrphan { id }.trace()
     }
 
 
-
-
-    /// Helper privé pour uniformiser le logging et la stack trace sans polluer les fonctions publiques
-    fn log_error(err: &Self, caller: &std::panic::Location) {
-        if log::log_enabled!(log::Level::Debug) {
-            let bt = std::backtrace::Backtrace::force_capture();
-            log::debug!(
-            "\nLIR Error at {}:{}:{}\n{}\nStack trace:\n{}",
-            caller.file(),
-            caller.line(),
-            caller.column(),
-            err,
-            bt
-        );
-        }
-    }
 }
+
+impl Traceable for LirError {}

@@ -149,7 +149,7 @@ impl LirEncoder {
 }
 
 
-// Encode a LiftedProblem from a LinkedSemanticContext.
+/// Encode a LiftedProblem from a LinkedSemanticContext.
 /// This is the core transformation that was previously in `try_from`.
 pub fn encode_lifted_problem(
     mut context: LinkedSemanticContext,
@@ -165,6 +165,7 @@ pub fn encode_lifted_problem(
     let domain_symbol_table = context.take_domain_table();
     let domain_syntax_tree = context.take_domain_syntax_tree();
     let mut registry = EncodingRegistry::new(domain_symbol_table);
+
     domain::encode(&domain_syntax_tree, &mut registry, &mut problem)?;
 
     // 4. Encode problem-level elements

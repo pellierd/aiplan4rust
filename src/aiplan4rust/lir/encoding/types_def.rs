@@ -5,6 +5,7 @@
 //! 2. **Phase 2 (Definition):** Resolves inheritance relationships and adds full typing declarations to the LIR.
 
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -13,24 +14,39 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes the PDDL `:types` section into the Lifted Intermediate Representation (LIR).
 ///
-/// This function coordinates a two-pass process to ensure that types can reference
-/// each other regardless of their declaration order in the AST.
+/// This function coordinates a multi-phase process to ensure type safety and
+/// support for built-in primitive types:
+///
+/// 1. **Symbol Collection**: Scans the AST to register all type symbols and generate
+///    their unique [`TypeId`]s, allowing for forward references in the hierarchy.
+/// 2. **Semantic Encoding**: Processes inheritance and properties of user-defined
+///    types from the AST.
+/// 3. **Built-in Injection**: Injects implicit system types (like `number`) into the
+///    registry based on the domain's requirements (e.g., `:numeric-fluents` or `:action-costs`).
 ///
 /// # Arguments
+///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `evaluator` - The encoding context used to map symbols to unique `TypeID`s.
-/// * `ir` - The Lifted Problem where the final typing declarations are stored.
+/// * `registry` - The encoding registry used to map type symbols to unique IDs.
+/// * `ir` - The mutable Lifted Problem where the final typing declarations are stored.
+///
+/// # Returns
+///
+/// * `Ok(())` - If all types (user and system) were successfully encoded and registered.
+/// * `Err(LirError)` - If a type definition is malformed or circular.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-
     // Phase 1: Register all typing symbols to generate their TypeIDs
     collect_type_ids(subtree, registry, ir)?;
 
     // Phase 2: Encode the semantic definitions (inheritance and properties)
     encode_definitions(subtree, registry, ir)?;
+
+    // Phase 3: Inject system-defined types (built-ins)
+    encode_builtin_types(registry, ir);
 
     Ok(())
 }
@@ -130,4 +146,25 @@ fn encode_definitions(
     }
 
     Ok(())
+}
+
+/// Injects primitive system types (built-ins) into the registry.
+///
+/// The `number` type is required for any domain involving numeric fluents or
+/// action costs. Note that this type is a primitive and does not have an
+/// entry in the AST-based type hierarchy.
+fn encode_builtin_types(
+    registry: &mut EncodingRegistry,
+    ir: &LiftedProblem,
+) {
+    let reqs = ir.requirements();
+
+    // The 'number' type is required for Numeric Fluents or Action Costs.
+    if reqs.contains(&Requirement::Fluents)
+        || reqs.contains(&Requirement::NumericFluents)
+        || reqs.contains(&Requirement::ActionCosts)
+    {
+        // We use the reserved virtual NodeId for the 'number' type.
+        registry.register_number_type();
+    }
 }

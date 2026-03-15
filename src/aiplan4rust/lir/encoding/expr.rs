@@ -43,8 +43,6 @@ use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
-use crate::aiplan4rust::lir::encoding::problem::TOTAL_TIME_NODE_ID;
-use crate::aiplan4rust::lir::problem::problem::Problem;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
@@ -315,7 +313,10 @@ fn encode_content(
 
             let function_skeleton_id = match symbol {
                 SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
-                    registry.try_resolve_function_skeleton(TOTAL_TIME_NODE_ID)?
+                    registry.try_resolve_function_skeleton(EncodingRegistry::TOTAL_TIME_NODE_ID)?
+                }
+                SymbolInterner::TOTAL_COST_SYMBOL_ID => {
+                    registry.try_resolve_function_skeleton(EncodingRegistry::TOTAL_COST_NODE_ID)?
                 }
                 // Cas utilisateur : Résolution via la table des symboles
                 _ => {
@@ -384,7 +385,10 @@ fn encode_content(
             let symbol = ast_node.try_ident()?;
             let functor_id = match symbol {
                 SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
-                    registry.try_resolve_functor(TOTAL_TIME_NODE_ID)?
+                    registry.try_resolve_functor(EncodingRegistry::TOTAL_TIME_NODE_ID)?
+                }
+                SymbolInterner::TOTAL_COST_SYMBOL_ID => {
+                    registry.try_resolve_functor(EncodingRegistry::TOTAL_COST_NODE_ID)?
                 }
                 _ => {
                     let declaration = registry.symbol_table()

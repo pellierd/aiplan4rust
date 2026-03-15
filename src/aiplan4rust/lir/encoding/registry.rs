@@ -61,12 +61,15 @@ pub struct EncodingRegistry {
 }
 
 impl EncodingRegistry {
-    pub fn set_symbol_table(&mut self, p0: SymbolTable) {
-        self.symbol_table = p0;
-    }
-}
 
-impl EncodingRegistry {
+    /// Reserved [`NodeId`] for the implicit `total-time` function.
+    /// Maps to the temporal fluent representing elapsed plan time.
+    pub const TOTAL_TIME_NODE_ID: NodeId = NodeId::new(usize::MAX - 1);
+
+    /// Reserved [`NodeId`] for the implicit `total-cost` function.
+    /// Maps to the numeric fluent representing cumulative action costs.
+    pub const TOTAL_COST_NODE_ID: NodeId = NodeId::new(usize::MAX - 2);
+
     /// Creates a new `EncodingContext`.
     ///
     /// # Arguments
@@ -96,6 +99,10 @@ impl EncodingRegistry {
             task_label_id_to_symbol: Vec::new(),
 
         }
+    }
+
+    pub fn set_symbol_table(&mut self, table: SymbolTable) {
+        self.symbol_table = table;
     }
 
     /// Ensures that the PDDL 'number' typing is registered in the evaluator.

@@ -4,22 +4,11 @@
 //! information such as objects, the initial state, goal conditions, and HTN
 //! initial task networks. It populates the final `LiftedProblem` IR.
 
-use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{Requirement, SymbolId, Type, TypeId, TypedList};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{expr, goal, init, initial_task_network, objects_def, EncodingRegistry};
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
-
-/// Reserved [`NodeId`] for the implicit `total-time` function.
-/// Maps to the temporal fluent representing elapsed plan time.
-pub const TOTAL_TIME_NODE_ID: NodeId = NodeId::new(usize::MAX - 1);
-
-/// Reserved [`NodeId`] for the implicit `total-cost` function.
-/// Maps to the numeric fluent representing cumulative action costs.
-pub const TOTAL_COST_NODE_ID: NodeId = NodeId::new(usize::MAX - 2);
 
 /// Encodes a PDDL/HTN problem AST into the Lifted Intermediate Representation (LIR).
 ///
@@ -61,10 +50,6 @@ pub fn encode(
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
 
-    // Phase 0: Initialize system-level built-ins and numeric requirements.
-    // This handles symbols that are implicitly defined by the PDDL specification.
-    initialize_builtins(registry, ir)?;
-
     // Phase 1: Structural Declarations.
     // Collect and register user-defined types, constants, predicates, and functions.
     collect_problem_definitions(syntax_tree, registry, ir)?;
@@ -72,105 +57,6 @@ pub fn encode(
     // Phase 2: Problem Logic.
     // Encode the initial state, goal conditions, and metric expressions.
     encode_problem_logic(syntax_tree, registry, ir)?;
-
-    Ok(())
-}
-
-
-/// Initializes built-in functions and types required by the PDDL specification.
-///
-/// This function handles the "pre-binding" of system-defined symbols like `total-time`.
-/// It registers these symbols in the `LiftedProblem` (LIR) and maps them in the
-/// `EncodingRegistry` using a reserved virtual `NodeId` (`TOTAL_TIME_NODE_ID`).
-///
-/// This ensures that subsequent encoding passes can resolve these built-ins
-/// without needing explicit declarations in the PDDL domain file.
-///
-/// # Errors
-///
-/// Returns a [`LirError`] if type registration or symbol insertion fails.
-/// Initializes built-in functions and types required by the PDDL specification.
-///
-/// This phase ensures that implicit symbols like `total-time` and `total-cost`
-/// are correctly defined in the LIR and mapped in the registry before
-/// processing user-defined expressions.
-pub fn initialize_builtins(
-    registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
-    let requirements = ir.requirements();
-
-    // Built-in numeric functions are only relevant if fluents are enabled.
-    if requirements.contains(&Requirement::Fluents) || requirements.contains(&Requirement::NumericFluents) {
-
-        // Ensure the primitive 'number' type is initialized.
-        let number_type = registry.register_number_type();
-
-        // Register 'total-time': Represents elapsed plan time.
-        register_system_function(
-            registry,
-            ir,
-            SymbolInterner::TOTAL_TIME_SYMBOL_ID,
-            TOTAL_TIME_NODE_ID,
-            number_type,
-        )?;
-
-        // Register 'total-cost': Represents cumulative action costs. TO DO for ACTION COST
-        /*register_system_function(
-            registry,
-            ir,
-            SymbolInterner::TOTAL_COST_SYMBOL_ID,
-            TOTAL_COST_NODE_ID,
-            number_type,
-        )?;*/
-    }
-
-    Ok(())
-}
-
-/// Injects a system-defined function into both the LIR and the encoding registry.
-///
-/// This helper synchronizes the creation of a built-in function by:
-/// 1. Inserting the [`FunctionSymbol`] into the [`LiftedProblem`].
-/// 2. Defining its [`AtomicFunctionSkeleton`] (arity 0) with the specified return type.
-/// 3. Mapping both to a reserved virtual [`NodeId`] within the [`EncodingRegistry`].
-///
-/// This dual registration allows the encoder to resolve implicit PDDL symbols
-/// (like `total-time`) as if they were standard declared functions.
-///
-/// # Arguments
-///
-/// * `registry` - The active [`EncodingRegistry`] to be updated with virtual bindings.
-/// * `ir` - The [`LiftedProblem`] where the symbol and definition are stored.
-/// * `symbol_id` - The unique identifier from the interner (e.g., `TOTAL_TIME_SYMBOL_ID`).
-/// * `virtual_node_id` - The reserved [`NodeId`] used as a stable key for resolution.
-/// * `return_type` - The [`TypeId`] of the value returned by this function (typically numeric).
-///
-/// # Errors
-///
-/// Returns a [`LirError`] if the registration process fails or if there is a
-/// conflict in the registry.
-fn register_system_function(
-    registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-    symbol_id: SymbolId,
-    virtual_node_id: NodeId,
-    return_type: TypeId,
-) -> Result<(), LirError> {
-    // 1. Register the function symbol and its virtual mapping
-    let sym = ir.add_function_symbol(symbol_id);
-    registry.register_functor(virtual_node_id, sym);
-
-    // 2. Define and register the function skeleton (signature)
-    // System functions like total-time/total-cost always have an empty parameter list.
-    let skeleton = AtomicFunctionSkeleton::new(
-        sym,
-        TypedList::empty(),
-        Type::primitive(return_type),
-    );
-
-    let def_id = ir.add_function_def(skeleton);
-    registry.register_function_skeleton(virtual_node_id, def_id);
 
     Ok(())
 }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Index, IndexMut};
+use std::usize::MAX;
 use serde::{Deserialize, Serialize};
 
 // Imports de ton projet
@@ -176,7 +177,7 @@ impl_display_prefix!(TaskSkeletonId, "TS");
 impl TypeId {
     /// Reserved identifier for the "number" typing, used for numeric fluents and functions.
     /// By convention, this corresponds to the second entry in a standard interner.
-    pub const NUMBER_TYPE_ID: Self = Self::new(1);
+    pub const NUMBER_TYPE_ID: Self = Self::new(0);
 
     /// Reserved sentinel identifier for the PDDL root typing (the implicit 'object' typing).
     ///
