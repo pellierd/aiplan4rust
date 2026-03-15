@@ -1,192 +1,77 @@
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::lang::Requirement::{
-    ConditionalEffects, DerivedPredicates, DisjunctivePreconditions, DurativeActions, Equality,
-    ExistentialPreconditions, Fluents, NegativePreconditions, NumericFluents, ObjectFluents,
-    Preferences, Typing, UniversalPreconditions,
-};
-use crate::aiplan4rust::lang::{CompareOp, LiteralId};
-use crate::aiplan4rust::lang::Requirement;
+//! Module for validating PDDL requirement compliance.
+//!
+//! This module ensures that all features used in the PDDL source (represented by
+//! `required_requirements`) have been explicitly enabled in the `:requirements`
+//! section (represented by `declared_requirements`).
 
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::lang::LiteralId;
+use crate::aiplan4rust::lang::Requirement;
 use std::collections::HashSet;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::Node;
 
+/// Validates that all requirements triggered by the AST are covered by the declared ones.
+///
+/// This function cross-references the atomic requirements extracted during semantic analysis
+/// (`requirement_triggers`) against the set of declared requirements, including those
+/// implied by meta-requirements like `:adl` (via `compute_effective_requirements`).
+///
+/// # Reporting Behavior
+/// To prevent diagnostic flooding, this function **only reports a warning for the first
+/// occurrence** of each missing requirement. While only the first problematic node is
+/// flagged in the `DiagnosticManager`, the complete list of all triggering nodes remains
+/// available within the `context.requirement_triggers()` for tools that require
+/// exhaustive mapping.
+///
+/// # Parameters
+/// - `context`: The semantic [`CheckContext`] containing the AST, requirements, and triggers.
+/// - `provider`: The diagnostic [`Provider`] (e.g., Semantic or Linker).
+/// - `diagnostic_manager`: A mutable reference to collect the reported warnings.
+///
+/// # Returns
+/// - `Ok(true)` if all used features are covered by declarations.
+/// - `Ok(false)` if violations were found (one warning per missing requirement type).
+/// - `Err(SemanticCheckError)` if an AST node cannot be resolved.
 pub fn check_requirement_violations(
     context: &CheckContext,
-    requirements: &HashSet<Requirement>,
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
 
-    for (index, node) in context.syntax_tree().preorder().with_id() {
-        match node.kind() {
-            AstKind::PrimitiveType | AstKind::TypesDef => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![Typing],
-                );
-            }
+    // 1. Resolve total coverage (Explicit + Implicit requirements)
+    let effective_capabilities = Requirement::closure(context.declared_requirements());
 
-            AstKind::FunctionsDef | AstKind::Function => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![Fluents, NumericFluents, ObjectFluents],
-                );
-            }
+    let triggers = context.requirement_triggers();
+    let mut reported_in_this_pass = HashSet::new();
 
-            AstKind::Number => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![NumericFluents],
-                );
-            }
+    // 2. Cross-reference atomic triggers against effective capabilities
+    for (req, nodes) in triggers {
+        // If the atomic usage (e.g., :typing) is not covered by effective declarations
+        if !effective_capabilities.contains(req) {
+            checked = false;
 
-            AstKind::DurativeActionDef => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![DurativeActions],
-                );
-            }
+            // We only report the first node that triggered the requirement to avoid noise.
+            // Note: The full 'nodes' slice contains every location where this req is needed.
+            if let Some(first_node_id) = nodes.first() {
+                if reported_in_this_pass.insert(req.clone()) {
+                    let node = context.syntax_tree().try_node(*first_node_id)?;
 
-            AstKind::DerivedDef => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![DerivedPredicates],
-                );
-            }
-
-            AstKind::Or => {
-                let parent = context.syntax_tree().get_parent(index).unwrap();
-                if parent.kind() != AstKind::MethodPreconditionDef
-                    && parent.kind() != AstKind::PreconditionDef
-                    && parent.kind() != AstKind::EffectDef
-                {
-                    checked &= report_warning_requirement_violation(
+                    report_warning_requirement_violation(
                         node,
-                        requirements,
+                        context.declared_requirements(),
                         context.source_id(),
                         provider,
                         diagnostic_manager,
-                        vec![DisjunctivePreconditions],
+                        vec![req.clone()],
                     );
                 }
             }
-
-            AstKind::Not => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![NegativePreconditions],
-                );
-            }
-
-            AstKind::Imply => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![DisjunctivePreconditions],
-                );
-            }
-
-            AstKind::Forall => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![UniversalPreconditions],
-                );
-            }
-
-            AstKind::Exists => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![ExistentialPreconditions],
-                );
-            }
-
-            AstKind::Preference => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![Preferences],
-                );
-            }
-
-            AstKind::When => {
-                checked &= report_warning_requirement_violation(
-                    node,
-                    requirements,
-                    context.source_id(),
-                    provider,
-                    diagnostic_manager,
-                    vec![ConditionalEffects],
-                );
-            }
-
-            AstKind::Comparison => {
-                match node.try_compare_op()? {
-                    CompareOp::Equal => {
-                        checked &= report_warning_requirement_violation(
-                            node,
-                            requirements,
-                            context.source_id(),
-                            provider,
-                            diagnostic_manager,
-                            vec![Equality, Fluents, NumericFluents,ObjectFluents],
-                        );
-                    }
-                    _ => {
-                        checked &= report_warning_requirement_violation(
-                            node,
-                            requirements,
-                            context.source_id(),
-                            provider,
-                            diagnostic_manager,
-                            vec![Fluents, NumericFluents,ObjectFluents],
-                        );
-                    }
-                }
-            }
-            _ => {}
         }
     }
+
     Ok(checked)
 }
 

@@ -23,6 +23,7 @@
 //! println!("{}", req); // prints "strips"
 //! ```
 
+use std::collections::HashSet;
 use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::ACTION_COSTS;
 use crate::aiplan4rust::syntax::lexer::token::ADL;
@@ -112,6 +113,89 @@ pub enum Requirement {
 }
 
 impl Requirement {
+
+    /// Computes the transitive closure of a set of requirements.
+    ///
+    /// This function expands the provided set of explicitly declared requirements
+    /// into a complete "effective" set by resolving all PDDL hierarchies.
+    ///
+    /// It acts as the **Source of Truth** for requirement implications: for instance,
+    /// if the input contains `:adl`, the resulting closure will include `:typing`,
+    /// `:strips`, `:equality`, and all other atomic requirements bundled under the ADL meta-requirement.
+    ///
+    /// # Arguments
+    /// * `declared` - A reference to a `HashSet` of requirements explicitly specified in the source.
+    ///
+    /// # Returns
+    /// A new `HashSet<Requirement>` containing all explicit requirements and their
+    /// implicit atomic dependencies.
+    pub fn closure(declared: &HashSet<Requirement>) -> HashSet<Requirement> {
+        let mut effective = HashSet::new();
+        for req in declared {
+            // We use extend to merge the vector of implications into the set
+            effective.extend(req.imply());
+        }
+        effective
+    }
+
+    /// Checks if a specific atomic requirement is covered by a set of declared requirements,
+    /// taking PDDL hierarchy and implications into account.
+    ///
+    /// This method is optimized for single checks. If you need to check many requirements
+    /// against the same set, consider using `closure` once instead.
+    ///
+    /// # Arguments
+    /// * `atomic` - The specific requirement to check for coverage.
+    /// * `declared` - The set of requirements explicitly declared in the PDDL source.
+    ///
+    /// # Returns
+    /// `true` if the requirement is explicitly declared or implicitly covered by a
+    /// meta-requirement (like :adl).
+    pub fn is_covered_by(atomic: &Requirement, declared: &HashSet<Requirement>) -> bool {
+        // Fast path: direct match
+        if declared.contains(atomic) {
+            return true;
+        }
+
+        // Logic path: check if any declared requirement implies the atomic one
+        // We iterate through declared requirements and check their implications
+        declared.iter().any(|req| {
+            match (req, atomic) {
+                // ADL covers almost everything in the base spec
+                (Requirement::Adl, _) => match atomic {
+                    Requirement::Strips
+                    | Requirement::Typing
+                    | Requirement::NegativePreconditions
+                    | Requirement::DisjunctivePreconditions
+                    | Requirement::Equality
+                    | Requirement::QuantifiedPreconditions
+                    | Requirement::ExistentialPreconditions
+                    | Requirement::UniversalPreconditions
+                    | Requirement::ConditionalEffects => true,
+                    _ => false,
+                },
+
+                // Quantified Preconditions covers its children
+                (Requirement::QuantifiedPreconditions, _) => match atomic {
+                    Requirement::ExistentialPreconditions | Requirement::UniversalPreconditions => true,
+                    _ => false,
+                },
+
+                // Fluents covers numeric and object variants
+                (Requirement::Fluents, _) => match atomic {
+                    Requirement::NumericFluents | Requirement::ObjectFluents => true,
+                    _ => false,
+                },
+
+                // Timed Initial Literals usually implies/requires Durative Actions
+                (Requirement::TimedInitialLiterals, Requirement::DurativeActions) => true,
+
+                // Default: no match found for this specific pair
+                _ => false,
+            }
+        })
+    }
+
     // Returns all atomic requirements implied by this requirement, including itself.
     pub fn imply(&self) -> Vec<Requirement> {
         match self {

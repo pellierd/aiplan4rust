@@ -29,6 +29,7 @@ impl<ID: Id> Type<ID> {
         Self { members: Vec::new() }
     }
 
+
     pub fn root() -> Self {
         Type::new()
     }
@@ -89,7 +90,7 @@ impl<ID: Id> Borrow<[ID]> for Type<ID> {
 // --- Spécialisation pour StringID (Parsing / Syntaxe) ---
 
 impl Type<SymbolId> {
-    pub fn object() -> &'static Self {
+   /* pub fn object() -> &'static Self {
         static OBJECT_TYPE: Lazy<Type<SymbolId>> = Lazy::new(|| {
             Type::primitive(SymbolInterner::OBJECT_SYMBOL_ID)
         });
@@ -101,13 +102,35 @@ impl Type<SymbolId> {
             Type::primitive(SymbolInterner::NUMBER_SYMBOL_ID)
         });
         &NUMBER_TYPE
+    }*/
+
+    pub fn number() -> Self {
+        Self::primitive(SymbolInterner::NUMBER_SYMBOL_ID)
     }
 
-    pub fn is_object(&self) -> bool { self == Self::object() }
-    pub fn is_number(&self) -> bool { self == Self::number() }
+    pub fn object() -> Self {
+        Self::primitive(SymbolInterner::OBJECT_SYMBOL_ID)
+    }
+
+    pub fn is_object(&self) -> bool {
+        self.is_primitive() && self.members[0] == SymbolInterner::OBJECT_SYMBOL_ID
+    }
+
+    //pub fn is_object(&self) -> bool { self == Self::object() }
+
+    //pub fn is_number(&self) -> bool { self == Self::number() }
+
+    pub fn is_number(&self) -> bool {
+        self.is_primitive() && self.members[0] == SymbolInterner::NUMBER_SYMBOL_ID
+    }
+
 }
 
 impl Type<TypeId> {
+    pub fn number() -> Self {
+        Self::primitive(TypeId::NUMBER_TYPE_ID)
+    }
+
     /// Returns true if this typing represents a numeric value.
     ///
     /// A typing is considered numeric if it is primitive and its

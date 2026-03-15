@@ -319,10 +319,13 @@ pub const UNDEFINED: &str = "undefined";
 pub const DURATION_VARIABLE: &str = "?duration";
 
 /// Represents the "#t" special constant in PDDL, often used to represent the Boolean value true.
-pub const SHARP_T: &str = "#t";
+pub const CONTINUOUS_VARIABLE: &str = "#t";
 
 /// Represents the "total-time" special constant in PDDL, used to represent the total time of a plan.
 pub const TOTAL_TIME: &str = "total-time";
+
+/// Represents the "total-cost" special constant in PDDL, used for action-costs requirements.
+pub const TOTAL_COST: &str = "total-cost";
 
 /// Represents the "is-violated" special constant in PDDL, which checks if a constraint is violated.
 pub const IS_VIOLATED: &str = "is-violated";
@@ -794,7 +797,7 @@ impl Token {
             Token::NumberType => NUMBER_TYPE.to_string(),
             Token::Undefined => UNDEFINED.to_string(),
             Token::DurationVariable => DURATION_VARIABLE.to_string(),
-            Token::SharpT => SHARP_T.to_string(),
+            Token::SharpT => CONTINUOUS_VARIABLE.to_string(),
             Token::TotalTime => TOTAL_TIME.to_string(),
             Token::IsViolated => IS_VIOLATED.to_string(),
 

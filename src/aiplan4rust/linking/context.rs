@@ -17,7 +17,7 @@
 //! and the `Display` trait for human-readable summaries of the linked context.
 //!
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::SystemTime;
@@ -28,7 +28,7 @@ use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::Tree;
+use crate::aiplan4rust::tree::{NodeId, Tree};
 
 /// Represents a linked semantic context combining a domain and a problem.
 ///
@@ -73,6 +73,8 @@ pub struct LinkedSemanticContext {
     problem_table: SymbolTable,
     declared_requirements: HashSet<Requirement>,
     required_requirements: HashSet<Requirement>,
+    domain_requirement_triggers: HashMap<Requirement, Vec<NodeId>>,
+    problem_requirement_triggers: HashMap<Requirement, Vec<NodeId>>,
     interner: SymbolInterner,
     domain_source_id: LiteralId,
     problem_source_id: LiteralId,
@@ -104,6 +106,8 @@ impl Default for LinkedSemanticContext {
             problem_table: Default::default(),
             declared_requirements: Default::default(),
             required_requirements: Default::default(),
+            domain_requirement_triggers: Default::default(),
+            problem_requirement_triggers: Default::default(),
             interner: Default::default(),
             domain_source_id: Default::default(),
             problem_source_id: Default::default(),
@@ -187,6 +191,9 @@ impl LinkedSemanticContext {
             .cloned()
             .collect();
 
+        let domain_requirement_triggers = domain.take_requirement_triggers();
+        let problem_requirement_triggers = problem.take_requirement_triggers();
+
         // Step 5: Take interner and source ids
         let domain_source_id = domain.source_id();
         let problem_source_id = problem.source_id();
@@ -198,6 +205,8 @@ impl LinkedSemanticContext {
             problem_table,
             declared_requirements,
             required_requirements,
+            domain_requirement_triggers,
+            problem_requirement_triggers,
             interner,
             domain_source_id,
             problem_source_id,
@@ -327,6 +336,22 @@ impl LinkedSemanticContext {
         std::mem::take(&mut self.required_requirements)
     }
 
+    /// Takes ownership of the domain requirement triggers, leaving an empty map in its place.
+    ///
+    /// This is used when transferring diagnostic metadata to a reporting tool
+    /// or a further transformation stage.
+    pub fn take_domain_requirement_triggers(&mut self) -> HashMap<Requirement, Vec<NodeId>> {
+        std::mem::take(&mut self.domain_requirement_triggers)
+    }
+
+    /// Takes ownership of the problem requirement triggers, leaving an empty map in its place.
+    ///
+    /// Useful for extracting problem-specific triggers for validation
+    /// without consuming the entire linked context.
+    pub fn take_problem_requirement_triggers(&mut self) -> HashMap<Requirement, Vec<NodeId>> {
+        std::mem::take(&mut self.problem_requirement_triggers)
+    }
+
     /// Returns an immutable reference to the domain AST.
     ///
     /// # Returns
@@ -361,6 +386,22 @@ impl LinkedSemanticContext {
     /// The previously held `SyntaxTree` representing the problem.
     pub fn take_problem_syntax_tree(&mut self) -> Tree<AstNode> {
         std::mem::take(&mut self.problem_syntax_tree)
+    }
+
+    /// Returns a reference to the requirement triggers originating from the domain.
+    ///
+    /// These triggers point to nodes in the `domain_syntax_tree` that
+    /// justify the presence of specific requirements.
+    pub fn domain_requirement_triggers(&self) -> &HashMap<Requirement, Vec<NodeId>> {
+        &self.domain_requirement_triggers
+    }
+
+    /// Returns a reference to the requirement triggers originating from the problem.
+    ///
+    /// These triggers point to nodes in the `problem_syntax_tree` that
+    /// justify why the problem requires specific PDDL features.
+    pub fn problem_requirement_triggers(&self) -> &HashMap<Requirement, Vec<NodeId>> {
+        &self.problem_requirement_triggers
     }
 
     /// Returns an immutable reference to the domain symbol table.

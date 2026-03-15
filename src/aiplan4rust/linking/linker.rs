@@ -141,15 +141,17 @@ impl Linker {
 
                 // Step 4: Create a check context for the problem using the global interner
                 // and perform semantic and structural linking checks on the problem
-                let mut requirements = HashSet::new();
-                requirements.extend(problem_ctx.declared_requirements().clone());
-                requirements.extend(domain_ctx.declared_requirements().clone());
+                let mut total_declared = domain_ctx.declared_requirements().clone();
+                total_declared.extend(problem_ctx.declared_requirements());
+
                 let problem_check_ctx = CheckContext::new(
                     problem_ctx.syntax_tree(),
                     problem_ctx.symbol_table(),
                     &global_interner,
                     problem_ctx.source_id(),
-                    &requirements,
+                    &total_declared,
+                    &problem_ctx.required_requirements(),
+                    problem_ctx.requirement_triggers()
                 );
                 perform_linking_checks(&domain_ctx, &problem_check_ctx, &mut self.diagnostic_manager)?;
 
@@ -277,14 +279,9 @@ fn perform_linking_checks(
         // Check task ordering constraints in the problem
         semantic::checks::check_task_ordering(problem, Provider::Linker, diagnostic_manager)?;
 
-        // Merge requirements from domain and problem contexts
-        let mut requirements = domain.declared_requirements().clone();
-        requirements.extend(problem.requirements().clone());
-
         // Check for any requirement violations
         semantic::checks::check_requirement_violations(
             problem,
-            &requirements,
             Provider::Linker,
             diagnostic_manager,
         )?;

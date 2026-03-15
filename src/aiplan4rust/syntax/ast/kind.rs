@@ -452,7 +452,7 @@ impl fmt::Display for Kind {
             Kind::Exists => "Exists",
             Kind::Preference => "Preference",
             Kind::When => "When",
-            Kind::Comparison => "FComp",
+            Kind::Comparison => "Comparison",
             Kind::Assignment => "Assign",
             Kind::Arithmetic => "Operation",
             Kind::Constraints => "Constraints",

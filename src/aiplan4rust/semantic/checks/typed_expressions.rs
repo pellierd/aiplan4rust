@@ -224,7 +224,7 @@ fn check_numeric_expression(
     let mut no_error = true;
 
     // Handle Greater, Less, etc.
-    if ty1 != Type::number() || ty2 != Type::number() {
+    if *ty1 != Type::<SymbolId>::number() || *ty2 != Type::<SymbolId>::number() {
         no_error = false;
         let error = Diagnostic::error_invalid_types_in_numeric_expression(
             ty1.clone(),
@@ -370,7 +370,7 @@ pub fn get_type(
 /// let ty = get_number_type()?; // Returns Some(["number".to_string()])
 /// ```
 fn get_number_type() -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
-    Ok(Some(Type::number().clone()))
+    Ok(Some(Type::<SymbolId>::number().clone()))
 }
 
 /// Retrieves the type_checker of a variable symbol from the symbol table.
@@ -406,7 +406,7 @@ fn get_variable_type(
     symbol: SymbolId,
     context: &CheckContext,
 ) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
-    if symbol == SymbolInterner::DURATION_VARIABLE_SYMBOL_ID && context.requirements().contains(&DurativeActions) {
+    if symbol == SymbolInterner::DURATION_VARIABLE_SYMBOL_ID && context.declared_requirements().contains(&DurativeActions) {
         return get_number_type();
     }
     get_declaration_type(index, context, SymbolKind::Variable)
@@ -514,7 +514,7 @@ fn get_function_term_type(
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
         if functor_entry.try_ident()? == SymbolInterner::TOTAL_TIME_SYMBOL_ID
-            && context.requirements().contains(&NumericFluents)
+            && context.declared_requirements().contains(&NumericFluents)
         {
             return get_number_type();
         }

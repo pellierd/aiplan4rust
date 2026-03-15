@@ -296,7 +296,6 @@ impl Analyzer {
 
             semantic::checks::check_requirement_violations(
                 context,
-                context.requirements(),
                 Provider::Analyzer,
                 diagnostic_manager,
             )?;

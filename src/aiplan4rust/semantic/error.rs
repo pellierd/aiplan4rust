@@ -12,11 +12,12 @@
 //! the semantic analysis pipeline.
 
 use thiserror::Error;
+use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
 
@@ -110,6 +111,15 @@ impl InvalidNodeArityError {
 /// - `UnexpectedSyntaxTreeRootError`: Error when the syntax tree root is not a domain or problem.
 #[derive(Debug, Error)]
 pub enum SemanticError {
+
+    /// Errors related to the ast.
+    #[error(transparent)]
+    Ast(#[from] AstError),
+
+    /// Errors related to the arena.
+    #[error(transparent)]
+    Arena(#[from] ArenaError),
+
     /// Errors related to the syntax tree.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),

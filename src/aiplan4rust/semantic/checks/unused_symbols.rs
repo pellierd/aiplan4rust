@@ -156,7 +156,7 @@ fn skip_unused_symbol_declaration(
         return Ok(true);
     }
 
-    let requirements = context.requirements();
+    let requirements = context.declared_requirements();
     match declaration.symbol_ident() {
         SymbolInterner::OBJECT_SYMBOL_ID
             if requirements.contains(&Typing)
@@ -241,7 +241,7 @@ fn check_pddl_builtin_symbol_declaration(
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
-    let requirements = context.requirements();
+    let requirements = context.declared_requirements();
     let current_kind = declaration.symbol_kind();
 
     // 1. On identifie si le nom est un mot-clé réservé selon les requirements

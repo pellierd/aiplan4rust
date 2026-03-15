@@ -247,16 +247,16 @@ fn is_pddl_builtin_symbol(
     match symbol.ident() {
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
         SymbolInterner::OBJECT_SYMBOL_ID
-            if context.requirements().contains(&Typing)
-                || context.requirements().contains(&Adl) => true,
+            if context.declared_requirements().contains(&Typing)
+                || context.declared_requirements().contains(&Adl) => true,
         // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
         // present.
         SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID
-            if context.requirements().contains(&NumericFluents)
-                || context.requirements().contains(&Fluents)=> true,
+            if context.declared_requirements().contains(&NumericFluents)
+                || context.declared_requirements().contains(&Fluents)=> true,
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
         SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
-            if context.requirements().contains(&DurativeActions) => true,
+            if context.declared_requirements().contains(&DurativeActions) => true,
         // Default case for any other symbols.
         _ => false,
     }

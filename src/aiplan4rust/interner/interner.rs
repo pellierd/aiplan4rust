@@ -47,7 +47,7 @@ use std::collections::HashMap;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{LiteralId, SymbolId};
-use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
+use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME, TOTAL_COST, CONTINUOUS_VARIABLE};
 
 /// A `StringInterner` is a data structure that stores unique strings efficiently
 /// by assigning each string a unique numeric index.
@@ -173,6 +173,44 @@ impl SymbolInterner {
     /// ```
     pub const TOTAL_TIME_SYMBOL_ID: SymbolId = SymbolId::new(3);
 
+    /// The interned identifier for the reserved string `"total_cost"`.
+    ///
+    /// This constant assumes that the string `"total_cost"` is interned at index `4`
+    /// during the initialization of the [`SymbolInterner`] using [`intern_reserved`].
+    ///
+    /// It is important that this constant's value matches the insertion order
+    /// of reserved strings in [`SymbolInterner::new()`]. Changing that order without
+    /// updating this constant will result in incorrect behavior.
+    ///
+    /// # Example
+    /// ```rust
+    /// let interner = StringInterner::new();
+    /// assert_eq!(
+    ///     interner.expect_str(StringInterner::TOTAL_COST_SYMBOL_ID).unwrap(),
+    ///     "total_cost"
+    /// );
+    /// ```
+    pub const TOTAL_COST_SYMBOL_ID: SymbolId = SymbolId::new(4);
+
+    /// The interned identifier for the reserved string `"#t"`.
+    ///
+    /// This constant assumes that the string `"#t"` is interned at index `5`
+    /// during the initialization of the [`SymbolInterner`] using [`intern_reserved`].
+    ///
+    /// It is important that this constant's value matches the insertion order
+    /// of reserved strings in [`SymbolInterner::new()`]. Changing that order without
+    /// updating this constant will result in incorrect behavior.
+    ///
+    /// # Example
+    /// ```rust
+    /// let interner = StringInterner::new();
+    /// assert_eq!(
+    ///     interner.expect_str(StringInterner::CONTINUOUS_VARIABLE_SYMBOL_ID).unwrap(),
+    ///     "#t"
+    /// );
+    /// ```
+    pub const CONTINUOUS_VARIABLE_SYMBOL_ID: SymbolId = SymbolId::new(5);
+
     /// Creates a new `StringInterner` with reserved strings pre-interned.
     ///
     /// This constructor initializes an empty string pool and inserts a predefined set
@@ -207,10 +245,12 @@ impl SymbolInterner {
         };
 
         // Always intern these in the same order as their constant Ident declarations
-        interner.intern_reserved_symbol(OBJECT_TYPE);       // index 0
-        interner.intern_reserved_symbol(NUMBER_TYPE);       // index 1
-        interner.intern_reserved_symbol(DURATION_VARIABLE); // index 2
-        interner.intern_reserved_symbol(TOTAL_TIME);        // index 3
+        interner.intern_reserved_symbol(OBJECT_TYPE);         // index 0
+        interner.intern_reserved_symbol(NUMBER_TYPE);         // index 1
+        interner.intern_reserved_symbol(DURATION_VARIABLE);   // index 2
+        interner.intern_reserved_symbol(TOTAL_TIME);          // index 3
+        interner.intern_reserved_symbol(TOTAL_COST);          // index 4
+        interner.intern_reserved_symbol(CONTINUOUS_VARIABLE); // index 5
 
         interner
     }
