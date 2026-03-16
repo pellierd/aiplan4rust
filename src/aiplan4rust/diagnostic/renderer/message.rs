@@ -112,6 +112,9 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
         Kind::DuplicatedSymbolDeclarationInScope { symbol, .. } => {
             format_duplicated_symbol_declaration(symbol, interner)
         }
+        Kind::DuplicateVariableSkeletonDeclaration { symbol, .. } => {
+            format_duplicate_variable_skeleton_declaration(symbol, interner)
+        }
         Kind::CyclicTaskOrdering => format_cyclic_task_ordering(),
         Kind::UndeclaredSymbol { usage } => format_undeclared_symbol(usage, interner),
         Kind::SymbolConflictsWithKeyword { declaration, .. } => {
@@ -143,6 +146,7 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
         Kind::DuplicateRequirementWarning { .. } => format_duplicate_requirement_warning(),
         Kind::CustomError { message, .. } => message.to_string(),
         Kind::CustomWarning { message, .. } => message.to_string(),
+
     }
 }
 
@@ -315,6 +319,21 @@ fn format_requirement_violation(node_kind: &AstKind) -> String {
 fn format_duplicated_symbol_declaration(symbol: &Symbol, interner: Option<&SymbolInterner>) -> String {
     let name = formatting::symbol_to_string(symbol, interner);
     format!("Symbol '{}' is declared multiple times in the same scope.", name)
+}
+
+/// Formats a message indicating a duplicated variable declaration within a skeleton scope.
+///
+/// # Arguments
+///
+/// * `symbol` - The duplicated variable symbol.
+/// * `interner` - Optional interner for resolving the symbol's name.
+///
+/// # Returns
+///
+/// A formatted string warning about the variable being declared multiple times in a skeleton.
+fn format_duplicate_variable_skeleton_declaration(symbol: &Symbol, interner: Option<&SymbolInterner>) -> String {
+    let name = formatting::symbol_to_string(symbol, interner);
+    format!("Variable '{}' is declared multiple times in the same skeleton definition.", name)
 }
 
 /// Formats a message indicating detection of a cyclic task-ordering constraint.

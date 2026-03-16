@@ -9,6 +9,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 
 use std::collections::{HashMap, HashSet};
+use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Entry point for checking declared symbols in the symbol table for semantic issues
 /// such as duplicate declarations.
@@ -113,23 +114,48 @@ fn check_symbol_declarations(
                         diagnostic_manager.add_diagnostic(warning);
                     }
 
-                // Pour Constant vs Constant (colourfragments) ou Type vs Constant : Silence radio.
+                // Pour Constant vs Constant Type vs Constant : Silence radio.
                 } else {
                     checked = false;
 
                     let scope_index = conflicting_scope.iter().last().unwrap();
                     let scope_node = context.syntax_tree().get_node(*scope_index).unwrap();
 
-                    let error = Diagnostic::error_duplicated_symbol_declaration_in_scope(
-                        Symbol::new(symbol.ident(), declaration.symbol_kind()),
-                        previous_declaration.clone(),
-                        declaration.clone(),
+                    // --- NOUVELLE LOGIQUE FLEXIBLE ---
+                    // Si c'est une variable dans une déclaration de prédicat/fonction (Skeleton)
+                    // on downgrade l'erreur en warning pour supporter l'IPC.
+                    let is_variable = current_kind == SymbolKind::Variable;
+                    let is_skeleton_scope = matches!(
                         scope_node.kind(),
-                        Provider::Analyzer,
-                        context.source_id(),
-                        ast_entry.span().clone(),
+                        AstKind::AtomicFormulaSkeleton | AstKind::AtomicFunctionSkeleton
                     );
-                    diagnostic_manager.add_diagnostic(error);
+                    // cas de du varubale identqiuye dans une definition de skeeton
+                    if is_variable && is_skeleton_scope {
+                        // On génère un warning spécifique (non-bloquant)
+                        let warning = Diagnostic::warning_duplicate_variable_skeleton_declaration(
+                            Symbol::new(symbol.ident(), declaration.symbol_kind()),
+                            previous_declaration.clone(),
+                            declaration.clone(),
+                            scope_node.kind(),
+                            Provider::Analyzer,
+                            context.source_id(),
+                            ast_entry.span().clone(),
+                        );
+                        diagnostic_manager.add_diagnostic(warning);
+
+                    } else {
+                        checked = false;
+                        let error = Diagnostic::error_duplicated_symbol_declaration_in_scope(
+                            Symbol::new(symbol.ident(), declaration.symbol_kind()),
+                            previous_declaration.clone(),
+                            declaration.clone(),
+                            scope_node.kind(),
+                            Provider::Analyzer,
+                            context.source_id(),
+                            ast_entry.span().clone(),
+                        );
+                        diagnostic_manager.add_diagnostic(error);
+                        }
                 }
             } else {
                 // First declaration seen in this scope

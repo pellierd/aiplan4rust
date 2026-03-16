@@ -127,6 +127,7 @@ pub enum Kind {
         node_kind: AstKind,
         required: Vec<Requirement>,
     },
+
     /// Represents an error where a symbol is declared more than once within the same scope.
     ///
     /// # Fields
@@ -140,6 +141,25 @@ pub enum Kind {
     /// This error indicates that a symbol name has been declared multiple times in the same scope,
     /// which is not allowed and may lead to ambiguous or erroneous behavior.
     DuplicatedSymbolDeclarationInScope {
+        symbol: Symbol,
+        original_declaration: Declaration,
+        conflicting_declaration: Declaration,
+        scope: AstKind,
+    },
+
+    /// Represents a warning where a variable is declared more than once within a skeleton scope.
+    ///
+    /// This is specifically used for `AtomicFormulaSkeleton` or `AtomicFunctionSkeleton`
+    /// to support legacy IPC domains (like Logistics) where duplicate parameter names
+    /// are used as placeholders.
+    ///
+    /// # Fields
+    ///
+    /// - `symbol`: The duplicated variable symbol.
+    /// - `original_declaration`: The first declaration of the variable.
+    /// - `conflicting_declaration`: The second (conflicting) declaration.
+    /// - `scope`: The AST node kind defining the skeleton scope.
+    DuplicateVariableSkeletonDeclaration {
         symbol: Symbol,
         original_declaration: Declaration,
         conflicting_declaration: Declaration,
@@ -514,6 +534,7 @@ impl Kind {
             Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => "007",
             Kind::DuplicateEitherType { .. } => "008",
             Kind::ImplicitEitherTypeDeclaration { .. } => "009",
+            Kind::DuplicateVariableSkeletonDeclaration { .. } => "010",
         }
     }
 
@@ -567,6 +588,7 @@ impl Kind {
             Kind::DuplicateEitherType { .. } => Severity::Warning,
             Kind::ImplicitEitherTypeDeclaration { .. } => Severity::Warning,
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
+            Kind::DuplicateVariableSkeletonDeclaration { .. } => Severity::Warning,
         }
     }
 }
@@ -623,10 +645,16 @@ impl RemapSymbol for DiagnosticKind {
                 original_declaration: declaration1,
                 conflicting_declaration: declaration2,
                 ..
+            } | Kind::DuplicateVariableSkeletonDeclaration {
+                original_declaration: declaration1,
+                conflicting_declaration: declaration2,
+                ..
             } => {
+                // Ici, declaration1 et declaration2 sont utilisables car
+                // elles sont garanties d'être liées peu importe la variante choisie.
                 declaration1.remap_symbol(map)?;
                 declaration2.remap_symbol(map)?;
-            }
+            },
 
             Kind::UndeclaredSymbol { usage } => {
                 usage.remap_symbol(map)?;

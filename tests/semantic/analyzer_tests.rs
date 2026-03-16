@@ -4,56 +4,6 @@ use test_case::test_case;
 use crate::common::io::*;
 use crate::common::pipeline::*;
 
-pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
-    let mut success = true;
-
-    // 1. Nettoyage des fichiers de diagnostic et d'AST
-    delete_all_files_with_extension(domain_dir, "diag");
-    delete_all_files_with_extension(domain_dir, "ast");
-
-    // 2. Collecte et tri pour le déterminisme
-    let mut all_files = collect_domain_files(domain_dir);
-    all_files.sort();
-    let total_available = all_files.len();
-
-    // 3. Sélection du mode via l'utilitaire commun (Swallow par défaut)
-    let files_to_process = filter_files_by_mode(all_files);
-
-    for file_path in &files_to_process {
-        // --- ÉTAPE 1 : PARSING ---
-        let parser_result = match parse_and_check_ast(file_path) {
-            Some(result) => result,
-            None => {
-                success = false;
-                continue;
-            }
-        };
-
-        // --- ÉTAPE 2 : NORMALISATION ---
-        let normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
-            Some(result) => result,
-            None => {
-                eprintln!("\x1b[1;31mNormalization failed\x1b[0m for {}", file_path.display());
-                success = false;
-                continue;
-            }
-        };
-
-        // --- ÉTAPE 3 : ANALYSE SÉMANTIQUE ---
-        // On suit la même logique : si l'analyse renvoie None, c'est un échec
-        if analyze(normalizer_result, file_path).is_none() {
-            eprintln!("\x1b[1;31mSemantic Analysis failed\x1b[0m for {}", file_path.display());
-            success = false;
-            continue;
-        }
-    }
-
-    // 4. Affichage du statut (Cyan ou Vert selon FULL_TESTS)
-    print_test_status(files_to_process.len(), total_available, domain_dir);
-
-    success
-}
-
 #[test_case("tests/fixtures/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
 #[test_case("tests/fixtures/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]
 #[test_case("tests/fixtures/hddl/ipc20/partial-order/monroe-partially-observable"; "ipc20_partial_order_monroe_partially_observable")]
@@ -108,6 +58,19 @@ pub fn test_hddl_analyzer(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc98/movie/strips"; "ipc98_pddl_strips_movie")]
 #[test_case("tests/fixtures/pddl/ipc98/mystery-prime/strips"; "ipc98_pddl_strips_mystery_prime")]
 #[test_case("tests/fixtures/pddl/ipc98/mystery/strips"; "ipc98_pddl_strips_mystery")]
+#[test_case("tests/fixtures/pddl/ipc98/grid/strips"; "ipc98_pddl_strips_grid")]
+#[test_case("tests/fixtures/pddl/ipc00/blocks/strips/typed"; "ipc00_pddl_typed_strips_blocks")]
+#[test_case("tests/fixtures/pddl/ipc00/blocks/strips/untyped"; "ipc00_pddl_untyped_strips_blocks")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/typed"; "ipc00_pddl_typed_strips_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/untyped"; "ipc00_pddl_untyped_strips_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/adl/full-typed"; "ipc00_pddl_full_typed_adl_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/adl/simple-typed"; "ipc00_pddl_simple_typed_adl_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/typed"; "ipc00_pddl_typed_strips_freecell")]
+#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/untyped"; "ipc00_pddl_untyped_strips_freecell")]
+#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/typed"; "ipc00_pddl_typed_strips_logistics")]
+#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/untyped"; "ipc00_pddl_untyped_strips_logistics")]
+#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/typed"; "ipc00_pddl_typed_adl_schedule")]
+#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/untyped"; "ipc00_pddl_untyped_adl_schedule")]
 #[test_case("tests/fixtures/pddl/ipc02/depot/numeric/automatic/typed"; "ipc02_pddl_typed_numeric_automatic_depot")]
 #[test_case("tests/fixtures/pddl/ipc02/depot/numeric/automatic/untyped"; "ipc02_pddl_untyped_numeric_automatic_depot")]
 #[test_case("tests/fixtures/pddl/ipc02/depot/numeric/handcoded/typed"; "ipc02_pddl_typed_numeric_handcoded_depot")]
@@ -119,4 +82,55 @@ pub fn test_pddl_analyzer(domain_path: &str) {
         "Semantic Analysing test failed for directory {}",
         domain_path
     );
+}
+
+
+pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
+    let mut success = true;
+
+    // 1. Nettoyage des fichiers de diagnostic et d'AST
+    delete_all_files_with_extension(domain_dir, "diag");
+    delete_all_files_with_extension(domain_dir, "ast");
+
+    // 2. Collecte et tri pour le déterminisme
+    let mut all_files = collect_domain_files(domain_dir);
+    all_files.sort();
+    let total_available = all_files.len();
+
+    // 3. Sélection du mode via l'utilitaire commun (Swallow par défaut)
+    let files_to_process = filter_files_by_mode(all_files);
+
+    for file_path in &files_to_process {
+        // --- ÉTAPE 1 : PARSING ---
+        let parser_result = match parse_and_check_ast(file_path) {
+            Some(result) => result,
+            None => {
+                success = false;
+                continue;
+            }
+        };
+
+        // --- ÉTAPE 2 : NORMALISATION ---
+        let normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
+            Some(result) => result,
+            None => {
+                eprintln!("\x1b[1;31mNormalization failed\x1b[0m for {}", file_path.display());
+                success = false;
+                continue;
+            }
+        };
+
+        // --- ÉTAPE 3 : ANALYSE SÉMANTIQUE ---
+        // On suit la même logique : si l'analyse renvoie None, c'est un échec
+        if analyze(normalizer_result, file_path).is_none() {
+            eprintln!("\x1b[1;31mSemantic Analysis failed\x1b[0m for {}", file_path.display());
+            success = false;
+            continue;
+        }
+    }
+
+    // 4. Affichage du statut (Cyan ou Vert selon FULL_TESTS)
+    print_test_status(files_to_process.len(), total_available, domain_dir);
+
+    success
 }

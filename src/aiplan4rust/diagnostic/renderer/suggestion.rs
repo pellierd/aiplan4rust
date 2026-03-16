@@ -126,6 +126,9 @@ fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&SymbolInt
         Kind::DuplicatedSymbolDeclarationInScope { symbol, original_declaration, conflicting_declaration, scope } => {
             Some(format_duplicated_symbol_declaration_suggestion(symbol, original_declaration, conflicting_declaration, scope, interner))
         }
+        Kind::DuplicateVariableSkeletonDeclaration { symbol, original_declaration, conflicting_declaration, scope } => {
+            Some(format_duplicate_variable_skeleton_declaration_suggestion(symbol, original_declaration, conflicting_declaration, scope, interner))
+        }
         Kind::CyclicTaskOrdering => Some(format_cyclic_task_ordering_suggestion()),
         Kind::UndeclaredSymbol { usage } => format_undeclared_symbol_suggestion(usage, interner),
         Kind::SymbolConflictsWithKeyword { declaration, expected_kind, requirements } =>
@@ -376,6 +379,33 @@ fn format_duplicated_symbol_declaration_suggestion(
         scope,
         declaration1.symbol_kind(),
         declaration2.symbol_kind()
+    )
+}
+
+/// Returns a suggestion message for duplicated variable declarations within a skeleton scope.
+///
+/// # Arguments
+///
+/// * `symbol` - The variable symbol that is duplicated.
+/// * `declaration1` - The original declaration.
+/// * `declaration2` - The conflicting declaration.
+/// * `scope` - The skeleton scope (e.g., AtomicFormulaSkeleton).
+fn format_duplicate_variable_skeleton_declaration_suggestion(
+    symbol: &Symbol,
+    _declaration1: &Declaration,
+    _declaration2: &Declaration,
+    scope: &AstKind,
+    interner: Option<&SymbolInterner>,
+) -> String {
+    let symbol_name = renderer::formatting::symbol_to_string(symbol, interner);
+    format!(
+        "The variable '{}' appears multiple times in the parameters of '{}'. \
+         Consider using unique names (e.g., '{}_1', '{}_2') \
+         to improve clarity and avoid ambiguity.",
+        symbol_name,
+        scope,
+        symbol_name,
+        symbol_name
     )
 }
 

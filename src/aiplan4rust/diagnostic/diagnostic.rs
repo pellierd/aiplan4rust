@@ -512,6 +512,41 @@ impl Diagnostic {
         }
     }
 
+    /// Constructs a diagnostic warning for duplicated variable declarations within a skeleton (IPC compatibility).
+    ///
+    /// This is specifically used for predicate or function definitions where duplicate
+    /// parameter names (placeholders) are tolerated for historical reasons.
+    ///
+    /// # Arguments
+    /// - `symbol`: The duplicated variable symbol.
+    /// - `original_declaration`: The first declaration of the variable.
+    /// - `conflicting_declaration`: The second conflicting declaration.
+    /// - `scope`: The AST node kind defining the skeleton scope (e.g., AtomicFormulaSkeleton).
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source where the duplicate was detected.
+    pub fn warning_duplicate_variable_skeleton_declaration(
+        symbol: Symbol,
+        original_declaration: Declaration,
+        conflicting_declaration: Declaration,
+        scope: AstKind,
+        provider: Provider,
+        source: LiteralId,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::DuplicateVariableSkeletonDeclaration {
+                symbol,
+                original_declaration,
+                conflicting_declaration,
+                scope,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
     /// Constructs a diagnostic for a cyclic task ordering error.
     ///
     /// This indicates that task ordering constraints form a cycle,
