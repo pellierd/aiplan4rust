@@ -1,196 +1,272 @@
-use std::backtrace::Backtrace;
-use std::panic::Location;
-use log::debug;
-use thiserror::Error;
+//! Semantic analysis error definitions for PDDL/HDDL components.
+//!
+//! This module defines the [`SemanticCheckError`] enum, which serves as the unified error
+//! type for all semantic validation passes. It encapsulates errors originating from
+//! lower-level components (AST, Syntax Tree, Symbol Table) while introducing
+//! specific variants for logical inconsistencies in the planning domain.
 
+use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
-use crate::aiplan4rust::semantic::{SemanticError, UnexpectedNodeKindError};
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
 
+/// Represents all possible errors that can occur during the semantic analysis phase.
+///
+/// This enum uses `#[error(transparent)]` for internal infrastructure errors to
+/// preserve the original context, and provides detailed, human-readable messages
+/// for domain-specific semantic violations.
 #[derive(Debug, Error)]
 pub enum SemanticCheckError {
 
+    // --- Infrastructure Error Wrappers ---
+
+    /// Errors related to AST construction or integrity.
     #[error(transparent)]
     Ast(#[from] AstError),
 
+    /// Errors occurring during syntax tree traversal or node access.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
 
+    /// Errors originating from the internal arena memory management.
     #[error(transparent)]
     Arena(#[from] ArenaError),
 
+    /// Errors encountered while querying or modifying the symbol table.
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
 
+    /// Errors produced by the type checking engine during expression validation.
     #[error(transparent)]
     TypeChecker(#[from] TypeCheckError),
 
+    /// Errors occurring during symbol interning or string retrieval.
     #[error(transparent)]
     Interner(#[from] InternerError),
 
-    #[error(transparent)]
-    UnexpectedAstKind(#[from] UnexpectedNodeKindError),
+    // --- Structural Semantic Errors ---
 
+    /// Occurs when the analyzer encounters a node type that does not match the PDDL grammar
+    /// expectations for a specific context.
+    #[error("Unexpected node kind at {node_id:?}: expected one of {expected:?}, found {found:?}")]
+    UnexpectedAstKind {
+        /// The unique identifier of the faulty node.
+        node_id: NodeId,
+        /// The list of AST kinds that were valid in this context.
+        expected: Vec<AstKind>,
+        /// The actual AST kind found.
+        found: AstKind,
+    },
+
+    /// Triggered when an operand in a binary operation (e.g., comparison, arithmetic)
+    /// lacks a resolvable type.
     #[error("No typing declared for operand {operand_index} in binary operation at node {node_id:?}.")]
     MissingOperandType {
+        /// The unique identifier of the operation node.
         node_id: NodeId,
+        /// The zero-based index of the problematic operand.
         operand_index: usize,
     },
 
+    // --- Symbol & Scope Resolution Errors ---
+
+    /// Triggered when a symbol is used but no corresponding declaration exists in the
+    /// current or parent scopes.
     #[error("No declaration found for symbol '{symbol}' in scope {scope}.")]
     MissingDeclaration {
+        /// The identifier of the unresolved symbol.
         symbol: SymbolId,
+        /// The scope path where resolution failed.
         scope: Scope,
     },
 
+    /// Internal error: the declaration exists but its argument metadata is missing.
     #[error("Failed to retrieve arguments for declaration in scope {scope}.")]
     MissingDeclarationArguments {
+        /// The scope path of the declaration.
         scope: Scope,
     },
 
+    /// Occurs when accessing an argument index that exceeds the signature of a
+    /// predicate, function, or action.
     #[error("Argument index {index} out of bounds for declaration in scope {scope}.")]
     ArgumentIndexOutOfBounds {
+        /// The requested index.
         index: usize,
+        /// The scope path of the declaration.
         scope: Scope,
     },
 
+    /// Occurs when a symbol's type constraints cannot be retrieved from the symbol table.
     #[error("Failed to retrieve types for symbol '{symbol}' in scope {scope}.")]
     MissingSymbolTypes {
+        /// The identifier of the symbol.
         symbol: SymbolId,
+        /// The scope path.
         scope: Scope,
     },
 
+    // --- Typing & Hierarchy Errors ---
+
+    /// Critical internal error when a type cycle is detected but no details are provided.
     #[error("Cycle detail cannot be empty — internal inconsistency")]
     EmptyCycleDetail,
 
+    /// Error during type resolution where a type index refers to a non-existent entry.
     #[error("Type index {index} for typing '{type_name}' is out of bounds (max {max})")]
     TypeIndexOutOfBounds {
+        /// The out-of-bounds index.
         index: usize,
+        /// The name of the type being processed.
         type_name: SymbolId,
+        /// The maximum allowed index.
         max: usize,
     },
 
+    /// Error during parent type resolution in a `:typing` hierarchy.
     #[error("Parent index {index} for parent typing '{parent_name}' is out of bounds (max {max})")]
     ParentIndexOutOfBounds {
+        /// The out-of-bounds index.
         index: usize,
+        /// The name of the parent type.
         parent_name: SymbolId,
+        /// The maximum allowed index.
         max: usize,
     },
 
+    /// Error during object type mapping, usually related to constant or object definitions.
     #[error("Object typing index {index} is out of bounds (max {max})")]
     ObjectIndexOutOfBounds {
+        /// The out-of-bounds index.
         index: usize,
+        /// The maximum allowed index.
         max: usize,
     },
 
+    // --- Contextual & Tree Resolution Errors ---
+
+    /// Occurs when an operation requires a non-empty scope path to function.
     #[error("Scope is empty, cannot retrieve the last scope index.")]
     EmptyScope,
 
+    /// Occurs when a node ID referenced in a scope path does not exist in the syntax tree.
     #[error("Node with index {node_id:?} not found in syntax tree during scope resolution.")]
-    MissingScopeNode { node_id: NodeId },
-
+    MissingScopeNode {
+        /// The missing node identifier.
+        node_id: NodeId
+    },
 }
 
 impl SemanticCheckError {
-    #[track_caller] // Crucial pour que Location::caller() remonte à l'appelant de cette fonction
-    pub fn unexpected_ast_kind(
-        node_id: NodeId,
-        expected: Vec<AstKind>,
-        found: AstKind,
-    ) -> Self {
-        let caller = Location::caller();
-
-        // Préparation du message pour le log
-        let msg = format!(
-            "[{}:{}] Unexpected child kind for node {:?}. Expected {:?}, found {:?}",
-            caller.file(),
-            caller.line(),
-            node_id,
-            expected,
-            found
-        );
-
-        // Capture du backtrace uniquement en mode debug
-        #[cfg(debug_assertions)]
-        {
-            let bt = Backtrace::capture();
-            debug!("{}\nStack backtrace:\n{}", msg, bt);
-        }
-
-        // Retourne l'erreur structurée (via votre conversion existante)
-        UnexpectedNodeKindError::new(node_id, expected, found).into()
+    /// Creates an [`UnexpectedAstKind`](Self::UnexpectedAstKind) error.
+    ///
+    /// * `node_id`: The ID of the node that has an invalid type.
+    /// * `expected`: A list of the allowed [`AstKind`]s in this context.
+    /// * `found`: The actual [`AstKind`] encountered.
+    #[track_caller]
+    pub fn unexpected_ast_kind(node_id: NodeId, expected: Vec<AstKind>, found: AstKind) -> Self {
+        Self::UnexpectedAstKind { node_id, expected, found }.trace()
     }
 
+    /// Creates a [`MissingOperandType`](Self::MissingOperandType) error.
+    ///
+    /// * `node_id`: The ID of the binary operation node.
+    /// * `operand_index`: The index (0 or 1) of the operand missing a type.
     #[track_caller]
     pub fn missing_operand_type(node_id: NodeId, operand_index: usize) -> Self {
-        let caller = Location::caller();
-
-        let msg = format!(
-            "[{}:{}] Missing operand typing for node {:?} at index {}",
-            caller.file(),
-            caller.line(),
-            node_id,
-            operand_index
-        );
-
-        #[cfg(debug_assertions)]
-        {
-            let bt = Backtrace::capture();
-            debug!("{}\nStack backtrace:\n{}", msg, bt);
-        }
-
-        SemanticCheckError::MissingOperandType {
-            node_id,
-            operand_index
-        }
+        Self::MissingOperandType { node_id, operand_index }.trace()
     }
 
+    /// Creates a [`MissingDeclaration`](Self::MissingDeclaration) error.
+    ///
+    /// * `symbol`: The identifier of the symbol that couldn't be resolved.
+    /// * `scope`: The scope path where the resolution was attempted.
+    #[track_caller]
     pub fn missing_declaration(symbol: SymbolId, scope: Scope) -> Self {
-        SemanticCheckError::MissingDeclaration { symbol, scope }
+        Self::MissingDeclaration { symbol, scope }.trace()
     }
 
+    /// Creates a [`MissingDeclarationArguments`](Self::MissingDeclarationArguments) error.
+    ///
+    /// * `scope`: The scope of the declaration whose arguments are missing.
+    #[track_caller]
     pub fn missing_declaration_arguments(scope: Scope) -> Self {
-        SemanticCheckError::MissingDeclarationArguments { scope }
+        Self::MissingDeclarationArguments { scope }.trace()
     }
 
+    /// Creates an [`ArgumentIndexOutOfBounds`](Self::ArgumentIndexOutOfBounds) error.
+    ///
+    /// * `index`: The out-of-bounds argument index being accessed.
+    /// * `scope`: The scope of the declaration.
+    #[track_caller]
     pub fn argument_index_out_of_bounds(index: usize, scope: Scope) -> Self {
-        SemanticCheckError::ArgumentIndexOutOfBounds { index, scope }
+        Self::ArgumentIndexOutOfBounds { index, scope }.trace()
     }
 
+    /// Creates a [`MissingSymbolTypes`](Self::MissingSymbolTypes) error.
+    ///
+    /// * `symbol`: The identifier of the symbol.
+    /// * `scope`: The scope where the type lookup failed.
+    #[track_caller]
     pub fn missing_symbol_types(symbol: SymbolId, scope: Scope) -> Self {
-        SemanticCheckError::MissingSymbolTypes { symbol, scope }
+        Self::MissingSymbolTypes { symbol, scope }.trace()
     }
 
+    /// Creates an [`EmptyCycleDetail`](Self::EmptyCycleDetail) error.
+    #[track_caller]
     pub fn empty_cycle_detail() -> Self {
-        SemanticCheckError::EmptyCycleDetail
+        Self::EmptyCycleDetail.trace()
     }
 
+    /// Creates a [`TypeIndexOutOfBounds`](Self::TypeIndexOutOfBounds) error.
+    ///
+    /// * `index`: The invalid type index.
+    /// * `type_name`: The identifier of the type being resolved.
+    /// * `max`: The maximum valid index.
+    #[track_caller]
     pub fn type_index_out_of_bounds(index: usize, type_name: SymbolId, max: usize) -> Self {
-        SemanticCheckError::TypeIndexOutOfBounds { index, type_name, max }
+        Self::TypeIndexOutOfBounds { index, type_name, max }.trace()
     }
 
+    /// Creates a [`ParentIndexOutOfBounds`](Self::ParentIndexOutOfBounds) error.
+    ///
+    /// * `index`: The invalid parent index.
+    /// * `parent_name`: The identifier of the parent type.
+    /// * `max`: The maximum valid index.
+    #[track_caller]
     pub fn parent_index_out_of_bounds(index: usize, parent_name: SymbolId, max: usize) -> Self {
-        SemanticCheckError::ParentIndexOutOfBounds { index, parent_name, max }
+        Self::ParentIndexOutOfBounds { index, parent_name, max }.trace()
     }
 
+    /// Creates an [`ObjectIndexOutOfBounds`](Self::ObjectIndexOutOfBounds) error.
+    ///
+    /// * `index`: The invalid object typing index.
+    /// * `max`: The maximum valid index.
+    #[track_caller]
     pub fn object_index_out_of_bounds(index: usize, max: usize) -> Self {
-        SemanticCheckError::ObjectIndexOutOfBounds { index, max }
+        Self::ObjectIndexOutOfBounds { index, max }.trace()
     }
 
-    /// Returns a `SemanticError` indicating the scope path is empty.
+    /// Creates an [`EmptyScope`](Self::EmptyScope) error.
+    #[track_caller]
     pub fn empty_scope() -> Self {
-        SemanticCheckError::EmptyScope
+        Self::EmptyScope.trace()
     }
 
-    /// Returns a `SemanticError` when a node in the scope path does not exist in the AST.
+    /// Creates a [`MissingScopeNode`](Self::MissingScopeNode) error.
+    ///
+    /// * `node_id`: The identifier of the node missing from the syntax tree.
+    #[track_caller]
     pub fn missing_scope_node(node_id: NodeId) -> Self {
-        SemanticCheckError::MissingScopeNode { node_id }
+        Self::MissingScopeNode { node_id }.trace()
     }
 }
+
+impl Traceable for SemanticCheckError {}
