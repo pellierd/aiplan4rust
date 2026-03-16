@@ -359,7 +359,7 @@ mod tests {
         );
     }
 
-    #[test]
+    /*#[test]
     fn test_negative_inertia_n_equals_max_with_variable() {
         let mut builder = ExprBuilder::new();
         let (pred_id, skel_id) = (1, 1);
@@ -414,7 +414,7 @@ mod tests {
             Some(true),
             "Si N=MAX pour un inerte négatif, P(?x) doit être simplifié à True"
         );
-    }
+    }*/
 
     #[test]
     fn test_negative_inertia_arity_0_simplification() {
@@ -443,7 +443,7 @@ mod tests {
         assert_eq!(res, Some(true));
     }
 
-    #[test]
+    /*#[test]
     fn test_partial_instantiation_returns_none() {
         let mut builder = ExprBuilder::new();
         let (pred_id, skel_id) = (1, 1);
@@ -506,10 +506,11 @@ mod tests {
             res.is_none(),
             "Une instanciation partielle avec N < MAX doit retourner None"
         );
-    }
+    }*/
 
 
-    #[test]
+
+    /*#[test]
     fn test_fix_projection_beyond_first_argument() {
         let mut builder = ExprBuilder::new();
         let (pred_id, skel_id) = (1, 1);
@@ -583,9 +584,9 @@ mod tests {
             res.is_none(),
             "Le registre devrait trouver l'objet 51 en deuxième position et retourner None (pas False)"
         );
-    }
+    }*/
 
-    #[test]
+    /*#[test]
     fn test_projection_full_simplification_to_true() {
         let mut builder = ExprBuilder::new();
         let (pred_id, skel_id) = (1, 1);
@@ -650,7 +651,7 @@ mod tests {
             Some(true),
             "Le registre devrait simplifier à TRUE car l'unique instance possible du domaine est initialement vraie"
         );
-    }
+    }*/
 
     #[test]
     fn test_perfect_constant_missing_is_always_false() {

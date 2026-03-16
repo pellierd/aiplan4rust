@@ -4,75 +4,6 @@ use test_case::test_case;
 use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_files_by_mode, print_test_status};
 use crate::common::pipeline::{normalize_and_check_ast, parse_and_check_ast};
 
-/// Integration test for parser + simplification on all files in a directory.
-///
-/// Iterates over all domain files in the specified directory, performing:
-/// 1. Parsing each file.
-/// 2. Validating the well-formedness of the raw AST.
-/// 3. Normalizing the AST.
-/// 4. Validating the well-normalized AST.
-/// 5. Checking for diagnostics errors.
-///
-/// Returns `true` if parsing and logic succeed without critical errors for all files,
-/// otherwise returns `false`.
-///
-/// # Arguments
-///
-/// * `domain_dir` - Path to the directory containing domain files to test.
-///
-/// # Errors
-///
-/// Instead of panicking, this function logs errors and continues processing all files,
-/// aggregating success/failure.
-///
-/// # Examples
-///
-/// ```
-/// let success = test_parse_and_normalize_all_files(Path::new("tests/fixtures/hddl/ipc20/partial-order/barman-bdi"), &Language::HDDL);
-/// assert!(success);
-/// ```
-pub fn test_normalizer_all_files(domain_dir: &Path) -> bool {
-    let mut success = true;
-
-    // 1. Nettoyage des anciens fichiers
-    delete_all_files_with_extension(domain_dir, "diag");
-    delete_all_files_with_extension(domain_dir, "ast");
-
-    // 2. Collecte et tri
-    let mut all_files = collect_domain_files(domain_dir);
-    all_files.sort();
-    let total_available = all_files.len();
-
-    // 3. Sélection intelligente (Swallow par défaut / Full si FULL_TESTS=1)
-    let files_to_process = filter_files_by_mode(all_files);
-
-    for file_path in &files_to_process {
-        // Étape 1 : Parsing
-        let parser_result = match parse_and_check_ast(file_path) {
-            Some(result) => result,
-            None => {
-                eprintln!("\x1b[1;31mParsing failed\x1b[0m for file {}", file_path.display());
-                success = false;
-                continue;
-            }
-        };
-
-        // Étape 2 : Normalisation
-        // On utilise la même logique : si ça renvoie None, c'est un échec
-        if normalize_and_check_ast(parser_result, file_path).is_none() {
-            eprintln!("\x1b[1;31mNormalization failed\x1b[0m for file {}", file_path.display());
-            success = false;
-            continue;
-        }
-    }
-
-    // 4. Rapport de statut uniforme
-    print_test_status(files_to_process.len(), total_available, domain_dir);
-
-    success
-}
-
-
 /// Combined parser + simplification fixtures test on an HDDL directory.
 ///
 /// This test iterates over all files in the given `domain_path` directory
@@ -158,6 +89,19 @@ pub fn test_hddl_normalizer(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc98/movie/strips"; "ipc98_pddl_strips_movie")]
 #[test_case("tests/fixtures/pddl/ipc98/mystery-prime/strips"; "ipc98_pddl_strips_mystery_prime")]
 #[test_case("tests/fixtures/pddl/ipc98/mystery/strips"; "ipc98_pddl_strips_mystery")]
+#[test_case("tests/fixtures/pddl/ipc98/grid/strips"; "ipc98_pddl_strips_grid")]
+#[test_case("tests/fixtures/pddl/ipc00/blocks/strips/typed"; "ipc00_pddl_typed_strips_blocks")]
+#[test_case("tests/fixtures/pddl/ipc00/blocks/strips/untyped"; "ipc00_pddl_untyped_strips_blocks")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/typed"; "ipc00_pddl_typed_strips_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/untyped"; "ipc00_pddl_untyped_strips_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/adl/full-typed"; "ipc00_pddl_full_typed_adl_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/adl/simple-typed"; "ipc00_pddl_simple_typed_adl_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/typed"; "ipc00_pddl_typed_strips_freecell")]
+#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/untyped"; "ipc00_pddl_untyped_strips_freecell")]
+#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/typed"; "ipc00_pddl_typed_strips_logistics")]
+#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/untyped"; "ipc00_pddl_untyped_strips_logistics")]
+#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/typed"; "ipc00_pddl_typed_adl_schedule")]
+#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/untyped"; "ipc00_pddl_untyped_adl_schedule")]
 #[test_case("tests/fixtures/pddl/ipc02/depot/numeric_automatic/"; "ipc02_pddl_numeric_automatic_depot")]
 pub fn test_pddl_normalizer(domain_path: &str) {
     let path = Path::new(domain_path);
@@ -166,4 +110,72 @@ pub fn test_pddl_normalizer(domain_path: &str) {
         "Parser + Normalizer integration test failed for directory {}",
         domain_path
     );
+}
+
+/// Integration test for parser + simplification on all files in a directory.
+///
+/// Iterates over all domain files in the specified directory, performing:
+/// 1. Parsing each file.
+/// 2. Validating the well-formedness of the raw AST.
+/// 3. Normalizing the AST.
+/// 4. Validating the well-normalized AST.
+/// 5. Checking for diagnostics errors.
+///
+/// Returns `true` if parsing and logic succeed without critical errors for all files,
+/// otherwise returns `false`.
+///
+/// # Arguments
+///
+/// * `domain_dir` - Path to the directory containing domain files to test.
+///
+/// # Errors
+///
+/// Instead of panicking, this function logs errors and continues processing all files,
+/// aggregating success/failure.
+///
+/// # Examples
+///
+/// ```
+/// let success = test_parse_and_normalize_all_files(Path::new("tests/fixtures/hddl/ipc20/partial-order/barman-bdi"), &Language::HDDL);
+/// assert!(success);
+/// ```
+pub fn test_normalizer_all_files(domain_dir: &Path) -> bool {
+    let mut success = true;
+
+    // 1. Nettoyage des anciens fichiers
+    delete_all_files_with_extension(domain_dir, "diag");
+    delete_all_files_with_extension(domain_dir, "ast");
+
+    // 2. Collecte et tri
+    let mut all_files = collect_domain_files(domain_dir);
+    all_files.sort();
+    let total_available = all_files.len();
+
+    // 3. Sélection intelligente (Swallow par défaut / Full si FULL_TESTS=1)
+    let files_to_process = filter_files_by_mode(all_files);
+
+    for file_path in &files_to_process {
+        // Étape 1 : Parsing
+        let parser_result = match parse_and_check_ast(file_path) {
+            Some(result) => result,
+            None => {
+                eprintln!("\x1b[1;31mParsing failed\x1b[0m for file {}", file_path.display());
+                success = false;
+                continue;
+            }
+        };
+
+        // Étape 2 : Normalisation
+        // On utilise la même logique : si ça renvoie None, c'est un échec
+        if normalize_and_check_ast(parser_result, file_path).is_none() {
+            eprintln!("\x1b[1;31mNormalization failed\x1b[0m for file {}", file_path.display());
+            success = false;
+            continue;
+        }
+    }
+
+    // 4. Rapport de statut uniforme
+    print_test_status(files_to_process.len(), total_available, domain_dir);
+
+    success
 }
