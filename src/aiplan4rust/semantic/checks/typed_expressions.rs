@@ -9,7 +9,7 @@ use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::tree::{Node, NodeId};
 
@@ -48,7 +48,7 @@ pub fn check_typed_expressions(
     type_checker: &TypeChecker,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, SemanticCheckError> {
+) -> Result<bool, SemanticError> {
     let mut no_error = true;
 
     for node in context.syntax_tree().preorder().values() {
@@ -268,7 +268,7 @@ fn check_numeric_expression(
 fn get_binary_operation_types(
     node: &AstNode,
     context: &CheckContext,
-) -> Result<(Type<SymbolId>, Type<SymbolId>), SemanticCheckError> {
+) -> Result<(Type<SymbolId>, Type<SymbolId>), SemanticError> {
 
     let ast = context.syntax_tree();
 
@@ -325,7 +325,7 @@ pub fn get_type(
     index: NodeId,
     node: &AstNode,
     context: &CheckContext,
-) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
         AstKind::Number => get_number_type(),
@@ -343,7 +343,7 @@ pub fn get_type(
         AstKind::Arithmetic => get_number_type(),
 
         // Default case: Unexpected AST syntax kind
-        found_kind => Err(SemanticCheckError::unexpected_ast_kind(
+        found_kind => Err(SemanticError::unexpected_node_kind(
             index,
             vec![AstKind::Number, AstKind::Variable, AstKind::Object, AstKind::Function, AstKind::Arithmetic],
             found_kind,
@@ -369,7 +369,7 @@ pub fn get_type(
 /// ```rust
 /// let ty = get_number_type()?; // Returns Some(["number".to_string()])
 /// ```
-fn get_number_type() -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
+fn get_number_type() -> Result<Option<Type<SymbolId>>, SemanticError> {
     Ok(Some(Type::<SymbolId>::number().clone()))
 }
 
@@ -405,7 +405,7 @@ fn get_variable_type(
     index: NodeId,
     symbol: SymbolId,
     context: &CheckContext,
-) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticError> {
     if symbol == SymbolInterner::DURATION_VARIABLE_SYMBOL_ID && context.declared_requirements().contains(&DurativeActions) {
         return get_number_type();
     }
@@ -438,7 +438,7 @@ fn get_constant_type(
     index: NodeId,
     _symbol: SymbolId,
     context: &CheckContext,
-) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticError> {
     get_declaration_type(index, context, SymbolKind::Constant)
 }
 
@@ -473,7 +473,7 @@ fn get_declaration_type(
     node_id: NodeId,
     context: &CheckContext,
     kind: SymbolKind
-) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticError> {
     match context.symbol_table().resolve_declaration_by_usage(node_id, kind)? {
         Some(decl) => Ok(decl.types().cloned()),
         None => Ok(None),
@@ -508,7 +508,7 @@ fn get_declaration_type(
 fn get_function_term_type(
     node: &AstNode,
     context: &CheckContext,
-) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticError> {
     let functor_index = node.try_child(0)?;
     let functor_entry = context.syntax_tree().try_node(functor_index)?;
 
@@ -521,7 +521,7 @@ fn get_function_term_type(
         return get_declaration_type(functor_index, context, SymbolKind::Function);
     }
 
-    Err(SemanticCheckError::unexpected_ast_kind(
+    Err(SemanticError::unexpected_node_kind(
         functor_index,
         vec![AstKind::FunctionSymbol],
         functor_entry.kind(),

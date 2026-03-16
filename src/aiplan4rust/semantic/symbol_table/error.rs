@@ -6,18 +6,19 @@
 //! or malformed typed items.
 
 use thiserror::Error;
-
 use crate::aiplan4rust::arena::ArenaError;
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::semantic::error::InvalidNodeArityError;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
-use crate::aiplan4rust::semantic::UnexpectedNodeKindError;
-use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
+use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
 
-/// Represents all the errors that can occur during symbol table construction and resolution.
+/// Represents all errors that can occur during symbol table construction and resolution.
+///
+/// This enum covers both infrastructure failures (arena, interner) and semantic
+/// violations related to symbol management (duplicates, missing declarations).
 #[derive(Debug, Error)]
 pub enum SymbolTableError {
     /// Error originating from the ast error.
@@ -69,13 +70,6 @@ pub enum SymbolTableError {
         count: usize,
     },
 
-    /// The AST node kind does not match the expected kinds.
-    #[error(transparent)]
-    UnexpectedNodeKind(#[from] UnexpectedNodeKindError),
-
-    /// The AST node has an incorrect number of children.
-    #[error(transparent)]
-    InvalidNodeArity(#[from] InvalidNodeArityError),
 
     /// No declaration found corresponding to a usage AST node.
     #[error("No declaration found for usage at node '{node_id}'")]
@@ -120,8 +114,9 @@ impl SymbolTableError {
     /// # Returns
     ///
     /// A new `SymbolTableError::AmbiguousUsage` instance.
+    #[track_caller]
     pub fn ambiguous_usage(node_id: NodeId, candidates: Vec<Declaration>) -> Self {
-        SymbolTableError::AmbiguousUsage { node_id, candidates }
+        SymbolTableError::AmbiguousUsage { node_id, candidates }.trace()
     }
 
     /// Constructs a `DuplicateUniqueDeclaration` error.
@@ -139,58 +134,12 @@ impl SymbolTableError {
     ///
     /// A new `SymbolTableError::DuplicateDeclarationForUnique` instance containing
     /// the conflicting declarations.
+    #[track_caller]
     pub fn duplicated_declaration_for_unique(
         kind: SymbolKind,
         candidates: Vec<Declaration>,
     ) -> Self {
-        SymbolTableError::DuplicateDeclarationForUnique { kind, candidates }
-    }
-
-    /// Constructs an `UnexpectedNodeKind` error from a node ID, expected kinds, and actual kind.
-    ///
-    /// Delegates to the common `UnexpectedNodeKindError` structure.
-    ///
-    /// # Arguments
-    ///
-    /// * `node_id` - The ID of the node with the wrong kind.
-    /// * `expected` - The list of expected kinds.
-    /// * `found` - The actual kind found in the node.
-    ///
-    /// # Returns
-    ///
-    /// A new `SymbolTableError::UnexpectedNodeKind` instance.
-    pub fn unexpected_node_kind(
-        node_id: NodeId,
-        expected: Vec<AstKind>,
-        found: AstKind,
-    ) -> Self {
-        UnexpectedNodeKindError::new(node_id, expected, found).into()
-    }
-
-    /// Constructs an `InvalidNodeArity` error from a node ID, node kind, child count,
-    /// and the list of acceptable arities.
-    ///
-    /// # Arguments
-    ///
-    /// * `node_id` - The ID of the node with the incorrect number of children.
-    /// * `node_type` - The kind of the AST node.
-    /// * `child_count` - The actual number of children found.
-    /// * `expected_arity` - The list of acceptable numbers of children.
-    ///
-    /// # Returns
-    ///
-    /// A new `SymbolTableError::InvalidNodeArity` instance.
-    pub fn invalid_node_arity(
-        node_id: NodeId,
-        node_type: AstKind,
-        child_count: usize,
-        expected_arity: Vec<usize>,
-    ) -> Self {
-        InvalidNodeArityError::new(
-            node_id,
-            node_type,
-            child_count,
-            expected_arity).into()
+        SymbolTableError::DuplicateDeclarationForUnique { kind, candidates }.trace()
     }
 
     /// Constructs a `UsageNotFound` error indicating no declaration for a usage node.
@@ -204,23 +153,7 @@ impl SymbolTableError {
     /// A new `SymbolTableError::UsageNotFound` instance.
     #[track_caller]
     pub fn declaration_not_found_for_usage(node_id: NodeId) -> Self {
-        let caller = std::panic::Location::caller();
-        let err = SymbolTableError::DeclarationNotFoundForUsage { node_id };
-
-        if log::log_enabled!(log::Level::Debug) {
-            let bt = std::backtrace::Backtrace::force_capture();
-
-            log::debug!(
-            "\nError at {}:{}:{}\n{}\nStack trace:\n{}",
-            caller.file(),
-            caller.line(),
-            caller.column(),
-            err,
-            bt
-        );
-        }
-
-        err
+        SymbolTableError::DeclarationNotFoundForUsage { node_id }.trace()
     }
 
     /// Constructs a `DeclarationNotFound` error indicating no declaration found for a symbol in scope.
@@ -234,8 +167,9 @@ impl SymbolTableError {
     /// # Returns
     ///
     /// A new `SymbolTableError::DeclarationNotFound` instance.
+    #[track_caller]
     pub fn declaration_not_found(symbol: SymbolId, kind: SymbolKind, scope: Scope) -> Self {
-        SymbolTableError::DeclarationNotFound { symbol, kind, scope }
+        SymbolTableError::DeclarationNotFound { symbol, kind, scope }.trace()
     }
 
     /// Constructs a `DeclarationNotFoundForKind` error indicating no unique declaration found for a kind.
@@ -247,8 +181,9 @@ impl SymbolTableError {
     /// # Returns
     ///
     /// A new `SymbolTableError::DeclarationNotFoundForKind` instance.
+    #[track_caller]
     pub fn declaration_not_found_for_kind(kind: SymbolKind) -> Self {
-        SymbolTableError::DeclarationNotFoundForKind { kind }
+        SymbolTableError::DeclarationNotFoundForKind { kind }.trace()
     }
 
     /// Creates a new `DuplicateDeclarations` error indicating that a symbol
@@ -263,6 +198,7 @@ impl SymbolTableError {
     /// # Returns
     ///
     /// A new `SymbolTableError::DuplicateDeclarations` instance.
+    #[track_caller]
     pub fn duplicate_declaration(
         ident: SymbolId,
         usage_kind: SymbolKind,
@@ -272,6 +208,8 @@ impl SymbolTableError {
             ident,
             usage_kind,
             count,
-        }
+        }.trace()
     }
 }
+
+impl Traceable for SymbolTableError {}

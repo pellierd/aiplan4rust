@@ -13,7 +13,7 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
-use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
+use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
 
@@ -52,18 +52,6 @@ pub enum SemanticCheckError {
     Interner(#[from] InternerError),
 
     // --- Structural Semantic Errors ---
-
-    /// Occurs when the analyzer encounters a node type that does not match the PDDL grammar
-    /// expectations for a specific context.
-    #[error("Unexpected node kind at {node_id:?}: expected one of {expected:?}, found {found:?}")]
-    UnexpectedAstKind {
-        /// The unique identifier of the faulty node.
-        node_id: NodeId,
-        /// The list of AST kinds that were valid in this context.
-        expected: Vec<AstKind>,
-        /// The actual AST kind found.
-        found: AstKind,
-    },
 
     /// Triggered when an operand in a binary operation (e.g., comparison, arithmetic)
     /// lacks a resolvable type.
@@ -165,15 +153,6 @@ pub enum SemanticCheckError {
 }
 
 impl SemanticCheckError {
-    /// Creates an [`UnexpectedAstKind`](Self::UnexpectedAstKind) error.
-    ///
-    /// * `node_id`: The ID of the node that has an invalid type.
-    /// * `expected`: A list of the allowed [`AstKind`]s in this context.
-    /// * `found`: The actual [`AstKind`] encountered.
-    #[track_caller]
-    pub fn unexpected_ast_kind(node_id: NodeId, expected: Vec<AstKind>, found: AstKind) -> Self {
-        Self::UnexpectedAstKind { node_id, expected, found }.trace()
-    }
 
     /// Creates a [`MissingOperandType`](Self::MissingOperandType) error.
     ///

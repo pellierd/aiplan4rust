@@ -3,7 +3,7 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
@@ -46,7 +46,7 @@ pub fn check_declared_symbol_signatures(
     context: &CheckContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, SemanticCheckError> {
+) -> Result<bool, SemanticError> {
     let symbol_table = context.symbol_table();
     let mut no_error = true;
 
@@ -140,7 +140,7 @@ fn match_declaration_with_usage(
     context: &CheckContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, SemanticCheckError> {
+) -> Result<bool, SemanticError> {
     let ast_usage = context.syntax_tree().try_node(usage.node_id())?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
@@ -151,7 +151,7 @@ fn match_declaration_with_usage(
             AstKind::Object => SymbolKind::Constant,
             AstKind::Function => SymbolKind::Function,
             found => {
-                return Err(SemanticCheckError::unexpected_ast_kind(
+                return Err(SemanticError::unexpected_node_kind(
                     usage.node_id(),
                     vec![AstKind::Variable, AstKind::Object, AstKind::Function], // tous les attendus
                     found,

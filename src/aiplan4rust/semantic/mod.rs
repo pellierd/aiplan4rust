@@ -71,9 +71,10 @@ pub mod error;
 mod type_checker;
 mod requirements;
 
+
 pub use result::Result as AnalyzerResult;
 pub use analyzer::Analyzer;
 pub use symbol_table::SymbolTable;
 pub use type_checker::type_checker::TypeChecker;
-pub use error::{SemanticError, UnexpectedNodeKindError, InvalidNodeArityError};
+pub use error::SemanticError;
 pub use context::Context as SemanticContext;

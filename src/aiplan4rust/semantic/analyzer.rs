@@ -207,7 +207,7 @@ impl Analyzer {
                 Self::check_problem(&check_ctx, &mut self.diagnostic_manager)?;
             }
             found => {
-                return Err(SemanticError::unexpected_ast_kind(
+                return Err(SemanticError::unexpected_node_kind(
                     root_ref.id(),
                     vec![
                         AstKind::Domain,

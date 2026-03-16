@@ -39,6 +39,7 @@
 //! [`thiserror`]: https://docs.rs/thiserror
 
 use thiserror::Error;
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 
 /// Represents errors that may occur during the typing checking phase of semantic analysis.
@@ -82,3 +83,5 @@ pub enum TypeCheckError {
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
 }
+
+impl Traceable for TypeCheckError {}

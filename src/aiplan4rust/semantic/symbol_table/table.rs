@@ -36,7 +36,7 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -1032,7 +1032,7 @@ impl RemapSymbol for SymbolTable {
 }
 
 impl TryFrom<&Ast> for SymbolTable {
-    type Error = SymbolTableError;
+    type Error = SemanticError;
 
     /// Attempts to construct a `SymbolTable` from a reference to an abstract syntax tree (`Ast`).
     ///

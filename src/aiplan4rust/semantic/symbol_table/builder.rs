@@ -23,7 +23,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{SymbolId, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
-use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::tree::NodeRef;
@@ -120,7 +120,7 @@ impl SymbolTableBuilder {
     /// # Returns
     ///
     /// A fully initialized [`SymbolTable`] on success.
-    pub fn build(&mut self, ast: &Ast) -> Result<SymbolTable, SymbolTableError> {
+    pub fn build(&mut self, ast: &Ast) -> Result<SymbolTable, SemanticError> {
         // Attempt to retrieve the root node of the AST, returning error if none exists
         let root_ref = ast.syntax_tree().try_root_node_ref()?;
         let root_node = root_ref.node();
@@ -137,7 +137,7 @@ impl SymbolTableBuilder {
             }
             found => {
                 // Return an error if the root node kind is not Domain or Problem
-                return Err(SymbolTableError::unexpected_node_kind(
+                return Err(SemanticError::unexpected_node_kind(
                     root_ref.id(),
                     vec![
                         AstKind::Domain,
@@ -184,7 +184,7 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         let scope = Scope::new(node_ref.id(), None);
         self.init_from(node_ref, ast, scope)?;
         Ok(())
@@ -238,7 +238,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         // Match on the AST node kind to determine the appropriate processing ops
         match node_ref.node().kind() {
             // For domain and problem names, add declaration symbols directly without recursion
@@ -527,7 +527,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         let children = node_ref.node().children();
 
         if children.is_empty() {
@@ -594,7 +594,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
@@ -608,7 +608,7 @@ impl SymbolTableBuilder {
             }
             n => {
                 // Invalid number of children for TypedItem node
-                return Err(SymbolTableError::invalid_node_arity(
+                return Err(SemanticError::invalid_node_arity(
                     node_ref.id(),      // node_id
                     AstKind::TypedItem, // node_type
                     n,                  // actual child count
@@ -656,7 +656,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         types: Type<SymbolId>,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         // Match on the AST node kind to determine processing ops
         match node_ref.node().kind() {
             AstKind::PrimitiveType | AstKind::Object | AstKind::Variable => {
@@ -682,7 +682,7 @@ impl SymbolTableBuilder {
 
             found => {
                 // Return an error for unexpected AST kinds instead of panicking
-                return Err(SymbolTableError::unexpected_node_kind(
+                return Err(SemanticError::unexpected_node_kind(
                     node_ref.id(),
                     vec![
                         AstKind::PrimitiveType,
@@ -751,7 +751,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         mut types: Type<SymbolId>,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         let node = node_ref.node();
 
         // --- Default Type Injection ---
@@ -767,7 +767,7 @@ impl SymbolTableBuilder {
         let functor_id = node.try_child(0)?;
         let functor_ref = ast.syntax_tree().try_node_ref(functor_id)?;
         if functor_ref.node().kind() != AstKind::FunctionSymbol {
-            return Err(SymbolTableError::unexpected_node_kind(
+            return Err(SemanticError::unexpected_node_kind(
                 functor_ref.id(),
                 vec![AstKind::FunctionSymbol],
                 functor_ref.node().kind(),
@@ -834,7 +834,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         self.init_from_def(
             node_ref, ast, scope, true, // The definition includes a body
         )
@@ -877,7 +877,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         self.init_from_def(
             node_ref, ast, scope, true, // Method definitions have a body
         )
@@ -920,7 +920,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         self.init_from_def(
             node_ref, ast, scope, true, // Durative actions have a body
         )
@@ -963,7 +963,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         self.init_from_def(
             node_ref, ast, scope, false, // Tasks do not have a body
         )
@@ -1015,7 +1015,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         has_body: bool,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
@@ -1078,7 +1078,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         // Retrieve and register the first child (symbol)
         self.add_symbol_usage(node_ref, ast, scope.clone())?; // should be removed
 
@@ -1131,7 +1131,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
@@ -1139,7 +1139,7 @@ impl SymbolTableBuilder {
         match node.kind() {
             AstKind::Exists | AstKind::Forall => {}
             other => {
-                return Err(SymbolTableError::unexpected_node_kind(
+                return Err(SemanticError::unexpected_node_kind(
                     node_ref.id(),
                     vec![AstKind::Exists, AstKind::Forall],
                     other,
@@ -1204,7 +1204,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
@@ -1213,7 +1213,7 @@ impl SymbolTableBuilder {
         let predicate = &syntax_tree.try_node_ref(predicate_id)?;
 
         if predicate.node().kind() != AstKind::PredicateSymbol {
-            return Err(SymbolTableError::unexpected_node_kind(
+            return Err(SemanticError::unexpected_node_kind(
                 predicate.id(),
                 vec![AstKind::PredicateSymbol],
                 predicate.node().kind(),
@@ -1268,7 +1268,7 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList<SymbolId, SymbolId>, SymbolTableError> {
+    ) -> Result<TypedList<SymbolId, SymbolId>, SemanticError> {
         let mut typed_arguments = TypedList::new();
         for typed_item_id in node_ref.node().children() {
             let typed_item_ref = &ast.syntax_tree().try_node_ref(*typed_item_id)?;
@@ -1314,7 +1314,7 @@ impl SymbolTableBuilder {
         &mut self,
         typed_item_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList<SymbolId, SymbolId>, SymbolTableError> {
+    ) -> Result<TypedList<SymbolId, SymbolId>, SemanticError> {
         let syntax_tree = ast.syntax_tree();
         let node = typed_item_ref.node();
 
@@ -1328,7 +1328,7 @@ impl SymbolTableBuilder {
             }
             n => {
                 // Invalid arity for a TypedItem node
-                return Err(SymbolTableError::invalid_node_arity(
+                return Err(SemanticError::invalid_node_arity(
                     typed_item_ref.id(),
                     AstKind::TypedItem,
                     n,
@@ -1356,7 +1356,7 @@ impl SymbolTableBuilder {
             }
             found => {
                 // Handle cases where the node kind does not match expected symbol types for TypedItem.
-                return Err(SymbolTableError::unexpected_node_kind(
+                return Err(SemanticError::unexpected_node_kind(
                     elt.id(),
                     vec![AstKind::Object, AstKind::Variable],
                     found,
@@ -1393,7 +1393,7 @@ impl SymbolTableBuilder {
         &mut self,
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<Type<SymbolId>, SymbolTableError> {
+    ) -> Result<Type<SymbolId>, SemanticError> {
         let arena = ast.syntax_tree();
         let mut super_types = Type::new();
 
@@ -1411,7 +1411,7 @@ impl SymbolTableBuilder {
                 super_types.add_type(name);
             } else {
                 // Return a semantic error when the structure does not match expectations
-                return Err(SymbolTableError::unexpected_node_kind(
+                return Err(SemanticError::unexpected_node_kind(
                     ty_ref.id(),
                     vec![AstKind::PrimitiveType],
                     ty_ref.node().kind(),
@@ -1448,7 +1448,7 @@ impl SymbolTableBuilder {
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<Type<SymbolId>, SymbolTableError> {
+    ) -> Result<Type<SymbolId>, SemanticError> {
         // --- Extract the typing identifiers using existing ops ---
         let super_types = self.extract_type(type_ref, ast)?; // Handles structure & kind checking internally
 
@@ -1490,7 +1490,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), SymbolTableError> {
+    ) -> Result<(), SemanticError> {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
