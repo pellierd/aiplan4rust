@@ -9,7 +9,7 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
-use crate::aiplan4rust::semantic::UnexpectedNodeKindError;
+use crate::aiplan4rust::semantic::{SemanticError, UnexpectedNodeKindError};
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
@@ -89,6 +89,13 @@ pub enum SemanticCheckError {
         index: usize,
         max: usize,
     },
+
+    #[error("Scope is empty, cannot retrieve the last scope index.")]
+    EmptyScope,
+
+    #[error("Node with index {node_id:?} not found in syntax tree during scope resolution.")]
+    MissingScopeNode { node_id: NodeId },
+
 }
 
 impl SemanticCheckError {
@@ -175,5 +182,15 @@ impl SemanticCheckError {
 
     pub fn object_index_out_of_bounds(index: usize, max: usize) -> Self {
         SemanticCheckError::ObjectIndexOutOfBounds { index, max }
+    }
+
+    /// Returns a `SemanticError` indicating the scope path is empty.
+    pub fn empty_scope() -> Self {
+        SemanticCheckError::EmptyScope
+    }
+
+    /// Returns a `SemanticError` when a node in the scope path does not exist in the AST.
+    pub fn missing_scope_node(node_id: NodeId) -> Self {
+        SemanticCheckError::MissingScopeNode { node_id }
     }
 }

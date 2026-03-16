@@ -3,13 +3,12 @@
 //! the diagnostic infrastructure to report errors or warnings as needed during analysis.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolEntry};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-
-use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::syntax::ast::AstKind;
+use std::collections::{HashMap, HashSet};
 
 /// Entry point for checking declared symbols in the symbol table for semantic issues
 /// such as duplicate declarations.
@@ -39,23 +38,27 @@ pub fn check_declared_symbols(
 
 /// Internal helper function that performs detailed checking for duplicate symbol declarations.
 ///
-/// This function iterates through all symbols in the symbol table and checks for
-/// multiple declarations of the same symbol within overlapping or nested scopes.
-/// If such duplicates are found, appropriate diagnostics are logged.
-/// Certain symbols (e.g., of kind `DomainName` or `ProblemName`) are skipped by default,
-/// as they are allowed to have duplicates.
+/// This function iterates through all symbols in the symbol table and ensures that
+/// each symbol is declared only once within the same scope or nested scopes.
 ///
-/// Optionally, the check can be restricted to a set of specific `SymbolKind`s.
+/// ### Scoping Logic
+/// It uses a "scope path" approach: if a declaration A is made in a scope that is
+/// a parent of (or identical to) the scope of declaration B, a conflict is detected.
+///
+/// ### Specific Cases
+/// - `DomainName` and `ProblemName` are ignored as duplicates are allowed by design.
+/// - Duplicate variables within skeletons (predicates/functions) are downgraded
+///   to warnings.
 ///
 /// # Parameters
 /// - `context`: The semantic context holding the AST and symbol table.
 /// - `diagnostic_manager`: The system used to report diagnostics (warnings/errors).
-/// - `kinds_to_check`: An optional set of `SymbolKind`s to restrict the check to specific types of symbols.
+/// - `kinds_to_check`: An optional set of `SymbolKind`s to restrict the check.
 ///
 /// # Returns
-/// - `Ok(true)` if no errors were found.
-/// - `Ok(false)` if duplicate symbol declarations were detected (errors reported).
-/// - `Err(ParserInternalError)` if the operation failed due to internal issues (e.g., unresolved names).
+/// - `Ok(true)` if no critical errors were found.
+/// - `Ok(false)` if conflicting symbol declarations were found (errors were logged).
+/// - `Err(SemanticCheckError)` if an internal error occurred (e.g., missing AST node).
 fn check_symbol_declarations(
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
@@ -64,107 +67,211 @@ fn check_symbol_declarations(
     let mut checked = true;
     let symbol_table = context.symbol_table();
 
+    // Pre-allocate the map outside the loop to reuse its memory capacity across all symbols.
+    // This avoids thousands of small heap allocations by using references (&Scope, &Declaration)
+    // that point directly to data already owned by the symbol table.
+    let mut seen_scopes: HashMap<&Scope, &Declaration> = HashMap::with_capacity(8);
+
+    // Iterate through each unique symbol entry in the table
     for symbol in symbol_table.values() {
-        let mut seen_scopes: HashMap<Scope, Declaration> = HashMap::new();
+        // Clear the map for the new symbol while keeping the allocated memory bucket.
+        // This is a zero-allocation operation that significantly speeds up analysis.
+        seen_scopes.clear();
 
         for declaration in symbol.declarations() {
-            // Filter by desired kinds, if provided
+            // STEP 1: Filter by symbol category (if a restriction is provided)
             if let Some(kinds) = kinds_to_check {
-                if !kinds.contains(&declaration.symbol_kind()) {
-                    continue;
-                }
+                if !kinds.contains(&declaration.symbol_kind()) { continue; }
             }
 
-            // Skip kinds like DomainName or ProblemName
-            if skip_declaration(declaration)? {
-                continue;
-            }
+            // STEP 2: Skip global names like Domain or Problem names
+            if skip_declaration(declaration)? { continue; }
 
-            let ast_entry = context.syntax_tree().try_node(declaration.node_id())?;
             let current_scope = declaration.scope();
 
-            // Check for an existing declaration in an ancestor scope
+            // STEP 3: Search for a scope conflict
+            // We check if the current scope starts with any previously recorded scope.
+            // For instance, if current_scope is [Action, Parameters] and we already saw [Action],
+            // 'starts_with' returns true -> A conflict is detected.
             let maybe_conflict = seen_scopes.iter().find(|(s, _)| current_scope.starts_with(s));
 
-            if let Some((conflicting_scope, previous_declaration)) = maybe_conflict {
-                let current_kind = declaration.symbol_kind();
-                let previous_kind = previous_declaration.symbol_kind();
-
-                // On demande à la logique centralisée si le partage est possible
-                if current_kind.can_share_name_space_with(&previous_kind) {
-
-                    // On ne génère un warning QUE pour le cas ambigu Type/Prédicat
-                    let is_type = current_kind == SymbolKind::PrimitiveType || previous_kind == SymbolKind::PrimitiveType;
-                    let is_pred = current_kind == SymbolKind::Predicate || previous_kind == SymbolKind::Predicate;
-
-                    if is_type && is_pred {
-                        let (predicate_decl, type_decl) = if current_kind == SymbolKind::Predicate {
-                            (declaration, previous_declaration)
-                        } else {
-                            (previous_declaration, declaration)
-                        };
-
-                        let warning = Diagnostic::warning_ambiguous_type_predicate_symbol(
-                            type_decl.clone(),
-                            predicate_decl.clone(),
-                            Provider::Analyzer,
-                            context.source_id(),
-                            ast_entry.span().clone(),
-                        );
-                        diagnostic_manager.add_diagnostic(warning);
-                    }
-
-                // Pour Constant vs Constant Type vs Constant : Silence radio.
-                } else {
+            if let Some((&conflicting_scope, &previous_declaration)) = maybe_conflict {
+                // STEP 4: Delegate conflict handling
+                // This helper decides whether to emit a Warning (legacy/tolerant) or an Error (strict).
+                if !handle_declaration_conflict(
+                    context,
+                    diagnostic_manager,
+                    symbol,
+                    declaration,
+                    previous_declaration,
+                    conflicting_scope,
+                )? {
+                    // If the helper returns false, it's a blocking semantic error
                     checked = false;
-
-                    let scope_index = conflicting_scope.iter().last().unwrap();
-                    let scope_node = context.syntax_tree().get_node(*scope_index).unwrap();
-
-                    // --- NOUVELLE LOGIQUE FLEXIBLE ---
-                    // Si c'est une variable dans une déclaration de prédicat/fonction (Skeleton)
-                    // on downgrade l'erreur en warning pour supporter l'IPC.
-                    let is_variable = current_kind == SymbolKind::Variable;
-                    let is_skeleton_scope = matches!(
-                        scope_node.kind(),
-                        AstKind::AtomicFormulaSkeleton | AstKind::AtomicFunctionSkeleton
-                    );
-                    // cas de du varubale identqiuye dans une definition de skeeton
-                    if is_variable && is_skeleton_scope {
-                        // On génère un warning spécifique (non-bloquant)
-                        let warning = Diagnostic::warning_duplicate_variable_skeleton_declaration(
-                            Symbol::new(symbol.ident(), declaration.symbol_kind()),
-                            previous_declaration.clone(),
-                            declaration.clone(),
-                            scope_node.kind(),
-                            Provider::Analyzer,
-                            context.source_id(),
-                            ast_entry.span().clone(),
-                        );
-                        diagnostic_manager.add_diagnostic(warning);
-
-                    } else {
-                        checked = false;
-                        let error = Diagnostic::error_duplicated_symbol_declaration_in_scope(
-                            Symbol::new(symbol.ident(), declaration.symbol_kind()),
-                            previous_declaration.clone(),
-                            declaration.clone(),
-                            scope_node.kind(),
-                            Provider::Analyzer,
-                            context.source_id(),
-                            ast_entry.span().clone(),
-                        );
-                        diagnostic_manager.add_diagnostic(error);
-                        }
                 }
             } else {
-                // First declaration seen in this scope
-                seen_scopes.insert(current_scope.clone(), declaration.clone());
+                // STEP 5: Register the new scope
+                // No parent scope found, so we record this declaration for future nested checks.
+                seen_scopes.insert(current_scope, declaration);
             }
         }
     }
 
     Ok(checked)
+}
+
+/// Handles a naming conflict between two declarations of the same symbol within overlapping scopes.
+///
+/// This function implements the decision logic for PDDL/HDDL namespace overlapping:
+///
+/// ### 1. Silence (No Diagnostic)
+/// Some overlaps are perfectly valid and expected. For instance, a `Constant` can share
+/// its name with a `PrimitiveType` (a common PDDL pattern). In such cases, we do nothing.
+///
+/// ### 2. Warning: Ambiguous Type/Predicate
+/// While PDDL allows a `PrimitiveType` and a `Predicate` to share a name, it creates
+/// syntactic ambiguity in some expressions. We emit a warning to alert the user,
+/// though it is technically valid.
+///
+/// ### 3. Warning: IPC-2000 Skeleton Exception
+/// Legacy domains sometimes repeat variable names in predicate signatures (skeletons).
+/// We downgrade this to a warning to maintain backward compatibility with historical domains.
+///
+/// ### 4. Error: Duplicate Declaration
+/// If the kinds cannot share a namespace (e.g., an `Action` and a `Method` with the same name,
+/// or two `Variables` in the same scope), a blocking semantic error is reported.
+///
+/// # Parameters
+/// - `context`: The current semantic check context.
+/// - `diagnostic_manager`: Manager to collect diagnostics.
+/// - `symbol`: The entry in the symbol table for the conflicting identifier.
+/// - `declaration`: The current (new) declaration being processed.
+/// - `previous_declaration`: The existing declaration found in an ancestor scope.
+/// - `conflicting_scope`: The specific scope where the collision occurred.
+///
+/// # Returns
+/// - `Ok(true)` if the conflict is allowed (silently or with a warning).
+/// - `Ok(false)` if the conflict is a fatal semantic error.
+/// - `Err(SemanticCheckError)` if a tree or scope inconsistency is encountered.
+fn handle_declaration_conflict(
+    context: &CheckContext,
+    diagnostic_manager: &mut DiagnosticManager,
+    symbol: &SymbolEntry,
+    declaration: &Declaration,
+    previous_declaration: &Declaration,
+    conflicting_scope: &Scope,
+) -> Result<bool, SemanticCheckError> {
+    let mut is_valid = true;
+    let current_kind = declaration.symbol_kind();
+    let previous_kind = previous_declaration.symbol_kind();
+    let ast_entry = context.syntax_tree().try_node(declaration.node_id())?;
+
+    // --- CASE 1: Shared Namespaces (Silent or Warning) ---
+    // We check if the language rules (via can_share_name_space_with) allow this overlap.
+    if current_kind.can_share_name_space_with(&previous_kind) {
+
+        // Specific check: Even if sharing is allowed, Type/Predicate is risky.
+        // Why only this one? Because Constants and Types are easily distinguished by
+        // position, whereas Predicates and Types can appear in similar parenthetical
+        // structures, potentially confusing the user.
+        if is_ambiguous_type_predicate(current_kind, previous_kind) {
+            let (pred_decl, type_decl) = match (current_kind, previous_kind) {
+                (SymbolKind::Predicate, _) => (declaration, previous_declaration),
+                (_, SymbolKind::Predicate) => (previous_declaration, declaration),
+                _ => unreachable!("is_ambiguous_type_predicate returned true but no predicate was found"),
+            };
+
+            diagnostic_manager.add_diagnostic(Diagnostic::warning_ambiguous_type_predicate_symbol(
+                type_decl.clone(),
+                pred_decl.clone(),
+                Provider::Analyzer,
+                context.source_id(),
+                ast_entry.span().clone(),
+            ));
+        }
+
+        // For other cases (Action/Task or Constant/Type), we stay silent.
+        return Ok(true);
+
+    } else {
+        // --- CASE 2: Real Conflicts or Historical Exceptions ---
+
+        // Resolve the scope node to identify where the conflict happens.
+        let scope_index = conflicting_scope.iter()
+            .last()
+            .ok_or_else(SemanticCheckError::empty_scope)?;
+
+        let scope_node = context.syntax_tree()
+            .get_node(*scope_index)
+            .ok_or_else(|| SemanticCheckError::missing_scope_node(*scope_index))?;
+
+        // Legacy Exception: IPC-2000 allows duplicate variables in "skeletons".
+        if is_skeleton_exception(current_kind, scope_node.kind()) {
+            diagnostic_manager.add_diagnostic(Diagnostic::warning_duplicate_variable_skeleton_declaration(
+                Symbol::new(symbol.ident(), current_kind),
+                previous_declaration.clone(),
+                declaration.clone(),
+                scope_node.kind(),
+                Provider::Analyzer,
+                context.source_id(),
+                ast_entry.span().clone(),
+            ));
+        } else {
+            // Standard Case: This is a hard duplicate error.
+            is_valid = false;
+            diagnostic_manager.add_diagnostic(Diagnostic::error_duplicated_symbol_declaration_in_scope(
+                Symbol::new(symbol.ident(), current_kind),
+                previous_declaration.clone(),
+                declaration.clone(),
+                scope_node.kind(),
+                Provider::Analyzer,
+                context.source_id(),
+                ast_entry.span().clone(),
+            ));
+        }
+    }
+
+    Ok(is_valid)
+}
+
+/// Determines if the name conflict involves a `PrimitiveType` and a `Predicate`.
+///
+/// In PDDL, types and predicates often reside in different namespaces or are allowed
+/// to share names depending on the specific requirement (e.g., `:typing`). This check
+/// identifies such overlaps to allow for specific diagnostic handling (like warnings
+/// instead of hard errors).
+///
+/// # Parameters
+/// - `k1`: The `SymbolKind` of the first declaration.
+/// - `k2`: The `SymbolKind` of the second declaration.
+///
+/// # Returns
+/// `true` if one kind is a `PrimitiveType` and the other is a `Predicate`, `false` otherwise.
+fn is_ambiguous_type_predicate(k1: SymbolKind, k2: SymbolKind) -> bool {
+    let has_type = k1 == SymbolKind::PrimitiveType || k2 == SymbolKind::PrimitiveType;
+    let has_pred = k1 == SymbolKind::Predicate || k2 == SymbolKind::Predicate;
+    has_type && has_pred
+}
+
+/// Identifies the legacy IPC-2000 exception for duplicate variables.
+///
+/// This exception allows multiple declarations of the same variable name specifically
+/// within "skeletons" (predicate or function definitions). This is often found in
+/// older PDDL domains (like the Logistics domain from IPC-2000) where variables
+/// like `?v` might be repeated in a single signature.
+///
+/// # Parameters
+/// - `kind`: The `SymbolKind` of the symbol being checked (expected to be `Variable`).
+/// - `scope_kind`: The `AstKind` of the scope where the symbol is declared.
+///
+/// # Returns
+/// `true` if the symbol is a `Variable` and is declared within an `AtomicFormulaSkeleton`
+/// or an `AtomicFunctionSkeleton`.
+fn is_skeleton_exception(kind: SymbolKind, scope_kind: AstKind) -> bool {
+    kind == SymbolKind::Variable && matches!(
+        scope_kind,
+        AstKind::AtomicFormulaSkeleton | AstKind::AtomicFunctionSkeleton
+    )
 }
 
 /// Determines whether a given symbol declaration should be skipped from duplicate checking.

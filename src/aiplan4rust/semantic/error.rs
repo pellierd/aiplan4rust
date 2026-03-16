@@ -155,7 +155,6 @@ pub enum SemanticError {
     /// Occurs when the syntax tree root is neither a domain nor a problem.
     #[error("Syntax tree root is invalid: expected a domain or a problem")]
     UnexpectedSyntaxTreeRootError,
-
 }
 
 impl SemanticError {
@@ -214,4 +213,5 @@ impl SemanticError {
     pub fn unexpected_syntax_tree_root() -> Self {
         SemanticError::UnexpectedSyntaxTreeRootError
     }
+
 }
