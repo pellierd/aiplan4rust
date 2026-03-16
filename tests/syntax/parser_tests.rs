@@ -4,78 +4,6 @@ use test_case::test_case;
 use crate::common::io::*;
 use crate::common::pipeline::*;
 
-/// Attempts to parse all domain files in the given directory for the specified language.
-///
-/// Iterates over each file collected from `domain_dir`, reads its content, parses it,
-/// and validates the well-formedness of the resulting AST.
-///
-/// Returns `true` if all files are parsed and validated successfully, `false` otherwise.
-///
-/// # Arguments
-///
-/// * `domain_dir` - Path to the directory containing domain files.
-///
-/// # Returns
-///
-/// * `true` if parsing and validation succeed for all files.
-/// * `false` if any file fails to parse or validate.
-pub fn test_parse_all_files(domain_dir: &Path) -> bool {
-    let mut success = true;
-
-    // 1. Nettoyage des anciens fichiers de diagnostic et d'AST
-    delete_all_files_with_extension(domain_dir, "diag");
-    delete_all_files_with_extension(domain_dir, "ast");
-
-    // 2. Collecte de tous les fichiers disponibles et tri
-    let mut all_files = collect_domain_files(domain_dir);
-    all_files.sort();
-    let total_available = all_files.len();
-
-    // 3. Sélection des fichiers selon le mode (Swallow par défaut / Full si FULL_TESTS est mis)
-    // Cette fonction 'filter_files_by_mode' est celle que nous avons isolée dans common
-    let files_to_process = filter_files_by_mode(all_files);
-
-    // 4. Boucle d'exécution du parsing
-    for file_path in &files_to_process {
-        match parse_and_check_ast(file_path) {
-            Some(parser_result) => {
-                let diag_mgr = parser_result.diagnostic_manager();
-                let interner = parser_result.interner();
-
-                if parser_result.is_success() {
-                    // Succès : on écrit le diagnostic de réussite
-                    write_diagnostics_to_file(
-                        diag_mgr,
-                        interner,
-                        file_path,
-                        "Parser Tests: parsing success",
-                    );
-                } else {
-                    // Échec sémantique ou syntaxique : log et marquage de l'échec
-                    eprintln!("\x1b[1;31mParsing Error:\x1b[0m {}", file_path.display());
-                    write_diagnostics_to_file(
-                        diag_mgr,
-                        interner,
-                        file_path,
-                        "Parser Tests: parsing incomplete or errors found",
-                    );
-                    success = false;
-                }
-            }
-            None => {
-                // Erreur fatale (déjà rapportée par le pipeline)
-                success = false;
-            }
-        }
-    }
-
-    // 5. Affichage du statut final (Swallow vs Full) via l'utilitaire commun
-    print_test_status(files_to_process.len(), total_available, domain_dir);
-
-    success
-}
-
-
 /// Tests the syntax correctness of all HDDL domain files in the specified directory.
 ///
 /// This function iterates over all files in the given `domain_path` that belong to HDDL domains,
@@ -172,4 +100,75 @@ pub fn test_pddl_parser(domain_path: &str) {
         "PDDL Parsing test failed for directory {}",
         domain_path
     );
+}
+
+/// Attempts to parse all domain files in the given directory for the specified language.
+///
+/// Iterates over each file collected from `domain_dir`, reads its content, parses it,
+/// and validates the well-formedness of the resulting AST.
+///
+/// Returns `true` if all files are parsed and validated successfully, `false` otherwise.
+///
+/// # Arguments
+///
+/// * `domain_dir` - Path to the directory containing domain files.
+///
+/// # Returns
+///
+/// * `true` if parsing and validation succeed for all files.
+/// * `false` if any file fails to parse or validate.
+pub fn test_parse_all_files(domain_dir: &Path) -> bool {
+    let mut success = true;
+
+    // 1. Nettoyage des anciens fichiers de diagnostic et d'AST
+    delete_all_files_with_extension(domain_dir, "diag");
+    delete_all_files_with_extension(domain_dir, "ast");
+
+    // 2. Collecte de tous les fichiers disponibles et tri
+    let mut all_files = collect_domain_files(domain_dir);
+    all_files.sort();
+    let total_available = all_files.len();
+
+    // 3. Sélection des fichiers selon le mode (Swallow par défaut / Full si FULL_TESTS est mis)
+    // Cette fonction 'filter_files_by_mode' est celle que nous avons isolée dans common
+    let files_to_process = filter_files_by_mode(all_files);
+
+    // 4. Boucle d'exécution du parsing
+    for file_path in &files_to_process {
+        match parse_and_check_ast(file_path) {
+            Some(parser_result) => {
+                let diag_mgr = parser_result.diagnostic_manager();
+                let interner = parser_result.interner();
+
+                if parser_result.is_success() {
+                    // Succès : on écrit le diagnostic de réussite
+                    write_diagnostics_to_file(
+                        diag_mgr,
+                        interner,
+                        file_path,
+                        "Parser Tests: parsing success",
+                    );
+                } else {
+                    // Échec sémantique ou syntaxique : log et marquage de l'échec
+                    eprintln!("\x1b[1;31mParsing Error:\x1b[0m {}", file_path.display());
+                    write_diagnostics_to_file(
+                        diag_mgr,
+                        interner,
+                        file_path,
+                        "Parser Tests: parsing incomplete or errors found",
+                    );
+                    success = false;
+                }
+            }
+            None => {
+                // Erreur fatale (déjà rapportée par le pipeline)
+                success = false;
+            }
+        }
+    }
+
+    // 5. Affichage du statut final (Swallow vs Full) via l'utilitaire commun
+    print_test_status(files_to_process.len(), total_available, domain_dir);
+
+    success
 }
