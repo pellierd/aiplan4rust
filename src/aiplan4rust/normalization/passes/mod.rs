@@ -10,7 +10,7 @@
 //!
 //! - [`normalize_typed_list`] — Flattens and validates all `TypedList` nodes by ensuring each
 //!   `TypedItem` has exactly one element and, optionally, a `type_checker`.
-//! - [`normalize_type_def`] — Merges `TypedItem` nodes within `TypesDef` that share the same
+//! - [`normalize_types_def`] — Merges `TypedItem` nodes within `TypesDef` that share the same
 //!   `PrimitiveType`, deduplicating and combining their associated types.
 //! - [`normalize_require_def`] — Eliminates duplicate requirement declarations from the `RequireDef`
 //!   syntax node and reports them via diagnostics.
@@ -23,7 +23,7 @@
 //! and before typing checking or interpretation. Each pass expects a valid AST
 //! and may rely on earlier logic logic.
 //!
-//! For example, [`normalize_type_def`] assumes that [`normalize_typed_list`] has already run.
+//! For example, [`normalize_types_def`] assumes that [`normalize_typed_list`] has already run.
 //!
 //! ```rust,ignore
 //! let mut ast = parse_source_code(source)?;
@@ -45,7 +45,7 @@
 //! These logic logic are publicly re-exported for use in other modules:
 //!
 //! - [`normalize_typed_list`]
-//! - [`normalize_type_def`]
+//! - [`normalize_types_def`]
 //! - [`normalize_require_def`]
 //! - [`normalize_either_type`]
 //! - [`NormalizationPassError`]
@@ -56,9 +56,12 @@ pub mod types_def;
 pub mod either_type;
 pub mod typed_list;
 pub mod error;
+mod def;
 
 pub use require_def::normalize_require_def;
-pub use types_def::normalize_type_def;
+pub use types_def::normalize_types_def;
+pub use def::normalize_def;
 pub use either_type::normalize_either_type;
 pub use typed_list::normalize_typed_list;
+
 pub use error::NormalizationPassError;

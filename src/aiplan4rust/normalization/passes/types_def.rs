@@ -10,7 +10,7 @@
 //!
 //! # Key Functions
 //!
-//! - [`normalize_type_def`]: The primary function that coordinates logic by reporting
+//! - [`normalize_types_def`]: The primary function that coordinates logic by reporting
 //!   warnings and merging duplicates.
 //! - [`report_implicit_either_type_warning`]: Scans type_checker declarations to find implicit either types
 //!   and generates warnings.
@@ -117,7 +117,7 @@ use crate::aiplan4rust::syntax::Span;
 ///     println!("Merged type_checker declarations.");
 /// }
 /// ```
-pub fn normalize_type_def(
+pub fn normalize_types_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, NormalizationPassError> {
@@ -351,7 +351,7 @@ fn emit_implicit_either_type_warnings(
 ///
 /// # See Also
 ///
-/// - [`normalize_type_def`] — Wrapper function that applies this merging as part of full logic.
+/// - [`normalize_types_def`] — Wrapper function that applies this merging as part of full logic.
 /// - [`Normalizer`] — Interface that orchestrates multiple logic logic.
 /// - [`Ast`] — The syntax tree structure being normalized.
 /// - [`NodeId`] — Unique identifier for nodes in the AST arena.

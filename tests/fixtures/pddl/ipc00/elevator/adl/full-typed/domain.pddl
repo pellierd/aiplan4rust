@@ -119,6 +119,3 @@
 		      (?p - going_up) (not (boarded ?p))))
   :effect (and (lift-at ?f2) (not (lift-at ?f1))))
 )
-
-
-
