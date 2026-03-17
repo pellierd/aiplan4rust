@@ -23,7 +23,6 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
-use crate::aiplan4rust::syntax::ast::AstKind::Function;
 use crate::aiplan4rust::validation::common;
 use crate::aiplan4rust::validation::common::checks::{ContentKind, EXPRESSION};
 use crate::WellFormedError;
@@ -646,7 +645,7 @@ pub fn check_arithmetic_expression(ast: &Ast, node: &AstNode) -> Result<(), Well
             ast,
             node,
             index,
-            &[AstKind::Number, AstKind::Function]
+            &[AstKind::Number, AstKind::Function, AstKind::Arithmetic]
         )?;
     }
     Ok(())
