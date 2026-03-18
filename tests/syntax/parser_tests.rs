@@ -139,6 +139,22 @@ pub fn test_hddl_parser(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc02/zenotravel/strips/handcoded/typed"; "ipc02_pddl_typed_strips_handcoded_zenotravel")]
 #[test_case("tests/fixtures/pddl/ipc02/zenotravel/strips/handcoded/untyped"; "ipc02_pddl_untyped_strips_handcoded_zenotravel")]
 #[test_case("tests/fixtures/pddl/ipc02/umt2"; "ipc02_pddl_umt2")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/numeric/automatic/typed"; "ipc02_pddl_typed_numeric_automatic_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/numeric/automatic/untyped"; "ipc02_pddl_untyped_numeric_automatic_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/numeric/handcoded/typed"; "ipc02_pddl_typed_numeric_handcoded_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/numeric/handcoded/untyped"; "ipc02_pddl_untyped_numeric_handcoded_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/simple-time/automatic/typed"; "ipc02_pddl_typed_simple_time_automatic_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/simple-time/automatic/untyped"; "ipc02_pddl_untyped_simple_time_automatic_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/simple-time/handcoded/typed"; "ipc02_pddl_typed_simple_time_handcoded_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/simple-time/handcoded/untyped"; "ipc02_pddl_untyped_simple_time_handcoded_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/time/automatic/typed"; "ipc02_pddl_typed_time_automatic_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/time/automatic/untyped"; "ipc02_pddl_untyped_time_automatic_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/time/handcoded/typed"; "ipc02_pddl_typed_time_handcoded_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/time/handcoded/untyped"; "ipc02_pddl_untyped_time_handcoded_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/strips/automatic/typed"; "ipc02_pddl_typed_strips_automatic_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/strips/automatic/untyped"; "ipc02_pddl_untyped_strips_automatic_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/strips/handcoded/typed"; "ipc02_pddl_typed_strips_handcoded_rover")]
+#[test_case("tests/fixtures/pddl/ipc02/rover/strips/handcoded/untyped"; "ipc02_pddl_untyped_strips_handcoded_rover")]
 pub fn test_pddl_parser(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
