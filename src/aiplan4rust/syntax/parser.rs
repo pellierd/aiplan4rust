@@ -19,6 +19,7 @@ use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::{
     FastLineTable, ParseContext, ParserResult, SyntaxError,
 };
+use crate::aiplan4rust::validation::syntax;
 
 /// Parses PDDL or HDDL source code into an abstract syntax tree (AST),
 /// while managing and reporting diagnostics (errors, warnings, notes).
@@ -171,6 +172,13 @@ impl Parser {
                         Ast::new(arena, interner, source_id, SystemTime::now());
                     // Initialize line/column span info for AST nodes using the line table
                     ast.init_span(&fast_line_table)?;
+
+                    #[cfg(debug_assertions)]
+                    {
+                        // This check ensures that internal parser invariants are respected.
+                        // It prevents crashes (panics) in subsequent stages that rely on direct access.
+                        syntax::check_well_formed(&ast)?;
+                    }
 
                     // Return the successful parse result with AST and diagnostics
                     Ok(ParserResult::success(

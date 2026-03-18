@@ -1,4 +1,4 @@
-//! Module responsible for normalizing and merging type_checker declarations in the AST.
+/*//! Module responsible for normalizing and merging type_checker declarations in the AST.
 //!
 //! This module provides functions to process and clean up the abstract syntax arena (AST)
 //! related to type_checker declarations. Its main purpose is to:
@@ -268,7 +268,7 @@ fn emit_implicit_either_type_warnings(
                 }
             }
 
-            let warning = Diagnostic::warning_implicit_either_type_declaration(
+            let warning = Diagnostic::warning_duplicate_declaration(
                 ident,
                 duplicate_types,
                 duplicate_spans,
@@ -466,4 +466,4 @@ pub fn merge_duplicate_type_declarations(
 
     // Return whether any merge was performed
     Ok(modified)
-}
+}*/

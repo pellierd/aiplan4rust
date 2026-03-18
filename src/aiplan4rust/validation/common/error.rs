@@ -105,6 +105,16 @@ pub enum ValidationError {
     #[error("Cycle detected in AST: the structure is not a tree")]
     CycleDetected,
 
+    /// The AST is empty or has no root node.
+    #[error("Missing root node: a PDDL AST must contain at least a 'domain' or a 'problem'")]
+    MissingRoot,
+
+    /// The root node of the AST has an invalid kind (expected Domain or Problem).
+    #[error("Invalid root node kind: expected Domain or Problem, found {found}")]
+    InvalidRoot {
+        found: AstKind,
+    },
+
     /// A custom validation error with a free-form message.
     #[error("{0}")]
     Custom(String),
@@ -205,6 +215,21 @@ impl ValidationError {
     #[track_caller]
     pub fn cycle_detected() -> Self {
         ValidationError::CycleDetected.trace()
+    }
+
+    /// Creates a `MissingRoot` error.
+    #[track_caller]
+    pub fn missing_root() -> Self {
+        ValidationError::MissingRoot.trace()
+    }
+
+    /// Creates an `InvalidRoot` error.
+    ///
+    /// # Parameters
+    /// - `found`: The actual kind of the root node that was deemed invalid.
+    #[track_caller]
+    pub fn invalid_root(found: AstKind) -> Self {
+        ValidationError::InvalidRoot { found }.trace()
     }
 
     /// Creates a generic `Custom` validation error.

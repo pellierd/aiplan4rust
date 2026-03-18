@@ -42,33 +42,54 @@ pub fn is_well_formed(ast: &Ast) -> bool {
     check_well_formed(ast).is_ok()
 }
 
-
 /// Checks that the AST is structurally well-formed starting from its root node.
 ///
-/// This function verifies that the AST forms a valid tree (no cycles, at most one parent per node)
-/// and that all nodes satisfy structural well-formedness rules.
+/// This validation ensures that the AST:
+/// 1. Forms a valid tree (no cycles detected).
+/// 2. Contains a non-empty root node.
+/// 3. Starts with either a `Domain` or a `Problem` kind, as required by PDDL.
+///
+/// This is a structural sanity check typically run in debug mode to ensure
+/// subsequent compiler passes (like normalization) can safely use direct access
+/// methods (e.g., `.unwrap()`) on expected nodes.
 ///
 /// # Arguments
+///
 /// * `ast` - The AST to validate.
 ///
 /// # Returns
-/// * `Ok(())` if the AST is structurally well-formed.
-/// * `Err(WellFormedError)` if structural issues are found (including cycles).
+///
+/// * `Ok(())` if the AST root and global structure are valid.
+/// * `Err(ValidationError)` if the tree is cyclic, empty, or has an invalid root.
 ///
 /// # Note
-/// This function only checks structural correctness, not semantic validity.
+///
+/// This function only checks basic structural requirements. It does not perform
+/// full semantic analysis or check PDDL logic.
 pub fn check_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
     let arena = ast.syntax_tree();
 
-    // Must be a valid tree
+    // 1. Basic structural integrity: Must be a valid tree (no cycles)
     if !arena.is_tree() {
         return Err(WellFormedError::cycle_detected());
     }
 
-    match arena.root_node() {
-        Some(root) => check_well_formed_from(root, ast),
-        None => Ok(()), // An empty AST is considered well-formed
+    // 2. Root validation
+    let root = match arena.root_node() {
+        Some(root) => root,
+        // An empty AST is NOT a valid PDDL file.
+        // This prevents the pipeline from proceeding with "nothing".
+        None => return Err(WellFormedError::missing_root()),
+    };
+
+    // 3. Type validation: Must be a Domain or a Problem
+    let root_kind = root.kind();
+    if root_kind != AstKind::Domain && root_kind != AstKind::Problem {
+        return Err(WellFormedError::invalid_root(root_kind));
     }
+
+    // 4. Recursive check for children
+    check_well_formed_from(root, ast)
 }
 
 /// Recursively checks that the given AST node and all its descendants are structurally well-formed.

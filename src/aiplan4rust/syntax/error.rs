@@ -26,6 +26,7 @@ use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::context::ParseContextError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::validation::common::WellFormedError;
 
 /// Enum representing all possible syntax-related errors encountered
 /// during parsing, AST processing, syntax tree handling, and source management.
@@ -34,6 +35,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 /// them with meaningful messages for easier error management.
 #[derive(Debug, Error)]
 pub enum SyntaxError {
+
     /// Error returned by the parser during parsing.
     #[error(transparent)]
     ParseError(#[from] ParseError<usize, Token, CustomParseError>),
@@ -53,6 +55,10 @@ pub enum SyntaxError {
     /// Error from the arena node management subsystem.
     #[error(transparent)]
     Arena(#[from] ArenaError),
+
+    /// Errors indicating that the AST is not "Well-Formed".
+    #[error(transparent)]
+    WellFormed(#[from] WellFormedError),
 
     /// Error originating from input source handling.
     ///

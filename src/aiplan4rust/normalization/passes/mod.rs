@@ -59,7 +59,7 @@ pub mod error;
 mod def;
 
 pub use require_def::normalize_require_def;
-pub use types_def::normalize_types_def;
+//pub use types_def::normalize_types_def;
 pub use def::normalize_def;
 pub use either_type::normalize_either_type;
 pub use typed_list::normalize_typed_list;

@@ -20,7 +20,7 @@ use std::fmt;
 /// - the line and column where the span begins and ends (optional; defaults to `usize::MAX` if unset).
 ///
 /// This structure enables precise tracking of text regions during parsing or lexing.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Copy, Eq, Hash, Serialize, Deserialize)]
 pub struct Span {
     start: usize,
     end: usize,

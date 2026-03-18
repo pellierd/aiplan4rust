@@ -106,6 +106,20 @@ pub fn test_hddl_normalizer(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc02/depot/numeric/automatic/untyped"; "ipc02_pddl_untyped_numeric_automatic_depot")]
 #[test_case("tests/fixtures/pddl/ipc02/depot/numeric/handcoded/typed"; "ipc02_pddl_typed_numeric_handcoded_depot")]
 #[test_case("tests/fixtures/pddl/ipc02/depot/numeric/handcoded/untyped"; "ipc02_pddl_untyped_numeric_handcoded_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/simple-time/automatic/typed"; "ipc02_pddl_typed_simple_time_automatic_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/simple-time/automatic/untyped"; "ipc02_pddl_untyped_simple_time_automatic_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/simple-time/handcoded/typed"; "ipc02_pddl_typed_simple_time_handcoded_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/simple-time/handcoded/untyped"; "ipc02_pddl_untyped_simple_time_handcoded_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/strips/automatic/typed"; "ipc02_pddl_typed_strips_automatic_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/strips/automatic/untyped"; "ipc02_pddl_untyped_strips_automatic_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/strips/handcoded/typed"; "ipc02_pddl_typed_strips_handcoded_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/strips/handcoded/untyped"; "ipc02_pddl_untyped_strips_handcoded_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/time/automatic/typed"; "ipc02_pddl_typed_time_automatic_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/depot/time/handcoded/typed"; "ipc02_pddl_typed_time_handcoded_depot")]
+#[test_case("tests/fixtures/pddl/ipc02/driverlog/numeric/automatic/typed"; "ipc02_pddl_typed_numeric_automatic_driverlog")]
+#[test_case("tests/fixtures/pddl/ipc02/driverlog/numeric/automatic/untyped"; "ipc02_pddl_untyped_numeric_automatic_driverlog")]
+#[test_case("tests/fixtures/pddl/ipc02/driverlog/numeric/handcoded/typed"; "ipc02_pddl_typed_numeric_handcoded_driverlog")]
+#[test_case("tests/fixtures/pddl/ipc02/driverlog/numeric/handcoded/untyped"; "ipc02_pddl_untyped_numeric_handcoded_driverlog")]
 pub fn test_pddl_normalizer(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(

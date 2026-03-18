@@ -47,7 +47,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::normalization::error::NormalizationError;
 use crate::aiplan4rust::normalization::passes;
 use crate::aiplan4rust::normalization::NormalizerResult;
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::ParserResult;
 use crate::aiplan4rust::validation::normalization::check_well_normalized;
 
@@ -96,9 +96,15 @@ impl Normalizer {
                 // Perform logic on the extracted raw AST
                 let normalizer_result = self.perform_normalization(raw_ast)?;
 
-                // If logic produced a normalized AST, verify it is well-formed
-                if let Some(normalized_ast) = normalizer_result.ast() {
-                    check_well_normalized(normalized_ast)?;
+                // --- Validation Step (Debug Only) ---
+                // We verify that the normalization process produced a logically sound AST.
+                // This catches internal bugs in normalization passes before they reach
+                // the code generation or grounding stages.
+                #[cfg(debug_assertions)]
+                {
+                    if let Some(normalized_ast) = normalizer_result.ast() {
+                        check_well_normalized(normalized_ast)?;
+                    }
                 }
 
                 // Return the successful logic result
@@ -127,11 +133,37 @@ impl Normalizer {
         &mut self,
         mut ast: Ast,
     ) -> Result<NormalizerResult, NormalizationError> {
+        // --- 1. Common passes (Independent of file type) ---
+        // These work on the general structure (e.g., converting (either a b)
+        // or ensuring :typing requirements are consistent).
         passes::normalize_typed_list(&mut ast)?;
         passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
         passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
-        passes::normalize_types_def(&mut ast, &mut self.diagnostic_manager)?;
-        Ok(NormalizerResult::success(ast, std::mem::take(&mut self.diagnostic_manager)))
+
+        // --- 2. Content-specific passes ---
+        // We extract the root node. If it's missing, it's a structural failure.
+        let root = ast.syntax_tree()
+            .root_node()
+            .ok_or_else(NormalizationError::missing_root)?;
+
+        // We dispatch normalization passes based on the root kind (Domain vs Problem).
+        match root.kind() {
+            AstKind::Domain => {
+                passes::normalize_def(&mut ast, &mut self.diagnostic_manager, AstKind::TypesDef)?;
+                passes::normalize_def(&mut ast, &mut self.diagnostic_manager, AstKind::ConstantsDef)?;
+                passes::normalize_def(&mut ast, &mut self.diagnostic_manager, AstKind::FunctionsDef)?;
+            }
+            AstKind::Problem => {
+                passes::normalize_def(&mut ast, &mut self.diagnostic_manager, AstKind::ObjectsDef)?;
+            }
+            // If the root is neither a Domain nor a Problem, it's an incompatible structure.
+            found => return Err(NormalizationError::incompatible_root(found)),
+        }
+
+        Ok(NormalizerResult::success(
+            ast,
+            std::mem::take(&mut self.diagnostic_manager)
+        ))
     }
 
     /// Returns a reference to the internal [`DiagnosticManager`] for inspection or reuse.

@@ -48,32 +48,48 @@ use crate::aiplan4rust::validation::{common, normalization, syntax};
 pub fn is_well_normalized(ast: &Ast) -> bool {
     check_well_normalized(ast).is_ok()
 }
+
 /// Checks that the AST is well normalized starting from its root node.
 ///
-/// This function verifies that the AST forms a valid tree (no cycles, at most one parent per node)
-/// and that all nodes satisfy logic rules.
+/// This function verifies that the AST forms a valid tree (no cycles)
+/// and that the root node is a valid PDDL entry point (Domain or Problem).
+/// It then recursively validates that all nodes satisfy normalization logic rules.
 ///
 /// # Arguments
+///
 /// * `ast` - The AST to validate.
 ///
 /// # Returns
-/// * `Ok(())` if the AST is well normalized.
-/// * `Err(WellNormalizedError)` if the AST contains cycles or violates logic rules.
+///
+/// * `Ok(())` if the AST is well normalized and contains a valid root.
+/// * `Err(WellNormalizedError)` if the AST is empty, cyclic, or violates logic rules.
 ///
 /// # Note
-/// An empty AST is considered well normalized.
+///
+/// Unlike basic parsing, a normalized AST must have a root node to be considered valid
+/// for the rest of the compilation pipeline.
 pub fn check_well_normalized(ast: &Ast) -> Result<(), WellNormalizedError> {
     let arena = ast.syntax_tree();
 
-    // Must be a valid tree
+    // 1. Basic structural integrity
     if !arena.is_tree() {
         return Err(WellNormalizedError::cycle_detected());
     }
 
-    match arena.root_node() {
-        Some(root) => check_well_normalized_from(root, ast),
-        None => Ok(()), // Empty AST is well normalized
+    // 2. Root existence check
+    // We no longer accept an empty AST as "well-normalized".
+    let root = arena
+        .root_node()
+        .ok_or_else(WellNormalizedError::missing_root)?;
+
+    // 3. Root Kind validation
+    let root_kind = root.kind();
+    if root_kind != AstKind::Domain && root_kind != AstKind::Problem {
+        return Err(WellNormalizedError::invalid_root(root_kind));
     }
+
+    // 4. Recursive logic validation
+    check_well_normalized_from(root, ast)
 }
 
 /// Recursively checks that the subtree rooted at `node` is well normalized.

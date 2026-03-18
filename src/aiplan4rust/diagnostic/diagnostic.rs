@@ -842,17 +842,25 @@ impl Diagnostic {
         }
     }
 
-    /// Constructs a warning for an implicit `(either ...)` typing declaration caused by multiple conflicting parent types.
+    /// Constructs a warning for a duplicated entity declaration (objects, types, or constants).
+    ///
+    /// This diagnostic is emitted when the same identifier is declared multiple times,
+    /// potentially with different parent types. The normalizer will merge these
+    /// declarations into a single entry, implicitly creating an `(either ...)` type
+    /// if the parent types differ.
     ///
     /// # Arguments
-    /// - `types`: Identifier of the typing being declared.
-    /// - `duplicate_types`: Conflicting parent typing identifiers merged implicitly.
-    /// - `duplicate_spans`: Source code spans of each conflicting parent typing declaration.
-    /// - `provider`: Origin of the diagnostic.
-    /// - `source`: Interned source identifier.
-    /// - `span`: Location in source related to the implicit either typing declaration.
-    pub fn warning_implicit_either_type_declaration(
+    ///
+    /// * `ty` - The identifier of the entity being redeclared.
+    /// * `kind` - The nature of the declaration (e.g., `ObjectsDef`, `TypesDef`).
+    /// * `duplicate_types` - The list of parent types found in the subsequent declarations.
+    /// * `duplicate_spans` - The source code locations of the redundant declarations.
+    /// * `provider` - The component that identified this duplication (usually `Provider::Normalizer`).
+    /// * `source` - The identifier of the source file.
+    /// * `span` - The location of the initial declaration.
+    pub fn warning_duplicate_declaration(
         ty: SymbolId,
+        kind: AstKind,
         duplicate_types: Vec<SymbolId>,
         duplicate_spans: Vec<Span>,
         provider: Provider,
@@ -860,14 +868,57 @@ impl Diagnostic {
         span: Span,
     ) -> Self {
         Self {
-            kind: Kind::ImplicitEitherTypeDeclaration {
+            kind: Kind::DuplicatedDeclaration {
                 ty,
+                kind,
                 duplicate_types,
                 duplicate_spans,
             },
             provider,
             source,
             span,
+        }
+    }
+
+    /// Constructs an error for incompatible type declarations of the same symbol.
+    ///
+    /// This diagnostic is emitted when a symbol (function, constant, or type) is
+    /// redeclared with a type signature that cannot be merged, such as mixing
+    /// 'number' with object types or violating the 'either number' PDDL rule.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The identifier of the symbol with conflicting types.
+    /// * `kind` - The nature of the declaration (e.g., `FunctionsDef`, `TypesDef`) to
+    ///   ensure consistent naming in the error message.
+    /// * `expected_types` - The parent types defined in the first (original) declaration.
+    /// * `found_types` - The parent types defined in the second (offending) declaration.
+    /// * `offending_span` - The location of the declaration that caused the conflict.
+    /// * `original_span` - The location of the first declaration, used as a reference.
+    /// * `provider` - The component that identified this conflict (usually `Provider::Normalizer`).
+    /// * `source` - The identifier of the source file.
+    pub fn error_incompatible_type_declarations(
+        symbol: SymbolId,
+        kind: AstKind,
+        expected_types: Vec<SymbolId>,
+        found_types: Vec<SymbolId>,
+        offending_span: Span,
+        original_span: Span,
+        provider: Provider,
+        source: LiteralId,
+    ) -> Self {
+        Self {
+            kind: Kind::IncompatibleTypeDeclarations {
+                symbol,
+                kind,
+                original_span,
+                expected_types,
+                found_types,
+            },
+            provider,
+            source,
+            // The primary span points to the offending duplicate.
+            span: offending_span,
         }
     }
 

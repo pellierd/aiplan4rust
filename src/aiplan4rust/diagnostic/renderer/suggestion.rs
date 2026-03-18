@@ -158,14 +158,31 @@ fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&SymbolInt
         Kind::CrossConflictSymbolDeclaration { problem_declaration, conflicting_domain_declarations } => {
             format_cross_conflict_symbol_declaration_suggestion(problem_declaration, conflicting_domain_declarations, interner)
         }
-        Kind::ImplicitEitherTypeDeclaration { ty, duplicate_spans, .. } => {
-            format_implicit_either_type_declaration_suggestion(*ty, duplicate_spans, interner)
-        }
+
         Kind::DuplicateRequirementWarning { duplicate_requirements } => {
             format_duplicate_requirement_warning(duplicate_requirements)
         }
         Kind::CustomError {suggestion, .. } => suggestion.clone(),
         Kind::CustomWarning {suggestion, .. } => suggestion.clone(),
+        Kind::DuplicatedDeclaration { ty, kind, duplicate_spans, .. } => {
+            format_duplicated_declaration_suggestion(*ty, *kind, duplicate_spans, interner)
+        }
+        Kind::IncompatibleTypeDeclarations {
+            symbol,
+            kind,
+            original_span,
+            expected_types,
+            found_types
+        } => {
+            format_incompatible_type_declarations_suggestion(
+                *symbol,
+                *kind,
+                *original_span,
+                expected_types,
+                found_types,
+                interner
+            )
+        }
     }
 }
 
@@ -759,45 +776,151 @@ fn format_cross_conflict_symbol_declaration_suggestion(
     ))
 }
 
-/// Formats a suggestion message for implicitly merged duplicate typing declarations.
+/// Generates a contextual suggestion for resolving duplicated declarations.
 ///
-/// Lists locations where the duplicates were found and advises explicit `(either ...)` declaration.
+/// This function identifies the locations of redundant declarations and provides
+/// specific guidance based on the [`AstKind`]. It encourages the user to either
+/// consolidate declarations or use the explicit PDDL `(either ...)` syntax to
+/// resolve the implicit merge performed by the normalizer.
 ///
 /// # Arguments
 ///
-/// * `types` - The typing identifier that is duplicated.
-/// * `duplicate_spans` - A slice of spans marking duplicate declarations.
-/// * `interner` - Optional string interner used for formatting identifiers.
+/// * `ty` - The [`SymbolId`] of the entity (object, type, constant, or function) that is duplicated.
+/// * `kind` - The [`AstKind`] of the declaration block to tailor the suggestion text.
+/// * `duplicate_spans` - A slice of [`Span`] marking the redundant declaration locations.
+/// * `interner` - An optional [`SymbolInterner`] to resolve the identifier's string name.
 ///
 /// # Returns
 ///
-/// An optional suggestion string describing the implicit merge and guidance.
-fn format_implicit_either_type_declaration_suggestion(
+/// Returns an [`Option<String>`] containing the formatted suggestion. Returns `None` if
+/// no suggestion can be generated (though in practice, this follows a duplicated declaration).
+fn format_duplicated_declaration_suggestion(
     ty: SymbolId,
+    kind: AstKind,
     duplicate_spans: &[Span],
     interner: Option<&SymbolInterner>,
 ) -> Option<String> {
+    let identifier = renderer::formatting::ident_to_string(ty, interner);
+
+    // 1. Formatage des localisations (ta logique existante est très bien)
     let duplicate_locations: Vec<String> = duplicate_spans
         .iter()
         .map(|span| renderer::formatting::span_to_string(span))
         .collect();
 
-    let formatted_locations = match duplicate_locations.len() {
-        0 => String::from("an unknown location"),
+    let locations_text = match duplicate_locations.len() {
+        0 => String::from("unknown locations"),
         1 => duplicate_locations[0].clone(),
-        2 => format!("{} and {}", duplicate_locations[0], duplicate_locations[1]),
         _ => {
             let (all_but_last, last) = duplicate_locations.split_at(duplicate_locations.len() - 1);
             format!("{} and {}", all_but_last.join(", "), last[0])
         }
     };
 
+    // 2. Adaptation du message selon le Kind
+    let (entity_type, suggestion) = match kind {
+        AstKind::ObjectsDef => (
+            "object",
+            format!("consider grouping `{}` under a single declaration with an explicit `(either ...)` type", identifier)
+        ),
+        AstKind::TypesDef => (
+            "type",
+            format!("consider defining the hierarchy of `{}` once using `(either ...)` if it inherits from multiple supertypes", identifier)
+        ),
+        AstKind::ConstantsDef => (
+            "constant",
+            format!("ensure `{}` is defined only once to avoid conflicting constant definitions", identifier)
+        ),
+        AstKind::FunctionsDef => (
+            "function",
+            format!("check if the multiple declarations of `{}` have consistent parameter types or use a single signature", identifier)
+        ),
+        _ => (
+            "entity",
+            format!("consider explicitly using `(either ...)` to resolve the multiple declarations of `{}`", identifier)
+        ),
+    };
+
     Some(format!(
-        "The typing `{}` was declared multiple times at locations: {}. \
-         These declarations were implicitly merged into an `(either ...)` typing declaration. \
-         To avoid ambiguity, consider explicitly declaring the typing using `(either ...)`.",
-        renderer::formatting::ident_to_string(ty, interner),
-        formatted_locations,
+        "The {} `{}` was also declared at {}. {}.",
+        entity_type,
+        identifier,
+        locations_text,
+        suggestion
+    ))
+}
+
+/// Formats a diagnostic suggestion message for incompatible type declarations.
+///
+/// This message is generated when a symbol is redeclared with a type signature
+/// that violates PDDL constraints (e.g., mixing `number` with object types).
+/// Unlike simple duplicates, these conflicts represent semantic errors that
+/// must be resolved by the user.
+///
+/// # Arguments
+///
+/// * `symbol` - The identifier of the symbol with the type conflict.
+/// * `kind` - The [`AstKind`] of the declaration, used to provide a specific
+///   entity name (e.g., "function") in the suggestion.
+/// * `original_span` - The source code location of the first valid declaration
+///   found, used as the reference point for the conflict.
+/// * `interner` - The symbol interner used to resolve the human-readable name
+///   of the identifier.
+///
+/// # Returns
+///
+/// Returns an [`Option<String>`] containing a detailed explanation of why the
+/// types are incompatible and a hint on how to fix the PDDL code.
+fn format_incompatible_type_declarations_suggestion(
+    symbol: SymbolId,
+    kind: AstKind,
+    original_span: Span,
+    expected_types: &[SymbolId],
+    found_types: &[SymbolId],
+    interner: Option<&SymbolInterner>,
+) -> Option<String> {
+    let identifier = renderer::formatting::ident_to_string(symbol, interner);
+    let original_location = renderer::formatting::span_to_string(&original_span);
+
+    // Helper to format [A, B] as "(either A B)" or [A] as "A"
+    let format_type_list = |types: &[SymbolId]| -> String {
+        match types.len() {
+            0 => "any".to_string(),
+            1 => renderer::formatting::ident_to_string(types[0], interner),
+            _ => {
+                let names: Vec<String> = types
+                    .iter()
+                    .map(|&id| renderer::formatting::ident_to_string(id, interner))
+                    .collect();
+                format!("(either {})", names.join(" "))
+            }
+        }
+    };
+
+    let expected_str = format_type_list(expected_types);
+    let found_str = format_type_list(found_types);
+
+    // Context-aware messages based on the nature of the entity.
+    let (entity_type, rule_hint) = match kind {
+        AstKind::FunctionsDef => (
+            "function",
+            "Numeric fluents (number) and object types are strictly separated in PDDL"
+        ),
+        _ => (
+            "symbol",
+            "A symbol cannot be both a numeric fluent and a typed object"
+        ),
+    };
+
+    Some(format!(
+        "The {} `{}` was first declared as `{}`, but this declaration uses `{}`. {}. \
+        The original declaration was found at {}.",
+        entity_type,
+        identifier,
+        expected_str,
+        found_str,
+        rule_hint,
+        original_location
     ))
 }
 

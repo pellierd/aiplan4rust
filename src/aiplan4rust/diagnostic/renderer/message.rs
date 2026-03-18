@@ -140,13 +140,16 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
         Kind::CrossConflictSymbolDeclaration { problem_declaration, .. } => {
             format_cross_conflict_symbol_declaration(problem_declaration, interner)
         }
-        Kind::ImplicitEitherTypeDeclaration { ty, .. } => {
-            format_implicit_either_type_declaration(*ty, interner)
-        }
+
         Kind::DuplicateRequirementWarning { .. } => format_duplicate_requirement_warning(),
         Kind::CustomError { message, .. } => message.to_string(),
         Kind::CustomWarning { message, .. } => message.to_string(),
-
+        Kind::DuplicatedDeclaration { ty, kind, .. } => {
+            format_duplicated_declaration(*ty, *kind, interner)
+        }
+        Kind::IncompatibleTypeDeclarations { symbol, kind, .. } => {
+            format_incompatible_type_declarations(*symbol, *kind, interner)
+        }
     }
 }
 
@@ -496,22 +499,81 @@ fn format_cross_conflict_symbol_declaration(problem_declaration: &Declaration, i
     )
 }
 
-/// Formats a message indicating that a typing was declared multiple times and
-/// was implicitly interpreted as an `(either ...)` typing.
+/// Formats a diagnostic message for symbols declared multiple times with compatible types.
+///
+/// This message informs the user that the symbol has been merged. In PDDL normalization,
+/// multiple declarations of the same symbol result in a union of their parent types
+/// using an `(either ...)` construct.
 ///
 /// # Arguments
 ///
-/// * `types` - The identifier of the typing declared multiple times.
-/// * `interner` - Optional interner for resolving the identifier.
+/// * `ty` - The [`SymbolId`] of the duplicated symbol.
+/// * `kind` - The [`AstKind`] of the declaration to determine the entity type.
+/// * `interner` - The interner used to resolve the symbol's string representation.
+fn format_duplicated_declaration(
+    ty: SymbolId,
+    kind: AstKind,
+    interner: Option<&SymbolInterner>
+) -> String {
+    let identifier = formatting::ident_to_string(ty, interner);
+    let entity_name = ast_kind_to_entity_name(kind);
+
+    format!(
+        "{} `{}` was declared multiple times and its parent types were implicitly merged into an `(either ...)` type.",
+        entity_name,
+        identifier
+    )
+}
+
+/// Formats the primary error header for incompatible type declarations.
+///
+/// This header is used when a symbol cannot be merged due to type constraints,
+/// such as a name being used for both a numeric fluent and an object.
+///
+/// # Arguments
+///
+/// * `symbol` - The [`SymbolId`] of the conflicting symbol.
+/// * `kind` - The [`AstKind`] used to specify the entity in the message.
+/// * `interner` - The interner used to resolve the symbol's string representation.
+///
+/// # Example
+///
+/// Output: `incompatible type declarations for function distance`
+fn format_incompatible_type_declarations(
+    symbol: SymbolId,
+    kind: AstKind,
+    interner: Option<&SymbolInterner>
+) -> String {
+    let identifier = formatting::ident_to_string(symbol, interner);
+    let entity_name = ast_kind_to_entity_name(kind);
+
+    format!(
+        "incompatible type declarations for {} `{}`",
+        entity_name.to_lowercase(),
+        identifier
+    )
+}
+
+/// Maps an [`AstKind`] to its human-readable singular entity name.
+///
+/// This helper is used to normalize the terminology used in diagnostic messages
+/// across different PDDL definitions (objects, types, constants, etc.).
+///
+/// # Arguments
+///
+/// * `kind` - The AST node kind representing the definition block.
 ///
 /// # Returns
 ///
-/// A formatted string explaining the implicit interpretation as an either-typing.
-fn format_implicit_either_type_declaration(ty: SymbolId, interner: Option<&SymbolInterner>) -> String {
-    format!(
-        "Type `{}` was declared multiple times and was implicitly interpreted as an `(either ...)` typing.",
-        formatting::ident_to_string(ty, interner),
-    )
+/// A static string slice containing the capitalized entity name (e.g., "Function").
+fn ast_kind_to_entity_name(kind: AstKind) -> &'static str {
+    match kind {
+        AstKind::ObjectsDef   => "Object",
+        AstKind::TypesDef     => "Type",
+        AstKind::ConstantsDef => "Constant",
+        AstKind::FunctionsDef => "Function",
+        _                     => "Entity",
+    }
 }
 
 /// Formats a warning message indicating duplicated requirement declarations.

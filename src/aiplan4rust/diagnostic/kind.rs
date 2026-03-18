@@ -398,28 +398,66 @@ pub enum Kind {
         conflicting_domain_declarations: Vec<Declaration>,
     },
 
-    /// Warning emitted when a typing is implicitly declared as an `(either ...)` typing due to
-    /// multiple conflicting parent typing declarations.
+    /// Warning emitted when an entity (object, type, or constant) is declared multiple times,
+    /// leading to an implicit `(either ...)` type construction.
     ///
-    /// This warning indicates that the typing `types` has been declared with different parent types
-    /// listed in `duplicate_types`. The system has automatically merged these into an implicit
-    /// `(either ...)` typing to resolve ambiguity.
+    /// This warning indicates that the identifier `ty` has been defined in several locations
+    /// with different parent types. To maintain consistency, the system merges these into
+    /// a single internal representation using an implicit `(either ...)` type.
     ///
     /// # Fields
     ///
-    /// - `types`: The identifier of the typing being declared.
-    /// - `duplicate_types`: A list of conflicting parent typing identifiers causing the implicit merge.
-    /// - `duplicate_spans`: The source code spans corresponding to each conflicting parent typing declaration.
+    /// - `ty`: The identifier of the entity being redeclared.
+    /// - `kind`: The category of the declaration (e.g., `ObjectsDef`, `TypesDef`) to provide context.
+    /// - `duplicate_types`: The list of all parent types encountered across the multiple declarations.
+    /// - `duplicate_spans`: The source code spans corresponding to each redundant declaration.
     ///
     /// # Suggestion
     ///
-    /// To avoid ambiguity, it is recommended to declare the typing explicitly using the `(either ...)`
-    /// syntax, listing all parent types.
-    ImplicitEitherTypeDeclaration {
+    /// For better readability and to avoid ambiguity, consider merging these declarations
+    /// manually into a single line using the explicit `(either ...)` syntax.
+    DuplicatedDeclaration {
         ty: SymbolId,
+        kind: AstKind,
         duplicate_types: Vec<SymbolId>,
         duplicate_spans: Vec<Span>,
     },
+
+    /// Error raised when a symbol is redeclared with an incompatible type signature.
+    ///
+    /// In PDDL, certain types like `number` are primitive and subject to strict
+    /// constraints. This error occurs during the normalization pass when the
+    /// merging of two declarations for the same symbol is logically impossible.
+    ///
+    /// This typically happens when:
+    /// - A symbol is declared as a `number` (fluent) in one place and an `object` in another.
+    /// - The `number` type is used within an `either` compound type, which is
+    ///   disallowed by the PDDL standard.
+    ///
+    /// ### Fields:
+    /// - `symbol`: The identifier of the symbol that has conflicting type declarations.
+    /// - `kind`: The [`AstKind`] of the declaration, used to provide a specific
+    ///   entity name (e.g., "function", "constant") in the error message.
+    /// - `original_span`: The source code location of the first declaration, used as
+    ///   the reference point for the conflict.
+    /// - `expected_types`: The list of parent types from the original (first)
+    ///   declaration.
+    /// - `found_types`: The list of parent types from the offending (second)
+    ///   declaration that caused the incompatibility.
+    ///
+    /// ### Example:
+    /// ```pddl
+    /// (:functions (distance ?a ?b - number))
+    /// (:functions (distance ?a ?b - object)) ;; Error: Incompatible with 'number'
+    /// ```
+    IncompatibleTypeDeclarations {
+        symbol: SymbolId,
+        kind: AstKind,
+        original_span: Span,
+        expected_types: Vec<SymbolId>,
+        found_types: Vec<SymbolId>,
+    },
+
     /// A warning emitted when a requirement is declared multiple times.
     ///
     /// This diagnostic is used to indicate that the same requirement appears more than once
@@ -533,8 +571,9 @@ impl Kind {
             Kind::AmbiguousTypePredicateSymbol { .. } => "006",
             Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => "007",
             Kind::DuplicateEitherType { .. } => "008",
-            Kind::ImplicitEitherTypeDeclaration { .. } => "009",
+            Kind::DuplicatedDeclaration { .. } => "009",
             Kind::DuplicateVariableSkeletonDeclaration { .. } => "010",
+            Kind::IncompatibleTypeDeclarations { .. } => "011",
         }
     }
 
@@ -579,6 +618,7 @@ impl Kind {
             Kind::SymbolConflictsWithKeyword { .. } => Severity::Error,
             Kind::CyclicTypeDeclaration { .. } => Severity::Error,
             Kind::CrossConflictSymbolDeclaration { .. } => Severity::Error,
+            Kind::IncompatibleTypeDeclarations { .. } => Severity::Error,
             // WARNINGS
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => Severity::Warning,
             Kind::UnusedSymbol { .. } => Severity::Warning,
@@ -586,7 +626,7 @@ impl Kind {
             Kind::AmbiguousTypePredicateSymbol { .. } => Severity::Warning,
             Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => Severity::Warning,
             Kind::DuplicateEitherType { .. } => Severity::Warning,
-            Kind::ImplicitEitherTypeDeclaration { .. } => Severity::Warning,
+            Kind::DuplicatedDeclaration { .. } => Severity::Warning,
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
             Kind::DuplicateVariableSkeletonDeclaration { .. } => Severity::Warning,
         }
@@ -705,11 +745,26 @@ impl RemapSymbol for DiagnosticKind {
                     decl.remap_symbol(map)?;
                 }
             }
-            Kind::ImplicitEitherTypeDeclaration {
+            Kind::IncompatibleTypeDeclarations {
+                symbol,
+                expected_types,
+                found_types,
+                ..
+            } => {
+                symbol.remap_idents(map)?;
+                for ty in expected_types {
+                    ty.remap_idents(map)?;
+                }
+                for ty in found_types {
+                    ty.remap_idents(map)?;
+                }
+            }
+            Kind::DuplicatedDeclaration {
                 ty,
                 duplicate_types,
                 ..
-            } => {
+            }
+            => {
                 ty.remap_idents(map)?;
                 for ident in duplicate_types {
                     ident.remap_idents(map)?;
