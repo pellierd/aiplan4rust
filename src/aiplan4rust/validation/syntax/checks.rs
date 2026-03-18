@@ -646,7 +646,7 @@ pub fn check_arithmetic_expression(ast: &Ast, node: &AstNode) -> Result<(), Well
             ast,
             node,
             index,
-            &[AstKind::Number, AstKind::Function, AstKind::Arithmetic]
+            &[AstKind::Number, AstKind::Variable, AstKind::Function, AstKind::Arithmetic]
         )?;
     }
     Ok(())
