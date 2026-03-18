@@ -623,6 +623,7 @@ pub fn check_assign_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForm
             AstKind::Variable,
             AstKind::Object,
             AstKind::Function,
+            AstKind::Arithmetic,
         ],
     )
     // Todo: Adding undefined
