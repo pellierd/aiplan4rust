@@ -918,8 +918,8 @@ pub DAEffect: Result<NodeId, ParseContextError> = {
     <end:@R> => {
         context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, da_effect?], start, end)
     },
-    <start:@L> "(" "when" <da_gd:DAGD> <time_effect:TimedEffect> ")" <end:@R> => {
-        context.alloc_node(AstKind::When, AstContent::None, vec![da_gd?, time_effect?], start, end)
+    <start:@L> "(" "when" <da_gd:DAGD> <da_effect:DAEffect> ")" <end:@R> => {
+        context.alloc_node(AstKind::When, AstContent::None, vec![da_gd?, da_effect?], start, end)
     },
 }
 
