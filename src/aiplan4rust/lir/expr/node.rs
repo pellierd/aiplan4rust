@@ -303,18 +303,28 @@ impl Node for ExprNode {
         }
     }
 
-    /// Returns `true` if the node represents an **atomic formula**.
+    /// Returns `true` if the node represents an **atomic or terminal formula**.
     ///
-    /// In the expression tree, this typically corresponds to either:
-    /// - `AtomicFormula`: a basic predicate or proposition.
-    /// - `FComp`: a fluent comparison.
+    /// In the expression tree, this corresponds to the leaf nodes of the temporal
+    /// and logical propagation, which include:
+    /// - `AtomicFormula`: A basic predicate or proposition (e.g., `(at-rover ?r ?w)`).
+    /// - `Comparison`: A fluent comparison (e.g., `(>= (fuel) 10)`).
+    /// - `Assignment`: A numeric effect or initialization (e.g., `(assign (total-cost) 0)`).
+    ///
+    /// These nodes are considered "atomic" because they represent the finest level
+    /// of granularity where temporal specifiers (`at start`, `at end`, `overall`)
+    /// are attached during normalization.
     ///
     /// # Example
     /// ```
+    /// // Returns true for predicates, numeric comparisons, and assignments.
     /// assert!(node.is_atomic_formula());
     /// ```
     fn is_atomic_formula(&self) -> bool {
-        matches!(self.kind(), ExprKind::AtomicFormula | ExprKind::Comparison)
+        matches!(
+        self.kind(),
+        ExprKind::AtomicFormula | ExprKind::Comparison | ExprKind::Assignment
+    )
     }
 
     /// Returns `true` if the node is a **temporal specifier**.

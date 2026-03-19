@@ -21,45 +21,6 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 
-/// Encodes function definitions into the Lifted Intermediate Representation (LIR).
-///
-/// This process is divided into two main phases:
-/// 1. **User Definitions**: It iterates through the `:functions` block in the AST to encode
-///    explicitly declared fluents (e.g., `(distance ?c1 ?c2 - city)`).
-/// 2. **System Built-ins**: It injects implicit functions like `total-cost` or `total-time`
-///    into the registry based on the domain's requirements (e.g., `:action-costs`).
-///
-/// For each user declaration, it performs the following:
-/// * **Storage**: Adds the complete signature to the [`LiftedProblem`].
-/// * **Identity**: Obtains the unique functor identity and [`FunctionSkeletonId`].
-/// * **Mapping**: Binds the AST [`NodeId`] of the functor symbol to these LIR IDs in the registry.
-///
-/// # Arguments
-///
-/// * `subtree` - The syntax subtree representing the `FunctionsDef` node.
-/// * `registry` - The mutable registry for symbol-to-ID mapping and built-in injection.
-/// * `ir` - The mutable Lifted Problem storage (LIR).
-///
-/// # Returns
-///
-/// * `Ok(())` - If all functions were successfully encoded and system built-ins were registered.
-/// * `Err(LirError)` - If a definition is malformed or types are unresolved.
-pub fn encode(
-    subtree: &SyntaxSubtree<AstNode>,
-    registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
-    // --- Step 1: User-defined Functions (AST) ---
-    // Encodes what is physically present in the PDDL file.
-    encode_definitions(subtree, registry, ir)?;
-
-    // --- Step 2: System Built-in Functions ---
-    // Injects implicit functions that lack an AST representation.
-    encode_builtin_functions(registry, ir)?;
-
-    Ok(())
-}
-
 /// Encodes user-defined function declarations from the AST into the Lifted Problem (LIR).
 ///
 /// This function iterates through the `(:functions ...)` block, extracts function names,
@@ -75,7 +36,7 @@ pub fn encode(
 ///    supporting both standard and typed fluents.
 /// 3. **Storage**: Adds both the function symbol and its full definition to the [`LiftedProblem`].
 /// 4. **Mapping**: Updates the [`EncodingRegistry`] to map AST [`NodeId`]s to the new LIR IDs.
-fn encode_definitions(
+pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
@@ -133,118 +94,6 @@ fn encode_definitions(
         registry.register_function_skeleton(functor_node_id, function_skeleton_id);
         registry.register_functor(functor_node_id, functor_id);
     }
-
-    Ok(())
-}
-
-/// Injects predefined system functions (built-ins) into the encoding registry.
-///
-/// This step is mandatory for supporting special PDDL functions such as `total-cost`
-/// (required by the `:action-costs` requirement) and `total-time` (used in temporal
-/// or numeric domains).
-///
-/// # Architecture and LIR Consistency
-///
-/// Unlike user-defined functions found in the `(:functions ...)` block, these
-/// system functions do not have a physical representation in the domain's AST.
-/// To maintain architectural integrity:
-///
-/// 1. They are mapped to reserved **virtual** [`NodeId`]s (defined in [`EncodingRegistry`]).
-/// 2. They are registered exclusively in the [`EncodingRegistry`] to allow symbol
-///    resolution during expression encoding.
-/// 3. They are **not** added to the problem definitions ([`ir.function_defs`]). This
-///    prevents indexing mismatches between the LIR vectors and the AST nodes.
-///
-/// # Supported Requirements
-///
-/// * [`Requirement::ActionCosts`]: Registers the `total-cost` function.
-/// * [`Requirement::Fluents`] | [`Requirement::NumericFluents`]: Registers the `total-time` function.
-///
-/// # Errors
-///
-/// Returns a [`LirError`] if the registration of a system function fails within the
-/// registry (e.g., due to an unexpected internal symbol collision).
-///
-/// # Arguments
-///
-/// * `registry` - The encoding registry where system function signatures are injected.
-/// * `ir` - The lifted problem, used as a read-only reference to check active requirements.
-fn encode_builtin_functions(
-    registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
-    let has_action_costs = ir.requirements().contains(&Requirement::ActionCosts);
-    let has_numeric_fluents = ir.requirements().contains(&Requirement::Fluents)
-        || ir.requirements().contains(&Requirement::NumericFluents);
-
-    // Case: Action Costs -> Register 'total-cost'
-    if has_action_costs {
-        register_system_function(
-            registry,
-            ir,
-            SymbolInterner::TOTAL_COST_SYMBOL_ID,
-            EncodingRegistry::TOTAL_COST_NODE_ID,
-            TypeId::NUMBER_TYPE_ID,
-        )?;
-    }
-
-    // Case: Fluents/Numeric -> Register 'total-time'
-    if has_numeric_fluents {
-        register_system_function(
-            registry,
-            ir,
-            SymbolInterner::TOTAL_TIME_SYMBOL_ID,
-            EncodingRegistry::TOTAL_TIME_NODE_ID,
-            TypeId::NUMBER_TYPE_ID,
-        )?;
-    }
-
-    Ok(())
-}
-
-/// Injects a system-defined function into both the LIR and the encoding registry.
-///
-/// This helper synchronizes the creation of a built-in function by:
-/// 1. Inserting the [`FunctionSymbol`] into the [`LiftedProblem`].
-/// 2. Defining its [`AtomicFunctionSkeleton`] (arity 0) with the specified return type.
-/// 3. Mapping both to a reserved virtual [`NodeId`] within the [`EncodingRegistry`].
-///
-/// This dual registration allows the encoder to resolve implicit PDDL symbols
-/// (like `total-time`) as if they were standard declared functions.
-///
-/// # Arguments
-///
-/// * `registry` - The active [`EncodingRegistry`] to be updated with virtual bindings.
-/// * `ir` - The [`LiftedProblem`] where the symbol and definition are stored.
-/// * `symbol_id` - The unique identifier from the interner (e.g., `TOTAL_TIME_SYMBOL_ID`).
-/// * `virtual_node_id` - The reserved [`NodeId`] used as a stable key for resolution.
-/// * `return_type` - The [`TypeId`] of the value returned by this function (typically numeric).
-///
-/// # Errors
-///
-/// Returns a [`LirError`] if the registration process fails or if there is a
-/// conflict in the registry.
-fn register_system_function(
-    registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-    symbol_id: SymbolId,
-    virtual_node_id: NodeId,
-    return_type: TypeId,
-) -> Result<(), LirError> {
-    // 1. Register the function symbol and its virtual mapping
-    let sym = ir.add_function_symbol(symbol_id);
-    registry.register_functor(virtual_node_id, sym);
-
-    // 2. Define and register the function skeleton (signature)
-    // System functions like total-time/total-cost always have an empty parameter list.
-    let skeleton = AtomicFunctionSkeleton::new(
-        sym,
-        TypedList::empty(),
-        Type::primitive(return_type),
-    );
-
-    let def_id = ir.add_function_def(skeleton);
-    registry.register_function_skeleton(virtual_node_id, def_id);
 
     Ok(())
 }

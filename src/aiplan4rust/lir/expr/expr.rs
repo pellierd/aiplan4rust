@@ -34,9 +34,8 @@
 //! is unsupported, returning an [`ExprError`].
 //!
 
-use std::collections::HashMap;
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::lang::{ObjectId, OptimizationOp, VariableId};
+use crate::aiplan4rust::lang::{ObjectId, OptimizationOp};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;

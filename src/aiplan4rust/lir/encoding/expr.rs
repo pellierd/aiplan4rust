@@ -38,6 +38,7 @@
 //! available for resolution by child nodes (the quantifier's body) during the
 //! traversal.
 
+use std::any::Any;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
@@ -301,10 +302,11 @@ fn encode_content(
         // These nodes represent "calls" (e.g., p(x, y)). We resolve the structural
         // skeleton which contains the symbol ID and the expected argument types.
         AstKind::AtomicFormula => {
-            let predicate_id = ast_node.children()[0];
+            let predicate_node_id = ast_node.children()[0];
             let atom_skeleton_declaration = registry.symbol_table()
-                .try_resolve_declaration_by_usage(predicate_id, SymbolKind::Predicate)?;
+                .try_resolve_declaration_by_usage(predicate_node_id, SymbolKind::Predicate)?;
             let atom_skeleton_id = registry.try_resolve_atom_skeleton(atom_skeleton_declaration.node_id())?;
+
             Ok(ExprContent::AtomSkeleton(atom_skeleton_id))
         },
         AstKind::Function => {
@@ -407,7 +409,7 @@ fn encode_content(
         AstKind::Variable => {
             let symbol = ast_node.try_ident()?;
             let variable_id = match symbol {
-                // Cas spécial : ?duration (variable implicite des actions duratives)
+                // Special case : ?duration
                 SymbolInterner::DURATION_VARIABLE_SYMBOL_ID => {
                     registry.try_resolve_variable(EncodingRegistry::DURATION_VARIABLE_NODE_ID)?
                 }

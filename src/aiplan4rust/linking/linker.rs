@@ -39,8 +39,8 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
-use crate::aiplan4rust::semantic::AnalyzerResult;
+use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolOrigin, Usage};
+use crate::aiplan4rust::semantic::{AnalyzerResult, SemanticError};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 
@@ -392,23 +392,47 @@ fn collect_declared_and_undeclared_symbols<'a>(
     let mut all_resolved = true;
 
     for symbol in problem_symbol_table.values() {
-        if symbol.declarations().is_empty() {
-            for usage in symbol.usages() {
-                let domain_declaration_option = domain_symbol_table.resolve_declaration(
-                    &symbol.ident(),
-                    &usage.symbol_kind(),
-                    &domain_symbol_table.root_scope(),
-                )?;
+        let symbol_ident = symbol.ident();
 
-                if let Some(domain_declaration) = domain_declaration_option {
-                    let mut domain_declaration = domain_declaration.clone();
-                    domain_declaration.set_origin(SymbolOrigin::Domain);
-                    domain_declaration.set_imported_scope(Some(domain_declaration.scope().clone()));
-                    domain_declaration.set_scope(problem.symbol_table().root_scope().clone());
-                    declared.push((symbol.ident(), domain_declaration));
-                } else {
-                    undeclared.push((symbol.ident(), usage));
-                    all_resolved = false;
+        for usage in symbol.usages() {
+            let kind = usage.symbol_kind();
+
+            // Count existing declarations for this kind in the problem
+            let matching_count = symbol.declarations()
+                .iter()
+                .filter(|d| d.symbol().kind() == kind)
+                .count();
+
+            match matching_count {
+                // CASE 0: Missing declaration -> Resolve from domain
+                0 => {
+                    let domain_declaration_option = domain_symbol_table.resolve_declaration(
+                        &symbol_ident,
+                        &kind,
+                        &domain_symbol_table.root_scope(),
+                    )?;
+
+                    if let Some(domain_declaration) = domain_declaration_option {
+                        let mut domain_declaration = domain_declaration.clone();
+                        domain_declaration.set_origin(SymbolOrigin::Domain);
+                        domain_declaration.set_imported_scope(Some(domain_declaration.scope().clone()));
+                        domain_declaration.set_scope(problem.symbol_table().root_scope().clone());
+
+                        declared.push((symbol_ident, domain_declaration));
+                    } else {
+                        // Not found in problem OR domain
+                        undeclared.push((symbol_ident, usage));
+                        all_resolved = false;
+                    }
+                },
+
+                // CASE 1: Already correctly declared -> Nothing to do
+                1 => continue,
+
+                _ => {
+                    // More than one declaration found:
+                    // Return the error using the helper function.
+                    return Err(LinkingError::duplicate_symbol_declaration(Symbol::new(symbol_ident, kind)));
                 }
             }
         }

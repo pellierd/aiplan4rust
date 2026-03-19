@@ -37,6 +37,7 @@
 //! ```
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::{encoding, passes, LirEncoderResult, LirError};
@@ -171,7 +172,9 @@ pub fn encode_lifted_problem(
     // 4. Encode problem-level elements
     let problem_symbol_table = context.take_problem_table();
     let problem_syntax_tree = context.take_problem_syntax_tree();
+    println!("{}", problem_symbol_table.to_string_with_interner(problem.interner()));
     registry.set_symbol_table(problem_symbol_table);
+
     encoding::encode_problem(&problem_syntax_tree, &mut registry, &mut problem)?;
 
     // 5. Normalize all logic in the problem

@@ -99,7 +99,7 @@ pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
                     // Continue processing from the new temporal node
                     stack.push(new_root_id);
                 }
-                ExprKind::Not | ExprKind::Comparison | ExprKind::AtomicFormula => {
+                ExprKind::Not | ExprKind::Comparison | ExprKind::AtomicFormula | ExprKind::Assignment => {
                     continue;
                 }
                 _ => {
