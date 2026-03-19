@@ -1,3 +1,18 @@
+# --- Rust ---
+# Compiled code and build artifacts
+target/
+**/*.rs.bk
+
+# --- Project Specific Files ---
 *.diag
-.DS_Store
 *.ast
+*.prs
+*.lft
+*.grd
+
+# --- System Files ---
+.DS_Store
+
+# --- Documentation ---
+# Ignore the local build directory of mdBook
+docs/book/

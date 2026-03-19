@@ -1,0 +1,10 @@
+[book]
+authors = ["Damien Pellier"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Aiplan4Rust Documentation"
+
+[outputs.html]
+git-repository-url = "https://github.com/pellierd/aiplan4Rust"
+edit-url-template = "https://github.com/YOUR_USER/Aiplan4Rust/edit/main/docs/{path}"

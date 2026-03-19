@@ -80,7 +80,7 @@ jobs:
           
           # Force JOBS=1 to ensure the heavy grounding process doesn't trigger OOM
           cargo nextest run \
-            --test integration_tests \
+            --test integration \
             -E "$FILTER" \
             --jobs 1 \
             --status-level pass \
