@@ -5,6 +5,8 @@
 //! adapting to the specific structure of instant or temporal actions.
 
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::action::Action;
@@ -84,6 +86,9 @@ pub fn encode(
             ir.add_action_def(action);
         }
         AstKind::DurativeActionDef => {
+            // We register the duration variable
+            registry.register_variable(EncodingRegistry::DURATION_VARIABLE_NODE_ID, SymbolInterner::DURATION_VARIABLE_SYMBOL_ID);
+
             // Encodage du corps d'une action durative
             let def_body_node = ast.try_node(node.try_child(2)?)?;
 

@@ -45,7 +45,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
-use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
+use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree};
 
 /// Encodes an AST subtree into a LIR Expression.
 /// This is the "free function" version of the previous TryFrom.
@@ -405,8 +405,20 @@ fn encode_content(
             Ok(ExprContent::Object(constant_id))
         },
         AstKind::Variable => {
-            let variable_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Variable)?;
-            let variable_id = registry.try_resolve_variable(variable_declaration.node_id())?;
+            let symbol = ast_node.try_ident()?;
+            let variable_id = match symbol {
+                // Cas spécial : ?duration (variable implicite des actions duratives)
+                SymbolInterner::DURATION_VARIABLE_SYMBOL_ID => {
+                    registry.try_resolve_variable(EncodingRegistry::DURATION_VARIABLE_NODE_ID)?
+                }
+                // Cas standard : paramètres d'actions ou variables de quantificateurs
+                _ => {
+                    let declaration = registry.symbol_table()
+                        .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Variable)?;
+                    registry.try_resolve_variable(declaration.node_id())?
+                }
+            };
+
             Ok(ExprContent::Variable(variable_id))
         },
         AstKind::TaskSymbol => {
@@ -443,7 +455,6 @@ fn encode_content(
             AstContent::OptimizationOp(op) => Ok(ExprContent::OptimizationOp(*op)),
             AstContent::None => Ok(ExprContent::None),
             _ => {
-                println!("{}", ast_node);
                 Err(ExprError::unsupported_content(ast_node.content().clone()).into())
             },
         }

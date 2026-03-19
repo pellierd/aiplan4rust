@@ -70,6 +70,14 @@ impl EncodingRegistry {
     /// Maps to the numeric fluent representing cumulative action costs.
     pub const TOTAL_COST_NODE_ID: NodeId = NodeId::new(usize::MAX - 2);
 
+    /// Reserved [`NodeId`] for the implicit `?duration` variable.
+    ///
+    /// This identifier is used to represent the special variable `?duration`
+    /// within the scope of durative actions. Unlike standard variables declared
+    /// in a typed list, this is a built-in symbol that the encoder resolves
+    /// to allow numeric effects or conditions to depend on the action's length.
+    pub const DURATION_VARIABLE_NODE_ID: NodeId = NodeId::new(usize::MAX - 3);
+
     /// Creates a new `EncodingContext`.
     ///
     /// # Arguments

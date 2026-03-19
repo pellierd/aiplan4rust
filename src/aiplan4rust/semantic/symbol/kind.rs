@@ -109,6 +109,10 @@ impl Kind {
 
         // 2. Handle authorized mixed pairs
         match (self, other) {
+            // Structural identifiers (Domain/Problem names) should not collide with logical symbols.
+            // This allows a predicate or an object to have the same name as the domain itself.
+            (Kind::DomainName, _) | (_, Kind::DomainName) => true,
+            (Kind::ProblemName, _) | (_, Kind::ProblemName) => true,
             // Singleton convention: Type and Constant/Object
             (Kind::PrimitiveType, Kind::Constant) | (Kind::Constant, Kind::PrimitiveType) => true,
 

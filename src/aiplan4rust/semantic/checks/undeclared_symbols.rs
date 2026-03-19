@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
@@ -245,19 +245,24 @@ fn is_pddl_builtin_symbol(
     context: &CheckContext,
 ) -> bool {
     match symbol.ident() {
-        // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
-        SymbolInterner::OBJECT_SYMBOL_ID
-            if context.declared_requirements().contains(&Typing)
-                || context.declared_requirements().contains(&Adl) => true,
-        // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
-        // present.
         SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID
             if context.declared_requirements().contains(&NumericFluents)
                 || context.declared_requirements().contains(&Fluents)=> true,
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
         SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
             if context.declared_requirements().contains(&DurativeActions) => true,
-        // Default case for any other symbols.
+        SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
+            // total-time is allowed if we have :durative-actions
+            context.declared_requirements().contains(&DurativeActions)
+        },
+        SymbolInterner::TOTAL_COST_SYMBOL_ID => {
+            // total-cost is usually allowed with :fluents or :action-costs
+            context.declared_requirements().contains(&Fluents)
+                || context.declared_requirements().contains(&NumericFluents)
+        },
+        // '?duration' variable for durative actions
+        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
+        if context.declared_requirements().contains(&DurativeActions) => true,
         _ => false,
     }
 }

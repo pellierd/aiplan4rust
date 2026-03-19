@@ -52,23 +52,3 @@ pub fn encode_variable_list(
 
     Ok(typed_list)
 }
-/*pub fn encode_type_list(
-    subtree: &SyntaxSubtree<AstNode>,
-    evaluator: &EncodingRegistry,
-) -> Result<TypedList<TypeID, TypeID>, LirError> {
-    let node = subtree.node();
-    let ast = subtree.tree();
-
-    let mut typed_list = TypedList::new();
-
-    for &id in node.children() {
-        let child_node = ast.try_node(id)?;
-        let child_subtree = SyntaxSubtree::new(child_node, id, ast);
-
-        // On appelle la version "Type" du symbole
-        let symbol = typed_symbol::encode_typed_type(&child_subtree, evaluator)?;
-        typed_list.push(symbol);
-    }
-
-    Ok(typed_list)
-}*/
