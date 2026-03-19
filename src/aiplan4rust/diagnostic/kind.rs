@@ -22,6 +22,7 @@ use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
+use crate::Language;
 
 /// Represents all possible diagnostic kinds that can be emitted during
 /// parsing, logic, or semantic analysis of PDDL structures.
@@ -533,6 +534,21 @@ pub enum Kind {
         message: String,
         suggestion: Option<String>,
     },
+
+    /// Usage of a feature that is formally deprecated in the PDDL/HDDL standard.
+    /// This allows the parser to continue while flagging the code as obsolete.
+    DeprecatedFeature {
+        node_kind: AstKind
+    },
+
+    /// A mandatory block (like :init, :goal, or :htn) was not found in the definition.
+    /// This points out that the PDDL/HDDL file is functionally incomplete.
+    MissingMandatoryBlock {
+        /// The language context (PDDL or HDDL).
+        language: Language,
+        /// The kind of the missing block (e.g., AstKind::Init).
+        kind: AstKind,
+    },
 }
 
 impl Kind {
@@ -560,6 +576,7 @@ impl Kind {
             Kind::SymbolConflictsWithKeyword { .. } => "014",
             Kind::CyclicTypeDeclaration { .. } => "015",
             Kind::CrossConflictSymbolDeclaration { .. } => "016",
+            Kind::MissingMandatoryBlock { .. } => {"017"}
 
             // WARNINGS (000..)
             Kind::DomainProblemNameMismatch { .. } => "000",
@@ -574,6 +591,8 @@ impl Kind {
             Kind::DuplicatedDeclaration { .. } => "009",
             Kind::DuplicateVariableSkeletonDeclaration { .. } => "010",
             Kind::IncompatibleTypeDeclarations { .. } => "011",
+            Kind::DeprecatedFeature { .. } => "012",
+
         }
     }
 
@@ -619,6 +638,7 @@ impl Kind {
             Kind::CyclicTypeDeclaration { .. } => Severity::Error,
             Kind::CrossConflictSymbolDeclaration { .. } => Severity::Error,
             Kind::IncompatibleTypeDeclarations { .. } => Severity::Error,
+            Kind::MissingMandatoryBlock { .. } => Severity::Error,
             // WARNINGS
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => Severity::Warning,
             Kind::UnusedSymbol { .. } => Severity::Warning,
@@ -629,6 +649,8 @@ impl Kind {
             Kind::DuplicatedDeclaration { .. } => Severity::Warning,
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
             Kind::DuplicateVariableSkeletonDeclaration { .. } => Severity::Warning,
+            Kind::DeprecatedFeature { .. } => Severity::Warning,
+
         }
     }
 }
@@ -781,9 +803,12 @@ impl RemapSymbol for DiagnosticKind {
             | Kind::CyclicTaskOrdering
             | Kind::DuplicateRequirementWarning { .. }
             | Kind::CustomError { .. }
+            | Kind::DeprecatedFeature { .. }
+            | Kind::MissingMandatoryBlock { .. } => {}
             | Kind::CustomWarning { .. } => {
                 // No remap needed
             }
+
         }
         Ok(())
     }

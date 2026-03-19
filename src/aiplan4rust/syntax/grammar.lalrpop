@@ -14,6 +14,7 @@ use crate::aiplan4rust::syntax::context::ParseContext;
 use crate::aiplan4rust::syntax::context::ParseContextError;
 use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::artefact::language::Language;
 
 grammar<'ctx>(context: &'ctx mut ParseContext);
 
@@ -962,40 +963,77 @@ pub ContinusVariable: Result<NodeId, ParseContextError> = {
     }
 }
 
+DomainElement: Result<NodeId, ParseContextError> = {
+    <r:RequireDef> => r,
+    <t:TypesDef> => t,
+    <c:ConstantsDef> => c,
+    <p:PredicatesDef> => p,
+    <f:FunctionsDef> => f,
+    <s:Constraints> => s,
+}
+
 pub Domain: Result<NodeId, ParseContextError> = {
     <start:@L>
-        "(" "define" "(" "domain" <name:DomainName> ")"
-            <require_def:RequireDef?>
-            <types_def:TypesDef?>
-            <constants_def:ConstantsDef?>
-            <predicates_def:PredicatesDef?>
-            <functions_def:FunctionsDef?>
-            <constraints:Constraints?>
-            <structure_def:StructureDef*>
-        ")"
+    "(" "define" "(" "domain" <name:DomainName> ")"
+        <elements:DomainElement*>
+        <structure:StructureDef*>
+    ")"
     <end:@R> => {
+        let name_node = name?;
+
+        // 1. Slots for canonical ordering (Header elements)
+        let mut req_node = None;
+        let mut types_node = None;
+        let mut const_node = None;
+        let mut pred_node = None;
+        let mut func_node = None;
+        let mut constraint_node = None;
+
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        for node_id in elements {
+            let node_info = {
+                let tree = context.borrow_syntax_tree();
+                tree.get_node(node_id).map(|n| (n.kind(), n.span().clone()))
+            };
+
+            if let Some((kind, span)) = node_info {
+                // Fill slots and detect duplicate header blocks
+                let duplicate = match kind {
+                    AstKind::RequireDef => { let d = req_node.is_some(); req_node = Some(node_id); d },
+                    AstKind::TypesDef => { let d = types_node.is_some(); types_node = Some(node_id); d },
+                    AstKind::ConstantsDef => { let d = const_node.is_some(); const_node = Some(node_id); d },
+                    AstKind::PredicatesDef => { let d = pred_node.is_some(); pred_node = Some(node_id); d },
+                    AstKind::FunctionsDef => { let d = func_node.is_some(); func_node = Some(node_id); d },
+                    AstKind::Constraints => { let d = constraint_node.is_some(); constraint_node = Some(node_id); d },
+                    _ => false,
+                };
+
+                if duplicate {
+                    context.push_custom_error(CustomParseError::duplicate_definition_block(
+                        kind, span.start(), span.end()
+                    ));
+                }
+            }
+        }
+
+        // 2. Final construction in CANONICAL order
         let mut children = Vec::new();
-        children.push(name?);
-        if let Some(require_def) = require_def {
-            children.push(require_def?);
+        children.push(name_node);
+
+        // Header blocks in standard PDDL sequence
+        if let Some(node) = req_node { children.push(node); }
+        if let Some(node) = types_node { children.push(node); }
+        if let Some(node) = const_node { children.push(node); }
+        if let Some(node) = pred_node { children.push(node); }
+        if let Some(node) = func_node { children.push(node); }
+        if let Some(node) = constraint_node { children.push(node); }
+
+        // 3. Append structural elements (Actions, etc.)
+        // These are already validated by the LALRPOP grammar rules
+        for s in structure {
+            children.push(s?);
         }
-        if let Some(types_def) = types_def {
-            children.push(types_def?);
-        }
-        if let Some(constants_def) = constants_def {
-            children.push(constants_def?);
-        }
-        if let Some(predicates_def) = predicates_def {
-            children.push(predicates_def?);
-        }
-        if let Some(functions_def) = functions_def {
-            children.push(functions_def?);
-        }
-        if let Some(constraints) = constraints {
-            children.push(constraints?);
-        }
-        let structure_def = structure_def.into_iter().collect::<Result<Vec<_>, _>>()?;
-        children.extend(structure_def);
+
         context.alloc_node(AstKind::Domain, AstContent::None, children, start, end)
     }
 }
@@ -1107,39 +1145,101 @@ pub LengthSpec: Result<NodeId, ParseContextError> = {
     },
 }
 
+ProblemElement: Result<NodeId, ParseContextError> = {
+    <r:RequireDef> => r,
+    <o:ObjectsDef> => o,
+    <i:Init> => i,
+    <g:Goal> => g,
+    <c:Constraints> => c,
+    <m:MetricSpec> => m,
+    <l:LengthSpec> => l,
+}
+
 pub Problem: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" "define" "(" "problem" <problem:ProblemName> ")"
         "(" ":domain" <domain:DomainName> ")"
-        <require_def:RequireDef?>
-        <objects_def:ObjectsDef?>
-        <init:Init>
-        <goal:Goal>
-        <constraints:Constraints?>
-        <metric_spec:MetricSpec?>
-        <length_spec:LengthSpec?>
+        <elements:ProblemElement*>
         ")"
     <end:@R> => {
+        let problem_node = problem?;
+        let domain_node = domain?;
+
+        // 1. Slots for canonical ordering
+        // Standard PDDL order: requirements > objects > init > goal > constraints > metric > length
+        let mut req_node = None;
+        let mut obj_node = None;
+        let mut init_node = None;
+        let mut goal_node = None;
+        let mut constraint_node = None;
+        let mut metric_node = None;
+        let mut length_node = None;
+
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        for node_id in elements {
+            // Scope the tree borrow to extract kind and span
+            let node_info = {
+                let tree = context.borrow_syntax_tree();
+                tree.get_node(node_id).map(|n| (n.kind(), n.span().clone()))
+            };
+
+            if let Some((kind, span)) = node_info {
+                // Check for duplicate blocks while filling the slots
+                let duplicate = match kind {
+                    AstKind::RequireDef => { let d = req_node.is_some(); req_node = Some(node_id); d },
+                    AstKind::ObjectsDef => { let d = obj_node.is_some(); obj_node = Some(node_id); d },
+                    AstKind::Init => { let d = init_node.is_some(); init_node = Some(node_id); d },
+                    AstKind::Goal => { let d = goal_node.is_some(); goal_node = Some(node_id); d },
+                    AstKind::Constraints => { let d = constraint_node.is_some(); constraint_node = Some(node_id); d },
+                    AstKind::Metric => { let d = metric_node.is_some(); metric_node = Some(node_id); d },
+                    AstKind::Length => {
+                        // Flag the deprecated ':length' feature but continue parsing
+                        context.push_custom_error(CustomParseError::deprecated_feature(
+                            AstKind::Length,
+                            span.start(),
+                            span.end()
+                        ));
+                        let d = length_node.is_some();
+                        length_node = Some(node_id);
+                        d
+                    },
+                    _ => false,
+                };
+
+                if duplicate {
+                    context.push_custom_error(CustomParseError::duplicate_definition_block(
+                        kind, span.start(), span.end()
+                    ));
+                }
+            }
+        }
+
+        // 2. --- MANDATORY SECTIONS VALIDATION (PDDL) ---
+        // A valid PDDL problem must define both an initial state and a goal condition.
+        if init_node.is_none() {
+            context.push_custom_error(CustomParseError::missing_mandatory_block(
+                Language::PDDL, AstKind::Init, start, end
+            ));
+        }
+        if goal_node.is_none() {
+            context.push_custom_error(CustomParseError::missing_mandatory_block(
+                Language::PDDL, AstKind::Goal, start, end
+            ));
+        }
+
+        // 3. Final construction in CANONICAL order
         let mut children = Vec::new();
-        children.push(problem?);
-        children.push(domain?);
-        if let Some(require_def) = require_def {
-            children.push(require_def?)
-        }
-        if let Some(objects_def) = objects_def {
-            children.push(objects_def?)
-        }
-        children.push(init?);
-        children.push(goal?);
-        if let Some(constraints) = constraints {
-            children.push(constraints?)
-        }
-        if let Some(metric_spec) = metric_spec {
-            children.push(metric_spec?)
-        }
-        if let Some(length_spec) = length_spec {
-            children.push(length_spec?)
-        }
+        children.push(problem_node);
+        children.push(domain_node);
+
+        if let Some(node) = req_node { children.push(node); }
+        if let Some(node) = obj_node { children.push(node); }
+        if let Some(node) = init_node { children.push(node); }
+        if let Some(node) = goal_node { children.push(node); }
+        if let Some(node) = constraint_node { children.push(node); }
+        if let Some(node) = metric_node { children.push(node); }
+        if let Some(node) = length_node { children.push(node); }
+
         context.alloc_node(AstKind::Problem, AstContent::None, children, start, end)
     },
 }
@@ -1406,249 +1506,166 @@ pub HDDLRequireDef: Result<NodeId, ParseContextError> = {
     },
 }
 
-DomainElement : Result<NodeId, ParseContextError> = {
-    <task_def:TaskDef> => task_def,
-    <predicate_def:PredicatesDef> => predicate_def,
-    <function_def:FunctionsDef> => function_def,
-    <action_def:ActionDef> => action_def,
-    <method_def:MethodDef> => method_def,
-    <derived_def:DerivedDef> => derived_def,
-    <durative_action_def:DurativeActionDef> => durative_action_def,
+HDDLDomainElement: Result<NodeId, ParseContextError> = {
+    <r:HDDLRequireDef> => r,
+    <t:TypesDef> => t,
+    <c:ConstantsDef> => c,
+    <p:PredicatesDef> => p,
+    <f:FunctionsDef> => f,
+    <task:TaskDef> => task,
+    <action:ActionDef> => action,
+    <method:MethodDef> => method,
+    <durative:DurativeActionDef> => durative,
+    <derived:DerivedDef> => derived,
 };
 
 pub HDDLDomain: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" "define" "(" "domain" <name:DomainName> ")"
-            <require_def:HDDLRequireDef?>
-            <types_def:TypesDef?>
-            <constants_def:ConstantsDef?>
-            <elements:DomainElement*>
+            <elements:HDDLDomainElement*>
         ")"
     <end:@R> => {
-        let mut children = Vec::new();
-        children.push(name?);
-        if let Some(req) = require_def { children.push(req?); }
-        if let Some(types) = types_def { children.push(types?); }
-        if let Some(constants) = constants_def { children.push(constants?); }
+        let name_node = name?;
 
-        // Séparer les éléments par type
-        let mut predicates = None;
-        let mut functions = None;
-        let mut tasks = Vec::new();
-        let mut actions = Vec::new();
-        let mut durative = Vec::new();
-        let mut methods = Vec::new();
-        let mut derived = Vec::new();
+        // 1. Slots for canonical ordering
+        // Standard PDDL/HDDL order: requirements > types > constants > predicates > functions.
+        // All other elements (actions, methods, tasks) are stored in 'structures'.
+        let mut req_node = None;
+        let mut types_node = None;
+        let mut const_node = None;
+        let mut pred_node = None;
+        let mut func_node = None;
+        let mut structures = Vec::new();
 
         let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
         for node_id in elements {
-            let node = context.borrow_syntax_tree().try_node(node_id)?.clone();
-            match node.kind() {
-                AstKind::PredicatesDef => {
-                    if predicates.is_some() {
-                       context.push_custom_error(CustomParseError::duplicate_definition_block(
-                            AstKind::PredicatesDef,
-                            node.span().start(),
-                            node.span().end()
-                       ));
-                       continue;
-                    }
-                    // Check def order
-                    let mut invalid_def = Vec::new();
-                    if !derived.is_empty() { invalid_def.push(AstKind::DerivedDef); }
-                    if !actions.is_empty() { invalid_def.push(AstKind::ActionDef); }
-                    if !durative.is_empty() { invalid_def.push(AstKind::DurativeActionDef); }
-                    if !methods.is_empty() { invalid_def.push(AstKind::MethodDef); }
+            let node_info = {
+                let tree = context.borrow_syntax_tree();
+                tree.get_node(node_id).map(|n| (n.kind(), n.span().clone()))
+            };
 
-                    if !invalid_def.is_empty() {
-                        context.push_custom_error(CustomParseError::invalid_definition_block_order(
-                            AstKind::PredicatesDef,
-                            node.span().start(),
-                            node.span().end(),
-                            invalid_def,
-                        ));
-                        continue;
-                    }
-                    predicates = Some(node_id);
+            if let Some((kind, span)) = node_info {
+                // Check for duplicate definition blocks
+                let duplicate = match kind {
+                    AstKind::RequireDef => { let d = req_node.is_some(); req_node = Some(node_id); d },
+                    AstKind::TypesDef => { let d = types_node.is_some(); types_node = Some(node_id); d },
+                    AstKind::ConstantsDef => { let d = const_node.is_some(); const_node = Some(node_id); d },
+                    AstKind::PredicatesDef => { let d = pred_node.is_some(); pred_node = Some(node_id); d },
+                    AstKind::FunctionsDef => { let d = func_node.is_some(); func_node = Some(node_id); d },
+                    // Non-singleton blocks (actions, tasks, methods) are collected separately
+                    _ => {
+                        structures.push(node_id);
+                        false
+                    },
+                };
+
+                if duplicate {
+                    context.push_custom_error(CustomParseError::duplicate_definition_block(
+                        kind, span.start(), span.end()
+                    ));
                 }
-                AstKind::FunctionsDef => {
-                    // Check for duplicate function section
-                    if functions.is_some() {
-                        context.push_custom_error(CustomParseError::duplicate_definition_block(
-                            AstKind::FunctionsDef,
-                            node.span().start(),
-                            node.span().end(),
-                        ));
-                        continue; // Skip this node but keep parsing the rest
-                    }
-
-                    // Verify the order of sections: functions must come before derived/actions/durative/methods
-                    let mut invalid_def = Vec::new();
-                    if !derived.is_empty() { invalid_def.push(AstKind::DerivedDef); }
-                    if !actions.is_empty() { invalid_def.push(AstKind::ActionDef); }
-                    if !durative.is_empty() { invalid_def.push(AstKind::DurativeActionDef); }
-                    if !methods.is_empty() { invalid_def.push(AstKind::MethodDef); }
-
-                    if !invalid_def.is_empty() {
-                        context.push_custom_error(CustomParseError::invalid_definition_block_order(
-                            AstKind::FunctionsDef,
-                            node.span().start(),
-                            node.span().end(),
-                            invalid_def,
-                        ));
-                        continue; // Continue parsing despite the ordering error
-                    }
-
-                    // Everything is correct, store the functions node
-                    functions = Some(node_id);
-                }
-                AstKind::DerivedDef => {
-                    // Check if Derived section comes before actions/durative/methods
-                    let mut invalid_def = Vec::new();
-                    if !actions.is_empty() { invalid_def.push(AstKind::ActionDef); }
-                    if !durative.is_empty() { invalid_def.push(AstKind::DurativeActionDef); }
-                    if !methods.is_empty() { invalid_def.push(AstKind::MethodDef); }
-
-                    if !invalid_def.is_empty() {
-                        context.push_custom_error(CustomParseError::invalid_definition_block_order(
-                            AstKind::DerivedDef,
-                            node.span().start(),
-                            node.span().end(),
-                            invalid_def,
-                        ));
-                        continue; // Continue parsing despite the ordering error
-                    }
-
-                    // Everything is correct, store the derived node
-                    derived.push(node_id);
-                }
-
-                AstKind::TaskDef => {
-                    // Check that Task section comes before Method definitions
-                    if !methods.is_empty() {
-                        context.push_custom_error(CustomParseError::invalid_definition_block_order(
-                            AstKind::TaskDef,
-                            node.span().start(),
-                            node.span().end(),
-                            vec![AstKind::MethodDef],
-                        ));
-                        continue; // Continue parsing even if the order is invalid
-                    }
-
-                    // Everything is correct, store the task node
-                    tasks.push(node_id);
-                }
-                AstKind::ActionDef => actions.push(node_id),
-                AstKind::DurativeActionDef => durative.push(node_id),
-                AstKind::MethodDef => methods.push(node_id),
-                _ => {}
             }
         }
 
-        // Add section in the good order
-        if let Some(p) = predicates { children.push(p); }
-        if let Some(f) = functions { children.push(f); }
-        children.extend(tasks);
-        children.extend(actions);
-        children.extend(methods);
-        children.extend(durative);
-        children.extend(derived);
+        // 2. Construction in CANONICAL order
+        // We re-assemble the children vector to ensure a predictable structure
+        // for the semantic analyzer and type checker.
+        let mut children = Vec::new();
+        children.push(name_node);
+
+        if let Some(node) = req_node { children.push(node); }
+        if let Some(node) = types_node { children.push(node); }
+        if let Some(node) = const_node { children.push(node); }
+        if let Some(node) = pred_node { children.push(node); }
+        if let Some(node) = func_node { children.push(node); }
+
+        // Append all structural definitions (Actions, Tasks, Methods, etc.) at the end
+        children.extend(structures);
 
         context.alloc_node(AstKind::Domain, AstContent::None, children, start, end)
     },
 };
 
-/*pub HDDLStructureDef: Result<NodeId, ParseContextError> = {
-    <action:ActionDef> => action,
-    <derived:DerivedDef> => derived,
-    <durative_action:DurativeActionDef> => durative_action,
-    <task:TaskDef> => task,
-    <method:MethodDef> => method,
-}*/
+HDDLProblemElement: Result<NodeId, ParseContextError> = {
+    <r:HDDLRequireDef> => r,
+    <o:ObjectsDef> => o,
+    <t:InitialTaskNetwork> => t,
+    <i:Init> => i,
+    <g:Goal> => g,
+}
 
-/*pub HDDLDomain: Result<NodeId, ParseContextError> = {
+pub HDDLProblem: Result<NodeId, ParseContextError> = {
     <start:@L>
-        "(" "define" "(" "domain" <name:DomainName> ")"
-            <require_def:HDDLRequireDef?>
-            <types_def:TypesDef?>
-            <constants_def:ConstantsDef?>
-            <predicates_def:PredicatesDef?>
-            <functions_def:FunctionsDef?>
-            <structure_def:HDDLStructureDef*>
+        "(" "define" "(" "problem" <p_name:ProblemName> ")"
+        "(" ":domain" <d_name:DomainName> ")"
+        <elements:HDDLProblemElement*>
         ")"
     <end:@R> => {
+        let p_name_node = p_name?;
+        let d_name_node = d_name?;
+
+        // 1. Slots for canonical ordering
+        // We use Options to store nodes; this allows us to detect duplicates
+        // while ensuring the final AST follows the standard PDDL/HDDL sequence.
+        let mut req_node = None;
+        let mut obj_node = None;
+        let mut htn_node = None;
+        let mut init_node = None;
+        let mut goal_node = None;
+
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        for node_id in elements {
+            let node_info = {
+                let tree = context.borrow_syntax_tree();
+                tree.get_node(node_id).map(|n| (n.kind(), n.span().clone()))
+            };
+
+            if let Some((kind, span)) = node_info {
+                // Check if the block has already been defined
+                let duplicate = match kind {
+                    AstKind::RequireDef => { let d = req_node.is_some(); req_node = Some(node_id); d },
+                    AstKind::ObjectsDef => { let d = obj_node.is_some(); obj_node = Some(node_id); d },
+                    AstKind::InitialTaskNetwork => { let d = htn_node.is_some(); htn_node = Some(node_id); d },
+                    AstKind::Init => { let d = init_node.is_some(); init_node = Some(node_id); d },
+                    AstKind::Goal => { let d = goal_node.is_some(); goal_node = Some(node_id); d },
+                    _ => false,
+                };
+
+                if duplicate {
+                    context.push_custom_error(CustomParseError::duplicate_definition_block(
+                        kind, span.start(), span.end()
+                    ));
+                }
+            }
+        }
+
+        // 2. --- MANDATORY SECTIONS VALIDATION (HDDL) ---
+        // A valid HDDL problem must define both an initial state (:init)
+        // and an initial task network (:htn).
+        if htn_node.is_none() {
+            context.push_custom_error(CustomParseError::missing_mandatory_block(
+                Language::HDDL, AstKind::InitialTaskNetwork, start, end
+            ));
+        }
+        if init_node.is_none() {
+            context.push_custom_error(CustomParseError::missing_mandatory_block(
+                Language::HDDL, AstKind::Init, start, end
+            ));
+        }
+
+        // 3. Final construction in CANONICAL order
+        // This ensures the AST is predictable for semantic analysis,
+        // regardless of the order in the source file.
         let mut children = Vec::new();
-        children.push(name?);
-        if let Some(require_def) = require_def {
-            children.push(require_def?);
-        }
-        if let Some(types_def) = types_def {
-            children.push(types_def?);
-        }
-        if let Some(constants_def) = constants_def {
-            children.push(constants_def?);
-        }
-        if let Some(predicates_def) = predicates_def {
-            children.push(predicates_def?);
-        }
-        if let Some(functions_def) = functions_def {
-            children.push(functions_def?);
-        }
-        let structure_def = structure_def.into_iter().collect::<Result<Vec<_>, _>>()?;
-        children.extend(structure_def);
-        context.alloc_node(AstKind::Domain, AstContent::None, children, start, end)
-    },
-}*/
+        children.push(p_name_node);
+        children.push(d_name_node);
 
-ProblemStructureDef : Result<(NodeId, NodeId, Option<NodeId>), ParseContextError> =
-{
-    // Without goal (2 permutations)
-    <tn:InitialTaskNetwork> <init:Init>
-        => Ok((tn?, init?, None)),
-    <init:Init> <tn:InitialTaskNetwork>
-        => Ok((tn?, init?, None)),
+        if let Some(node) = req_node { children.push(node); }
+        if let Some(node) = obj_node { children.push(node); }
+        if let Some(node) = init_node { children.push(node); }
+        if let Some(node) = htn_node { children.push(node); }
+        if let Some(node) = goal_node { children.push(node); }
 
-    // With goal (6 permutations)
-    <tn:InitialTaskNetwork> <init:Init> <goal:Goal>
-        => Ok((tn?, init?, Some(goal?))),
-    <tn:InitialTaskNetwork> <goal:Goal> <init:Init>
-        => Ok((tn?, init?, Some(goal?))),
-
-    <init:Init> <tn:InitialTaskNetwork> <goal:Goal>
-        => Ok((tn?, init?, Some(goal?))),
-    <init:Init> <goal:Goal> <tn:InitialTaskNetwork>
-        => Ok((tn?, init?, Some(goal?))),
-
-    <goal:Goal> <tn:InitialTaskNetwork> <init:Init>
-        => Ok((tn?, init?, Some(goal?))),
-    <goal:Goal> <init:Init> <tn:InitialTaskNetwork>
-        => Ok((tn?, init?, Some(goal?))),
-};
-
-pub HDDLProblem : Result<NodeId, ParseContextError> = {
-    <start:@L>
-        "(" "define" "(" "problem" <problem_name:ProblemName> ")"
-        "(" ":domain" <domain_name:DomainName> ")"
-        <require_def:HDDLRequireDef?>
-        <objects_def:ObjectsDef?>
-        <structure_def:ProblemStructureDef>
-        ")"
-    <end:@R> => {
-        let mut children = Vec::new();
-        children.push(problem_name?);
-        children.push(domain_name?);
-        if let Some(require_def) = require_def {
-           children.push(require_def?);
-        }
-        if let Some(objects_def) = objects_def {
-           children.push(objects_def?);
-        }
-        let (task_network, init, goal) = structure_def?;
-        children.push(task_network);
-        children.push(init);
-        if let Some(goal) = goal {
-            children.push(goal);
-        }
         context.alloc_node(AstKind::Problem, AstContent::None, children, start, end)
     },
 }

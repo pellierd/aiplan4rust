@@ -1164,5 +1164,26 @@ fn custom_parse_error_to_diagnostic(
                 fast_line_table.get_span(*start, *end),
             )
         }
+        CustomParseError::DeprecatedFeature(node_kind, start, end) => {
+            Diagnostic::new(
+                DiagnosticKind::DeprecatedFeature {
+                    node_kind: *node_kind,
+                },
+                Provider::Parser,
+                source,
+                fast_line_table.get_span(*start, *end),
+            )
+        }
+        CustomParseError::MissingMandatoryBlock(language, kind, start, end) => {
+            Diagnostic::new(
+                DiagnosticKind::MissingMandatoryBlock {
+                    language: *language,
+                    kind: *kind,
+                },
+                Provider::Parser,
+                source,
+                fast_line_table.get_span(*start, *end),
+            )
+        }
     }
 }

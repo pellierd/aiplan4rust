@@ -22,6 +22,7 @@ use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::Language;
 
 /// Formats a diagnostic message using a `StringInterner`.
 ///
@@ -149,6 +150,30 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
         }
         Kind::IncompatibleTypeDeclarations { symbol, kind, .. } => {
             format_incompatible_type_declarations(*symbol, *kind, interner)
+        }
+        Kind::DeprecatedFeature { node_kind, .. } => {
+            format_deprecated_feature(*node_kind)
+        }
+        Kind::MissingMandatoryBlock { language, kind } => {
+            format_missing_mandatory_block(*language, *kind)
+        }
+    }
+}
+
+fn format_missing_mandatory_block(language: Language, kind: AstKind) -> String {
+
+    match kind {
+        AstKind::Init => {
+            format!("The ':init' block is mandatory in a {} problem definition.", language.to_string())
+        }
+        AstKind::Goal => {
+            "The ':goal' block is mandatory in a PDDL problem definition.".to_string()
+        }
+        AstKind::InitialTaskNetwork => {
+            "The ':htn' block (Initial Task Network) is mandatory in a HDDL problem definition.".to_string()
+        }
+        _ => {
+            format!("The '{}' block is mandatory in this {} definition.", kind, language.to_string())
         }
     }
 }
@@ -583,4 +608,16 @@ fn ast_kind_to_entity_name(kind: AstKind) -> &'static str {
 /// A formatted string warning that duplicated requirement declarations were ignored.
 fn format_duplicate_requirement_warning() -> String {
     "Requirements definition contains duplicated declarations which have been ignored.".to_string()
+}
+
+/// Formate un message d'avertissement pour les fonctionnalités obsolètes.
+fn format_deprecated_feature(kind: AstKind) -> String {
+    match kind {
+        AstKind::Length => {
+            "The ':length' section is deprecated since PDDL 2.1. \
+             It was originally used for parallelization hints but is now ignored by modern planners."
+                .to_string()
+        }
+        _ => format!("The feature '{:?}' is deprecated in the current PDDL/HDDL standard.", kind),
+    }
 }

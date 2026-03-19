@@ -183,6 +183,29 @@ fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&SymbolInt
                 interner
             )
         }
+        Kind::DeprecatedFeature { node_kind, .. } => {
+            format_deprecated_feature_suggestion(*node_kind)
+        }
+        Kind::MissingMandatoryBlock { kind, .. } => {
+            format_missing_mandatory_block_suggestion(*kind)
+        }
+    }
+}
+
+fn format_missing_mandatory_block_suggestion(kind: AstKind) -> Option<String> {
+    match kind {
+        AstKind::Init => Some(
+            "Add an ':init' block to define the starting state, e.g., '(:init (at robot loc1))'.".to_string()
+        ),
+        AstKind::Goal => Some(
+            "Add a ':goal' block to define the objective, e.g., '(:goal (at robot loc2))'.".to_string()
+        ),
+        AstKind::InitialTaskNetwork => Some(
+            "Add an ':htn' block to define the task network, including ':parameters' and ':subtasks'.".to_string()
+        ),
+        // On retourne None pour les cas où on n'a pas de suggestion spécifique
+        // ou si on veut laisser le message d'erreur principal se suffire à lui-même.
+        _ => None,
     }
 }
 
@@ -943,4 +966,42 @@ fn format_duplicate_requirement_warning(
          Consider removing them to prevent redundancy: {}.",
         renderer::formatting::format_requirement_list(duplicate_requirements),
     ))
+}
+
+/// Returns a suggested replacement or action for a deprecated language feature.
+///
+/// This function provides actionable advice to the user when they encounter
+/// a `DeprecatedFeature` diagnostic. It aims to guide the user toward
+/// modern PDDL/HDDL equivalents.
+///
+/// # Arguments
+///
+/// * `kind` - The [`AstKind`] of the feature that has been flagged as deprecated.
+///
+/// # Returns
+///
+/// * `Some(String)` - A specific instruction on how to modernize the code.
+/// * `None` - If no specific suggestion is available for this feature.
+///
+/// # Examples
+///
+/// ```
+/// let suggestion = format_deprecated_feature_suggestion(AstKind::LengthSpec);
+/// assert!(suggestion.unwrap().contains("use ':constraints'"));
+/// ```
+fn format_deprecated_feature_suggestion(kind: AstKind) -> Option<String> {
+    match kind {
+        AstKind::Length => {
+            Some(
+                "Remove this section. For plan quality or constraints, \
+                 use ':constraints' or ':metric' instead."
+                    .to_string(),
+            )
+        }
+        // Fallback suggestion for any other deprecated feature without a specific path.
+        _ => Some(
+            "Consult the PDDL 3.1 or HDDL standard specifications for modern alternatives."
+                .to_string(),
+        )
+    }
 }

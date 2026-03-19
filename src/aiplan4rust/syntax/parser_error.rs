@@ -6,6 +6,7 @@
 
 use thiserror::Error;
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::Language;
 
 /// A recoverable error in parsing, carrying source span information.
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -26,6 +27,16 @@ pub enum CustomParseError {
     /// Failed to parse a floating-point number.
     #[error("Invalid number: {0}")]
     InvalidNumber(String, usize, usize),
+
+    /// Usage of a feature that is formally deprecated in the PDDL/HDDL standard.
+    /// This allows the parser to continue while flagging the code as obsolete.
+    #[error("Deprecated feature: {0}")]
+    DeprecatedFeature(AstKind, usize, usize),
+
+    /// A mandatory block (like :init, :goal, or :htn) is missing from the definition.
+    /// This allows the parser to flag incomplete PDDL/HDDL files.
+    #[error("Missing mandatory {1} block in {0} definition")]
+    MissingMandatoryBlock(Language, AstKind, usize, usize),
 }
 
 impl Default for CustomParseError {
@@ -86,5 +97,37 @@ impl CustomParseError {
     /// - A `CustomParseError::InvalidNumber` instance representing the invalid numeric token.
     pub fn invalid_number(slice: String, start: usize, end: usize) -> Self {
         CustomParseError::InvalidNumber(slice, start, end)
+    }
+
+    /// Creates a diagnostic for a deprecated PDDL/HDDL feature.
+    ///
+    /// # Arguments
+    /// * `node_kind` - The specific [`AstKind`] that is considered obsolete.
+    /// * `start` - Byte offset where the deprecated feature starts.
+    /// * `end` - Byte offset where the deprecated feature ends.
+    ///
+    /// # Returns
+    /// A [`CustomParseError::DeprecatedFeature`] instance.
+    pub fn deprecated_feature(node_kind: AstKind, start: usize, end: usize) -> Self {
+        CustomParseError::DeprecatedFeature(node_kind, start, end)
+    }
+
+    /// Creates a diagnostic for a missing mandatory block in a domain or problem definition.
+    ///
+    /// # Arguments
+    /// * `language` - The [`Language`] context (PDDL or HDDL) where the error occurred.
+    /// * `kind` - The specific [`AstKind`] of the block that is missing (e.g., `:init`, `:goal`, `:htn`).
+    /// * `start` - Byte offset of the parent definition where the block should have been.
+    /// * `end` - Byte offset of the parent definition where the block should have been.
+    ///
+    /// # Returns
+    /// A [`CustomParseError::MissingMandatoryBlock`] instance.
+    pub fn missing_mandatory_block(
+        language: Language,
+        kind: AstKind,
+        start: usize,
+        end: usize,
+    ) -> Self {
+        Self::MissingMandatoryBlock(language, kind, start, end)
     }
 }
