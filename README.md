@@ -9,60 +9,71 @@ with a structured intermediate representation and a command-line interface.
 > ⚠️ AiPlan4Rust is **not a planner/solver**.  
 > Its goal is to *analyze, validate, normalize, and serialize planning models* in a robust and extensible way.
 
+![Tests](https://github.com/pellier/aiplan4rust/actions/workflows/rust.yml/badge.svg)
+![Quality](https://github.com/pellier/aiplan4rust/actions/workflows/quality.yml/badge.svg)
+![Security](https://github.com/pellier/aiplan4rust/actions/workflows/security.yml/badge.svg)
+![Docs](https://github.com/pellier/aiplan4rust/actions/workflows/deploy-docs.yml/badge.svg)
 ---
 
 ## Key Capabilities
 
 ### Language Support
+
 - PDDL (classical & extended constructs)
 - HDDL (hierarchical task networks)
 - Mixed domain / problem inputs
 
 ### Front-end & Syntax
+
 - Lexer and parser generated with **LALRPOP**
 - Rich concrete and abstract syntax trees
 - Source spans and structured syntax diagnostics
 - Tree renderers (default, syntax-oriented)
 
 ### Semantic Analysis
+
 - Symbol interning and scoping
 - Domain vs. problem symbol origins
 - Type system with hierarchy checks
 - Requirement validation
 - Detection of:
-  - undeclared symbols
-  - unused symbols
-  - invalid signatures
-  - requirement violations
-  - invalid task ordering (HTN)
+    - undeclared symbols
+    - unused symbols
+    - invalid signatures
+    - requirement violations
+    - invalid task ordering (HTN)
 
 ### Normalization & Validation
+
 - Modular normalization passes
 - Typed list normalization
 - Requirement-driven normalization
 - Expression rewriting and simplification
 - Validation layers:
-  - syntax
-  - semantic
-  - normalization invariants
+    - syntax
+    - semantic
+    - normalization invariants
 
 ### Linking & Intermediate Representation
+
 - Domain ↔ Problem consistency checks
 - Construction of a **Linked / Lifted Intermediate Representation (LIR)**
 - HTN task networks and methods
 - Ready-to-serialize planning task model
 
 ### Serialization
+
 - Multiple output formats:
-  - `json`
-  - `yaml`
-  - `toml`
-  - `cbor`
-  - `messagepack`
+    - `json`
+    - `yaml`
+    - `toml`
+    - `cbor`
+    - `messagepack`
 - Structured artefact model with headers, metadata, and content
 - Stable format abstraction independent of CLI
 
 ### Diagnostics
+
 - Centralized diagnostic system
 - Severity levels (error, warning, info)
 - Suggestions and formatted messages
@@ -75,6 +86,7 @@ with a structured intermediate representation and a command-line interface.
 The `aiplan` CLI provides three main commands: `parse`, `link`, and `help`.
 
 ### Commands
+
 - `parse` — Parse one or more PDDL/HDDL files and emit serialized artefacts
 - `link` — Combine a domain and problem into a linked planning task
 - `help` — Print help information
@@ -105,14 +117,17 @@ aiplan4rust/
 
 ## Quickstart Commands
 
-Below is a consolidated list of all the commands you’ll need to install dependencies, build, test, run, and profile **AiPlan4Rust** on macOS.
+Below is a consolidated list of all the commands you’ll need to install dependencies, build, test, run, and profile *
+*AiPlan4Rust** on macOS.
 
 ### 1. Update Rust toolchain
+
 ```bash
 rustup update stable
 ```
 
 ### 2. Clone the repository and build in release mode
+
 ```bash
 git clone https://github.com/yourorg/aiplan4rust.git
 cd aiplan4rust
@@ -120,6 +135,7 @@ cargo build --release
 ```
 
 ### 3. Install optional tools
+
 ```bash
 cargo install lalrpop           # for regenerating grammar if needed
 cargo install flamegraph         # for profiling with cargo-flamegraph
@@ -143,6 +159,7 @@ cargo test
 ```
 
 ### 6. Profile a specific integration test with performance analysis (requires sudo)
+
 ```bash
 sudo cargo flamegraph --root --test frontend_parser_integration_tests```
 
