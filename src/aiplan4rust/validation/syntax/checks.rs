@@ -734,23 +734,67 @@ pub fn check_init_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormed
     Ok(())
 }
 
-/// Checks that a `TimedInitialLiteral` node has exactly two children:
-/// the first child must be a `Number`,
-/// the second child must be either an `FComp` or a `Not`.
+/// Checks that a `TimedInitialLiteral` node is well-formed according to PDDL/HDDL standards.
+///
+/// A `TimedInitialLiteral` must have exactly two children:
+/// 1. The first child must be a `Number` (representing the time point).
+/// 2. The second child must be one of: `Comparison`, `Not`, or `AtomicFormula`.
+///
+/// If the second child is a `Not` node, this function further validates that it
+/// contains exactly one child, which must be an `AtomicFormula`.
 ///
 /// # Arguments
 /// * `ast` - Reference to the AST containing the node.
-/// * `node` - The AST node to validate.
+/// * `node` - The `TimedInitialLiteral` node to validate.
 ///
 /// # Errors
-/// Returns an error if the children count is not exactly two,
-/// or if the children do not match the expected kinds.
+/// Returns a `WellFormedError` if:
+/// * The children count of the literal is not exactly two.
+/// * The child kinds do not match the requirements.
+/// * A negated literal (`Not`) contains something other than a single atomic formula.
+/// Checks that a `TimedInitialLiteral` node is well-formed according to PDDL/HDDL standards.
+///
+/// A `TimedInitialLiteral` must have exactly two children:
+/// 1. The first child must be a `Number` (representing the time point).
+/// 2. The second child must be one of: `Comparison`, `Not`, or `AtomicFormula`.
+///
+/// If the second child is a `Not` node, this function further validates that it
+/// contains exactly one child, which must be an `AtomicFormula`.
+///
+/// # Arguments
+/// * `ast` - Reference to the AST containing the node.
+/// * `node` - The `TimedInitialLiteral` node to validate.
+///
+/// # Errors
+/// Returns a `WellFormedError` if:
+/// * The children count of the literal is not exactly two.
+/// * The child kinds do not match the requirements.
+/// * A negated literal (`Not`) contains something other than a single atomic formula.
 pub fn check_timed_initial_literal(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
+    // 1. Basic structure check: (at <time> <literal>)
     common::checks::check_children_count(node.arity(), 2, node)?;
     common::checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
-    common::checks::check_child_kind(ast, node, 1, &[AstKind::Comparison, AstKind::Not])
+    common::checks::check_child_kind(
+        ast,
+        node,
+        1,
+        &[AstKind::Comparison, AstKind::Not, AstKind::AtomicFormula]
+    )?;
 
-    // TODO: Add check that `Not` nodes contain only atomic formula
+    // 2. Verification of the (not <atomic_formula>)
+    // Using node.children()[1] since the arity check passed.
+    let child_id = node.children()[1];
+
+    // Check your Ast implementation, it might be ast.tree.get_node or ast.syntax_tree().get_node
+    // Here I use the method that your Trace log suggested was available:
+    let child_node = ast.syntax_tree().try_node(child_id)?;
+
+    if child_node.kind() == AstKind::Not {
+        common::checks::check_children_count(child_node.arity(), 1, child_node)?;
+        common::checks::check_child_kind(ast, child_node, 0, &[AstKind::AtomicFormula])?;
+    }
+
+    Ok(())
 }
 
 /// Checks that a `DerivedDef` node has exactly two children:

@@ -22,21 +22,23 @@
 //! Validation functions typically return a [`ValidationError`] on failure,
 //! providing detailed information about the cause and context of the error.
 
-use std::backtrace::Backtrace;
-use std::panic::Location;
-use log::debug;
 use thiserror::Error;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Represents errors that can occur during AST validation.
 ///
 /// This enum covers structural validation errors such as mismatched child counts,
 /// unexpected child kinds, missing nodes, unexpected content, and invalid node kinds.
 /// It also supports a generic `Custom` error for miscellaneous cases.
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Error)]
 pub enum ValidationError {
+    /// Wraps errors originating from arena allocation or manipulation.
+    #[error(transparent)]
+    SyntaxTree(#[from] SyntaxTreeError),
+
     /// The number of children of a node is not exactly the expected count.
     #[error(
         "Wrong number of children: expected {expected}, found {found} (parent: kind={}, content={}, span={})",
@@ -119,6 +121,8 @@ pub enum ValidationError {
     #[error("{0}")]
     Custom(String),
 
+
+
 }
 
 impl ValidationError {
@@ -198,7 +202,6 @@ impl ValidationError {
     /// - `node`: The AST node containing the unexpected content.
     #[track_caller]
     pub fn unexpected_node_content(found: AstContent, node: AstNode) -> Self {
-        debug!("Validation error: unexpected content '{:?}' found in node '{:?}'", found, node);
         ValidationError::UnexpectedNodeContent { found, node }.trace()
     }
 
