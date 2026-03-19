@@ -1,1 +1,1 @@
-mod linker_tests;
+mod linker;

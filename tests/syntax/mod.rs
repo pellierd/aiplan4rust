@@ -1,1 +1,1 @@
-mod parser_tests;
+mod parser;

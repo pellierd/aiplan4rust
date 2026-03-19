@@ -1,1 +1,1 @@
-mod normalizer_tests;
+mod normalizer;

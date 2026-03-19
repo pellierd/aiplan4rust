@@ -1,1 +1,1 @@
-mod analyzer_tests;
+mod analyzer;

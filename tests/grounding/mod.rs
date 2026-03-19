@@ -1,5 +1,5 @@
-mod datalog_tests;
-mod inertia_evaluator_tests;
+mod datalog;
+mod inertia_evaluator;
 
-mod inertia_tests;
-mod value_registry_tests;
+mod inertia;
+mod value_registry;

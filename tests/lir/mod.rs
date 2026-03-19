@@ -1,1 +1,1 @@
-mod encoder_tests;
+mod encoder;
