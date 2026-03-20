@@ -1,7 +1,10 @@
 use std::path::Path;
 use test_case::test_case;
 
-use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, find_associated_domain, get_test_files_for_mode, print_test_status};
+use crate::common::io::{
+    collect_domain_files, delete_all_files_with_extension, filter_problem_files,
+    find_associated_domain, get_test_files_for_mode, print_test_status,
+};
 use crate::common::pipeline::{analyze_file, encode, link};
 
 /// Integration test for LIR Builder on benchmark directories
@@ -131,6 +134,9 @@ pub fn test_hddl_encoder(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/automatic/untyped"; "ipc02_pddl_untyped_strips_automatic_rovers")]
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/handcoded/typed"; "ipc02_pddl_typed_strips_handcoded_rovers")]
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/handcoded/untyped"; "ipc02_pddl_untyped_strips_handcoded_rovers")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal/strips"; "ipc04_pddl_temporal_strips_airport")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal-timewindows/strips"; "ipc04_pddl_temporal_timewindows_strips_airport")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal-timewindows-compiled/strips"; "ipc04_pddl_temporal_timewindows_compiled_strips_airport")]
 pub fn test_pddl_encoder(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
@@ -163,7 +169,10 @@ pub fn test_lir_encode_all_files(domain_dir: &Path) -> bool {
         let domain_path = match find_associated_domain(problem_path) {
             Some(path) => path,
             None => {
-                eprintln!("\x1b[1;31mError:\x1b[0m No domain found for {}", problem_path.display());
+                eprintln!(
+                    "\x1b[1;31mError:\x1b[0m No domain found for {}",
+                    problem_path.display()
+                );
                 success = false;
                 continue;
             }
@@ -188,7 +197,10 @@ pub fn test_lir_encode_all_files(domain_dir: &Path) -> bool {
         let linking_result = match link(d_res, p_res, &domain_path, problem_path) {
             Some(res) => res,
             None => {
-                eprintln!("\x1b[1;31mLinking failed\x1b[0m for {}", problem_path.display());
+                eprintln!(
+                    "\x1b[1;31mLinking failed\x1b[0m for {}",
+                    problem_path.display()
+                );
                 success = false;
                 continue;
             }
@@ -196,13 +208,20 @@ pub fn test_lir_encode_all_files(domain_dir: &Path) -> bool {
 
         // Stage 3: LIR Encoding
         if encode(linking_result, &domain_path, problem_path).is_none() {
-            eprintln!("\x1b[1;31mLIR Encoding failed\x1b[0m for {}", problem_path.display());
+            eprintln!(
+                "\x1b[1;31mLIR Encoding failed\x1b[0m for {}",
+                problem_path.display()
+            );
             success = false;
         }
     }
 
     // 4. Rapport de statut unifié (Cyan en Swallow, Vert en Full)
-    print_test_status(problems_to_process.len(), total_problems_available, domain_dir);
+    print_test_status(
+        problems_to_process.len(),
+        total_problems_available,
+        domain_dir,
+    );
 
     success
 }
