@@ -43,11 +43,13 @@
 //! each string on its own line with its index, which is useful for debugging and inspection.
 //!
 
-use std::collections::HashMap;
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{LiteralId, SymbolId};
-use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME, TOTAL_COST, CONTINUOUS_VARIABLE};
+use crate::aiplan4rust::syntax::lexer::token::{
+    CONTINUOUS_VARIABLE, DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_COST, TOTAL_TIME,
+};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::HashMap;
 
 /// A `StringInterner` is a data structure that stores unique strings efficiently
 /// by assigning each string a unique numeric index.
@@ -106,7 +108,6 @@ pub struct SymbolInterner {
 }
 
 impl SymbolInterner {
-
     /// A placeholder string returned when an interned index cannot be resolved.
     /// This string is guaranteed not to conflict with any valid PDDL identifiers.
     pub const UNKNOWN_INTERNED_STRING: &str = "#UNKNOWN";
@@ -245,11 +246,11 @@ impl SymbolInterner {
         };
 
         // Always intern these in the same order as their constant Ident declarations
-        interner.intern_reserved_symbol(OBJECT_TYPE);         // index 0
-        interner.intern_reserved_symbol(NUMBER_TYPE);         // index 1
-        interner.intern_reserved_symbol(DURATION_VARIABLE);   // index 2
-        interner.intern_reserved_symbol(TOTAL_TIME);          // index 3
-        interner.intern_reserved_symbol(TOTAL_COST);          // index 4
+        interner.intern_reserved_symbol(OBJECT_TYPE); // index 0
+        interner.intern_reserved_symbol(NUMBER_TYPE); // index 1
+        interner.intern_reserved_symbol(DURATION_VARIABLE); // index 2
+        interner.intern_reserved_symbol(TOTAL_TIME); // index 3
+        interner.intern_reserved_symbol(TOTAL_COST); // index 4
         interner.intern_reserved_symbol(CONTINUOUS_VARIABLE); // index 5
 
         interner
@@ -313,15 +314,21 @@ impl SymbolInterner {
     ///
     /// * `s` - The string slice or owned string to be interned.
     pub fn intern_symbol<S: AsRef<str>>(&mut self, s: S) -> SymbolId {
-        let s = s.as_ref().to_lowercase();
-        if let Some(&idx) = self.symbol_id_map.get(s.as_str()) {
+        let original = s.as_ref();
+        let key = original.to_lowercase(); // Clé de recherche
+
+        if let Some(&idx) = self.symbol_id_map.get(key.as_str()) {
             return SymbolId::new(idx);
         }
-        let boxed: Box<str> = s.to_string().into_boxed_str();
-        let static_str: &'static str = Box::leak(boxed);
+
+        let static_val: &'static str = Box::leak(original.to_string().into_boxed_str());
+        let static_key: &'static str = Box::leak(key.into_boxed_str());
+
         let idx = self.symbol_string_pool.len();
-        self.symbol_string_pool.push(static_str.into());
-        self.symbol_id_map.insert(static_str, idx);
+
+        self.symbol_string_pool.push(static_val.into());
+        self.symbol_id_map.insert(static_key, idx);
+
         SymbolId::new(idx)
     }
 
@@ -342,7 +349,9 @@ impl SymbolInterner {
     /// assert_eq!(interner.get_str(Ident::new(9999)), None);
     /// ```
     pub fn resolve_symbol(&self, ident: SymbolId) -> Option<&str> {
-        self.symbol_string_pool.get(ident.as_usize()).map(|s| s.as_ref())
+        self.symbol_string_pool
+            .get(ident.as_usize())
+            .map(|s| s.as_ref())
     }
 
     /// Returns the interned string associated with the given `Ident`.
@@ -381,16 +390,21 @@ impl SymbolInterner {
 
     /// Lookup an interned string and get its Ident if it exists (no insertion).
     pub fn lookup_symbol(&self, s: &str) -> Option<SymbolId> {
-        self.symbol_id_map.get(s).copied().map(SymbolId::new)
+        let key = s.to_lowercase();
+        self.symbol_id_map
+            .get(key.as_str())
+            .copied()
+            .map(SymbolId::new)
     }
 
-    // Look up an interned string and return its ID.
+    /// Look up an interned string and return its ID.
     ///
     /// # Errors
     /// Returns a [`StringInternerError`] if the string has not been interned.
     pub fn try_lookup_symbol(&self, s: &str) -> Result<SymbolId, InternerError> {
+        let key = s.to_lowercase();
         self.symbol_id_map
-            .get(s)
+            .get(key.as_str())
             .copied()
             .map(SymbolId::new)
             .ok_or_else(|| InternerError::unknown_ident_string(s))
@@ -398,7 +412,7 @@ impl SymbolInterner {
 
     /// Returns an iter over the interned `Ident`s (the indices).
     /// Returns an iter over all interned identifiers (`Ident`).
-    pub fn symbol_keys(&self) -> impl Iterator<Item =SymbolId> + '_ {
+    pub fn symbol_keys(&self) -> impl Iterator<Item = SymbolId> + '_ {
         (0..self.symbol_string_pool.len()).map(SymbolId::new)
     }
 
@@ -449,7 +463,9 @@ impl SymbolInterner {
     /// - `Some(&str)` if the index is valid
     /// - `None` otherwise
     pub fn resolve_literal(&self, lit: LiteralId) -> Option<&str> {
-        self.literal_string_pool.get(lit.as_usize()).map(|s| s.as_ref())
+        self.literal_string_pool
+            .get(lit.as_usize())
+            .map(|s| s.as_ref())
     }
 
     /// Try resolving a literal and returns a result.
@@ -496,7 +512,7 @@ impl SymbolInterner {
     }
 
     /// Returns an iter over all literal `Literal`s.
-    pub fn literal_keys(&self) -> impl Iterator<Item =LiteralId> + '_ {
+    pub fn literal_keys(&self) -> impl Iterator<Item = LiteralId> + '_ {
         (0..self.literal_string_pool.len()).map(LiteralId::new)
     }
 
@@ -512,7 +528,6 @@ impl SymbolInterner {
             .enumerate()
             .map(|(i, s)| (LiteralId::new(i), s.as_ref()))
     }
-
 }
 
 impl Serialize for SymbolInterner {
@@ -557,7 +572,8 @@ impl<'de> Deserialize<'de> for SymbolInterner {
         D: Deserializer<'de>,
     {
         // Deserialize a tuple of two vectors of strings (for ident and literal pools)
-        let (ident_vec, literal_vec): (Vec<String>, Vec<String>) = Deserialize::deserialize(deserializer)?;
+        let (ident_vec, literal_vec): (Vec<String>, Vec<String>) =
+            Deserialize::deserialize(deserializer)?;
 
         // Helper function to convert Vec<String> into pool and map
         fn build_pool_and_map(vec: Vec<String>) -> (Vec<Box<str>>, HashMap<&'static str, usize>) {
@@ -565,10 +581,11 @@ impl<'de> Deserialize<'de> for SymbolInterner {
             let mut index_map = HashMap::with_capacity(vec.len());
 
             for (idx, s) in vec.into_iter().enumerate() {
-                let boxed: Box<str> = s.into_boxed_str();
-                let static_str: &'static str = Box::leak(boxed);
-                index_map.insert(static_str, idx);
-                pool.push(static_str.into());
+                let static_val: &'static str = Box::leak(s.into_boxed_str());
+                let key = static_val.to_lowercase();
+                let static_key: &'static str = Box::leak(key.into_boxed_str());
+                index_map.insert(static_key, idx);
+                pool.push(static_val.into());
             }
 
             (pool, index_map)
