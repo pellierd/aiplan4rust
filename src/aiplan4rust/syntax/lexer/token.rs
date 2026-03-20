@@ -132,14 +132,32 @@ pub const EXISTS: &str = "exists";
 pub const WHEN: &str = "when";
 
 // Time
-/// "at start" specifies that an action or condition holds at the beginning of the timeline.
+/// "start" specifies that an action or condition holds at the beginning of the timeline.
+/// "at" is used to specify a specific point in time.
+pub const AT: &str = "at";
+
+/// "start" specifies that an action or condition holds at the beginning.
+pub const START: &str = "start";
+
+/// "end" specifies that an action or condition holds at the end.
+pub const END: &str = "end";
+
+/// "over" is used in "over all" to specify a duration.
+pub const OVER: &str = "over";
+
+/// "all" is used in "over all" to specify the entire duration.
+pub const ALL: &str = "all";
+
+// --- Constantes combinées pour la cohérence interne ---
+
+/// "at start" (combined for internal logic or displays)
 pub const AT_START: &str = "at start";
 
-/// "at end" specifies that an action or condition holds at the end of the timeline.
+/// "at end" (combined)
 pub const AT_END: &str = "at end";
 
-/// "over all" specifies that a condition holds throughout the entire timeline.
-pub const OVERALL: &str = "over all";
+/// "over all" (combined)
+pub const OVER_ALL: &str = "over all";
 
 // Constraints
 /// "always" indicates a constraint that must hold for the entire duration.
@@ -330,9 +348,6 @@ pub const TOTAL_COST: &str = "total-cost";
 /// Represents the "is-violated" special constant in PDDL, which checks if a constraint is violated.
 pub const IS_VIOLATED: &str = "is-violated";
 
-/// Represents the "at" special constant in PDDL, which is used to specify timed literal
-pub const AT: &str = "at";
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // HDDL
 
@@ -400,7 +415,7 @@ pub const HTN: &str = ":htn";
 pub enum Token {
     // Identifiers: Token for variables and identifiers in the input.
     // Matches an optional '?' followed by a valid name.
-    #[regex("[?]?(?&name)", |lex| lex.slice().parse().ok())]
+    #[regex("[?]?(?&name)", |lex| lex.slice().to_string())]
     ID(String),
     //#[regex("(?&name)", |lex| lex.slice().parse().ok())]
     //ID(String),
@@ -418,148 +433,148 @@ pub enum Token {
     Number(f64),
 
     // Keywords: Reserved words that are part of the domain specification syntax.
-    #[token("define")]
+    #[token("define", ignore(ascii_case))]
     Define,
-    #[token("domain")]
+    #[token("domain", ignore(ascii_case))]
     Domain,
-    #[token("problem")]
+    #[token("problem", ignore(ascii_case))]
     Problem,
-    #[token(":requirements")]
+    #[token(":requirements", ignore(ascii_case))]
     Requirements,
-    #[token(":types")]
+    #[token(":types", ignore(ascii_case))]
     Types,
-    #[token("either")]
+    #[token("either", ignore(ascii_case))]
     Either,
-    #[token(":constants")]
+    #[token(":constants", ignore(ascii_case))]
     Constants,
-    #[token(":predicates")]
+    #[token(":predicates", ignore(ascii_case))]
     Predicates,
-    #[token(":functions")]
+    #[token(":functions", ignore(ascii_case))]
     Functions,
-    #[token(":action")]
+    #[token(":action", ignore(ascii_case))]
     Action,
-    #[token(":parameters")]
+    #[token(":parameters", ignore(ascii_case))]
     Parameters,
-    #[token(":precondition")]
+    #[token(":precondition", ignore(ascii_case))]
     Precondition,
-    #[token(":effect")]
+    #[token(":effect", ignore(ascii_case))]
     Effect,
-    #[token(":derived")]
+    #[token(":derived", ignore(ascii_case))]
     Derived,
-    #[token(":durative-action")]
+    #[token(":durative-action", ignore(ascii_case))]
     DurativeAction,
-    #[token(":duration")]
+    #[token(":duration", ignore(ascii_case))]
     Duration,
-    #[token(":condition")]
+    #[token(":condition", ignore(ascii_case))]
     Condition,
-    #[token(":domain")]
+    #[token(":domain", ignore(ascii_case))]
     DomainDef,
-    #[token(":objects")]
+    #[token(":objects", ignore(ascii_case))]
     Objects,
-    #[token(":init")]
+    #[token(":init", ignore(ascii_case))]
     Init,
-    #[token(":goal")]
+    #[token(":goal", ignore(ascii_case))]
     Goal,
-    #[token(":metric")]
+    #[token(":metric", ignore(ascii_case))]
     Metric,
-    #[token(":length")]
+    #[token(":length", ignore(ascii_case))]
     Length,
-    #[token(":serial")]
+    #[token(":serial", ignore(ascii_case))]
     Serial,
-    #[token(":parallel")]
+    #[token(":parallel", ignore(ascii_case))]
     Parallel,
 
     // Expressions: Tokens for logical and mathematical logic.
-    #[token("preference")]
+    #[token("preference", ignore(ascii_case))]
     Preference,
-    #[token("and")]
+    #[token("and", ignore(ascii_case))]
     And,
-    #[token("or")]
+    #[token("or", ignore(ascii_case))]
     Or,
-    #[token("not")]
+    #[token("not", ignore(ascii_case))]
     Not,
-    #[token("imply")]
+    #[token("imply", ignore(ascii_case))]
     Imply,
-    #[token("forall")]
+    #[token("forall", ignore(ascii_case))]
     Forall,
-    #[token("exists")]
+    #[token("exists", ignore(ascii_case))]
     Exists,
-    #[token("when")]
+    #[token("when", ignore(ascii_case))]
     When,
 
     // Requirements: Tokens for various domain requirements and features.
-    #[token(":strips")]
+    #[token(":strips", ignore(ascii_case))]
     Strips,
-    #[token(":typing")]
+    #[token(":typing", ignore(ascii_case))]
     Typing,
-    #[token(":negative-preconditions")]
+    #[token(":negative-preconditions", ignore(ascii_case))]
     NegativePreconditions,
-    #[token(":disjunctive-preconditions")]
+    #[token(":disjunctive-preconditions", ignore(ascii_case))]
     DisjunctivePreconditions,
-    #[token(":equality")]
+    #[token(":equality", ignore(ascii_case))]
     Equality,
-    #[token(":existential-preconditions")]
+    #[token(":existential-preconditions", ignore(ascii_case))]
     ExistentialPreconditions,
-    #[token(":universal-preconditions")]
+    #[token(":universal-preconditions", ignore(ascii_case))]
     UniversalPreconditions,
-    #[token(":quantified-preconditions")]
+    #[token(":quantified-preconditions", ignore(ascii_case))]
     QuantifiedPreconditions,
-    #[token(":conditional-effects")]
+    #[token(":conditional-effects", ignore(ascii_case))]
     ConditionalEffects,
-    #[token(":fluents")]
+    #[token(":fluents", ignore(ascii_case))]
     Fluents,
-    #[token(":numeric-fluents")]
+    #[token(":numeric-fluents", ignore(ascii_case))]
     NumericFluents,
-    #[token(":object-fluents")]
+    #[token(":object-fluents", ignore(ascii_case))]
     ObjectFluents,
-    #[token(":adl")]
+    #[token(":adl", ignore(ascii_case))]
     Adl,
     #[token(":durative-actions")]
     DurativeActions,
-    #[token(":duration-inequalities")]
+    #[token(":duration-inequalities", ignore(ascii_case))]
     DurationInequalities,
-    #[token(":continuous-effects")]
+    #[token(":continuous-effects", ignore(ascii_case))]
     ContinuousEffects,
-    #[token(":derived-predicates")]
+    #[token(":derived-predicates", ignore(ascii_case))]
     DerivedPredicates,
-    #[token(":timed-initial-literals")]
+    #[token(":timed-initial-literals", ignore(ascii_case))]
     TimedInitialLiterals,
-    #[token(":preferences")]
+    #[token(":preferences", ignore(ascii_case))]
     Preferences,
-    #[token(":constraints")]
+    #[token(":constraints", ignore(ascii_case))]
     Constraints,
-    #[token(":action-costs")]
+    #[token(":action-costs", ignore(ascii_case))]
     ActionCosts,
 
-    // Time-related Tokens: Tokens for time-related actions.
-    #[token("at")]
-    At,
-    #[token("at start")]
-    AtStart,
-    #[token("at end")]
-    AtEnd,
-    #[token("over all")]
-    OverAll,
+    // Add for HDDL
+    #[token(":hierarchy", ignore(ascii_case))]
+    Hierarchy,
+    #[token(":method-preconditions", ignore(ascii_case))]
+    MethodPreconditions,
+    #[token(":task", ignore(ascii_case))]
+    Task,
+    #[token(":tasks", ignore(ascii_case))]
+    Tasks,
+    #[token(":method", ignore(ascii_case))]
+    Method,
+    #[token(":ordered-subtasks", ignore(ascii_case))]
+    OrderedSubtasks,
+    #[token(":ordered-tasks", ignore(ascii_case))]
+    OrderedTasks,
+    #[token(":subtasks", ignore(ascii_case))]
+    Subtasks,
+    #[token(":ordering", ignore(ascii_case))]
+    Ordering,
+    #[token(":order", ignore(ascii_case))]
+    Order,
+    #[token(":htn", ignore(ascii_case))]
+    Htn,
 
-    // Constraints: Tokens related to constraints in the domain specification.
-    #[token("always")]
-    Always,
-    #[token("sometime")]
-    Sometime,
-    #[token("within")]
-    Within,
-    #[token("at-most-once")]
-    AtMostOnce,
-    #[token("sometime-after")]
-    SometimeAfter,
-    #[token("sometime-before")]
-    SometimeBefore,
-    #[token("always-within")]
-    AlwaysWithin,
-    #[token("hold-during")]
-    HoldDuring,
-    #[token("hold-after")]
-    HoldAfter,
+    // Optimization: Tokens for optimization operations in the domain.
+    #[token("minimize", ignore(ascii_case))]
+    Minimize,
+    #[token("maximize", ignore(ascii_case))]
+    Maximize,
 
     // Arithmetic Operators: Tokens representing arithmetic operations.
     #[token("-")]
@@ -583,45 +598,11 @@ pub enum Token {
     #[token("<=")]
     LessEq,
 
-    // Assignment Operators: Tokens for assigning values or modifying variables.
-    #[token("assign")]
-    Assign,
-    #[token("scale-up")]
-    ScaleUp,
-    #[token("scale-down")]
-    ScaleDown,
-    #[token("increase")]
-    Increase,
-    #[token("decrease")]
-    Decrease,
-
-    // Optimization: Tokens for optimization operations in the domain.
-    #[token("minimize")]
-    Minimize,
-    #[token("maximize")]
-    Maximize,
-
     // Separators: Tokens for separating elements in the domain specification.
     #[token("(")]
     LParen,
     #[token(")")]
     RParen,
-
-    // Special Tokens: Special-purpose tokens for specific actions or types.
-    #[token("object")]
-    ObjectType,
-    #[token("number")]
-    NumberType,
-    #[token("undefined")]
-    Undefined,
-    #[token("?duration")]
-    DurationVariable,
-    #[token("#t")]
-    SharpT,
-    #[token("total-time")]
-    TotalTime,
-    #[token("is-violated")]
-    IsViolated,
 
     // Comment Tokens: Tokens representing comments in the input as PDDL
     #[regex(r";.*\n", logos::skip)]
@@ -637,29 +618,74 @@ pub enum Token {
     #[regex(r"/\*([^*]|\*+[^*/])*\*?", |lex| lex.slice().parse().ok())]
     Error(String),
 
-    // Add for HDDL
-    #[token(":hierarchy")]
-    Hierarchy,
-    #[token(":method-preconditions")]
-    MethodPreconditions,
-    #[token(":task")]
-    Task,
-    #[token(":tasks")]
-    Tasks,
-    #[token(":method")]
-    Method,
-    #[token(":ordered-subtasks")]
-    OrderedSubtasks,
-    #[token(":ordered-tasks")]
-    OrderedTasks,
-    #[token(":subtasks")]
-    Subtasks,
-    #[token(":ordering")]
-    Ordering,
-    #[token(":order")]
-    Order,
-    #[token(":htn")]
-    Htn,
+    // Assignment Operators: Tokens for assigning values or modifying variables.
+    #[token("assign", ignore(ascii_case))]
+    Assign,
+    #[token("scale-up", ignore(ascii_case))]
+    ScaleUp,
+    #[token("scale-down", ignore(ascii_case))]
+    ScaleDown,
+    #[token("increase", ignore(ascii_case))]
+    Increase,
+    #[token("decrease", ignore(ascii_case))]
+    Decrease,
+
+    // Time-related Tokens: Tokens for time-related actions.
+    /*#[token("at start", ignore(ascii_case))]
+    AtStart,
+    #[token("at end", ignore(ascii_case))]
+    AtEnd,
+    #[token("over all", ignore(ascii_case))]
+    OverAll,*/
+    #[token("start", ignore(ascii_case))]
+    Start,
+    #[token("end", ignore(ascii_case))]
+    End,
+    #[token("over", ignore(ascii_case))]
+    Over,
+    #[token("all", ignore(ascii_case))]
+    All,
+
+    #[token("at", ignore(ascii_case))]
+    At,
+
+    // Constraints: Tokens related to constraints in the domain specification.
+    #[token("always", ignore(ascii_case))]
+    Always,
+    #[token("sometime", ignore(ascii_case))]
+    Sometime,
+    #[token("within", ignore(ascii_case))]
+    Within,
+    #[token("at-most-once", ignore(ascii_case))]
+    AtMostOnce,
+    #[token("sometime-after", ignore(ascii_case))]
+    SometimeAfter,
+    #[token("sometime-before", ignore(ascii_case))]
+    SometimeBefore,
+    #[token("always-within", ignore(ascii_case))]
+    AlwaysWithin,
+    #[token("hold-during", ignore(ascii_case))]
+    HoldDuring,
+    #[token("hold-after", ignore(ascii_case))]
+    HoldAfter,
+
+    // Special Tokens: Special-purpose tokens for specific actions or types.
+    #[token("object", ignore(ascii_case))]
+    ObjectType,
+    #[token("number", ignore(ascii_case))]
+    NumberType,
+    #[token("undefined", ignore(ascii_case))]
+    Undefined,
+    #[token("?duration", ignore(ascii_case))]
+    DurationVariable,
+    #[token("#t", ignore(ascii_case))]
+    SharpT,
+    #[token("total-time", ignore(ascii_case))]
+    TotalTime,
+    #[token("total-cost", ignore(ascii_case))]
+    TotalCost,
+    #[token("is-violated", ignore(ascii_case))]
+    IsViolated,
 }
 
 impl Token {
@@ -773,9 +799,10 @@ impl Token {
 
             // Time
             Token::At => AT.to_string(),
-            Token::AtStart => AT_START.to_string(),
-            Token::AtEnd => AT_END.to_string(),
-            Token::OverAll => OVERALL.to_string(),
+            Token::Start => START.to_string(),
+            Token::End => END.to_string(),
+            Token::Over => OVER.to_string(),
+            Token::All => ALL.to_string(),
 
             // Constraints
             Token::Always => ALWAYS.to_string(),
@@ -799,6 +826,7 @@ impl Token {
             Token::DurationVariable => DURATION_VARIABLE.to_string(),
             Token::SharpT => CONTINUOUS_VARIABLE.to_string(),
             Token::TotalTime => TOTAL_TIME.to_string(),
+            Token::TotalCost => TOTAL_COST.to_string(),
             Token::IsViolated => IS_VIOLATED.to_string(),
 
             // Comments

@@ -12,9 +12,9 @@ use crate::aiplan4rust::syntax::lexer::token::{
     ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS,
     CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS, GOAL,
     HOLD_AFTER, HOLD_DURING, HTN, IMPLY, INIT, IS_VIOLATED, LENGTH, METHOD, METRIC, NOT, OBJECTS,
-    OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVERALL, PARALLEL, PARAMETERS, PRECONDITION,
-    PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER,
-    SOMETIME_BEFORE, SUBTASKS, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN,
+    OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVER_ALL, PARALLEL, PARAMETERS, PRECONDITION, PREDICATES,
+    PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER, SOMETIME_BEFORE, SUBTASKS,
+    TASK, TOTAL_TIME, TYPES, WHEN, WITHIN,
 };
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
@@ -252,7 +252,6 @@ pub enum Kind {
     Error,
 
     // HDDL Dialect Extensions
-
     /// Represents a task in HDDL.
     Task,
 
@@ -354,7 +353,7 @@ impl Kind {
             Kind::Constraints => CONSTRAINTS,
             Kind::AtStart => AT_START,
             Kind::AtEnd => AT_END,
-            Kind::Overall => OVERALL,
+            Kind::Overall => OVER_ALL,
             Kind::Always => ALWAYS,
             Kind::Sometime => SOMETIME,
             Kind::Within => WITHIN,

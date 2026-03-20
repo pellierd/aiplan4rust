@@ -94,9 +94,13 @@ extern {
 
         // Time
         "at" => Token::At,
-        "at start" => Token::AtStart,
-        "at end" => Token::AtEnd,
-        "over all" => Token::OverAll,
+        "start" => Token::Start,
+        "end" => Token::End,
+        "over" => Token::Over,
+        "all" => Token::All,
+        //"at start" => Token::AtStart,
+        //"at end" => Token::AtEnd,
+        //"over all" => Token::OverAll,
 
         // Constraints
         "always" => Token::Always,
@@ -144,6 +148,7 @@ extern {
         "?duration" => Token::DurationVariable,
         "#t" => Token::SharpT,
         "total-time" => Token::TotalTime,
+        "total-cost" => Token::TotalCost,
         "is-violated" => Token::IsViolated,
 
         // Error
@@ -182,12 +187,20 @@ pub Name : Result<AstContent, ()> = {
         context.push_error(error);
         Err(())
     },
-    // Addition to allow the use of special symbols as ordinary symbols. The verification will be performed during
-    // semantics analysis
-    <start:@L> <name:"object_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
-    <start:@L> <name:"number_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
-    <start:@L> <name:"total-time"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
-    <start:@L> <name:"at"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   // Time and Durative Action keywords allowed as Identifiers
+   <start:@L> <name:"at"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"start"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"end"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"over"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"all"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+
+   // Metric-related keywords allowed as Identifiers
+   <start:@L> <name:"total-time"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"total-cost"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+
+   // Base types allowed as Identifiers (critical for IPC02/04 domains)
+   <start:@L> <name:"object_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"number_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
 }
 
 pub VarName : Result<AstContent, ()> = {
@@ -755,6 +768,11 @@ pub Constraints: Result<NodeId, ParseContextError> = {
     }
 }
 
+pub AtStart: () = { "at" "start" };
+pub AtEnd: () = { "at" "end" };
+pub OverAll: () = { "over" "all" };
+
+
 pub ConGD: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "and" <con_gd:ConGD*> ")" <end:@R> => {
         let con_gd = con_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
@@ -768,7 +786,7 @@ pub ConGD: Result<NodeId, ParseContextError> = {
     <end:@R> => {
         context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, con_gd?], start, end)
     },
-    <start:@L> "(" "at end" <gd:GD> ")" <end:@R> => {
+    <start:@L> "(" AtStart <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![gd?], start, end)
     },
     <start:@L> "(" "always" <gd:GD> ")" <end:@R> => {
@@ -806,6 +824,7 @@ pub DerivedDef: Result<NodeId, ParseContextError> = {
     }
 }
 
+
 pub DurativeActionDef: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" ":durative-action" <name:DASymbol>
@@ -841,10 +860,10 @@ pub SimpleDurationConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <op:DOp> <var:DurationVariable> <value:DValue> ")" <end:@R> => {
         context.alloc_node(AstKind::Comparison, op, vec![var?, value?], start, end)
     },
-    <start:@L> "at start" <constraints:SimpleDurationConstraint> <end:@R> => {
+    <start:@L> AtStart <constraints:SimpleDurationConstraint> <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![constraints?], start, end)
     },
-    <start:@L> "at end" <constraints:SimpleDurationConstraint> <end:@R> => {
+    <start:@L> AtEnd <constraints:SimpleDurationConstraint> <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![constraints?], start, end)
     },
 }
@@ -894,13 +913,13 @@ pub PrefTimedGD: Result<NodeId, ParseContextError> = {
 }
 
 pub TimedGD: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" "at start" <gd:GD> ")" <end:@R> => {
+    <start:@L> "(" AtStart <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![gd?], start, end)
     },
-    <start:@L> "(" "at end" <gd:GD> ")" <end:@R> => {
+    <start:@L> "(" AtEnd <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![gd?], start, end)
     },
-    <start:@L> "(" "over all" <gd:GD> ")" <end:@R> => {
+    <start:@L> "(" OverAll <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::Overall, AstContent::None, vec![gd?], start, end)
     },
 }
@@ -925,10 +944,10 @@ pub DAEffect: Result<NodeId, ParseContextError> = {
 }
 
 pub TimedEffect: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" "at start" <con_effect:CondEffect> ")" <end:@R> => {
+    <start:@L> "(" AtStart <con_effect:CondEffect> ")" <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![con_effect?], start, end)
     },
-    <start:@L> "(" "at end" <con_effect:CondEffect> ")" <end:@R> => {
+    <start:@L> "(" AtEnd <con_effect:CondEffect> ")" <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![con_effect?], start, end)
     },
     <start:@L> "(" <op:AssignOpT> <fhead:FHead> <fexpt:FExpT> ")" <end:@R> => {
