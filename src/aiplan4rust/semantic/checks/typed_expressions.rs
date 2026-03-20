@@ -3,14 +3,13 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::CompareOp;
-use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
-use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId};
 
 /// Checks the type_checker correctness of typed logic in the syntax arena, including comparisons,
@@ -69,7 +68,8 @@ pub fn check_typed_expressions(
             let (ty1, ty2) = get_binary_operation_types(node, context)?;
 
             // Call check_other_cases function to handle these cases
-            no_error &= check_numeric_expression(context, node, &ty1, &ty2, source, diagnostic_manager);
+            no_error &=
+                check_numeric_expression(context, node, &ty1, &ty2, source, diagnostic_manager);
         }
     }
 
@@ -101,13 +101,13 @@ fn is_numeric_expression(node: &AstNode) -> bool {
                 | Some(CompareOp::LessEq)
         )
         || matches!(node.kind(), AstKind::Assignment)
-        && matches!(
-            node.as_assign_op(),
-            Some(AssignOp::ScaleUp)
-                | Some(AssignOp::ScaleDown)
-                | Some(AssignOp::Increase)
-                | Some(AssignOp::Decrease)
-        )
+            && matches!(
+                node.as_assign_op(),
+                Some(AssignOp::ScaleUp)
+                    | Some(AssignOp::ScaleDown)
+                    | Some(AssignOp::Increase)
+                    | Some(AssignOp::Decrease)
+            )
 }
 
 /// Checks the type_checker compatibility of operands in equality (`=`) or assignment (`assign`) logic.
@@ -161,7 +161,10 @@ fn check_equal_and_assignment_expression(
 
     if !type_checker.have_common_supertype(&ty1, &ty2)? {
         no_error = false;
-        println!("Type mismatch in equality/assignment expression: {:?} vs {:?}", ty1, ty2);
+        println!(
+            "Type mismatch in equality/assignment expression: {:?} vs {:?}",
+            ty1, ty2
+        );
         let error = Diagnostic::error_type_mismatch_in_expression(
             ty1.clone(),
             ty2.clone(),
@@ -219,7 +222,7 @@ fn check_numeric_expression(
     ty1: &Type<SymbolId>,
     ty2: &Type<SymbolId>,
     provider: Provider,
-    diagnostic_manager:&mut DiagnosticManager
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
     let mut no_error = true;
 
@@ -269,7 +272,6 @@ fn get_binary_operation_types(
     node: &AstNode,
     context: &CheckContext,
 ) -> Result<(Type<SymbolId>, Type<SymbolId>), SemanticError> {
-
     let ast = context.syntax_tree();
 
     // Try to get the first child node index and node
@@ -282,17 +284,16 @@ fn get_binary_operation_types(
 
     // Get the typing of the first operand, or return a specific error if missing
     let ty1 = get_type(arg1_id, arg1, context)?.ok_or_else(|| {
+        println!("DEBUG////{}{}", arg1.kind(), arg1.to_string());
         SemanticCheckError::missing_operand_type(arg1_id, 0)
     })?;
 
     // Get the typing of the second operand, or return a specific error if missing
-    let ty2 = get_type(arg2_id, arg2, context)?.ok_or_else(|| {
-        SemanticCheckError::missing_operand_type(arg2_id, 1)
-    })?;
+    let ty2 = get_type(arg2_id, arg2, context)?
+        .ok_or_else(|| SemanticCheckError::missing_operand_type(arg2_id, 1))?;
 
     Ok((ty1, ty2))
 }
-
 
 /// Determines the type_checker of a syntax syntax based on its kind.
 ///
@@ -345,12 +346,17 @@ pub fn get_type(
         // Default case: Unexpected AST syntax kind
         found_kind => Err(SemanticError::unexpected_node_kind(
             index,
-            vec![AstKind::Number, AstKind::Variable, AstKind::Object, AstKind::Function, AstKind::Arithmetic],
+            vec![
+                AstKind::Number,
+                AstKind::Variable,
+                AstKind::Object,
+                AstKind::Function,
+                AstKind::Arithmetic,
+            ],
             found_kind,
         )),
     }
 }
-
 
 /// Returns the predefined type_checker for numeric values.
 ///
@@ -373,42 +379,60 @@ fn get_number_type() -> Result<Option<Type<SymbolId>>, SemanticError> {
     Ok(Some(Type::<SymbolId>::number().clone()))
 }
 
-/// Retrieves the type_checker of a variable symbol from the symbol table.
+/// Retrieves the type of a variable symbol, handling both explicit declarations and implicit built-ins.
 ///
-/// This function resolves the type_checker of a variable used in the AST by consulting the
-/// symbol table. If the variable is the special `DURATION_VARIABLE` and the domain
-/// declares the `:durative-actions` requirement, the type_checker is directly inferred as
-/// `number`. Otherwise, it delegates the lookup to `get_declaration_type`.
+/// This function resolves the type of a variable used in the AST using a priority-based logic:
+///
+/// 1. **Explicit Declaration**: It first consults the symbol table. If the user has explicitly
+///    declared the variable (e.g., in `:parameters`), that type is returned. This allows
+///    users to override or "shadow" built-in variables (the "tordu" case).
+/// 2. **Implicit Built-in**: If no explicit declaration is found and the symbol matches
+///    `?duration`, it is automatically inferred as a `number`.
+/// 3. **Fallback**: Otherwise, it attempts a standard lookup via `get_declaration_type`.
+///
+/// ### Permissive Design
+/// Unlike strict PDDL, this function does not verify the `:durative-actions` requirement
+/// here to avoid blocking semantic analysis on domains with missing or late-parsed requirements.
 ///
 /// # Parameters
-/// - `index`: The index of the AST syntax, used for error tracking.
-/// - `symbol`: The name of the variable (e.g., `"?x"`).
-/// - `annotated_syntax_tree`: A reference to the annotated syntax arena containing the
-///   symbol table and domain requirements.
+/// - `index`: The `NodeId` of the AST node where the variable is used.
+/// - `symbol`: The `SymbolId` of the variable (e.g., the ID for `?x` or `?duration`).
+/// - `context`: The semantic context providing access to the symbol table and syntax tree.
 ///
 /// # Returns
 /// A `Result` containing:
-/// - `Ok(Some(types))`: A vector of type_checker names if the variable was successfully resolved.
-/// - `Ok(Some(types))`: A vector of type_checker names if the variable was successfully resolved.
-/// - `Ok(None)`: If the variable is declared but without a type_checker (unusual).
-/// - `Err(ParserInternalError)`: If the variable has conflicting declarations or is undeclared.
-///
-/// # Special Case
-/// - If the symbol is `?duration` and the domain has the `:durative-actions` requirement,
-///   the function directly returns `Some(["number"])` as its type_checker.
+/// - `Ok(Some(Type))`: The resolved type (e.g., `number` or a user-defined type).
+/// - `Ok(None)`: If the variable exists but has no associated type.
+/// - `Err(SemanticError)`: If an internal error occurs or resolution fails.
 ///
 /// # Example
 /// ```rust
-/// let ty = get_variable_type(42, "?x", &annotated_syntax_tree)?;
+/// // If ?duration is used but not declared in parameters, returns 'number'
+/// let ty = get_variable_type(node_id, DURATION_ID, &context)?;
 /// ```
 fn get_variable_type(
     index: NodeId,
     symbol: SymbolId,
     context: &CheckContext,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    if symbol == SymbolInterner::DURATION_VARIABLE_SYMBOL_ID && context.declared_requirements().contains(&DurativeActions) {
+    // 1. Priority: Check for an explicit declaration in the symbol table.
+    // This handles cases where a user might redefine a reserved name (shadowing).
+    if let Some(decl) = context
+        .symbol_table()
+        .resolve_declaration_by_usage(index, SymbolKind::Variable)?
+    {
+        return Ok(decl.types().cloned());
+    }
+
+    // 2. Implicit Case: If no explicit declaration exists, check for reserved symbols.
+    // ?duration is implicitly a 'number' in durative actions.
+    if symbol == SymbolInterner::DURATION_VARIABLE_SYMBOL_ID {
+        // We return 'number' without strict requirement checks to remain
+        // robust against IPC benchmarks with missing :durative-actions tags.
         return get_number_type();
     }
+
+    // 3. Fallback: Standard declaration lookup.
     get_declaration_type(index, context, SymbolKind::Variable)
 }
 
@@ -472,9 +496,12 @@ fn get_constant_type(
 fn get_declaration_type(
     node_id: NodeId,
     context: &CheckContext,
-    kind: SymbolKind
+    kind: SymbolKind,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    match context.symbol_table().resolve_declaration_by_usage(node_id, kind)? {
+    match context
+        .symbol_table()
+        .resolve_declaration_by_usage(node_id, kind)?
+    {
         Some(decl) => Ok(decl.types().cloned()),
         None => Ok(None),
     }

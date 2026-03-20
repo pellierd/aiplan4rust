@@ -1,12 +1,8 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
-use crate::aiplan4rust::lang::Requirement::DurativeActions;
-use crate::aiplan4rust::lang::Requirement::NumericFluents;
-use crate::aiplan4rust::lang::Requirement::Typing;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
@@ -78,7 +74,6 @@ pub fn check_undeclared_symbols(
                     usage.span().clone(),
                 );
                 diagnostic_manager.add_diagnostic(error);
-
             }
         }
     }
@@ -176,7 +171,8 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
         // 2. Le genre doit être compatible (soit identique, soit autorisé par can_share)
         // Note: On utilise `decl_kind == usage_kind` ou `can_share`
         // car can_share renvoie false si les genres sont identiques (sauf Constant).
-        let kind_match = decl_kind == usage_kind || decl_kind.can_share_name_space_with(&usage_kind);
+        let kind_match =
+            decl_kind == usage_kind || decl_kind.can_share_name_space_with(&usage_kind);
 
         scope_match && kind_match
     };
@@ -185,84 +181,67 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
     let check_usages_at_root_scope = |usage: &Usage| {
         let root_id = context.syntax_tree().try_root_id().unwrap();
         let root_scope = Scope::new(root_id, None);
-        symbol
-            .usages()
-            .iter()
-            .any(|u| usage.scope().starts_with(&root_scope) && u.symbol_kind() == usage.symbol_kind())
+        symbol.usages().iter().any(|u| {
+            usage.scope().starts_with(&root_scope) && u.symbol_kind() == usage.symbol_kind()
+        })
     };
 
     match usage_kind {
         // La logique spéciale Task/Action est maintenant absorbée par `can_share_name_space_with`
         // si tu as bien configuré (Task, Action) dans ton match.
         // Sinon, on garde le match spécifique ou on complète `can_share`.
-        SymbolKind::Task => symbol
-            .declarations()
-            .iter()
-            .any(check_declarations), // Nettoyé !
+        SymbolKind::Task => symbol.declarations().iter().any(check_declarations), // Nettoyé !
 
         SymbolKind::PrimitiveType => {
             symbol.declarations().iter().any(check_declarations)
                 || symbol
-                .usages()
-                .iter()
-                .any(|u| check_usages_at_root_scope(u))
+                    .usages()
+                    .iter()
+                    .any(|u| check_usages_at_root_scope(u))
         }
         _ => symbol.declarations().iter().any(check_declarations),
     }
 }
 
-/// Checks if a symbol is a predefined PDDL symbol based on the requirements in the given
-/// `annotated_syntax_tree`.
+/// Checks if a symbol is a predefined PDDL built-in symbol.
 ///
-/// This function determines whether a symbol is predefined in PDDL, depending on the current
-/// PDDL problem's enabled requirements (e.g., `Typing`, `Adl`, `NumericFluents`, and
-/// `DurativeActions`). It checks the symbol's name against known predefined symbols that are
-/// activated by these requirements.
+/// This function identifies symbols that are reserved by the PDDL standard (e.g., `object`,
+/// `number`, `?duration`).
+///
+/// ### Permissive Design
+/// To ensure robustness across various PDDL benchmarks (such as IPC04), this check is
+/// intentionally permissive: it validates reserved symbols regardless of whether
+/// the corresponding `:requirements` are explicitly declared in the domain.
+///
+/// This prevents blocking semantic errors (like E2013) during the initial symbol
+/// resolution phase. Strict compliance with requirements is enforced by a
+/// dedicated validation module later in the analysis pipeline.
 ///
 /// # Arguments
-/// - `symbol`: The symbol to check. This symbol will be matched against predefined PDDL symbols.
-/// - `annotated_syntax_tree`: The annotated syntax arena, which contains information about the
-///   enabled requirements in the PDDL problem. This is used to determine if a given symbol
-///   is predefined based on the current problem's requirements.
+/// - `symbol`: The symbol entry from the symbol table to check.
+/// - `_context`: The semantic context (currently unused, kept for API consistency).
 ///
 /// # Returns
-/// - `true` if the symbol is predefined and matches the enabled requirements.
-/// - `false` if the symbol is not predefined based on the requirements.
+/// - `true` if the symbol ID matches one of the pre-allocated PDDL built-in constants.
+/// - `false` otherwise.
 ///
-/// # Examples
-/// ```
-/// let symbol = Symbol::new("object_type");
-/// let result = is_pddl_builtin_symbol(&symbol, &ast_table);
-/// assert_eq!(result, true);  // Assuming 'Typing' or 'Adl' requirements are enabled.
-/// ```
-///
-/// # Predefined Symbols Based on Requirements
-/// - `object_type`: Predefined when the `Typing` or `Adl` requirements are enabled.
-/// - `number_type` and `total_time`: Predefined when the `NumericFluents` requirement is enabled.
-/// - `duration_variable`: Predefined when the `DurativeActions` requirement is enabled.
-fn is_pddl_builtin_symbol(
-    symbol: &SymbolEntry,
-    context: &CheckContext,
-) -> bool {
+/// # Predefined Symbols Handled
+/// - `object`: Core type for typing/adl.
+/// - `number`, `total-time`, `total-cost`: Used for fluents and numeric fluents.
+/// - `?duration`: Implicit variable for durative actions.
+/// - `#t`: Continuous time variable for temporal domains.
+fn is_pddl_builtin_symbol(symbol: &SymbolEntry, _context: &CheckContext) -> bool {
+    // We accept these symbols because they are reserved by the interner at initialization.
+    // They are considered part of the language's core vocabulary, decoupling symbol
+    // existence from requirement-based feature activation.
     match symbol.ident() {
-        SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID
-            if context.declared_requirements().contains(&NumericFluents)
-                || context.declared_requirements().contains(&Fluents)=> true,
-        // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
-        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
-            if context.declared_requirements().contains(&DurativeActions) => true,
-        SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
-            // total-time is allowed if we have :durative-actions
-            context.declared_requirements().contains(&DurativeActions)
-        },
-        SymbolInterner::TOTAL_COST_SYMBOL_ID => {
-            // total-cost is usually allowed with :fluents or :action-costs
-            context.declared_requirements().contains(&Fluents)
-                || context.declared_requirements().contains(&NumericFluents)
-        },
-        // '?duration' variable for durative actions
-        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
-        if context.declared_requirements().contains(&DurativeActions) => true,
+        SymbolInterner::OBJECT_SYMBOL_ID
+        | SymbolInterner::NUMBER_SYMBOL_ID
+        | SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
+        | SymbolInterner::TOTAL_TIME_SYMBOL_ID
+        | SymbolInterner::TOTAL_COST_SYMBOL_ID
+        | SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID => true,
+
         _ => false,
     }
 }
