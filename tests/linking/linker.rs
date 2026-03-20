@@ -1,6 +1,6 @@
 use test_case::test_case;
 
-use std::path::{Path};
+use std::path::Path;
 
 use crate::common::io::*;
 use crate::common::pipeline::*;
@@ -72,7 +72,6 @@ pub fn test_hddl_linker(domain_path: &str) {
         domain_path
     );
 }
-
 
 #[test_case("tests/fixtures/pddl/ipc98/assembly"; "ipc98_pddl_adl_assembly")]
 #[test_case("tests/fixtures/pddl/ipc98/gripper/adl"; "ipc98_pddl_adl_gripper")]
@@ -155,6 +154,9 @@ pub fn test_hddl_linker(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/automatic/untyped"; "ipc02_pddl_untyped_strips_automatic_rovers")]
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/handcoded/typed"; "ipc02_pddl_typed_strips_handcoded_rovers")]
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/handcoded/untyped"; "ipc02_pddl_untyped_strips_handcoded_rovers")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal/strips"; "ipc04_pddl_temporal_strips_airport")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal-timewindows/strips"; "ipc04_pddl_temporal_timewindows_strips_airport")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal-timewindows-compiled/strips"; "ipc04_pddl_temporal_timewindows_compiled_strips_airport")]
 pub fn test_pddl_linker(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
@@ -215,7 +217,10 @@ pub fn test_linker_all_files(domain_dir: &Path) -> bool {
         let domain_path = match find_associated_domain(problem_path) {
             Some(path) => path,
             None => {
-                eprintln!("\x1b[1;31mError:\x1b[0m No domain found for {}", problem_path.display());
+                eprintln!(
+                    "\x1b[1;31mError:\x1b[0m No domain found for {}",
+                    problem_path.display()
+                );
                 success = false;
                 continue;
             }
@@ -237,6 +242,10 @@ pub fn test_linker_all_files(domain_dir: &Path) -> bool {
         }
     }
 
-    print_test_status(problems_to_process.len(), filter_problem_files(&all_files).len(), domain_dir);
+    print_test_status(
+        problems_to_process.len(),
+        filter_problem_files(&all_files).len(),
+        domain_dir,
+    );
     success
 }
