@@ -16,3 +16,7 @@ target/
 # --- Documentation ---
 # Ignore the local build directory of mdBook
 docs/book/
+
+# LALRPOP generated files
+src/aiplan4rust/syntax/grammar.rs
+src/aiplan4rust/syntax/grammar.report
