@@ -1,7 +1,9 @@
 use std::path::Path;
 use test_case::test_case;
 
-use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_files_by_mode, print_test_status};
+use crate::common::io::{
+    collect_domain_files, delete_all_files_with_extension, filter_files_by_mode, print_test_status,
+};
 use crate::common::pipeline::{normalize_and_check_ast, parse_and_check_ast};
 
 /// Combined parser + simplification fixtures test on an HDDL directory.
@@ -161,6 +163,9 @@ pub fn test_hddl_normalizer(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/automatic/untyped"; "ipc02_pddl_untyped_strips_automatic_rovers")]
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/handcoded/typed"; "ipc02_pddl_typed_strips_handcoded_rovers")]
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/handcoded/untyped"; "ipc02_pddl_untyped_strips_handcoded_rovers")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal/strips"; "ipc04_pddl_temporal_strips_airport")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal-timewindows/strips"; "ipc04_pddl_temporal_timewindows_strips_airport")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal-timewindows-compiled/strips"; "ipc04_pddl_temporal_timewindows_compiled_strips_airport")]
 pub fn test_pddl_normalizer(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
@@ -217,7 +222,10 @@ pub fn test_normalizer_all_files(domain_dir: &Path) -> bool {
         let parser_result = match parse_and_check_ast(file_path) {
             Some(result) => result,
             None => {
-                eprintln!("\x1b[1;31mParsing failed\x1b[0m for file {}", file_path.display());
+                eprintln!(
+                    "\x1b[1;31mParsing failed\x1b[0m for file {}",
+                    file_path.display()
+                );
                 success = false;
                 continue;
             }
@@ -226,7 +234,10 @@ pub fn test_normalizer_all_files(domain_dir: &Path) -> bool {
         // Étape 2 : Normalisation
         // On utilise la même logique : si ça renvoie None, c'est un échec
         if normalize_and_check_ast(parser_result, file_path).is_none() {
-            eprintln!("\x1b[1;31mNormalization failed\x1b[0m for file {}", file_path.display());
+            eprintln!(
+                "\x1b[1;31mNormalization failed\x1b[0m for file {}",
+                file_path.display()
+            );
             success = false;
             continue;
         }
