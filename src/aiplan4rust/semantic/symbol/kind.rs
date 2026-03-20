@@ -58,6 +58,9 @@ pub enum Kind {
     /// Represents a predicate symbol (used for logical conditions).
     Predicate,
 
+    /// Represents a derived predicate symbol.
+    DerivedPredicate,
+
     /// Represents a primitive data typing (e.g., integer, boolean).
     PrimitiveType,
 
@@ -81,21 +84,34 @@ impl Kind {
     /// # Sharing Rules
     ///
     /// * **Same Kind (`self == other`):**
-    ///     * Returns `true` **only for Constants**. This allows a Problem file
-    ///       to redeclare a constant already defined in the Domain (standard behavior).
-    ///     * Returns `false` for all other kinds (e.g., two Tasks cannot share a name).
+    ///     * Returns `true` for **Constants** (allows a Problem to redeclare a Domain constant).
+    ///     * Returns `true` for **Derived Predicates**. This is crucial as PDDL allows
+    ///       multiple `:derived` axioms to define the same predicate (logical OR).
+    ///     * Returns `false` for all other kinds (e.g., two Actions cannot share a name).
     ///
-    /// * **Type vs Constant:**
+    /// * **Predicate vs Derived Predicate:**
+    ///     * Returns `true`. A predicate can be declared in the `(:predicates)` block
+    ///       and then further defined or refined in one or more `(:derived)` blocks.
+    ///
+    /// * **Task vs Action (HDDL):**
+    ///     * Returns `true`. In hierarchical planning, it is a common pattern for
+    ///       an abstract Task to share its name with a concrete Action that implements it.
+    ///
+    /// * **Type vs Constant/Object:**
     ///     * Returns `true`. This supports the "Singleton" idiom where a unique
-    ///       object shares the name of its typing (e.g., `fireExtinguisher - FireExtinguisher`).
+    ///       object shares the name of its type (e.g., `fireExtinguisher - fireExtinguisher`).
     ///
     /// * **Type vs Predicate:**
     ///     * Returns `true`. While syntactically distinct due to parentheses `(p ...)`,
     ///       sharing is allowed but may trigger a compiler warning elsewhere.
     ///
+    /// * **Structural Names (Domain/Problem):**
+    ///     * Returns `true` when compared against any logical symbol. This allows
+    ///       a predicate or object to safely share the name of the Domain or Problem itself.
+    ///
     /// * **Variables (`?x`):**
-    ///     * Always returns `false`. Variables are "sacred" to ensure safe
-    ///       unification and avoid collisions with static symbols.
+    ///     * Always returns `false`. Variables never share their namespace to ensure
+    ///       safe unification and avoid collisions with static symbols.
     ///
     /// * **Default:**
     ///     * Returns `false` for any other combination (e.g., Task vs Constant)
@@ -103,24 +119,29 @@ impl Kind {
     pub fn can_share_name_space_with(&self, other: &Self) -> bool {
         // 1. Handle identical kinds
         if self == other {
-            // Authorized only for constants (Domain/Problem redeclaration)
-            return matches!(self, Kind::Constant);
+            // Authorized for constants (Domain/Problem redeclaration)
+            // AND for DerivedPredicates (multiple axioms for the same predicate)
+            return matches!(self, Kind::Constant | Kind::DerivedPredicate);
         }
 
         // 2. Handle authorized mixed pairs
         match (self, other) {
             // Structural identifiers (Domain/Problem names) should not collide with logical symbols.
-            // This allows a predicate or an object to have the same name as the domain itself.
             (Kind::DomainName, _) | (_, Kind::DomainName) => true,
             (Kind::ProblemName, _) | (_, Kind::ProblemName) => true,
+
             // Singleton convention: Type and Constant/Object
             (Kind::PrimitiveType, Kind::Constant) | (Kind::Constant, Kind::PrimitiveType) => true,
 
             // Manageable syntactic ambiguity: Type and Predicate
             (Kind::PrimitiveType, Kind::Predicate) | (Kind::Predicate, Kind::PrimitiveType) => true,
 
-            // AJOUTE CETTE LIGNE : Crucial pour HDDL
-            // Une Task et une Action partagent souvent le même nom.
+            // PDDL Derived Predicates: A predicate can be declared in (:predicates)
+            // and defined in (:derived)
+            (Kind::Predicate, Kind::DerivedPredicate)
+            | (Kind::DerivedPredicate, Kind::Predicate) => true,
+
+            // HDDL: A Task and an Action often share the same name.
             (Kind::Task, Kind::Action) | (Kind::Action, Kind::Task) => true,
 
             // Strict safety: Variables never share their namespace
@@ -143,6 +164,7 @@ impl fmt::Display for Kind {
             Kind::DASymbol => write!(f, "Durative Action"),
             Kind::PrimitiveType => write!(f, "Primitive Type"),
             Kind::Predicate => write!(f, "Predicate"),
+            Kind::DerivedPredicate => write!(f, "Derived Predicate"),
             Kind::Variable => write!(f, "Variable"),
             Kind::Constant => write!(f, "Constant"),
             Kind::Function => write!(f, "Functor"),

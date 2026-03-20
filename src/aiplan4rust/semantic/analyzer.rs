@@ -57,6 +57,7 @@
 //! typing errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
+use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
@@ -197,6 +198,12 @@ impl Analyzer {
         let mut context = SemanticContext::try_from(ast)?;
         let check_ctx = CheckContext::from(&context);
 
+        print!(
+            "WAZEATTRQ{}",
+            context
+                .symbol_table()
+                .to_string_with_interner(context.interner())
+        );
         // Determine root kind and run appropriate checks
         let root_ref = context.syntax_tree().try_root_node_ref()?;
         match root_ref.node().kind() {
@@ -209,10 +216,7 @@ impl Analyzer {
             found => {
                 return Err(SemanticError::unexpected_node_kind(
                     root_ref.id(),
-                    vec![
-                        AstKind::Domain,
-                        AstKind::Problem,
-                    ],
+                    vec![AstKind::Domain, AstKind::Problem],
                     found,
                 ));
             }

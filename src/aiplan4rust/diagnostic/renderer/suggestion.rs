@@ -24,10 +24,10 @@
 //! This module complements the [`formatting`] module by offering structured, interner-aware
 //! formatting for diagnostic suggestions, separate from primary error/warning messages.
 
-use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind};
 use crate::aiplan4rust::diagnostic::kind::Kind;
+use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind};
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{SymbolId, Requirement, Type};
+use crate::aiplan4rust::lang::{Requirement, SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
@@ -99,43 +99,85 @@ pub fn format_suggestion_debug(kind: &DiagnosticKind) -> Option<String> {
 /// [`StringInterner`]: crate::aiplan4rust::interner::SymbolInterner
 /// [`format_suggestion`]: crate::aiplan4rust::renderer::formatting::format_suggestion
 /// [`format_suggestion_debug`]: crate::aiplan4rust::renderer::formatting::format_suggestion_debug
-fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&SymbolInterner>) -> Option<String> {
+fn format_suggestion_internal(
+    kind: &DiagnosticKind,
+    interner: Option<&SymbolInterner>,
+) -> Option<String> {
     match kind {
-        Kind::UnexpectedToken { expected, .. }
-        | Kind::UnexpectedEof { expected } => {
+        Kind::UnexpectedToken { expected, .. } | Kind::UnexpectedEof { expected } => {
             renderer::formatting::format_expected_message(expected)
         }
         Kind::ExtraToken { .. } => Some(format_extra_token_suggestion()),
         Kind::InvalidNumber { .. } => Some(format_invalid_number_suggestion()),
-        Kind::DuplicateDefinitionBlock { block } => Some(format_duplicated_definition_block_suggestion(*block)),
-        Kind::InvalidDefinitionBlockOrder { block, order } => Some(format_invalid_definition_block_order(*block, order)),
+        Kind::DuplicateDefinitionBlock { block } => {
+            Some(format_duplicated_definition_block_suggestion(*block))
+        }
+        Kind::InvalidDefinitionBlockOrder { block, order } => {
+            Some(format_invalid_definition_block_order(*block, order))
+        }
 
         Kind::InvalidToken => Some(format_invalid_token_suggestion()),
-        Kind::InvalidSymbolSignature { declaration, .. } => {
-            Some(format_invalid_symbol_signature_suggestion(declaration, interner))
-        }
-        Kind::TypeMismatchInExpression { ty1, ty2 } => {
-            Some(format_type_mismatch_in_expression_suggestion(ty1, ty2, interner))
-        }
-        Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
-            Some(format_invalid_types_in_numeric_expression_suggestion(ty1, ty2, interner))
-        }
-        Kind::RequirementViolation { node_kind, required } => {
-            Some(format_requirement_violation_suggestion(node_kind, required))
-        }
-        Kind::DuplicatedSymbolDeclarationInScope { symbol, original_declaration, conflicting_declaration, scope } => {
-            Some(format_duplicated_symbol_declaration_suggestion(symbol, original_declaration, conflicting_declaration, scope, interner))
-        }
-        Kind::DuplicateVariableSkeletonDeclaration { symbol, original_declaration, conflicting_declaration, scope } => {
-            Some(format_duplicate_variable_skeleton_declaration_suggestion(symbol, original_declaration, conflicting_declaration, scope, interner))
-        }
+        Kind::InvalidSymbolSignature { declaration, .. } => Some(
+            format_invalid_symbol_signature_suggestion(declaration, interner),
+        ),
+        Kind::TypeMismatchInExpression { ty1, ty2 } => Some(
+            format_type_mismatch_in_expression_suggestion(ty1, ty2, interner),
+        ),
+        Kind::InvalidTypesInNumericExpression { ty1, ty2 } => Some(
+            format_invalid_types_in_numeric_expression_suggestion(ty1, ty2, interner),
+        ),
+        Kind::RequirementViolation {
+            node_kind,
+            required,
+        } => Some(format_requirement_violation_suggestion(node_kind, required)),
+        Kind::DuplicatedSymbolDeclarationInScope {
+            symbol,
+            original_declaration,
+            conflicting_declaration,
+            scope,
+        } => Some(format_duplicated_symbol_declaration_suggestion(
+            symbol,
+            original_declaration,
+            conflicting_declaration,
+            scope,
+            interner,
+        )),
+        Kind::DuplicateVariableSkeletonDeclaration {
+            symbol,
+            original_declaration,
+            conflicting_declaration,
+            scope,
+        } => Some(format_duplicate_variable_skeleton_declaration_suggestion(
+            symbol,
+            original_declaration,
+            conflicting_declaration,
+            scope,
+            interner,
+        )),
         Kind::CyclicTaskOrdering => Some(format_cyclic_task_ordering_suggestion()),
         Kind::UndeclaredSymbol { usage } => format_undeclared_symbol_suggestion(usage, interner),
-        Kind::SymbolConflictsWithKeyword { declaration, expected_kind, requirements } =>
-            format_symbol_conflicts_with_keyword_suggestion(declaration, expected_kind, requirements, interner),
-        Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, requirements, .. } =>
-            format_symbol_declared_ambiguously_as_keyword_suggestion(declaration, requirements, interner),
-        Kind::UnusedSymbol { declaration } => format_unused_symbol_suggestion(declaration, interner),
+        Kind::SymbolConflictsWithKeyword {
+            declaration,
+            expected_kind,
+            requirements,
+        } => format_symbol_conflicts_with_keyword_suggestion(
+            declaration,
+            expected_kind,
+            requirements,
+            interner,
+        ),
+        Kind::SymbolDeclaredAmbiguouslyAsKeyword {
+            declaration,
+            requirements,
+            ..
+        } => format_symbol_declared_ambiguously_as_keyword_suggestion(
+            declaration,
+            requirements,
+            interner,
+        ),
+        Kind::UnusedSymbol { declaration } => {
+            format_unused_symbol_suggestion(declaration, interner)
+        }
         Kind::DomainProblemNameMismatch { domain_name, .. } => {
             format_domain_problem_name_mismatch_suggestion(domain_name, interner)
         }
@@ -155,34 +197,40 @@ fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&SymbolInt
         Kind::CyclicTypeDeclaration { cycle } => {
             format_cyclic_type_declaration_suggestion(cycle, interner)
         }
-        Kind::CrossConflictSymbolDeclaration { problem_declaration, conflicting_domain_declarations } => {
-            format_cross_conflict_symbol_declaration_suggestion(problem_declaration, conflicting_domain_declarations, interner)
-        }
+        Kind::CrossConflictSymbolDeclaration {
+            problem_declaration,
+            conflicting_domain_declarations,
+        } => format_cross_conflict_symbol_declaration_suggestion(
+            problem_declaration,
+            conflicting_domain_declarations,
+            interner,
+        ),
 
-        Kind::DuplicateRequirementWarning { duplicate_requirements } => {
-            format_duplicate_requirement_warning(duplicate_requirements)
-        }
-        Kind::CustomError {suggestion, .. } => suggestion.clone(),
-        Kind::CustomWarning {suggestion, .. } => suggestion.clone(),
-        Kind::DuplicatedDeclaration { ty, kind, duplicate_spans, .. } => {
-            format_duplicated_declaration_suggestion(*ty, *kind, duplicate_spans, interner)
-        }
+        Kind::DuplicateRequirementWarning {
+            duplicate_requirements,
+        } => format_duplicate_requirement_warning(duplicate_requirements),
+        Kind::CustomError { suggestion, .. } => suggestion.clone(),
+        Kind::CustomWarning { suggestion, .. } => suggestion.clone(),
+        Kind::DuplicatedDeclaration {
+            ty,
+            kind,
+            duplicate_spans,
+            ..
+        } => format_duplicated_declaration_suggestion(*ty, *kind, duplicate_spans, interner),
         Kind::IncompatibleTypeDeclarations {
             symbol,
             kind,
             original_span,
             expected_types,
-            found_types
-        } => {
-            format_incompatible_type_declarations_suggestion(
-                *symbol,
-                *kind,
-                *original_span,
-                expected_types,
-                found_types,
-                interner
-            )
-        }
+            found_types,
+        } => format_incompatible_type_declarations_suggestion(
+            *symbol,
+            *kind,
+            *original_span,
+            expected_types,
+            found_types,
+            interner,
+        ),
         Kind::DeprecatedFeature { node_kind, .. } => {
             format_deprecated_feature_suggestion(*node_kind)
         }
@@ -283,7 +331,7 @@ fn format_invalid_token_suggestion() -> String {
 /// A formatted suggestion message as a `String`.
 fn format_invalid_symbol_signature_suggestion(
     declaration: &Declaration,
-    interner: Option<&SymbolInterner>
+    interner: Option<&SymbolInterner>,
 ) -> String {
     let symbol = declaration.symbol();
     let name = renderer::formatting::symbol_to_string(symbol, interner);
@@ -301,7 +349,10 @@ fn format_invalid_symbol_signature_suggestion(
             format!("Ensure an action '{}' with the correct signature is declared in the ':action' block.", name)
         }
         _ => {
-            format!("Ensure '{}' with the correct signature is declared properly.", name)
+            format!(
+                "Ensure '{}' with the correct signature is declared properly.",
+                name
+            )
         }
     }
 }
@@ -323,7 +374,7 @@ fn format_invalid_symbol_signature_suggestion(
 fn format_type_mismatch_in_expression_suggestion(
     ty1: &Type<SymbolId>,
     ty2: &Type<SymbolId>,
-    interner: Option<&SymbolInterner>
+    interner: Option<&SymbolInterner>,
 ) -> String {
     let ty1_str = renderer::formatting::type_to_string(ty1, interner);
     let ty2_str = renderer::formatting::type_to_string(ty2, interner);
@@ -360,8 +411,7 @@ fn format_invalid_types_in_numeric_expression_suggestion(
     format!(
         "Numeric logic require operands of typing 'number', but found '{}' and '{}'. \
         Ensure both operands are numeric types.",
-        ty1_str,
-        ty2_str
+        ty1_str, ty2_str
     )
 }
 
@@ -442,10 +492,7 @@ fn format_duplicate_variable_skeleton_declaration_suggestion(
         "The variable '{}' appears multiple times in the parameters of '{}'. \
          Consider using unique names (e.g., '{}_1', '{}_2') \
          to improve clarity and avoid ambiguity.",
-        symbol_name,
-        scope,
-        symbol_name,
-        symbol_name
+        symbol_name, scope, symbol_name, symbol_name
     )
 }
 
@@ -532,6 +579,10 @@ fn format_undeclared_symbol_suggestion(
             "Variable '{}' is not declared. You likely need to add it to the ':parameters' list of the enclosing definition (e.g., '?x - typing').",
             name
         )),
+        SymbolKind::DerivedPredicate => Some(format!(
+            "Derived predicate '{}' is not declared. Define it using the '(:derived ...)' syntax.",
+            name
+        )),
     }
 }
 
@@ -561,9 +612,7 @@ fn format_symbol_conflicts_with_keyword_suggestion(
     Some(format!(
         "Symbol '{}' conflicts with a reserved keyword under requirements: {}. \
          It must be declared as a {:?} (e.g., typing, function, variable).",
-        name,
-        reqs,
-        expected_kind
+        name, reqs, expected_kind
     ))
 }
 
@@ -591,8 +640,7 @@ fn format_symbol_declared_ambiguously_as_keyword_suggestion(
     Some(format!(
         "Symbol '{}' is ambiguous because it is used as a language keyword with \
         requirements: {}. Consider renaming or using a different symbol.",
-        name,
-        reqs
+        name, reqs
     ))
 }
 
@@ -721,9 +769,15 @@ fn format_duplicate_either_type_suggestion(
     interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let listed_types = if duplicate_types.len() == 1 {
-        format!("typing '{}'", renderer::formatting::format_ident_list(duplicate_types, interner))
+        format!(
+            "typing '{}'",
+            renderer::formatting::format_ident_list(duplicate_types, interner)
+        )
     } else {
-        format!("types '{}'", renderer::formatting::format_ident_list(duplicate_types, interner))
+        format!(
+            "types '{}'",
+            renderer::formatting::format_ident_list(duplicate_types, interner)
+        )
     };
     Some(format!(
         "Duplicate {} found in an 'either' typing declaration; \
@@ -746,7 +800,7 @@ fn format_duplicate_either_type_suggestion(
 ///
 /// An optional suggestion string describing the detected cycle.
 fn format_cyclic_type_declaration_suggestion(
-    cycle: &[Declaration],  // Replace `TypeDeclaration` with the actual typing used in your code
+    cycle: &[Declaration], // Replace `TypeDeclaration` with the actual typing used in your code
     interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     Some(format!(
@@ -866,10 +920,7 @@ fn format_duplicated_declaration_suggestion(
 
     Some(format!(
         "The {} `{}` was also declared at {}. {}.",
-        entity_type,
-        identifier,
-        locations_text,
-        suggestion
+        entity_type, identifier, locations_text, suggestion
     ))
 }
 
@@ -927,23 +978,18 @@ fn format_incompatible_type_declarations_suggestion(
     let (entity_type, rule_hint) = match kind {
         AstKind::FunctionsDef => (
             "function",
-            "Numeric fluents (number) and object types are strictly separated in PDDL"
+            "Numeric fluents (number) and object types are strictly separated in PDDL",
         ),
         _ => (
             "symbol",
-            "A symbol cannot be both a numeric fluent and a typed object"
+            "A symbol cannot be both a numeric fluent and a typed object",
         ),
     };
 
     Some(format!(
         "The {} `{}` was first declared as `{}`, but this declaration uses `{}`. {}. \
         The original declaration was found at {}.",
-        entity_type,
-        identifier,
-        expected_str,
-        found_str,
-        rule_hint,
-        original_location
+        entity_type, identifier, expected_str, found_str, rule_hint, original_location
     ))
 }
 
@@ -958,9 +1004,7 @@ fn format_incompatible_type_declarations_suggestion(
 /// # Returns
 ///
 /// An optional formatted warning message.
-fn format_duplicate_requirement_warning(
-    duplicate_requirements: &[Requirement],
-) -> Option<String> {
+fn format_duplicate_requirement_warning(duplicate_requirements: &[Requirement]) -> Option<String> {
     Some(format!(
         "The following requirement(s) are declared multiple times in the domain and have been ignored. \
          Consider removing them to prevent redundancy: {}.",
@@ -991,17 +1035,15 @@ fn format_duplicate_requirement_warning(
 /// ```
 fn format_deprecated_feature_suggestion(kind: AstKind) -> Option<String> {
     match kind {
-        AstKind::Length => {
-            Some(
-                "Remove this section. For plan quality or constraints, \
+        AstKind::Length => Some(
+            "Remove this section. For plan quality or constraints, \
                  use ':constraints' or ':metric' instead."
-                    .to_string(),
-            )
-        }
+                .to_string(),
+        ),
         // Fallback suggestion for any other deprecated feature without a specific path.
         _ => Some(
             "Consult the PDDL 3.1 or HDDL standard specifications for modern alternatives."
                 .to_string(),
-        )
+        ),
     }
 }

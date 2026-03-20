@@ -21,7 +21,9 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{SymbolId, Type, TypedList, TypedSymbol};
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolOrigin, Usage};
+use crate::aiplan4rust::semantic::symbol::{
+    Declaration, Scope, SymbolEntry, SymbolKind, SymbolOrigin, Usage,
+};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
@@ -139,10 +141,7 @@ impl SymbolTableBuilder {
                 // Return an error if the root node kind is not Domain or Problem
                 return Err(SemanticError::unexpected_node_kind(
                     root_ref.id(),
-                    vec![
-                        AstKind::Domain,
-                        AstKind::Problem,
-                    ],
+                    vec![AstKind::Domain, AstKind::Problem],
                     found,
                 ));
             }
@@ -243,7 +242,7 @@ impl SymbolTableBuilder {
         match node_ref.node().kind() {
             // For domain and problem names, add declaration symbols directly without recursion
             AstKind::DomainName | AstKind::ProblemName => {
-                self.add_declaration_symbol(node_ref, ast, scope.clone(), None, None)?;
+                self.add_declaration_symbol(node_ref, ast, scope.clone(), None, None, false)?;
             }
 
             // For typed lists, use specialized initialization for typed symbols
@@ -305,6 +304,10 @@ impl SymbolTableBuilder {
             AstKind::TaskOrderingConstraint => {
                 self.init_from_task_ordering_constraint(node_ref, ast, scope.clone())?;
             }
+            // For axioms
+            AstKind::DerivedDef => {
+                self.init_from_derived_predicate_def(node_ref, ast, scope.clone())?;
+            }
 
             // For any other kinds, recursively process all child nodes to cover nested syntax
             _ => {
@@ -353,11 +356,15 @@ impl SymbolTableBuilder {
         scope: Scope,
         types: Option<Type<SymbolId>>,
         arguments: Option<TypedList<SymbolId, SymbolId>>,
+        is_derived: bool,
     ) -> Result<(), SymbolTableError> {
         // Extract the symbol reference from the AST node ID.
         // This retrieves symbol metadata such as the identifier name and kind.
         let node = ast.syntax_tree().try_node(node_ref.id())?;
-        let symbol_ref = node.try_symbol()?;
+        let mut symbol_ref = node.try_symbol()?;
+        if is_derived {
+            symbol_ref.set_kind(SymbolKind::DerivedPredicate);
+        }
 
         // Obtain the symbol's identifier (name) from the symbol reference.
         let ident = symbol_ref.id();
@@ -450,11 +457,14 @@ impl SymbolTableBuilder {
         // 1. Détermination du nœud cible et extraction du symbole
         // On factorise l'accès pour éviter de chercher deux fois dans l'AST
         let (target_id, symbol_ref) = if matches!(
-        node_ref.node().kind(),
-        AstKind::AtomicFormula | AstKind::Function | AstKind::Task
-    ) {
+            node_ref.node().kind(),
+            AstKind::AtomicFormula | AstKind::Function | AstKind::Task
+        ) {
             let first_child_id = node_ref.node().children()[0];
-            (first_child_id, ast.syntax_tree().try_node(first_child_id)?.try_symbol()?)
+            (
+                first_child_id,
+                ast.syntax_tree().try_node(first_child_id)?.try_symbol()?,
+            )
         } else {
             (node_ref.id(), node_ref.node().try_symbol()?)
         };
@@ -463,16 +473,15 @@ impl SymbolTableBuilder {
         let origin = SymbolOrigin::from(self.table().origin());
 
         // On récupère le span directement depuis l'AST via le target_id
-        let span = ast.syntax_tree().try_node_ref(target_id)?.node().span().clone();
+        let span = ast
+            .syntax_tree()
+            .try_node_ref(target_id)?
+            .node()
+            .span()
+            .clone();
 
         // 2. Préparation de l'usage
-        let usage = Usage::new(
-            symbol_ref,
-            scope,
-            origin,
-            span,
-            target_id,
-        );
+        let usage = Usage::new(symbol_ref, scope, origin, span, target_id);
 
         // 3. Mise à jour de la Table (via méthodes publiques)
         let table = self.table_mut();
@@ -667,6 +676,7 @@ impl SymbolTableBuilder {
                     scope.clone(),
                     Some(types.clone()),
                     None,
+                    false,
                 )?;
             }
 
@@ -791,6 +801,7 @@ impl SymbolTableBuilder {
             scope.clone(),
             Some(types),
             Some(arguments),
+            false,
         )?;
 
         Ok(())
@@ -1036,7 +1047,7 @@ impl SymbolTableBuilder {
         let parameters = self.extract_arguments_from_typed_list(parameters, ast)?;
 
         // Add the definition name as a symbol declaration with its parameters
-        self.add_declaration_symbol(&name, ast, scope.clone(), None, Some(parameters))?;
+        self.add_declaration_symbol(&name, ast, scope.clone(), None, Some(parameters), false)?;
 
         // If present, recursively initialize the body of the definition
         if has_body {
@@ -1168,13 +1179,15 @@ impl SymbolTableBuilder {
 
     /// Initializes the symbol table for an atomic formula skeleton from the AST.
     ///
-    /// An atomic formula skeleton consists of a `Predicate` followed by a `TypedList`
+    /// An atomic formula skeleton consists of a `PredicateSymbol` followed by a `TypedList`
     /// of arguments. This function performs the following:
     ///
-    /// 1. Validates that the node has exactly two children.
-    /// 2. Ensures the first child is a `Predicate`.
+    /// 1. Validates that the first child is a `PredicateSymbol`.
+    /// 2. Creates a local scope for the argument list to isolate variables (e.g., in a `:derived` body).
     /// 3. Initializes symbol information for the argument list.
-    /// 4. Registers the predicate as a declaration symbol, with its associated typed arguments.
+    /// 4. Registers the predicate in the symbol table.
+    /// 5. If `is_derived` is true, promotes the symbol's kind to `DerivedPredicate` regardless
+    ///    of its original syntactic kind in the AST.
     ///
     /// # Arguments
     ///
@@ -1185,19 +1198,23 @@ impl SymbolTableBuilder {
     /// # Returns
     ///
     /// * `Ok(())` if symbol table construction succeeds.
-    /// * `Err(SymbolTableError)` if the AST structure is unexpected or initialization fails.
+    /// * `Err(SemanticError)` if the AST structure is unexpected or initialization fails.
     ///
     /// # Errors
     ///
-    /// Returns [`SymbolTableError`] in the following cases:
-    /// - If child nodes cannot be retrieved.
-    /// - If the first child is not of kind `Predicate`.
-    /// - If argument list extraction fails or is malformed.
+    /// Returns [`SemanticError`] in the following cases:
+    /// - If child nodes cannot be retrieved (invalid arity).
+    /// - If the first child is not of kind `PredicateSymbol`.
+    /// - If the argument list extraction or typed list initialization fails.
     ///
     /// # Example
     ///
     /// ```rust
-    /// symbol_table.init_from_atomic_formula_skeleton(&formula_node, &ast, current_scope)?;
+    /// // Standard predicate declaration
+    /// builder.init_from_atomic_formula_skeleton(&node, &ast, scope, false)?;
+    ///
+    /// // Derived predicate definition
+    /// builder.init_from_atomic_formula_skeleton(&node, &ast, scope, true)?;
     /// ```
     fn init_from_atomic_formula_skeleton(
         &mut self,
@@ -1231,7 +1248,15 @@ impl SymbolTableBuilder {
         let extracted_arguments = self.extract_arguments_from_typed_list(arguments, ast)?;
 
         // Step 5: Register the predicate symbol declaration with its arguments
-        self.add_declaration_symbol(predicate, ast, scope, None, Some(extracted_arguments))?;
+        // On passe le flag is_derived directement à add_declaration_symbol
+        self.add_declaration_symbol(
+            predicate,
+            ast,
+            scope,
+            None,
+            Some(extracted_arguments),
+            false,
+        )?;
 
         Ok(())
     }
@@ -1499,7 +1524,7 @@ impl SymbolTableBuilder {
         let tag = syntax_tree.try_node_ref(tag_id)?; // Error if invalid node reference
 
         // --- Register the tag as a declaration symbol in the current scope ---
-        self.add_declaration_symbol(&tag, ast, scope.clone(), None, None)?; // May fail if duplicate, invalid kind, etc.
+        self.add_declaration_symbol(&tag, ast, scope.clone(), None, None, false)?; // May fail if duplicate, invalid kind, etc.
 
         // --- Extract the task definition (second child) ---
         let task_id = node.try_child(1)?; // Error if missing
@@ -1553,6 +1578,63 @@ impl SymbolTableBuilder {
         let t2_id = node_ref.node().try_child(1)?; // Error if no second child
         let t2 = syntax_tree.try_node_ref(t2_id)?; // Error if invalid node reference
         self.add_symbol_usage(&t2, ast, scope.clone())?; // Registers t2 as a symbol usage
+
+        Ok(())
+    }
+
+    /// Initializes the symbol table for a derived predicate definition.
+    ///
+    /// This function handles the `:derived` PDDL structure by:
+    /// 1. Creating a single local scope for both the skeleton and the body.
+    /// 2. Manually extracting the predicate symbol and arguments from the skeleton.
+    /// 3. Registering the derived predicate in the parent (domain) scope.
+    /// 4. Initializing the body formula using the populated local scope.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_ref` - Reference to the AST node for the derived definition.
+    /// * `ast` - The AST arena.
+    /// * `scope` - The parent scope (usually the global Domain).
+    fn init_from_derived_predicate_def(
+        &mut self,
+        node_ref: &NodeRef<AstNode>,
+        ast: &Ast,
+        scope: Scope,
+    ) -> Result<(), SemanticError> {
+        let syntax_tree = ast.syntax_tree();
+        let node = node_ref.node();
+
+        // 1. Prepare a UNIQUE scope for the entire definition.
+        // This allows parameters defined in the skeleton to be visible in the body.
+        let derived_scope = Scope::new(node_ref.id(), Some(&scope));
+
+        // 2. Access the skeleton manually.
+        let skeleton_id = node.try_child(0)?;
+        let skeleton_node = syntax_tree.try_node_ref(skeleton_id)?;
+
+        // Retrieve the predicate name (e.g., 'blocked') and its arguments.
+        let predicate_id = skeleton_node.node().try_child(0)?;
+        let predicate_ref = syntax_tree.try_node_ref(predicate_id)?;
+
+        let args_id = skeleton_node.node().try_child(1)?;
+        let args_ref = syntax_tree.try_node_ref(args_id)?;
+
+        // KEY STEP: Use the shared derived_scope to initialize the typed list.
+        // This populates the scope with variables (e.g., ?p, ?t).
+        self.init_from_typed_list(&args_ref, ast, derived_scope.clone())?;
+
+        // Extract typed arguments for the predicate's signature.
+        let extracted_args = self.extract_arguments_from_typed_list(&args_ref, ast)?;
+
+        // Register the predicate as a "Derived" symbol in the global domain scope.
+        self.add_declaration_symbol(&predicate_ref, ast, scope, None, Some(extracted_args), true)?;
+
+        // 3. Process the formula body (e.g., the 'and' or 'exists' block).
+        let body_id = node.try_child(1)?;
+        let body_ref = syntax_tree.try_node_ref(body_id)?;
+
+        // Use the SAME derived_scope which now contains the skeleton variables.
+        self.init_from(&body_ref, ast, derived_scope)?;
 
         Ok(())
     }
