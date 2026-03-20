@@ -130,6 +130,9 @@ pub fn test_hddl_analyzer(domain_path: &str) {
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/automatic/untyped"; "ipc02_pddl_untyped_strips_automatic_rovers")]
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/handcoded/typed"; "ipc02_pddl_typed_strips_handcoded_rovers")]
 #[test_case("tests/fixtures/pddl/ipc02/rovers/strips/handcoded/untyped"; "ipc02_pddl_untyped_strips_handcoded_rovers")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal/strips"; "ipc04_pddl_temporal_strips_airport")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal-timewindows/strips"; "ipc04_pddl_temporal_timewindows_strips_airport")]
+#[test_case("tests/fixtures/pddl/ipc04/airport/temporal-timewindows-compiled/strips"; "ipc04_pddl_temporal_timewindows_compiled_strips_airport")]
 pub fn test_pddl_analyzer(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
@@ -138,7 +141,6 @@ pub fn test_pddl_analyzer(domain_path: &str) {
         domain_path
     );
 }
-
 
 pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
     let mut success = true;
@@ -169,7 +171,10 @@ pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
         let normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
             Some(result) => result,
             None => {
-                eprintln!("\x1b[1;31mNormalization failed\x1b[0m for {}", file_path.display());
+                eprintln!(
+                    "\x1b[1;31mNormalization failed\x1b[0m for {}",
+                    file_path.display()
+                );
                 success = false;
                 continue;
             }
@@ -178,7 +183,10 @@ pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
         // --- ÉTAPE 3 : ANALYSE SÉMANTIQUE ---
         // On suit la même logique : si l'analyse renvoie None, c'est un échec
         if analyze(normalizer_result, file_path).is_none() {
-            eprintln!("\x1b[1;31mSemantic Analysis failed\x1b[0m for {}", file_path.display());
+            eprintln!(
+                "\x1b[1;31mSemantic Analysis failed\x1b[0m for {}",
+                file_path.display()
+            );
             success = false;
             continue;
         }
