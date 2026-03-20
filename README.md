@@ -9,10 +9,10 @@ with a structured intermediate representation and a command-line interface.
 > ⚠️ AiPlan4Rust is **not a planner/solver**.  
 > Its goal is to *analyze, validate, normalize, and serialize planning models* in a robust and extensible way.
 
-![Tests](https://github.com/pellier/aiplan4rust/actions/workflows/rust.yml/badge.svg)
-![Quality](https://github.com/pellier/aiplan4rust/actions/workflows/quality.yml/badge.svg)
-![Security](https://github.com/pellier/aiplan4rust/actions/workflows/security.yml/badge.svg)
-![Docs](https://github.com/pellier/aiplan4rust/actions/workflows/deploy-docs.yml/badge.svg)
+![Tests](https://github.com/pellierd/aiplan4rust/actions/workflows/tests.yml/badge.svg)
+![Quality](https://github.com/pellierd/aiplan4rust/actions/workflows/quality.yml/badge.svg)
+![Security](https://github.com/pellierd/aiplan4rust/actions/workflows/security.yml/badge.svg)
+![Docs](https://github.com/pellierd/aiplan4rust/actions/workflows/deploy-docs.yml/badge.svg)
 ---
 
 ## Key Capabilities
