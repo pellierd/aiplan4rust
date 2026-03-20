@@ -121,7 +121,7 @@
    :precondition 
       (and  
         ;; matching transition activated 
- 
+
         (activate ?p ?t) 
         (settled ?q)  
         (reads ?p ?q ?t) 

@@ -1,14 +1,14 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Requirement::Typing;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
+use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::Tree;
 
@@ -62,42 +62,28 @@ pub fn check_unused_symbols(
 ) -> Result<bool, SemanticCheckError> {
     let symbol_table = context.symbol_table();
 
-    for symbol in symbol_table.values() {
-        for declaration in symbol.declarations() {
+    for symbol_entry in symbol_table.values() {
+        for declaration in symbol_entry.declarations() {
             let declaration_kind = declaration.symbol_kind();
 
-            // Skip declarations that should not be analyzed
+            // 1. Filter out declarations that should be ignored (built-ins, specific kinds, etc.)
             if skip_unused_symbol_declaration(declaration, context)?
                 || skip_symbols.iter().any(|kind| *kind == declaration_kind)
             {
                 continue;
             }
 
-            // Check if declaration refers to a PDDL built-in and report if so
+            // 2. Validate against PDDL built-in keywords (e.g., 'object', 'number')
             check_pddl_builtin_symbol_declaration(
                 declaration,
                 context,
                 provider,
-                diagnostic_manager
+                diagnostic_manager,
             );
 
-            let declaration_scope = declaration.scope();
-
-            // Determine if this declaration has at least one valid usage
-            let has_valid_usage = symbol.usages().iter().any(|usage| {
-                let usage_kind = usage.symbol_kind();
-                // 1. Le scope doit correspondre
-                let scope_match = usage.scope().starts_with(&declaration_scope);
-
-                // 2. Le genre doit être identique OU compatible selon notre stratégie centrale
-                let kind_match = usage_kind == declaration_kind
-                    || declaration_kind.can_share_name_space_with(&usage_kind);
-
-                scope_match && kind_match
-            });
-
-            // If no usage is found, emit a warning
-            if !has_valid_usage {
+            // 3. Verify if the declaration is actually used or logically bound
+            // We pass the entry and current declaration to the helper for clarity.
+            if !has_valid_usage(symbol_entry, declaration) {
                 let warning = Diagnostic::warning_unused_symbol(
                     declaration.clone(),
                     provider,
@@ -110,6 +96,52 @@ pub fn check_unused_symbols(
     }
 
     Ok(true)
+}
+
+/// Determines if a specific symbol declaration has a valid usage or a logical binding.
+///
+/// A declaration is considered "used" if:
+/// 1. It is explicitly referenced elsewhere in the PDDL (e.g., in an action precondition).
+/// 2. It is a `Predicate` that is logically completed by a `DerivedPredicate` definition.
+///
+/// # Parameters
+/// - `entry`: The symbol table entry containing all declarations and usages for this identifier.
+/// - `declaration`: The specific declaration being checked for usage.
+fn has_valid_usage(entry: &SymbolEntry, declaration: &Declaration) -> bool {
+    let decl_kind = declaration.symbol_kind();
+    let decl_scope = declaration.scope();
+
+    // --- PART 1: EXPLICIT USAGE SEARCH ---
+    // Check if the symbol is consumed in the domain (e.g., in actions or effects).
+    for usage in entry.usages() {
+        let usage_kind = usage.symbol_kind();
+
+        // A usage matches if it occurs within a compatible (descendant) scope.
+        let scope_match = usage.scope().starts_with(decl_scope);
+
+        // And if the kind is identical or semantically compatible.
+        let kind_match =
+            usage_kind == decl_kind || decl_kind.can_share_name_space_with(&usage_kind);
+
+        if scope_match && kind_match {
+            return true;
+        }
+    }
+
+    // --- PART 2: SYMBOLIC BINDING LOGIC ---
+    // If no explicit usage was found, check if this is a Predicate "saved"
+    // by the existence of a matching Derived Predicate definition.
+    if decl_kind == SymbolKind::Predicate {
+        for other_decl in entry.declarations() {
+            if other_decl.symbol_kind() == SymbolKind::DerivedPredicate {
+                // The predicate is bound to a derived definition, so it is valid.
+                return true;
+            }
+        }
+    }
+
+    // If no explicit usage or binding is found, the declaration is unused.
+    false
 }
 
 /// Determines whether a declaration should be skipped during unused symbol checking.
@@ -151,7 +183,6 @@ fn skip_unused_symbol_declaration(
             | SymbolKind::DASymbol
             | SymbolKind::Method
             | SymbolKind::TaskID
-
     ) {
         return Ok(true);
     }
@@ -159,12 +190,13 @@ fn skip_unused_symbol_declaration(
     let requirements = context.declared_requirements();
     match declaration.symbol_ident() {
         SymbolInterner::OBJECT_SYMBOL_ID
-            if requirements.contains(&Typing)
-                || requirements.contains(&Adl) =>
+            if requirements.contains(&Typing) || requirements.contains(&Adl) =>
         {
             return Ok(true)
         }
-        SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID if requirements.contains(&NumericFluents) => {
+        SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID
+            if requirements.contains(&NumericFluents) =>
+        {
             return Ok(true)
         }
         SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if requirements.contains(&DurativeActions) => {
@@ -178,9 +210,15 @@ fn skip_unused_symbol_declaration(
     let scope = declaration.scope();
 
     // Check if scope contains specific AST kinds
-    let contains_formula = scope_contains_node_of_kind(scope, AstKind::AtomicFormulaSkeleton, context.syntax_tree())?;
-    let contains_function = scope_contains_node_of_kind(scope, AstKind::AtomicFunctionSkeleton, context.syntax_tree())?;
-    let contains_task = scope_contains_node_of_kind(scope, AstKind::TaskDef, context.syntax_tree())?;
+    let contains_formula =
+        scope_contains_node_of_kind(scope, AstKind::AtomicFormulaSkeleton, context.syntax_tree())?;
+    let contains_function = scope_contains_node_of_kind(
+        scope,
+        AstKind::AtomicFunctionSkeleton,
+        context.syntax_tree(),
+    )?;
+    let contains_task =
+        scope_contains_node_of_kind(scope, AstKind::TaskDef, context.syntax_tree())?;
 
     // Check if symbol is a variable
     let is_variable = matches!(declaration.symbol_kind(), SymbolKind::Variable);
@@ -246,7 +284,9 @@ fn check_pddl_builtin_symbol_declaration(
 
     // 1. On identifie si le nom est un mot-clé réservé selon les requirements
     let (expected_kind, reqs) = match declaration.symbol_ident() {
-        SymbolInterner::OBJECT_SYMBOL_ID if requirements.contains(&Typing) || requirements.contains(&Adl) => {
+        SymbolInterner::OBJECT_SYMBOL_ID
+            if requirements.contains(&Typing) || requirements.contains(&Adl) =>
+        {
             (SymbolKind::PrimitiveType, vec![Typing, Adl])
         }
         SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&NumericFluents) => {
