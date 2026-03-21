@@ -58,11 +58,11 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, Tree};
 
+use crate::aiplan4rust::semantic::symbol::Declaration;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::time::SystemTime;
-use crate::aiplan4rust::semantic::symbol::Declaration;
 
 /// Holds the results of semantic analysis, including the syntax tree, symbol table,
 /// requirements analysis, and associated metadata.
@@ -130,7 +130,6 @@ impl Default for Context {
 }
 
 impl Context {
-
     /// Creates a new semantic context from its components, performs requirements extraction,
     /// and validates the syntax tree invariants.
     ///
@@ -328,6 +327,11 @@ impl Context {
         &self.symbol_table
     }
 
+    /// Returns a mutable reference to the symbol table.
+    pub fn symbol_table_mut(&mut self) -> &mut SymbolTable {
+        &mut self.symbol_table
+    }
+
     /// Attempts to add a declaration to an existing symbol.
     ///
     /// If the symbol identified by `symbol_name` exists, the declaration is added
@@ -337,11 +341,7 @@ impl Context {
     /// This operation is best-effort and does not report errors. It is intended
     /// for controlled enrichment of the semantic context without exposing the
     /// underlying symbol table.
-    pub fn add_declaration(
-        &mut self,
-        symbol_name: SymbolId,
-        declaration: Declaration,
-    ) -> bool {
+    pub fn add_declaration(&mut self, symbol_name: SymbolId, declaration: Declaration) -> bool {
         let Some(symbol) = self.symbol_table.get_symbol_mut(symbol_name) else {
             return false;
         };

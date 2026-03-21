@@ -12,7 +12,7 @@
 	       (have_image ?d - direction ?m - mode)
 	       (calibration_target ?i - instrument ?d - direction))
  
- 
+
 
   (:functions (data_capacity ?s - satellite)
 	      (data ?d - direction ?m - mode)
@@ -86,4 +86,3 @@
 		(increase (data-stored) (data ?d ?m)))
   )
 )
-

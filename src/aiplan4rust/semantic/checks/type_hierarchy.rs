@@ -1,15 +1,15 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::{LiteralId, SymbolId};
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::lang::{LiteralId, SymbolId};
-use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 
+use bimap::BiMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use bimap::BiMap;
 
 /// Checks the type_checker hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///
@@ -61,15 +61,12 @@ pub fn check_type_hierarchy(
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
-
     // Step 1: Collect all type_checker declarations from the root scope (PrimitiveType only)
-    let types = context
-        .symbol_table()
-        .collect_declarations(
-            None,
-            Some(&SymbolKind::PrimitiveType),
-            Some(&context.symbol_table().root_scope()),
-        );
+    let types = context.symbol_table().collect_declarations(
+        None,
+        Some(&SymbolKind::PrimitiveType),
+        Some(&context.symbol_table().root_scope()),
+    );
 
     // Step 2: Build a bidirectional mapping between type_checker names and unique numeric indices
     let type_bimap = build_type_bimap(&types);
@@ -150,7 +147,6 @@ fn report_cyclic_type_declaration_error(
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), SemanticCheckError> {
-
     // Build a fast lookup map from symbol names to declarations
     let type_map: HashMap<SymbolId, &Declaration> = types
         .iter()
@@ -179,12 +175,8 @@ fn report_cyclic_type_declaration_error(
         let first_span = cycle_detail[0].span().clone();
 
         // Emit a diagnostic describing the cyclic type_checker declarations
-        let error = Diagnostic::error_cyclic_type_declaration(
-            cycle_detail,
-            provider,
-            source,
-            first_span,
-        );
+        let error =
+            Diagnostic::error_cyclic_type_declaration(cycle_detail, provider, source, first_span);
 
         diagnostic_manager.add_diagnostic(error);
     }
@@ -216,7 +208,15 @@ fn johnson_find_cycles(graph: &[Vec<bool>]) -> Vec<Vec<usize>> {
     let mut cycles = Vec::new();
 
     for s in 0..n {
-        circuit(s, s, graph, &mut blocked, &mut block_map, &mut stack, &mut cycles);
+        circuit(
+            s,
+            s,
+            graph,
+            &mut blocked,
+            &mut block_map,
+            &mut stack,
+            &mut cycles,
+        );
         blocked.fill(false);
         for bm in block_map.iter_mut() {
             bm.clear();
@@ -414,7 +414,8 @@ fn canonical_cycle(cycle: &[usize]) -> Vec<usize> {
     // Find the index of minimal rotation
     let start = booth_algorithm(cycle);
     // Collect the cycle starting from minimal rotation index, wrapping around with .cycle()
-    cycle.iter()
+    cycle
+        .iter()
         .cycle()
         .skip(start)
         .take(cycle.len())
@@ -518,7 +519,9 @@ fn build_type_adjacency_matrix(
     let mut matrix = vec![vec![false; n]; n];
 
     // Get index of the special "object" typing once
-    let object_index = type_bimap.get_by_left(&SymbolInterner::OBJECT_SYMBOL_ID).copied();
+    let object_index = type_bimap
+        .get_by_left(&SymbolInterner::OBJECT_SYMBOL_ID)
+        .copied();
 
     for declaration in declarations {
         let Some(&type_idx) = type_bimap.get_by_left(&declaration.symbol_ident()) else {
@@ -535,7 +538,7 @@ fn build_type_adjacency_matrix(
             ));
         }
 
-        match declaration.types() {
+        match declaration.ty() {
             Some(parents) => {
                 for parent in parents.iter() {
                     if let Some(&parent_idx) = type_bimap.get_by_left(parent) {
@@ -592,9 +595,7 @@ fn build_type_adjacency_matrix(
 /// let index = type_index_map.get_by_left("robot").unwrap();
 /// let name = type_index_map.get_by_right(*index).unwrap();
 /// ```
-fn build_type_bimap(
-    declarations: &Vec<&Declaration>,
-) -> BiMap<SymbolId, usize> {
+fn build_type_bimap(declarations: &Vec<&Declaration>) -> BiMap<SymbolId, usize> {
     // Create an empty BiMap to store type_checker names (String) and their unique indices (usize)
     let mut temp_map: BiMap<SymbolId, usize> = BiMap::new();
 
@@ -602,17 +603,17 @@ fn build_type_bimap(
     for declaration in declarations {
         // If the type_checker name is not already in the BiMap, insert it with a new unique index
         if !temp_map.contains_left(&declaration.symbol_ident()) {
-            let len = temp_map.len();        // Current size of the map used as next index
+            let len = temp_map.len(); // Current size of the map used as next index
             temp_map.insert(declaration.symbol_ident().clone(), len); // Insert the type_checker name with the index
         }
 
         // If the declaration has parent types (e.g., inherited types)
-        if let Some(parents) = declaration.types() {
+        if let Some(parents) = declaration.ty() {
             // Iterate over each parent type_checker
             for parent in parents.iter() {
                 // Insert the parent type_checker into the map if it's not already present
                 if !temp_map.contains_left(parent) {
-                    let len = temp_map.len();      // Get next index based on current size
+                    let len = temp_map.len(); // Get next index based on current size
                     temp_map.insert(parent.clone(), len); // Insert parent type_checker with index
                 }
             }
@@ -621,7 +622,7 @@ fn build_type_bimap(
 
     // Ensure the special OBJECT_TYPE is present in the map; add if missing
     if !temp_map.contains_left(&SymbolInterner::OBJECT_SYMBOL_ID) {
-        let len = temp_map.len();                    // Next index for insertion
+        let len = temp_map.len(); // Next index for insertion
         temp_map.insert(SymbolInterner::OBJECT_SYMBOL_ID, len); // Insert OBJECT_TYPE as a key
     }
 

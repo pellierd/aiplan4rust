@@ -33,7 +33,7 @@
 use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
+use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
@@ -120,12 +120,6 @@ impl Linker {
             problem.take_semantic_context(),
         ) {
             (Some(domain_ctx), Some(mut problem_ctx)) => {
-                println!(
-                    "/+++/.///{}",
-                    problem_ctx
-                        .symbol_table()
-                        .to_string_with_interner(problem_ctx.interner())
-                );
                 // Step 1: Merge the string interners from domain and problem to form a global interner
                 let mut result = InternerMergeResult::from_domain_and_problem(
                     domain_ctx.interner(),

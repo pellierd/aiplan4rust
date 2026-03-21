@@ -308,7 +308,6 @@ impl SymbolTableBuilder {
             AstKind::DerivedDef => {
                 self.init_from_derived_predicate_def(node_ref, ast, scope.clone())?;
             }
-
             // For any other kinds, recursively process all child nodes to cover nested syntax
             _ => {
                 for child in node_ref.node().children() {

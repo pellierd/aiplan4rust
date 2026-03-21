@@ -305,7 +305,7 @@ impl<'a> TypeChecker<'a> {
             )?;
 
             if let Some(decl) = declaration {
-                if let Some(supertypes) = decl.types() {
+                if let Some(supertypes) = decl.ty() {
                     to_visit.extend(supertypes.iter().cloned());
                 }
             }
@@ -347,7 +347,7 @@ impl<'a> TypeChecker<'a> {
     /// * `Ok(None)` - If the type was already optimal (no changes needed).
     /// * `Err(TypeCheckError)` - If the union exceeds [`MAX_UNION_SIMPLIFICATION_CAPACITY`]
     ///   members or if type resolution fails.
-    pub fn simplify_type_opt(
+    pub fn simplify_type(
         &self,
         ty: &Type<SymbolId>,
     ) -> Result<Option<Type<SymbolId>>, TypeCheckError> {
@@ -380,7 +380,9 @@ impl<'a> TypeChecker<'a> {
 
                 // t1 is redundant if it is an ancestor of t2.
                 // We check if t1 exists within the ascending closure of t2.
-                if self.ascending_type_closure(t2)?.contains(&t1) {
+                let closure = self.ascending_type_closure(t2)?;
+                println!("DEBUG: Closure de {:?} contient: {:?}", t2, closure);
+                if closure.contains(&t1) {
                     to_remove_mask |= 1 << i;
                     changed = true;
                     break; // t1 is marked, skip to the next member (i)

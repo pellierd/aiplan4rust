@@ -45,18 +45,18 @@
 //!
 //! This module depends on serde for serialization and deserialization of declarations.
 
-use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
+use crate::aiplan4rust::lang::Type;
+use crate::aiplan4rust::lang::TypedList;
+use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolOrigin};
+use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
-use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lang::Type;
-use std::collections::HashMap;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fmt;
 
 /// Represents a declaration of a symbol in the abstract syntax arena (AST).
@@ -102,7 +102,7 @@ pub struct Declaration {
     origin: SymbolOrigin,
 
     /// Optional list of types associated with the symbol.
-    types: Option<Type<SymbolId>>,
+    ty: Option<Type<SymbolId>>,
 
     /// Optional list of argument types, grouped in parameter lists.
     arguments: Option<TypedList<SymbolId, SymbolId>>,
@@ -166,14 +166,13 @@ impl Declaration {
             symbol,
             scope,
             origin,
-            types,
+            ty: types,
             arguments,
             span,
             node_id,
-            imported_scope
+            imported_scope,
         }
     }
-
 
     /// Returns a reference to the [`SymbolRef`] associated with this usage.
     pub fn symbol(&self) -> &Symbol {
@@ -199,14 +198,19 @@ impl Declaration {
         self.scope = scope;
     }
 
-    /// Returns a reference to the [`SymbolOrigin`] indicating the origin of the symbol.
-    pub fn origin(&self) -> SymbolOrigin {
-        self.origin
+    /// Returns an optional reference to the list of types associated with the symbol.
+    pub fn ty(&self) -> Option<&Type<SymbolId>> {
+        self.ty.as_ref()
     }
 
-    /// Returns an optional reference to the list of types associated with the symbol.
-    pub fn types(&self) -> Option<&Type<SymbolId>> {
-        self.types.as_ref()
+    /// Sets the types associated with this declaration.
+    pub fn set_ty(&mut self, ty: Type<SymbolId>) {
+        self.ty = Some(ty);
+    }
+
+    /// Clears the types (if your logic allows untyped declarations).
+    pub fn clear_ty(&mut self) {
+        self.ty = None;
     }
 
     /// Returns an optional reference to the list of arguments associated with the symbol.
@@ -214,14 +218,39 @@ impl Declaration {
         self.arguments.as_ref()
     }
 
+    /// Sets a concrete list of arguments (used for predicates/functions).
+    pub fn set_arguments(&mut self, arguments: TypedList<SymbolId, SymbolId>) {
+        self.arguments = Some(arguments);
+    }
+
+    /// Explicitly removes the arguments (e.g., converting to a constant).
+    pub fn clear_arguments(&mut self) {
+        self.arguments = None;
+    }
+
     /// Returns a reference to the [`Span`] in the source code.
     pub fn span(&self) -> &Span {
         &self.span
     }
 
+    /// Sets the source code span associated with this declaration.
+    pub fn set_span(&mut self, span: Span) {
+        self.span = span;
+    }
+
     /// Returns the [`NodeId`] of the AST syntax associated with this usage.
     pub fn node_id(&self) -> NodeId {
         self.node_id
+    }
+
+    /// Sets the [`NodeId`] of the AST syntax associated with this usage.
+    pub fn set_node_id(&mut self, node_id: NodeId) {
+        self.node_id = node_id;
+    }
+
+    /// Returns a reference to the [`SymbolOrigin`] indicating the origin of the symbol.
+    pub fn origin(&self) -> SymbolOrigin {
+        self.origin
     }
 
     /// Sets the [`SymbolOrigin`] of this declaration.
@@ -264,7 +293,7 @@ impl Declaration {
     /// println!("{}", declaration.format_types());
     /// ```
     fn fmt_types(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(types) = &self.types {
+        if let Some(types) = &self.ty {
             write!(f, ", types: (")?;
             if types.is_empty() {
                 write!(f, ")")?;
@@ -284,7 +313,7 @@ impl Declaration {
         }
         Ok(())
     }
-    
+
     /// Formats the arguments of the declaration for display.
     ///
     /// If the declaration has a list of arguments, this function formats them
@@ -347,17 +376,15 @@ impl Declaration {
         w: &mut std::fmt::Formatter<'_>,
         interner: &SymbolInterner,
     ) -> fmt::Result {
-        if let Some(types) = &self.types {
+        if let Some(types) = &self.ty {
             write!(w, ", types: (")?;
 
             match types.members() {
                 [] => { /* no types */ }
-                [single] => {
-                    match interner.resolve_symbol(*single) {
-                        Some(name) => write!(w, "{}", name)?,
-                        None => write!(w, "<uninterned:{}>", single)?,
-                    }
-                }
+                [single] => match interner.resolve_symbol(*single) {
+                    Some(name) => write!(w, "{}", name)?,
+                    None => write!(w, "<uninterned:{}>", single)?,
+                },
                 _ => {
                     write!(w, "either")?;
                     for ty in types.iter() {
@@ -415,7 +442,6 @@ impl Declaration {
 
         Ok(())
     }
-
 }
 
 impl fmt::Display for Declaration {
@@ -438,7 +464,13 @@ impl fmt::Display for Declaration {
     /// A `fmt::Result` which is `Ok` if formatting succeeded, or an error if it failed.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display the main elements: ast_old, kind, scope, and source
-        write!(f, "[index: {}, kind: {}, ident: {}", self.node_id().as_usize(), self.symbol_kind(), self.symbol_ident())?;
+        write!(
+            f,
+            "[index: {}, kind: {}, ident: {}",
+            self.node_id().as_usize(),
+            self.symbol_kind(),
+            self.symbol_ident()
+        )?;
 
         // Add scope and source at the end
         write!(
@@ -446,7 +478,8 @@ impl fmt::Display for Declaration {
             ", scope: {}, source: {}, imported: {}",
             self.scope(),
             self.origin(),
-            self.imported_scope().map_or("None".to_string(), |s| s.to_string())
+            self.imported_scope()
+                .map_or("None".to_string(), |s| s.to_string())
         )?;
 
         // Call the format_types function to format the types
@@ -475,14 +508,14 @@ impl RemapSymbol for Declaration {
     /// # Errors
     ///
     /// Returns [`InternerError`] if any argument identifier cannot be remapped according to `map`.
-    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>{
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         // Remap the main symbol name
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol.set_ident(new_ident.clone());
         }
 
         // Remap associated types
-        if let Some(ref mut types) = self.types {
+        if let Some(ref mut types) = self.ty {
             for ident in types.iter_mut() {
                 if let Some(new_ident) = map.get(ident) {
                     *ident = new_ident.clone();
@@ -523,7 +556,8 @@ impl InternerDisplay for Declaration {
             ", scope: {}, source: {}, imported: {}",
             self.scope(),
             self.origin(),
-            self.imported_scope().map_or("None".to_string(), |s| s.to_string())
+            self.imported_scope()
+                .map_or("None".to_string(), |s| s.to_string())
         )?;
 
         // Appelle les helpers définies dans ce même impl
@@ -532,5 +566,4 @@ impl InternerDisplay for Declaration {
 
         write!(f, "]")
     }
-
 }

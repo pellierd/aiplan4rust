@@ -18,15 +18,15 @@
 //! 3. **Type Resolution**: Uses the `SymbolTable` to distinguish between `:numeric-fluents`
 //!    and `:object-fluents` based on function return types.
 
-use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{AssignOp, CompareOp, Requirement, SymbolId};
+use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticError;
-use crate::aiplan4rust::semantic::symbol::{SymbolKind};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent, Tree};
 use crate::SymbolTable;
+use std::collections::{HashMap, HashSet};
 
 /// Extracts the explicitly declared semantic requirements from the syntax tree.
 ///
@@ -116,7 +116,6 @@ pub fn extract_required_requirements(
     symbol_table: &SymbolTable,
     triggers: &mut HashMap<Requirement, Vec<NodeId>>,
 ) -> Result<HashSet<Requirement>, SemanticError> {
-
     let mut required: HashSet<Requirement> = HashSet::new();
 
     // INTERNAL MACRO: Tracks feature usage by simultaneously updating the set of
@@ -130,7 +129,6 @@ pub fn extract_required_requirements(
         }};
     }
 
-
     // The 'gd' (Goal Description) variable tracks the starting depth of a
     // logical context. It is used as a sentinel to determine if the current
     // node is within a scope that requires specific requirement checks.
@@ -142,7 +140,6 @@ pub fn extract_required_requirements(
     // - 'is_last': Boolean flag indicating if this is the final child of its parent.
     // - 'node': The AST node data currently being visited.
     for (id, depth, is_last, node) in syntax_tree.preorder() {
-
         // --- 1. EXIT GOAL DESCRIPTION (GD) CONTEXT ---
         // If the current traversal depth is less than or equal to the recorded depth
         // of the GD start, we have moved out of the logical scope and must reset the flag.
@@ -216,7 +213,9 @@ pub fn extract_required_requirements(
             // between numeric functions and object-returning functions.
             AstKind::FunctionsDef => {
                 // Optimization: If both fluent types are already detected, skip the entire block.
-                if required.contains(&Requirement::NumericFluents) && required.contains(&Requirement::ObjectFluents) {
+                if required.contains(&Requirement::NumericFluents)
+                    && required.contains(&Requirement::ObjectFluents)
+                {
                     continue;
                 }
 
@@ -225,11 +224,15 @@ pub fn extract_required_requirements(
                     let has_numeric = required.contains(&Requirement::NumericFluents);
                     let has_object = required.contains(&Requirement::ObjectFluents);
 
-                    if has_numeric && has_object { break; }
+                    if has_numeric && has_object {
+                        break;
+                    }
 
                     // Resolve function declaration to inspect the return type.
-                    if let Ok(Some(decl)) = symbol_table.resolve_declaration_by_usage(*child_id, SymbolKind::Function) {
-                        if let Some(ty) = decl.types() {
+                    if let Ok(Some(decl)) =
+                        symbol_table.resolve_declaration_by_usage(*child_id, SymbolKind::Function)
+                    {
+                        if let Some(ty) = decl.ty() {
                             if ty.is_number() {
                                 // Function returns a number: requires :numeric-fluents.
                                 if !has_numeric {
@@ -274,7 +277,8 @@ pub fn extract_required_requirements(
                         // Recursive analysis of the arithmetic expression using a preorder iterator.
                         // We check if the expression remains within the strict scope of :action-costs.
                         let is_pure_action_cost_combination = syntax_tree
-                            .preorder_from(expr_id).ids() // Start from the expression, not the whole metric
+                            .preorder_from(expr_id)
+                            .ids() // Start from the expression, not the whole metric
                             .all(|(c_id, c_node)| {
                                 match c_node.kind() {
                                     // 1. For functions, verify if they are specifically 'total-cost'
@@ -286,7 +290,11 @@ pub fn extract_required_requirements(
 
                                     // 3. Explicitly allow elements permitted in a linear cost combination.
                                     // Standard operators (+, -, *, /) are accepted by default via the '_' arm.
-                                    AstKind::Number | AstKind::TotalTime | AstKind::Arithmetic | AstKind::Variable | AstKind::Object => true,
+                                    AstKind::Number
+                                    | AstKind::TotalTime
+                                    | AstKind::Arithmetic
+                                    | AstKind::Variable
+                                    | AstKind::Object => true,
 
                                     // 4. Accept structural nodes (parentheses, operators, etc.)
                                     _ => true,
@@ -528,11 +536,11 @@ pub fn extract_required_requirements(
                 // --- 1. Detect Continuous Effects (:continuous-effects) ---
                 // According to PDDL BNF: <f-exp-t> ::= (* <f-exp> #t) | #t | ...
                 // We check if the R-Value contains the reserved variable #t (continuous time).
-                let involves_continuous_time = syntax_tree
-                    .preorder_from(r_id).values()
-                    .any(|c_node| {
-                        c_node.kind() == AstKind::Variable &&
-                            c_node.try_ident().ok() == Some(SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID)
+                let involves_continuous_time =
+                    syntax_tree.preorder_from(r_id).values().any(|c_node| {
+                        c_node.kind() == AstKind::Variable
+                            && c_node.try_ident().ok()
+                                == Some(SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID)
                     });
 
                 if involves_continuous_time {
@@ -551,7 +559,9 @@ pub fn extract_required_requirements(
                     // If it's not a simple (increase total-cost ...) or an initial assignment,
                     // or if #t is involved (costs cannot be continuous without full fluents),
                     // we upgrade the requirement to :numeric-fluents.
-                    if !matches!(op, AssignOp::Increase | AssignOp::Assign) || involves_continuous_time {
+                    if !matches!(op, AssignOp::Increase | AssignOp::Assign)
+                        || involves_continuous_time
+                    {
                         add_req!(Requirement::NumericFluents, id);
                     }
                 } else {
@@ -570,7 +580,9 @@ pub fn extract_required_requirements(
                 // --- 3. R-Value (Source) Analysis ---
                 // If NumericFluents isn't active yet, check if the source expression necessitates it.
                 if !required.contains(&Requirement::NumericFluents) {
-                    if let Some(Requirement::NumericFluents) = self::get_term_requirement(r_id, syntax_tree, symbol_table)? {
+                    if let Some(Requirement::NumericFluents) =
+                        self::get_term_requirement(r_id, syntax_tree, symbol_table)?
+                    {
                         // Only trigger if we aren't in a pure action-cost total-cost update.
                         if !target_is_total_cost {
                             add_req!(Requirement::NumericFluents, id);
@@ -595,7 +607,8 @@ pub fn extract_required_requirements(
                 // --- 1. Specific Handling for :duration-inequalities ---
                 // If one side involves the '?duration' variable and the operator is an
                 // inequality (e.g., >=), it triggers the specific :duration-inequalities requirement.
-                let is_dur = is_duration_variable(l_id, syntax_tree) || is_duration_variable(r_id, syntax_tree);
+                let is_dur = is_duration_variable(l_id, syntax_tree)
+                    || is_duration_variable(r_id, syntax_tree);
                 if is_dur && op != CompareOp::Equal {
                     add_req!(Requirement::DurationInequalities, id);
                 }
@@ -616,7 +629,8 @@ pub fn extract_required_requirements(
                             add_req!(Requirement::NumericFluents, id);
                         }
                         // Rule 2: Handling object comparisons (requires :object-fluents).
-                        (Some(Requirement::ObjectFluents), _) | (_, Some(Requirement::ObjectFluents)) => {
+                        (Some(Requirement::ObjectFluents), _)
+                        | (_, Some(Requirement::ObjectFluents)) => {
                             add_req!(Requirement::ObjectFluents, id);
                         }
                         // Rule 3: Simple equality (=) between standard symbols.
@@ -665,11 +679,9 @@ pub fn extract_required_requirements(
             | AstKind::TotalTime
             | AstKind::Function
             | AstKind::FunctionSymbol
-            | AstKind::AtomicFunctionSkeleton
-             => {
+            | AstKind::AtomicFunctionSkeleton => {
                 // No requirement associated
             }
-
         }
     }
 
@@ -686,7 +698,6 @@ pub fn extract_required_requirements(
 
     Ok(required)
 }
-
 
 /// Attempts to determine the PDDL requirement implied by a specific term node.
 ///
@@ -722,7 +733,7 @@ pub fn extract_required_requirements(
 fn get_term_requirement(
     id: NodeId,
     tree: &Tree<AstNode>,
-    table: &SymbolTable
+    table: &SymbolTable,
 ) -> Result<Option<Requirement>, SemanticError> {
     let node = tree.try_node(id)?;
 
@@ -757,7 +768,7 @@ fn get_term_requirement(
 
         // Resolve the function declaration to check its return type.
         if let Ok(Some(decl)) = table.resolve_declaration_by_usage(id, SymbolKind::Function) {
-            if let Some(ty) = decl.types() {
+            if let Some(ty) = decl.ty() {
                 return Ok(Some(if ty.is_number() {
                     Requirement::NumericFluents
                 } else {

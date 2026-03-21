@@ -2,7 +2,7 @@
 (define (domain satellite)
   (:requirements :strips :equality :typing)
   (:types satellite direction instrument mode)
- (:predicates 
+ (:predicates
                (on_board ?i - instrument ?s - satellite)
 	       (supports ?i - instrument ?m - mode)
 	       (pointing ?s - satellite ?d - direction)
@@ -11,8 +11,8 @@
 	       (calibrated ?i - instrument)
 	       (have_image ?d - direction ?m - mode)
 	       (calibration_target ?i - instrument ?d - direction))
- 
- 
+
+
 
   (:action turn_to
    :parameters (?s - satellite ?d_new - direction ?d_prev - direction)
@@ -73,4 +73,3 @@
    :effect (have_image ?d ?m)
   )
 )
-

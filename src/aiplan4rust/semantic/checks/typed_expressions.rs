@@ -421,7 +421,7 @@ fn get_variable_type(
         .symbol_table()
         .resolve_declaration_by_usage(index, SymbolKind::Variable)?
     {
-        return Ok(decl.types().cloned());
+        return Ok(decl.ty().cloned());
     }
 
     // 2. Implicit Case: If no explicit declaration exists, check for reserved symbols.
@@ -502,7 +502,7 @@ fn get_declaration_type(
         .symbol_table()
         .resolve_declaration_by_usage(node_id, kind)?
     {
-        Some(decl) => Ok(decl.types().cloned()),
+        Some(decl) => Ok(decl.ty().cloned()),
         None => Ok(None),
     }
 }

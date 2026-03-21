@@ -1,13 +1,13 @@
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::tree::{NodeId, Node};
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
+use crate::aiplan4rust::tree::{Node, NodeId};
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax arena.
 ///
@@ -80,7 +80,8 @@ pub fn check_declared_symbol_signatures(
                 // 2. Cas spécifique des types (Singletons) :
                 //    Même si can_share(Type, Constant) est vrai, on ne compare pas leurs signatures.
                 //    Une constante n'a pas de paramètres, contrairement à un prédicat ou une tâche.
-                if (matches!(decl_kind, SymbolKind::PrimitiveType) || matches!(usage_kind, SymbolKind::PrimitiveType))
+                if (matches!(decl_kind, SymbolKind::PrimitiveType)
+                    || matches!(usage_kind, SymbolKind::PrimitiveType))
                     && usage_kind != decl_kind
                 {
                     continue;
@@ -210,14 +211,20 @@ fn match_argument(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     // Retrieve the symbol name associated with the argument from the annotated syntax arena
-    let name = context.syntax_tree().try_node(NodeId::new(argument_index))?.try_ident()?;
+    let name = context
+        .syntax_tree()
+        .try_node(NodeId::new(argument_index))?
+        .try_ident()?;
 
     // Look up the corresponding declaration in the symbol table,
     // given the expected kind and usage scope
     let symbol_declaration = match symbol_table.resolve_declaration(&name, &kind, usage.scope())? {
         Some(decl) => decl,
         None => {
-            return Err(SemanticCheckError::missing_declaration(name, usage.scope().clone()));
+            return Err(SemanticCheckError::missing_declaration(
+                name,
+                usage.scope().clone(),
+            ));
         }
     };
 
@@ -225,7 +232,9 @@ fn match_argument(
     let declared_arguments = match declaration.arguments() {
         Some(args) => args,
         None => {
-            return Err(SemanticCheckError::missing_declaration_arguments(declaration.scope().clone()));
+            return Err(SemanticCheckError::missing_declaration_arguments(
+                declaration.scope().clone(),
+            ));
         }
     };
 
@@ -233,15 +242,21 @@ fn match_argument(
     let ty1 = match declared_arguments.get(index) {
         Some(arg) => arg.ty(),
         None => {
-            return Err(SemanticCheckError::argument_index_out_of_bounds(index, declaration.scope().clone()));
+            return Err(SemanticCheckError::argument_index_out_of_bounds(
+                index,
+                declaration.scope().clone(),
+            ));
         }
     };
 
     // Retrieve the type_checker of the symbol from the declaration found in the symbol table
-    let ty2 = match symbol_declaration.types() {
+    let ty2 = match symbol_declaration.ty() {
         Some(types) => types,
         None => {
-            return Err(SemanticCheckError::missing_symbol_types(name, usage.scope().clone()));
+            return Err(SemanticCheckError::missing_symbol_types(
+                name,
+                usage.scope().clone(),
+            ));
         }
     };
 
@@ -262,7 +277,9 @@ fn match_argument(
     // We use the centralized 'can_share_name_space_with' to validate this HDDL-specific overlap.
     if !is_subtype
         && usage.symbol_kind() == SymbolKind::Task
-        && declaration.symbol_kind().can_share_name_space_with(&usage.symbol_kind())
+        && declaration
+            .symbol_kind()
+            .can_share_name_space_with(&usage.symbol_kind())
     {
         let warning = Diagnostic::warning_task_argument_is_supertype_of_declaration(
             symbol_declaration.clone(),

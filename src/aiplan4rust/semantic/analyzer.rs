@@ -57,13 +57,17 @@
 //! typing errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
+use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
+use crate::aiplan4rust::tree::NodeId;
+use crate::SymbolTable;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -195,15 +199,21 @@ impl Analyzer {
     fn perform_analysis(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, SemanticError> {
         // Build semantic context from AST
         let mut context = SemanticContext::try_from(ast)?;
-        let check_ctx = CheckContext::from(&context);
 
         // Determine root kind and run appropriate checks
         let root_ref = context.syntax_tree().try_root_node_ref()?;
         match root_ref.node().kind() {
             AstKind::Domain => {
-                Self::check_domain(&check_ctx, &mut self.diagnostic_manager)?;
+                Self::check_domain(&mut context, &mut self.diagnostic_manager)?;
+                /*println!(
+                    "DEBUG: {}",
+                    context
+                        .take_symbol_table()
+                        .to_string_with_interner(context.interner())
+                );*/
             }
             AstKind::Problem => {
+                let check_ctx = CheckContext::from(&context);
                 Self::check_problem(&check_ctx, &mut self.diagnostic_manager)?;
             }
             found => {
@@ -246,57 +256,78 @@ impl Analyzer {
     /// `Ok(true)` if all checks pass without errors, `Ok(false)` if any check fails,
     /// or `Err(SemanticError)` if an internal error occurs.
     fn check_domain(
+        context: &mut SemanticContext, // On prend le SemanticContext pour avoir le .symbol_table_mut()
+        diagnostic_manager: &mut DiagnosticManager,
+    ) -> Result<bool, SemanticError> {
+        // --- ÉTAPE 1 : CHECK BASE ---
+        // On crée un CheckContext temporaire dans un bloc { }
+        // pour qu'il libère son emprunt immuable à la fin du bloc.
+        let mut checked = {
+            let check_ctx = CheckContext::from(&*context);
+            Self::check_domain_base(&check_ctx, diagnostic_manager)?
+        };
+
+        if checked {
+            // --- ÉTAPE 2 : MODIFICATION (SIMPLIFICATION) ---
+            // Ici, check_ctx est détruit, on peut donc accéder au symbol_table_mut()
+            let table = context.symbol_table_mut();
+
+            // On crée un Analyzer temporaire ou on appelle la méthode si elle est statique
+            // Note: Si simplify_symbol_table_either_type est une méthode de self,
+            // il faudra passer &self à check_domain.
+            Self::simplify_symbol_table_either_type(table)?;
+
+            // --- ÉTAPE 3 : CHECK ADVANCED ---
+            // On recrée un CheckContext tout neuf qui voit la table modifiée
+            let check_ctx = CheckContext::from(&*context);
+            checked &= Self::check_domain_advanced(&check_ctx, diagnostic_manager)?;
+        }
+
+        Ok(checked)
+    }
+
+    fn check_domain_base(
         context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
-        // Skip checking unused symbols of kind Constant in domain
-        let skip_symbols_unused = &[SymbolKind::Constant];
+        let mut checked =
+            Self::check_symbols(context, &[], &[SymbolKind::Constant], diagnostic_manager)?;
 
-        // First, check symbols for declarations and unused symbols
-        let mut checked = Self::check_symbols(
-            context,
-            &[],                 // no skip for undeclared symbols here
-            skip_symbols_unused, // skip Constants for unused check
-            diagnostic_manager,
-        )?;
-
-        // Check typing hierarchy correctness
         checked &= semantic::checks::check_type_hierarchy(
             context,
             Provider::Analyzer,
             diagnostic_manager,
         )?;
 
-        if checked {
-            // Build typing checker from symbol table
-            let type_checker = TypeChecker::new(context.symbol_table());
+        Ok(checked)
+    }
 
-            // Perform detailed semantic checks using typing checker
-            checked &= semantic::checks::check_declared_symbol_signatures(
-                context,
-                &type_checker,
-                diagnostic_manager,
-            )?;
+    fn check_domain_advanced(
+        context: &CheckContext,
+        diagnostic_manager: &mut DiagnosticManager,
+    ) -> Result<bool, SemanticError> {
+        let type_checker = TypeChecker::new(context.symbol_table());
+        let mut checked = true;
 
-            checked &= semantic::checks::check_typed_expressions(
-                context,
-                &type_checker,
-                Provider::Analyzer,
-                diagnostic_manager,
-            )?;
+        checked &= semantic::checks::check_declared_symbol_signatures(
+            context,
+            &type_checker,
+            diagnostic_manager,
+        )?;
+        checked &= semantic::checks::check_typed_expressions(
+            context,
+            &type_checker,
+            Provider::Analyzer,
+            diagnostic_manager,
+        )?;
+        checked &=
+            semantic::checks::check_task_ordering(context, Provider::Analyzer, diagnostic_manager)?;
 
-            checked &= semantic::checks::check_task_ordering(
-                context,
-                Provider::Analyzer,
-                diagnostic_manager,
-            )?;
-
-            semantic::checks::check_requirement_violations(
-                context,
-                Provider::Analyzer,
-                diagnostic_manager,
-            )?;
-        }
+        semantic::checks::check_requirement_violations(
+            context,
+            Provider::Analyzer,
+            diagnostic_manager,
+        )?;
 
         Ok(checked)
     }
@@ -388,4 +419,80 @@ impl Analyzer {
 
         Ok(checked)
     }
+
+    pub fn simplify_symbol_table_either_type(
+        symbol_table: &mut SymbolTable,
+    ) -> Result<(), TypeCheckError> {
+        // Sous-fonction 1 : Collecte (Immuable) - Utilise uniquement des IDs
+        let changes = Self::collect_type_simplifications(symbol_table)?;
+
+        // Sous-fonction 2 : Application (Mutable) - Utilise take() pour éviter les clones
+        if !changes.is_empty() {
+            Self::apply_type_simplifications(symbol_table, changes);
+        }
+
+        Ok(())
+    }
+
+    fn collect_type_simplifications(
+        symbol_table: &SymbolTable,
+    ) -> Result<Vec<TypeSimplification>, TypeCheckError> {
+        let checker = TypeChecker::new(symbol_table);
+        let mut changes = Vec::new();
+
+        for (&symbol_id, entry) in symbol_table.iter() {
+            for decl in entry.declarations().iter() {
+                if let Some(raw_ty) = decl.ty() {
+                    if let Some(new_type) = checker.simplify_type(raw_ty)? {
+                        // OPTIMISATION : On ne stocke que le NodeId (léger)
+                        changes.push(TypeSimplification {
+                            symbol_id,
+                            node_id: decl.node_id(),
+                            new_type,
+                        });
+                    }
+                }
+            }
+        }
+        Ok(changes)
+    }
+
+    fn apply_type_simplifications(
+        symbol_table: &mut SymbolTable,
+        changes: Vec<TypeSimplification>,
+    ) {
+        for change in changes {
+            if let Some(entry) = symbol_table.get_symbol_mut(change.symbol_id) {
+                // Étape 1 : Obtenir une clé de recherche sans bloquer le Borrow Checker
+                // On clone uniquement le strict nécessaire pour identifier l'objet
+                let target_node_id = change.node_id;
+
+                // Étape 2 : Extraction et réinsertion
+                // On cherche l'objet complet. On est obligé de passer par une ref temporaire.
+                let old_decl_ref = entry
+                    .declarations()
+                    .iter()
+                    .find(|d| d.node_id() == target_node_id);
+
+                if let Some(r) = old_decl_ref {
+                    // On clone la structure (très rapide car IDs = Copy)
+                    // pour libérer l'emprunt immuable sur 'entry'
+                    let key = r.clone();
+
+                    // On extrait l'original, on modifie, on réinsère
+                    if let Some(mut original) = entry.declarations_mut().take(&key) {
+                        original.set_ty(change.new_type);
+                        entry.declarations_mut().insert(original);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Représente une modification de type à appliquer sur une déclaration
+struct TypeSimplification {
+    symbol_id: SymbolId,
+    node_id: NodeId,
+    new_type: Type<SymbolId>,
 }
