@@ -54,18 +54,24 @@
 //! This module assumes that the symbol table has been fully populated before typing checking.
 
 use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
 
-use std::collections::{HashMap, HashSet};
 use std::cell::{Ref, RefCell};
+use std::collections::{HashMap, HashSet};
 
+/// The maximum number of members allowed in a type union for optimized simplification.
+/// This limit is defined by the size of the bitmask (u128) used in the algorithm.
+const MAX_UNION_SIMPLIFICATION_CAPACITY: usize = 128;
 
 /// PDDL Built-in symbols.
-const PDDL_BUILTIN_TYPES: [SymbolId; 2] = [SymbolInterner::OBJECT_SYMBOL_ID, SymbolInterner::NUMBER_SYMBOL_ID];
+const PDDL_BUILTIN_TYPES: [SymbolId; 2] = [
+    SymbolInterner::OBJECT_SYMBOL_ID,
+    SymbolInterner::NUMBER_SYMBOL_ID,
+];
 
 /// A struct for performing typing checking within a given domain.
 ///
@@ -238,7 +244,8 @@ impl<'a> TypeChecker<'a> {
 
         // Check if any supertype of the second typing set intersects with the first one.
         for t2 in ty2.iter() {
-            if self.ascending_type_closure(*t2)?
+            if self
+                .ascending_type_closure(*t2)?
                 .iter()
                 .any(|t| supertypes1.contains(t))
             {
@@ -327,5 +334,77 @@ impl<'a> TypeChecker<'a> {
     /// * `false` otherwise.
     pub fn is_pddl_builtin_types(ty: SymbolId) -> bool {
         PDDL_BUILTIN_TYPES.contains(&ty)
+    }
+
+    /// Simplifies a type union by removing redundant super-types.
+    ///
+    /// If an 'either' type contains both a type and its ancestor (e.g., `satellite` and `object`),
+    /// the ancestor is redundant and removed.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(Type))` - A new simplified version of the type if redundancies were found.
+    /// * `Ok(None)` - If the type was already optimal (no changes needed).
+    /// * `Err(TypeCheckError)` - If the union exceeds [`MAX_UNION_SIMPLIFICATION_CAPACITY`]
+    ///   members or if type resolution fails.
+    pub fn simplify_type_opt(
+        &self,
+        ty: &Type<SymbolId>,
+    ) -> Result<Option<Type<SymbolId>>, TypeCheckError> {
+        let members = ty.members();
+        let n = members.len();
+
+        // 1. Fast path: 0 or 1 member cannot be redundant
+        if n <= 1 {
+            return Ok(None);
+        }
+
+        // 2. Safety guard: bitmask capacity check (u128)
+        if n > MAX_UNION_SIMPLIFICATION_CAPACITY {
+            return Err(TypeCheckError::type_union_capacity_exceeded(n));
+        }
+
+        // 3. Bitmask to mark redundant types for removal (0 heap allocation)
+        // We use u128 to support up to 128 members.
+        let mut to_remove_mask: u128 = 0;
+        let mut changed = false;
+
+        for i in 0..n {
+            let t1 = members[i];
+            for j in 0..n {
+                if i == j {
+                    continue;
+                }
+
+                let t2 = members[j];
+
+                // t1 is redundant if it is an ancestor of t2.
+                // We check if t1 exists within the ascending closure of t2.
+                if self.ascending_type_closure(t2)?.contains(&t1) {
+                    to_remove_mask |= 1 << i;
+                    changed = true;
+                    break; // t1 is marked, skip to the next member (i)
+                }
+            }
+        }
+
+        // 4. If no redundancy detected, avoid any further allocation
+        if !changed {
+            return Ok(None);
+        }
+
+        // 5. Final construction: single perfectly-sized Vec allocation.
+        // count_ones() on u128 is still a very fast intrinsic.
+        let final_capacity = n - to_remove_mask.count_ones() as usize;
+        let mut simplified_ids = Vec::with_capacity(final_capacity);
+
+        for i in 0..n {
+            // If bit i is not set, the type is kept
+            if (to_remove_mask & (1 << i)) == 0 {
+                simplified_ids.push(members[i]);
+            }
+        }
+
+        Ok(Some(Type::from(simplified_ids)))
     }
 }

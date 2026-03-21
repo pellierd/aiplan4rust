@@ -2,6 +2,7 @@
 (:domain satellite)
 (:objects
 	satellite0 - satellite
+	satellite0 - object
 	instrument0 - instrument
 	image1 - mode
 	spectrograph2 - mode

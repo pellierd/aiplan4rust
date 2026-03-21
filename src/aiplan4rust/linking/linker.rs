@@ -31,16 +31,15 @@
 //! ```
 
 use std::mem::take;
-use std::collections::HashSet;
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolOrigin, Usage};
-use crate::aiplan4rust::semantic::{AnalyzerResult, SemanticError};
+use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 
@@ -116,8 +115,17 @@ impl Linker {
         mut domain: AnalyzerResult,
         mut problem: AnalyzerResult,
     ) -> Result<LinkerResult, LinkingError> {
-        match (domain.take_semantic_context(), problem.take_semantic_context()) {
+        match (
+            domain.take_semantic_context(),
+            problem.take_semantic_context(),
+        ) {
             (Some(domain_ctx), Some(mut problem_ctx)) => {
+                println!(
+                    "/+++/.///{}",
+                    problem_ctx
+                        .symbol_table()
+                        .to_string_with_interner(problem_ctx.interner())
+                );
                 // Step 1: Merge the string interners from domain and problem to form a global interner
                 let mut result = InternerMergeResult::from_domain_and_problem(
                     domain_ctx.interner(),
@@ -131,10 +139,12 @@ impl Linker {
                 problem_ctx.remap(&ident_map, &literal_map)?;
 
                 // Collect diagnostics from domain and problem diagnostic managers
-                self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
+                self.diagnostic_manager
+                    .add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
                 problem_diag_mgr.remap(&ident_map, &literal_map)?;
-                self.diagnostic_manager.add_diagnostic_from(problem_diag_mgr);
+                self.diagnostic_manager
+                    .add_diagnostic_from(problem_diag_mgr);
 
                 // Step 3: Resolve external references in the problem with respect to the domain
                 resolve_external_references(&domain_ctx, &mut problem_ctx)?;
@@ -151,35 +161,52 @@ impl Linker {
                     problem_ctx.source_id(),
                     &total_declared,
                     &problem_ctx.required_requirements(),
-                    problem_ctx.requirement_triggers()
+                    problem_ctx.requirement_triggers(),
                 );
-                perform_linking_checks(&domain_ctx, &problem_check_ctx, &mut self.diagnostic_manager)?;
+                perform_linking_checks(
+                    &domain_ctx,
+                    &problem_check_ctx,
+                    &mut self.diagnostic_manager,
+                )?;
 
                 // Step 5: If errors, return early with diagnostics only
-                if self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
-                    return Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner));
+                if self
+                    .diagnostic_manager
+                    .has_diagnostics_of_severity(Severity::Error)
+                {
+                    return Ok(LinkerResult::failure(
+                        take(&mut self.diagnostic_manager),
+                        global_interner,
+                    ));
                 }
 
                 // Step 7: Construct the final linked semantic context
-                let semantic_context = LinkedSemanticContext::new(
-                    domain_ctx,
-                    problem_ctx,
-                    global_interner,
-                )?;
+                let semantic_context =
+                    LinkedSemanticContext::new(domain_ctx, problem_ctx, global_interner)?;
 
-                 // Adapte selon ton API
+                // Adapte selon ton API
                 // Step 8: Return the result with the semantic context and diagnostics
-                Ok(LinkerResult::success(semantic_context, take(&mut self.diagnostic_manager)))
+                Ok(LinkerResult::success(
+                    semantic_context,
+                    take(&mut self.diagnostic_manager),
+                ))
             }
             _ => {
                 let domain_interner = domain.take_interner();
                 let problem_interner = problem.take_interner();
-                let mut result = InternerMergeResult::from_domain_and_problem(&domain_interner, &problem_interner);
+                let mut result = InternerMergeResult::from_domain_and_problem(
+                    &domain_interner,
+                    &problem_interner,
+                );
                 let global_interner = result.take_interner();
-                self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
+                self.diagnostic_manager
+                    .add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
                 problem_diag_mgr.remap(result.symbol_map(), result.literal_map())?;
-                Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner))
+                Ok(LinkerResult::failure(
+                    take(&mut self.diagnostic_manager),
+                    global_interner,
+                ))
             }
         }
     }
@@ -236,7 +263,6 @@ fn perform_linking_checks(
     problem: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingError> {
-
     // Check that the domain name matches the problem's declared domain
     linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
 
@@ -398,7 +424,8 @@ fn collect_declared_and_undeclared_symbols<'a>(
             let kind = usage.symbol_kind();
 
             // Count existing declarations for this kind in the problem
-            let matching_count = symbol.declarations()
+            let matching_count = symbol
+                .declarations()
                 .iter()
                 .filter(|d| d.symbol().kind() == kind)
                 .count();
@@ -415,7 +442,8 @@ fn collect_declared_and_undeclared_symbols<'a>(
                     if let Some(domain_declaration) = domain_declaration_option {
                         let mut domain_declaration = domain_declaration.clone();
                         domain_declaration.set_origin(SymbolOrigin::Domain);
-                        domain_declaration.set_imported_scope(Some(domain_declaration.scope().clone()));
+                        domain_declaration
+                            .set_imported_scope(Some(domain_declaration.scope().clone()));
                         domain_declaration.set_scope(problem.symbol_table().root_scope().clone());
 
                         declared.push((symbol_ident, domain_declaration));
@@ -424,7 +452,7 @@ fn collect_declared_and_undeclared_symbols<'a>(
                         undeclared.push((symbol_ident, usage));
                         all_resolved = false;
                     }
-                },
+                }
 
                 // CASE 1: Already correctly declared -> Nothing to do
                 1 => continue,
@@ -432,7 +460,10 @@ fn collect_declared_and_undeclared_symbols<'a>(
                 _ => {
                     // More than one declaration found:
                     // Return the error using the helper function.
-                    return Err(LinkingError::duplicate_symbol_declaration(Symbol::new(symbol_ident, kind)));
+                    return Err(LinkingError::duplicate_symbol_declaration(Symbol::new(
+                        symbol_ident,
+                        kind,
+                    )));
                 }
             }
         }

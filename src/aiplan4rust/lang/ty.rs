@@ -1,8 +1,7 @@
-use core::borrow::Borrow;
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{SymbolId, TypeId, Id, RemapSymbol};
+use crate::aiplan4rust::lang::{Id, RemapSymbol, SymbolId, TypeId};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
-use once_cell::sync::Lazy;
+use core::borrow::Borrow;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -18,7 +17,9 @@ pub struct Type<ID: Id> {
 
 impl<ID: Id> Default for Type<ID> {
     fn default() -> Self {
-        Self { members: Vec::new() }
+        Self {
+            members: Vec::new(),
+        }
     }
 }
 
@@ -26,9 +27,10 @@ impl<ID: Id> Default for Type<ID> {
 
 impl<ID: Id> Type<ID> {
     pub fn new() -> Self {
-        Self { members: Vec::new() }
+        Self {
+            members: Vec::new(),
+        }
     }
-
 
     pub fn root() -> Self {
         Type::new()
@@ -47,15 +49,29 @@ impl<ID: Id> Type<ID> {
         self.members.push(member);
     }
 
-    pub fn members(&self) -> &[ID] { &self.members }
-    pub fn members_mut(&mut self) -> &mut Vec<ID> { &mut self.members }
-    pub fn len(&self) -> usize { self.members.len() }
-    pub fn is_empty(&self) -> bool { self.members.is_empty() }
+    pub fn members(&self) -> &[ID] {
+        &self.members
+    }
+    pub fn members_mut(&mut self) -> &mut Vec<ID> {
+        &mut self.members
+    }
+    pub fn len(&self) -> usize {
+        self.members.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.members.is_empty()
+    }
 
-    pub fn is_root(&self) -> bool { self.is_empty() }
+    pub fn is_root(&self) -> bool {
+        self.is_empty()
+    }
 
-    pub fn is_primitive(&self) -> bool { self.members.len() == 1 }
-    pub fn is_either(&self) -> bool { self.members.len() > 1 }
+    pub fn is_primitive(&self) -> bool {
+        self.members.len() == 1
+    }
+    pub fn is_either(&self) -> bool {
+        self.members.len() > 1
+    }
 
     /// Retourne un itérateur sur les membres du typing.
     pub fn iter(&self) -> std::slice::Iter<'_, ID> {
@@ -65,7 +81,6 @@ impl<ID: Id> Type<ID> {
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, ID> {
         self.members.iter_mut()
     }
-
 }
 
 /// Permet d'utiliser `for types in &my_type` directement.
@@ -87,10 +102,16 @@ impl<ID: Id> Borrow<[ID]> for Type<ID> {
     }
 }
 
+impl<ID: Id> From<Vec<ID>> for Type<ID> {
+    fn from(members: Vec<ID>) -> Self {
+        Self { members }
+    }
+}
+
 // --- Spécialisation pour StringID (Parsing / Syntaxe) ---
 
 impl Type<SymbolId> {
-   /* pub fn object() -> &'static Self {
+    /* pub fn object() -> &'static Self {
         static OBJECT_TYPE: Lazy<Type<SymbolId>> = Lazy::new(|| {
             Type::primitive(SymbolInterner::OBJECT_SYMBOL_ID)
         });
@@ -123,7 +144,6 @@ impl Type<SymbolId> {
     pub fn is_number(&self) -> bool {
         self.is_primitive() && self.members[0] == SymbolInterner::NUMBER_SYMBOL_ID
     }
-
 }
 
 impl Type<TypeId> {
@@ -158,7 +178,9 @@ impl<ID: Id> fmt::Display for Type<ID> {
         } else {
             write!(f, "either(")?;
             for (i, id) in self.members.iter().enumerate() {
-                if i > 0 { write!(f, ", ")?; }
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
                 write!(f, "{}", id)?;
             }
             write!(f, ")")
@@ -169,9 +191,13 @@ impl<ID: Id> fmt::Display for Type<ID> {
 // Spécialisation pour l'affichage via Interner pour StringID
 impl InternerDisplay for Type<SymbolId> {
     fn fmt_with_interner(&self, w: &mut Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
-        if self.members.is_empty() { return write!(w, "<empty>"); }
+        if self.members.is_empty() {
+            return write!(w, "<empty>");
+        }
         for (i, ty) in self.members.iter().enumerate() {
-            if i > 0 { write!(w, " ")?; }
+            if i > 0 {
+                write!(w, " ")?;
+            }
             match interner.resolve_symbol(*ty) {
                 Some(name) => write!(w, "{}", name)?,
                 None => write!(w, "{}", ty)?,
@@ -184,9 +210,13 @@ impl InternerDisplay for Type<SymbolId> {
 // Spécialisation pour TypeID : On affiche l'ID technique (T#1) car l'interner ident ne le connaît pas
 impl InternerDisplay for Type<TypeId> {
     fn fmt_with_interner(&self, w: &mut Formatter<'_>, _interner: &SymbolInterner) -> fmt::Result {
-        if self.members.is_empty() { return write!(w, "<empty>"); }
+        if self.members.is_empty() {
+            return write!(w, "<empty>");
+        }
         for (i, ty) in self.members.iter().enumerate() {
-            if i > 0 { write!(w, " ")?; }
+            if i > 0 {
+                write!(w, " ")?;
+            }
             write!(w, "{}", ty)?;
         }
         Ok(())
@@ -196,7 +226,12 @@ impl InternerDisplay for Type<TypeId> {
 // --- Affichage Syntaxique Spécialisé ---
 
 impl SyntaxInternerDisplay for Type<SymbolId> {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &SymbolInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &SymbolInterner,
+        indent: usize,
+    ) -> fmt::Result {
         write_indent(f, indent)?;
         match self.members.len() {
             0 => write!(f, "object"),
@@ -222,10 +257,15 @@ impl SyntaxInternerDisplay for Type<SymbolId> {
     }
 }
 
-// Pour TypeID, la syntaxe PDDL n'est généralement plus requise (déjà compilé), 
+// Pour TypeID, la syntaxe PDDL n'est généralement plus requise (déjà compilé),
 // mais on fournit un fallback cohérent.
 impl SyntaxInternerDisplay for Type<TypeId> {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &SymbolInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        _interner: &SymbolInterner,
+        indent: usize,
+    ) -> fmt::Result {
         write_indent(f, indent)?;
         write!(f, "{}", self)
     }

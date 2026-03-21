@@ -38,9 +38,9 @@
 //!
 //! [`thiserror`]: https://docs.rs/thiserror
 
-use thiserror::Error;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use thiserror::Error;
 
 /// Represents errors that may occur during the typing checking phase of semantic analysis.
 ///
@@ -76,12 +76,38 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 /// [`thiserror`]: https://docs.rs/thiserror
 #[derive(Debug, Error)]
 pub enum TypeCheckError {
-
     /// Error originating from the symbol table layer.
     ///
     /// Allows symbol table construction errors to be transparently surfaced during typing checking.
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
+
+    /// Indicates that a type union (`either`) contains too many types to be processed
+    /// by the optimized bitmask-based simplification (limit is 64).
+    ///
+    /// This is an extremely rare case in PDDL domains but acts as a safety guard
+    /// for the underlying bitwise operations.
+    #[error("Type union capacity exceeded: {0} members found, but a maximum of 64 is supported for simplification")]
+    TypeUnionCapacityExceeded(usize),
+}
+
+impl TypeCheckError {
+    /// Creates a new `TypeUnionCapacityExceeded` error.
+    ///
+    /// This error is raised when a type union (e.g., an `either` declaration)
+    /// contains more than 64 primitive types. This limit is imposed by the
+    /// optimized bitmask-based simplification algorithm.
+    ///
+    /// # Arguments
+    ///
+    /// * `count` - The actual number of members found in the type union.
+    ///
+    /// # Returns
+    ///
+    /// A `TypeCheckError` variant specifically for capacity overflow.
+    pub fn type_union_capacity_exceeded(count: usize) -> Self {
+        Self::TypeUnionCapacityExceeded(count).trace()
+    }
 }
 
 impl Traceable for TypeCheckError {}
