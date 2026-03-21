@@ -37,11 +37,10 @@
 //! ```
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
+use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::{encoding, passes, LirEncoderResult, LirError};
-use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
 /// syntax domain/problem into a *lifted intermediate representation* (LiftedProblem).
@@ -124,10 +123,7 @@ impl LirEncoder {
     ///     }
     /// }
     /// ```
-    pub fn encode(
-        &mut self,
-        context: LinkedSemanticContext,
-    ) -> Result<LirEncoderResult, LirError> {
+    pub fn encode(&mut self, context: LinkedSemanticContext) -> Result<LirEncoderResult, LirError> {
         // 1. Create a LiftedProblem from the linked semantic context
         let lifted_problem = encode_lifted_problem(context)?;
 
@@ -148,7 +144,6 @@ impl LirEncoder {
         self.encode(context)
     }
 }
-
 
 /// Encode a LiftedProblem from a LinkedSemanticContext.
 /// This is the core transformation that was previously in `try_from`.
@@ -172,7 +167,6 @@ pub fn encode_lifted_problem(
     // 4. Encode problem-level elements
     let problem_symbol_table = context.take_problem_table();
     let problem_syntax_tree = context.take_problem_syntax_tree();
-    println!("{}", problem_symbol_table.to_string_with_interner(problem.interner()));
     registry.set_symbol_table(problem_symbol_table);
 
     encoding::encode_problem(&problem_syntax_tree, &mut registry, &mut problem)?;
