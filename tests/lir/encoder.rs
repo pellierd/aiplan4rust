@@ -44,6 +44,7 @@ use crate::common::pipeline::{analyze_file, encode, link};
 #[test_case("tests/fixtures/hddl/ipc23/partial-order/ultralight-cockpit"; "ipc23_partial_order_ultralight_cockpit")]
 #[test_case("tests/fixtures/hddl/ipc23/partial-order/colouring"; "ipc23_partial_order_colouring")]
 #[test_case("tests/fixtures/hddl/ipc23/total-order/lamps"; "ipc23_total_order_lamps")]
+#[test_case("tests/fixtures/hddl/ipc23/total-order/sharpsat"; "ipc23_total_order_sharpsat")]
 pub fn test_hddl_encoder(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
