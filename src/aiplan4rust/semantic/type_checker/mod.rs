@@ -41,6 +41,5 @@ pub mod type_checker;
 pub mod type_hierarchy;
 
 pub use error::TypeCheckError;
-
 pub use type_checker::TypeChecker;
 pub use type_hierarchy::TypeHierarchy;

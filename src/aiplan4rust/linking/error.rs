@@ -5,14 +5,15 @@
 //! including semantic analysis, linking-specific checks, semantic consistency checks,
 //! and symbol table operations.
 
-use thiserror::Error;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
-use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
+use crate::aiplan4rust::semantic::SemanticError;
+use thiserror::Error;
 
 /// Represents all possible errors that can occur during the linking phase.
 ///
@@ -21,6 +22,9 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 /// unified error handling.
 #[derive(Debug, Error)]
 pub enum LinkingError {
+    #[error(transparent)]
+    TypeChecker(#[from] TypeCheckError),
+
     /// Error arising from semantic analysis failures.
     #[error(transparent)]
     Semantic(#[from] SemanticError),
@@ -60,7 +64,6 @@ pub enum LinkingError {
     /// Occurs when the same symbol (ID + Kind) is declared more than once.
     #[error("Duplicate symbol declaration found: {0:?}")]
     DuplicateSymbolDeclaration(Symbol),
-
 }
 
 impl LinkingError {

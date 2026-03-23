@@ -143,6 +143,16 @@ impl Linker {
                 // Step 3: Resolve external references in the problem with respect to the domain
                 resolve_external_references(&domain_ctx, &mut problem_ctx)?;
 
+                // --- NOUVELLE ÉTAPE : SIMPLIFICATION DU PROBLÈME ---
+                // 1. On prépare la hiérarchie du domaine (qui est la référence)
+                let type_hierarchy = domain_ctx.symbol_table().to_type_hierarchy();
+                let type_checker = TypeChecker::new(&type_hierarchy);
+
+                // 2. On simplifie la table des symboles du problème
+                // Maintenant que le problème connaît les types du domaine,
+                // on peut réduire les (either A B) du problème.
+                type_checker.simplify_symbol_table(problem_ctx.symbol_table_mut())?;
+
                 // Step 4: Create a check context for the problem using the global interner
                 // and perform semantic and structural linking checks on the problem
                 let mut total_declared = domain_ctx.declared_requirements().clone();
@@ -154,7 +164,7 @@ impl Linker {
                     &global_interner,
                     problem_ctx.source_id(),
                     &total_declared,
-                    &problem_ctx.required_requirements(),
+                    problem_ctx.required_requirements(),
                     problem_ctx.requirement_triggers(),
                 );
                 perform_linking_checks(

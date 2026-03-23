@@ -67,14 +67,13 @@ pub mod context;
 /// Defines semantic error types used throughout the semantic analysis pipeline.
 pub mod error;
 
-/// Type checking module (internal, not publicly exposed).
-mod type_checker;
 mod requirements;
+/// Type checking module (internal, not publicly exposed).
+pub mod type_checker;
 
-
-pub use result::Result as AnalyzerResult;
 pub use analyzer::Analyzer;
+pub use context::Context as SemanticContext;
+pub use error::SemanticError;
+pub use result::Result as AnalyzerResult;
 pub use symbol_table::SymbolTable;
 pub use type_checker::type_checker::TypeChecker;
-pub use error::SemanticError;
-pub use context::Context as SemanticContext;
