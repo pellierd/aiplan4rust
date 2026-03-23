@@ -8,32 +8,37 @@
 //!
 //! The validator recognizes a type as valid if it fits into one of the following categories:
 //! * **Built-in types**: Native PDDL types like `object` or `number`.
-//! * **Declared types**: Types explicitly defined in the `:types` section of the domain.
-//! * **Implicit types**: Types that appear as parents in the hierarchy, even if they
-//!   lack a dedicated declaration line (common in some PDDL dialects).
+//! * **Hierarchical types**: Types declared within a parent-child relationship
+//!   (e.g., `truck - vehicle`). These are indexed in the [`TypeHierarchy`].
+//! * **Primitive types**: Types explicitly declared in the `:types` section but
+//!   potentially "orphans" (no parents or children defined).
 //!
 //! # Performance Optimization
 //!
-//! Since a domain can contain thousands of symbols, this module avoids nested loops by:
-//! 1. Pre-calculating a [`HashSet`] of all parent types in $O(N)$ time.
-//! 2. Performing all subsequent validation checks in $O(1)$ time.
+//! To maintain high performance on domains with thousands of symbols, this module
+//! leverages a multi-pass approach:
+//! 1. **Extraction**: The [`TypeHierarchy`] is extracted once from the [`SymbolTable`].
+//! 2. **Indexing**: The hierarchy provides $O(1)$ lookup for any symbol acting as a
+//!    parent or child in the type tree.
+//! 3. **Validation**: All subsequent checks in [`check_symbol_types`] use these
+//!    pre-computed indexes to avoid redundant table scans.
 //!
-//! This ensures that the complexity of the type-checking pass remains linear relative
-//! to the number of declarations in the [`SymbolTable`].
+//! This ensures that the overall complexity of the type-checking pass remains $O(N)$
+//! relative to the number of declarations.
 //!
 //! # Errors
 //!
-//! If a type is used but not found in the table or built-ins, an
-//! [`error_undeclared_type`](Diagnostic::error_undeclared_type) is emitted through
-//! the [`DiagnosticManager`].
+//! If a type is used but cannot be resolved through built-ins, the hierarchy, or
+//! root declarations, an [`error_undeclared_type`](crate::diagnostic::Diagnostic::error_undeclared_type)
+//! is emitted through the [`DiagnosticManager`].
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 use crate::SymbolTable;
-use std::collections::HashSet;
 
 /// Validates the semantic consistency of all type references within the symbol table.
 ///
@@ -45,6 +50,8 @@ use std::collections::HashSet;
 ///
 /// * `context` - A reference to the [`CheckContext`] providing access to the current
 ///   [`SymbolTable`] and source information.
+/// * `type_hierarchy` - A pre-computed [`TypeHierarchy`] used for $O(1)$ type validation.
+///   Injecting this hierarchy avoids redundant table scans across different check passes.
 /// * `diagnostic_manager` - A mutable reference to the [`DiagnosticManager`] where
 ///   any detected "Undeclared Type" errors will be recorded.
 ///
@@ -56,20 +63,17 @@ use std::collections::HashSet;
 ///
 /// # Performance Note
 ///
-/// This function implements an $O(N)$ pre-computation step via [`collect_parent_types`]
-/// to cache the type hierarchy. This ensures that subsequent type lookups are $O(1)$,
-/// maintaining high performance even for domains with thousands of symbols.
+/// By utilizing the provided [`TypeHierarchy`], this function avoids the $O(N)$ cost
+/// of re-scanning the symbol table for type definitions. All lookups are performed
+/// in constant time, ensuring the validation remains efficient even for large-scale
+/// domains with thousands of symbols.
 pub fn check_symbol_types(
     context: &CheckContext,
+    type_hierarchy: &TypeHierarchy,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {
     let mut no_error = true;
     let symbol_table = context.symbol_table();
-
-    // PERFORMANCE CRITICAL: We collect the set of all parent types once.
-    // This transforms what would be an O(N) scan inside the loop into a O(1) lookup.
-    // This "local cache" is vital for maintaining speed on large PDDL/HDDL domains.
-    let parent_types = symbol_table.collect_parent_types();
 
     // Iterate through every symbol stored in the table (constants, types, predicates, etc.)
     for symbol in symbol_table.values() {
@@ -77,29 +81,22 @@ pub fn check_symbol_types(
         for declaration in symbol.declarations() {
             // Check if this specific declaration associates a type with the symbol
             // (e.g., in 'v - vehicle', we retrieve the ID for 'vehicle')
-            match declaration.ty() {
-                Some(type_ids) => {
-                    // Iterate through each ID (handles simple types or 'either' unions)
-                    for type_id in type_ids {
-                        // Validate the type via built-ins, the parent cache, or root declarations
-                        if !is_type_symbol_valid(*type_id, symbol_table, &parent_types) {
-                            no_error = false;
+            if let Some(type_ids) = declaration.ty() {
+                // Iterate through each ID (handles simple types or 'either' unions)
+                for type_id in type_ids {
+                    // Validate the type via built-ins, the hierarchy, or root declarations
+                    if !is_type_symbol_valid(*type_id, symbol_table, type_hierarchy) {
+                        no_error = false;
 
-                            // Generate an error diagnostic for the user
-                            diagnostic_manager.add_diagnostic(Diagnostic::error_undeclared_type(
-                                *type_id,
-                                declaration.clone(),
-                                Provider::Analyzer,
-                                context.source_id(),
-                                declaration.span().clone(),
-                            ));
-                        }
+                        // Generate an error diagnostic for the user
+                        diagnostic_manager.add_diagnostic(Diagnostic::error_undeclared_type(
+                            *type_id,
+                            declaration.clone(),
+                            Provider::Analyzer,
+                            context.source_id(),
+                            declaration.span().clone(),
+                        ));
                     }
-                }
-                None => {
-                    // If the declaration has no associated type (e.g., the Domain name itself),
-                    // we skip it as it is perfectly valid.
-                    continue;
                 }
             }
         }
@@ -115,15 +112,17 @@ pub fn check_symbol_types(
 /// of the following conditions (checked in order of performance cost):
 ///
 /// 1. **Built-in**: It is a reserved PDDL/HDDL type (e.g., `object`, `number`).
-/// 2. **Hierarchical**: It is used as a parent in a type declaration (found in `parent_types`).
-/// 3. **Explicit**: It is explicitly declared as a [`SymbolKind::PrimitiveType`] in the root scope.
+/// 2. **Hierarchical**: It is part of the established type hierarchy, specifically
+///    acting as a parent (supertype) to other types.
+/// 3. **Explicit**: It is explicitly declared as a [`SymbolKind::PrimitiveType`]
+///    in the root scope (covers "orphan" types without children or parents).
 ///
 /// # Arguments
 ///
 /// * `type_id` - The unique identifier of the symbol being validated as a type.
 /// * `symbol_table` - A reference to the [`SymbolTable`] for root-scope resolution.
-/// * `parent_types` - A pre-computed [`HashSet`] of all symbols currently acting as parents.
-///   Passing this by reference is mandatory to ensure $O(1)$ lookup performance.
+/// * `type_hierarchy` - A reference to the pre-computed [`TypeHierarchy`]. Using the
+///   hierarchy's internal indexing ensures $O(1)$ lookup performance.
 ///
 /// # Returns
 ///
@@ -131,7 +130,7 @@ pub fn check_symbol_types(
 fn is_type_symbol_valid(
     type_id: SymbolId,
     symbol_table: &SymbolTable,
-    parent_types: &HashSet<SymbolId>, // Passed by reference to avoid costly clones
+    type_hierarchy: &TypeHierarchy,
 ) -> bool {
     // 1. Check if it's a pre-defined PDDL built-in type.
     // We check this first as it's a simple O(1) constant-time check.
@@ -140,9 +139,8 @@ fn is_type_symbol_valid(
     }
 
     // 2. Check if the type is used as a parent in the domain.
-    // Thanks to the local cache (parent_types), this is an O(1) hash lookup
-    // instead of a full table scan.
-    if parent_types.contains(&type_id) {
+    // Thanks to the TypeHierarchy index, this is an O(1) lookup.
+    if type_hierarchy.is_type_used_as_parent(type_id) {
         return true;
     }
 

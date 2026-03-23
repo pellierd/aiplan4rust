@@ -279,7 +279,8 @@ fn perform_linking_checks(
     // If structural checks passed, perform type_checker-dependent semantic checks
     if check {
         // Initialize a type_checker checker with the domain's symbol table
-        let type_checker = TypeChecker::new(&domain.symbol_table());
+        let type_hierarchy = domain.symbol_table().to_type_hierarchy();
+        let type_checker = TypeChecker::new(&type_hierarchy);
 
         // Validate signatures of declared symbols
         semantic::checks::check_symbol_signatures(problem, &type_checker, diagnostic_manager)?;

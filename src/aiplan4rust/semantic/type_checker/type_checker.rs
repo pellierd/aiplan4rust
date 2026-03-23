@@ -56,10 +56,10 @@
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Type;
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
+use crate::aiplan4rust::semantic::type_checker::{TypeCheckError, TypeHierarchy};
 
+use crate::aiplan4rust::tree::NodeId;
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 
@@ -105,7 +105,7 @@ const PDDL_BUILTIN_TYPES: [SymbolId; 1] = [
 /// ```
 #[derive(Debug, Clone)]
 pub struct TypeChecker<'a> {
-    domain_symbol_table: &'a SymbolTable,
+    hierarchy: &'a TypeHierarchy,
     type_closure_cache: RefCell<HashMap<SymbolId, HashSet<SymbolId>>>,
 }
 
@@ -122,39 +122,58 @@ impl<'a> TypeChecker<'a> {
     /// # Returns
     ///
     /// A new instance of `TypeChecker` with caching enabled for transitive typing closure.
-    pub fn new(domain_symbol_table: &'a SymbolTable) -> Self {
+    pub fn new(hierarchy: &'a TypeHierarchy) -> Self {
         TypeChecker {
-            domain_symbol_table,
+            hierarchy,
             type_closure_cache: RefCell::new(HashMap::new()),
         }
     }
 
-    /// Returns `true` if any typing in `ty2` is a subtype of any typing in `ty1`.
+    /// Checks if any type in the second set (`ty2`) is a subtype of any type in the first set (`ty1`).
     ///
-    /// This checks whether the second list of types (e.g., expected or declared types) contains
-    /// any typing that is a descendant of at least one typing in the first list.
+    /// This method evaluates the subtyping relationship by traversing the type hierarchy
+    /// defined in the underlying Arena. It returns `true` if there is at least one pair (t2, t1)
+    /// such that t2 is a descendant of t1 or t2 == t1.
+    ///
+    /// # Performance
+    /// - **Fast Path**: Performs an O(N*M) direct comparison to catch identical types without
+    ///   traversing the hierarchy or hitting the cache.
+    /// - **Slow Path**: Uses the memoized `ascending_type_closure` to check for ancestral
+    ///   relationships. Since closures are cached in the `TypeChecker`, repeated calls
+    ///   for the same `SymbolId` are highly efficient.
     ///
     /// # Arguments
+    /// * `ty1` - The set of potential supertypes (e.g., required types).
+    /// * `ty2` - The set of potential subtypes (e.g., provided object types).
     ///
-    /// * `ty1` - Set of potential supertypes.
-    /// * `ty2` - Set of potential subtypes.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(true)` if any typing in `ty2` is a subtype of any typing in `ty1`.
-    /// * `Ok(false)` if no subtype relation exists.
-    /// * `Err(TypeCheckError)` if an internal resolution error occurs.
+    /// # Errors
+    /// Returns [`TypeCheckError`] if a `SymbolId` cannot be resolved within the hierarchy.
     pub fn is_any_subtype_of(
         &self,
         ty1: &Type<SymbolId>,
         ty2: &Type<SymbolId>,
     ) -> Result<bool, TypeCheckError> {
-        let ty1_set: HashSet<_> = ty1.iter().collect();
-
-        for ty in ty2.iter() {
-            let closure = self.ascending_type_closure(*ty)?;
-            if closure.iter().any(|t| ty1_set.contains(t)) {
+        // 1. Fast path: Direct overlap check.
+        // If ty2 contains an element present in ty1, it's an immediate match (reflexivity).
+        // For small unions (common in PDDL), this linear scan is faster than hashing.
+        for t2 in ty2.iter() {
+            if ty1.iter().any(|t1| t1 == t2) {
                 return Ok(true);
+            }
+        }
+
+        // 2. Slow path: Hierarchical traversal.
+        // We check if any ancestor of t2 (from the Arena) matches any type in ty1.
+        for t2 in ty2.iter() {
+            // Retrieve the transitive closure of supertypes (includes t2 itself).
+            // This is O(1) if the result is already in the RefCell cache.
+            let closure = self.ascending_type_closure(*t2)?;
+
+            // Check if any required type t1 is an ancestor of the provided type t2.
+            for t1 in ty1.iter() {
+                if closure.contains(t1) {
+                    return Ok(true);
+                }
             }
         }
 
@@ -298,17 +317,8 @@ impl<'a> TypeChecker<'a> {
                 continue;
             }
 
-            let declaration = self.domain_symbol_table.resolve_declaration(
-                &current,
-                &SymbolKind::PrimitiveType,
-                &self.domain_symbol_table.root_scope(),
-            )?;
-
-            if let Some(decl) = declaration {
-                if let Some(supertypes) = decl.ty() {
-                    to_visit.extend(supertypes.iter().cloned());
-                }
-            }
+            let parents = self.hierarchy.get_parents(current);
+            to_visit.extend(parents.iter().cloned());
         }
 
         self.type_closure_cache
@@ -408,4 +418,148 @@ impl<'a> TypeChecker<'a> {
 
         Ok(Some(Type::from(simplified_ids)))
     }
+
+    /// Simplifies union types (e.g., `either`) across all entries in a [`SymbolTable`].
+    ///
+    /// This method identifies and removes redundant types within type unions based on the
+    /// current hierarchy. For example, if a symbol is typed as `(either dog animal)` and
+    /// `dog` is a subtype of `animal`, it simplifies the type to just `dog`.
+    ///
+    /// # Architecture: Two-Phase Mutation
+    ///
+    /// To comply with Rust's borrowing rules, this process is split into two distinct phases:
+    /// 1. **Collection (Immutable)**: Iterates over the `target_table` to identify needed
+    ///    changes. Since `self` (the hierarchy) is only read, no borrow conflicts occur.
+    /// 2. **Application (Mutable)**: Applies the collected changes to the `target_table`.
+    ///
+    /// This design allows you to simplify the same table that was used to build the
+    /// [`TypeHierarchy`] without hitting `E0502` (immutable/mutable borrow conflict).
+    ///
+    /// # Arguments
+    ///
+    /// * `target_table` - The mutable symbol table to be optimized.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`TypeCheckError`] if:
+    /// - A type union exceeds the internal bitmask capacity ([`MAX_UNION_SIMPLIFICATION_CAPACITY`]).
+    /// - A type in a union cannot be resolved within the current hierarchy.
+    ///
+    /// # Performance
+    ///
+    /// This is an $O(N)$ operation where $N$ is the number of symbols. The use of a
+    /// stack-allocated bitmask and the internal transitive closure cache makes
+    /// this highly efficient even for large domains.
+    pub fn simplify_symbol_table(
+        &self,
+        target_table: &mut SymbolTable,
+    ) -> Result<(), TypeCheckError> {
+        // Step 1: Scan and collect (Immutable phase)
+        // No conflict here: self (hierarchy) is used to read, target_table is used to scan.
+        let changes = self.collect_type_simplifications(target_table)?;
+
+        // Step 2: Apply changes (Mutable phase)
+        // We can pass target_table as &mut because 'changes' owns its data.
+        if !changes.is_empty() {
+            Self::apply_type_simplifications(target_table, changes);
+        }
+
+        Ok(())
+    }
+
+    /// Scans the provided [`SymbolTable`] to identify declarations that can be simplified.
+    ///
+    /// This is the first phase of the simplification process. It performs a read-only
+    /// traversal of the table, comparing each type union against the established
+    /// [`TypeHierarchy`].
+    ///
+    /// # Process
+    /// For every declaration in the table, it checks if the associated type is a union
+    /// (e.g., `either`). If [`Self::simplify_type`] returns a more concise version
+    /// (by removing ancestors), a [`TypeSimplification`] instruction is recorded.
+    ///
+    /// # Performance
+    /// This method is highly efficient because:
+    /// 1. It operates in **read-only** mode, allowing the CPU to optimize memory access.
+    /// 2. It leverages the `type_closure_cache` within `self`, ensuring that hierarchy
+    ///    lookups are only computed once per type.
+    ///
+    /// # Returns
+    /// - `Ok(Vec<TypeSimplification>)`: A list of targeted updates to apply later.
+    /// - `Err(TypeCheckError)`: If a type resolution fails or exceeds simplification limits.
+    fn collect_type_simplifications(
+        &self,
+        target_table: &SymbolTable,
+    ) -> Result<Vec<TypeSimplification>, TypeCheckError> {
+        let mut changes = Vec::new();
+
+        for (&symbol_id, entry) in target_table.iter() {
+            for decl in entry.declarations().iter() {
+                if let Some(raw_ty) = decl.ty() {
+                    // Uses the internal hierarchy reference to check redundancy
+                    if let Some(new_type) = self.simplify_type(raw_ty)? {
+                        changes.push(TypeSimplification {
+                            symbol_id,
+                            node_id: decl.node_id(),
+                            new_type,
+                        });
+                    }
+                }
+            }
+        }
+        Ok(changes)
+    }
+
+    /// Applies the collected type simplifications to the [`SymbolTable`].
+    ///
+    /// This is the second phase of the simplification process. It is defined as a
+    /// static method because it only requires mutable access to the target table
+    /// and does not need to borrow the `TypeChecker` or its hierarchy.
+    ///
+    /// # Implementation Details: The `take` Pattern
+    /// To update a declaration within a `HashSet` (which is typically used for
+    /// symbol declarations), we cannot mutate the element in place if the change
+    /// affects the hash. By using `declarations_mut().take(&key)`, we:
+    /// 1. Remove the original declaration from the set.
+    /// 2. Update its type metadata.
+    /// 3. Re-insert the updated version.
+    ///
+    /// This ensures the internal integrity of the `SymbolTable` and its indices.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_table` - The table where types will be updated.
+    /// * `changes` - A vector of [`TypeSimplification`] instructions generated by
+    ///   the collection phase.
+    fn apply_type_simplifications(
+        target_table: &mut SymbolTable,
+        changes: Vec<TypeSimplification>,
+    ) {
+        for change in changes {
+            if let Some(entry) = target_table.get_symbol_mut(change.symbol_id) {
+                let target_node_id = change.node_id;
+
+                // Find the specific declaration by its NodeId to update it
+                let key = entry
+                    .declarations()
+                    .iter()
+                    .find(|d| d.node_id() == target_node_id)
+                    .cloned();
+
+                if let Some(decl_key) = key {
+                    if let Some(mut original) = entry.declarations_mut().take(&decl_key) {
+                        original.set_ty(change.new_type);
+                        entry.declarations_mut().insert(original);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Private internal structure representing a type modification to be applied.
+struct TypeSimplification {
+    symbol_id: SymbolId,
+    node_id: NodeId,
+    new_type: Type<SymbolId>,
 }

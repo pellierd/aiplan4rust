@@ -30,19 +30,22 @@
 //! Internal usage (not public API):
 //! - `SymbolTableBuilder` is exposed internally for constructing symbol tables.
 
-pub mod table;
 pub mod builder;
-pub mod origin;
 pub mod error;
+pub mod origin;
+pub mod table;
 
 /// Main symbol table interface for semantic resolution.
 pub use table::Table as SymbolTable;
 
+
 /// Public error typing for symbol table construction/resolution.
 pub use error::SymbolTableError;
 
+
 /// Describes the origin of the symbol table (domain/problem/merged).
 pub use origin::Origin as SymbolTableOrigin;
+
 
 /// Internal builder used to construct symbol tables from AST.
 /// Not part of the public API.

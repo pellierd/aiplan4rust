@@ -36,6 +36,7 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{
     SymbolTableBuilder, SymbolTableError, SymbolTableOrigin,
 };
+use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::tree::NodeId;
@@ -1011,41 +1012,40 @@ impl Table {
         }
     }
 
-    /// Collects all [`SymbolId`]s that are used as parent types within the symbol table.
+    /// This method scans all symbols of kind [`SymbolKind::PrimitiveType`],
+    /// collects their parent declarations, and packages them into a
+    /// standalone [`TypeHierarchy`].
     ///
-    /// This method scans all declarations to identify symbols acting as supertypes.
-    /// It is designed to be called at the beginning of a validation pass to create a
-    /// "local cache," transforming hierarchical lookups into $O(1)$ operations.
+    /// The resulting object is independent of the table's lifetime,
+    /// allowing it to be used by the `TypeChecker` without causing
+    /// borrow checker conflicts.
     ///
     /// # Returns
-    ///
-    /// A [`HashSet<SymbolId>`] containing the identifiers of all symbols used as parents.
-    ///
-    /// # Performance
-    ///
-    /// This method performs a single linear scan of the symbol table ($O(N)$).
-    /// It uses a pre-allocated capacity to minimize re-hashing and memory allocations.
-    pub fn collect_parent_types(&self) -> HashSet<SymbolId> {
-        // Pre-allocate capacity (approx. 25% of total symbols) to reduce re-allocations.
-        // In typical PDDL domains, the number of parent types is significantly
-        // smaller than the total number of symbols.
-        let mut parents = HashSet::with_capacity(self.symbols.len() / 4);
+    /// A [`TypeHierarchy`] reflecting the state of the types in this table.
+    pub fn to_type_hierarchy(&self) -> TypeHierarchy {
+        let mut hierarchy_map: HashMap<SymbolId, Vec<SymbolId>> =
+            HashMap::with_capacity(self.symbols.len() / 4);
 
-        for entry in self.symbols.values() {
+        for (&id, entry) in self.symbols.iter() {
+            // We iterate through declarations to ensure we only capture
+            // the 'PrimitiveType' aspect of the symbol.
             for decl in entry.declarations() {
-                // We are only interested in type-related declarations.
                 if decl.kind() == SymbolKind::PrimitiveType {
                     if let Some(ty) = decl.ty() {
-                        // ty.members() returns the SymbolIds of the parent types.
-                        // We insert them into the set to mark them as "valid parents".
-                        for &parent_id in ty.members() {
-                            parents.insert(parent_id);
+                        // ty.members() contains the parent type IDs.
+                        let parents = ty.members();
+                        if !parents.is_empty() {
+                            hierarchy_map
+                                .entry(id)
+                                .or_default()
+                                .extend(parents.iter().cloned());
                         }
                     }
                 }
             }
         }
-        parents
+
+        TypeHierarchy::new(hierarchy_map)
     }
 }
 

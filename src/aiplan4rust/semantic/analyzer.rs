@@ -57,17 +57,14 @@
 //! typing errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
+use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
-use crate::aiplan4rust::tree::NodeId;
-use crate::SymbolTable;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -236,61 +233,114 @@ impl Analyzer {
         }
     }
 
-    /// Checks the domain part of the syntax arena with domain-specific semantic validations.
+    /// Performs a multi-phase semantic validation of the domain within the syntax arena.
     ///
-    /// The checks include verifying symbol declarations, typing hierarchies, atomic formulas,
-    /// typed logic, task ordering, and requirement violations.
+    /// This function orchestrates the domain validation process by splitting it into three
+    /// distinct logical phases to comply with Rust's borrowing rules while allowing
+    /// for symbol table optimization.
+    ///
+    /// ### Validation Phases:
+    /// 0. **Extraction**: A [`TypeHierarchy`] is generated once from the initial
+    ///    [`SymbolTable`]. This immutable index is shared across all subsequent steps
+    ///    to ensure consistency and $O(1)$ lookup performance.
+    /// 1. **Base Validation**: Initial integrity checks (declarations, requirements, etc.)
+    ///    using the pre-computed hierarchy and an immutable snapshot of the context.
+    /// 2. **Type Simplification (Mutation)**: If base checks pass, the `SymbolTable` is
+    ///    mutated to simplify type unions (e.g., removing redundant ancestors)
+    ///    using the [`TypeChecker`] and the existing hierarchy.
+    /// 3. **Advanced Validation**: Final semantic checks (atomic formulas, task ordering, etc.)
+    ///    performed on the optimized symbol table.
     ///
     /// # Parameters
-    /// - `context`: The `CheckContext` derived from the semantic context.
-    /// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` to collect diagnostics.
+    /// - `context`: The [`SemanticContext`] providing access to the symbol table and domain data.
+    /// - `diagnostic_manager`: A mutable reference to collect and report semantic errors or warnings.
     ///
     /// # Returns
+    /// - `Ok(true)` if all validation phases complete successfully.
+    /// - `Ok(false)` if any semantic violation is detected (diagnostics will be populated).
+    /// - `Err(SemanticError)` if an unrecoverable internal error occurs during processing.
     ///
-    /// `Ok(true)` if all checks pass without errors, `Ok(false)` if any check fails,
-    /// or `Err(SemanticError)` if an internal error occurs.
+    /// # Technical Note: Borrowing Strategy
+    /// To allow the mutation of the `SymbolTable` between two validation steps, the [`CheckContext`]
+    /// is scoped within a block in Step 1. This ensures that any immutable borrows of the context
+    /// are dropped before calling `context.symbol_table_mut()` in Step 2. The [`TypeHierarchy`]
+    /// remains valid throughout as the simplification process does not alter the structural
+    /// relationships between types.
     fn check_domain(
-        context: &mut SemanticContext, // On prend le SemanticContext pour avoir le .symbol_table_mut()
+        context: &mut SemanticContext,
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
-        // --- ÉTAPE 1 : CHECK BASE ---
-        // On crée un CheckContext temporaire dans un bloc { }
-        // pour qu'il libère son emprunt immuable à la fin du bloc.
+        // --- ÉTAPE 0 : EXTRACTION ---
+        // Generate the type hierarchy once. This becomes the static reference for all checks.
+        let type_hierarchy = context.symbol_table().to_type_hierarchy();
+
+        // --- STEP 1: BASE CHECK ---
+        // Scoped block to ensure CheckContext (immutable borrow) is dropped before mutation.
         let mut checked = {
             let check_ctx = CheckContext::from(&*context);
-            Self::check_domain_base(&check_ctx, diagnostic_manager)?
+            Self::check_domain_base(&check_ctx, &type_hierarchy, diagnostic_manager)?
         };
 
         if checked {
-            // --- ÉTAPE 2 : MODIFICATION (SIMPLIFICATION) ---
-            // Ici, check_ctx est détruit, on peut donc accéder au symbol_table_mut()
+            // --- STEP 2: SYMBOL TABLE OPTIMIZATION ---
+            // Accessing mutable symbol table is now safe as check_ctx is out of scope.
             let table = context.symbol_table_mut();
 
-            // On crée un Analyzer temporaire ou on appelle la méthode si elle est statique
-            // Note: Si simplify_symbol_table_either_type est une méthode de self,
-            // il faudra passer &self à check_domain.
-            Self::simplify_symbol_table_either_type(table)?;
+            // Perform type union simplification using the pre-extracted hierarchy.
+            let type_checker = TypeChecker::new(&type_hierarchy);
+            type_checker.simplify_symbol_table(table)?;
 
-            // --- ÉTAPE 3 : CHECK ADVANCED ---
-            // On recrée un CheckContext tout neuf qui voit la table modifiée
+            // --- STEP 3: ADVANCED CHECK ---
+            // Re-create a fresh CheckContext to reflect the simplified symbol table.
             let check_ctx = CheckContext::from(&*context);
-            checked &= Self::check_domain_advanced(&check_ctx, diagnostic_manager)?;
+            checked &= Self::check_domain_advanced(&check_ctx, &type_checker, diagnostic_manager)?;
         }
 
         Ok(checked)
     }
 
+    /// Performs the initial fundamental semantic checks on the domain.
+    ///
+    /// This function acts as the "first pass" of the validation process. It focuses on
+    /// ensuring that the core components of the domain—symbols, types, and their
+    /// immediate relationships—are well-defined and consistent.
+    ///
+    /// By receiving a pre-computed [`TypeHierarchy`], this function can perform type
+    /// existence checks and structural validations without redundant table scans.
+    ///
+    /// ### Checks Performed:
+    /// 1. **Symbol Declaration**: Validates that domain symbols (specifically constants)
+    ///    are correctly declared and do not violate naming or scoping rules.
+    /// 2. **Type Existence**: Ensures that every type referenced (by variables, constants,
+    ///    or functions) has a corresponding declaration, using the hierarchy for $O(1)$ lookups.
+    /// 3. **Type Hierarchy Integrity**: Verifies the structural validity of the type
+    ///    hierarchy (e.g., checking for cycles or invalid parent-child relationships)
+    ///    using the `Analyzer` provider.
+    ///
+    /// # Parameters
+    /// - `context`: The [`CheckContext`] containing the immutable snapshot of the current domain state.
+    /// - `type_hierarchy`: The pre-computed [`TypeHierarchy`] used to validate type references.
+    /// - `diagnostic_manager`: A mutable reference used to record any detected semantic violations.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if all base checks pass.
+    /// - `Ok(false)` if any fundamental error is found (e.g., an undefined type or a cyclic hierarchy).
+    /// - `Err(SemanticError)` if an unexpected internal error occurs during validation.
     fn check_domain_base(
         context: &CheckContext,
+        type_hierarchy: &TypeHierarchy,
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
+        // 1. Validate basic symbol declarations (starting with Constants).
         let mut checked =
             Self::check_symbols(context, &[], &[SymbolKind::Constant], diagnostic_manager)?;
 
-        // 2. NOUVEAU : On vérifie que TOUS les types utilisés existent
-        // (pour les variables, constantes, etc.)
-        checked &= semantic::checks::check_symbol_types(context, diagnostic_manager)?;
+        // 2. Verify that ALL types used across the domain are properly declared.
+        // This catches "ghost types" by comparing references against the established hierarchy.
+        checked &=
+            semantic::checks::check_symbol_types(context, type_hierarchy, diagnostic_manager)?;
 
+        // 3. Structural validation of the type tree/graph.
         checked &= semantic::checks::check_type_hierarchy(
             context,
             Provider::Analyzer,
@@ -300,24 +350,60 @@ impl Analyzer {
         Ok(checked)
     }
 
+    /// Performs advanced semantic validation using the optimized type hierarchy.
+    ///
+    /// This function executes the "second pass" of the validation process. It relies on the
+    /// [`TypeChecker`] and the simplified [`SymbolTable`] to perform complex analysis
+    /// on expressions, signatures, and domain logic that require a finalized type system.
+    ///
+    /// ### Checks Performed:
+    /// 1. **Symbol Signatures**: Validates that predicates and functions are used with
+    ///    arguments that match their declared type constraints (variance/covariance).
+    /// 2. **Typed Expressions**: Deep analysis of the expression tree (Arena-based)
+    ///    to ensure that nested terms and logical operators are type-consistent.
+    /// 3. **Task Ordering**: Checks the validity of hierarchical or sequential constraints
+    ///    within actions and tasks (e.g., in HTN or temporal PDDL).
+    /// 4. **Requirement Violations**: Verifies that the features used in the domain
+    ///    (e.g., `:typing`, `:fluents`) are explicitly declared in the `:requirements` section.
+    ///
+    /// # Parameters
+    /// - `context`: The [`CheckContext`] reflecting the optimized state of the domain.
+    /// - `type_checker`: The [`TypeChecker`] instance used for subtyping and closure lookups.
+    /// - `diagnostic_manager`: A mutable reference to record semantic errors or warnings.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if all advanced semantic checks pass.
+    /// - `Ok(false)` if any violation is detected (e.g., type mismatch in a predicate call).
+    /// - `Err(SemanticError)` if an internal error occurs during the analysis.
+    ///
+    /// # Note
+    /// This function should only be called after [`check_domain_base`] and the type
+    /// simplification phase have completed successfully.
     fn check_domain_advanced(
         context: &CheckContext,
+        type_checker: &TypeChecker,
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
-        let type_checker = TypeChecker::new(context.symbol_table());
         let mut checked = true;
 
+        // 1. Verify that all calls to predicates/functions respect their type signatures.
         checked &=
-            semantic::checks::check_symbol_signatures(context, &type_checker, diagnostic_manager)?;
+            semantic::checks::check_symbol_signatures(context, type_checker, diagnostic_manager)?;
+
+        // 2. Perform deep type checking on the expression Arena (AST).
         checked &= semantic::checks::check_typed_expressions(
             context,
             &type_checker,
             Provider::Analyzer,
             diagnostic_manager,
         )?;
+
+        // 3. Validate structural ordering and task dependencies.
         checked &=
             semantic::checks::check_task_ordering(context, Provider::Analyzer, diagnostic_manager)?;
 
+        // 4. Ensure no undeclared PDDL requirements are being used.
+        // This is a post-check that doesn't necessarily block 'checked' but reports errors.
         semantic::checks::check_requirement_violations(
             context,
             Provider::Analyzer,
@@ -414,80 +500,4 @@ impl Analyzer {
 
         Ok(checked)
     }
-
-    pub fn simplify_symbol_table_either_type(
-        symbol_table: &mut SymbolTable,
-    ) -> Result<(), TypeCheckError> {
-        // Sous-fonction 1 : Collecte (Immuable) - Utilise uniquement des IDs
-        let changes = Self::collect_type_simplifications(symbol_table)?;
-
-        // Sous-fonction 2 : Application (Mutable) - Utilise take() pour éviter les clones
-        if !changes.is_empty() {
-            Self::apply_type_simplifications(symbol_table, changes);
-        }
-
-        Ok(())
-    }
-
-    fn collect_type_simplifications(
-        symbol_table: &SymbolTable,
-    ) -> Result<Vec<TypeSimplification>, TypeCheckError> {
-        let checker = TypeChecker::new(symbol_table);
-        let mut changes = Vec::new();
-
-        for (&symbol_id, entry) in symbol_table.iter() {
-            for decl in entry.declarations().iter() {
-                if let Some(raw_ty) = decl.ty() {
-                    if let Some(new_type) = checker.simplify_type(raw_ty)? {
-                        // OPTIMISATION : On ne stocke que le NodeId (léger)
-                        changes.push(TypeSimplification {
-                            symbol_id,
-                            node_id: decl.node_id(),
-                            new_type,
-                        });
-                    }
-                }
-            }
-        }
-        Ok(changes)
-    }
-
-    fn apply_type_simplifications(
-        symbol_table: &mut SymbolTable,
-        changes: Vec<TypeSimplification>,
-    ) {
-        for change in changes {
-            if let Some(entry) = symbol_table.get_symbol_mut(change.symbol_id) {
-                // Étape 1 : Obtenir une clé de recherche sans bloquer le Borrow Checker
-                // On clone uniquement le strict nécessaire pour identifier l'objet
-                let target_node_id = change.node_id;
-
-                // Étape 2 : Extraction et réinsertion
-                // On cherche l'objet complet. On est obligé de passer par une ref temporaire.
-                let old_decl_ref = entry
-                    .declarations()
-                    .iter()
-                    .find(|d| d.node_id() == target_node_id);
-
-                if let Some(r) = old_decl_ref {
-                    // On clone la structure (très rapide car IDs = Copy)
-                    // pour libérer l'emprunt immuable sur 'entry'
-                    let key = r.clone();
-
-                    // On extrait l'original, on modifie, on réinsère
-                    if let Some(mut original) = entry.declarations_mut().take(&key) {
-                        original.set_ty(change.new_type);
-                        entry.declarations_mut().insert(original);
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Représente une modification de type à appliquer sur une déclaration
-struct TypeSimplification {
-    symbol_id: SymbolId,
-    node_id: NodeId,
-    new_type: Type<SymbolId>,
 }
