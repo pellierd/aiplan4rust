@@ -14,10 +14,9 @@
 //! tailored to different diagnostic kinds, ensuring precise and
 //! context-aware messages for various error and warning scenarios.
 
-
-use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::diagnostic::renderer::formatting;
+use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
@@ -101,7 +100,9 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
         Kind::ExtraToken { token } => format_extra_token(token),
         Kind::InvalidNumber { number, .. } => format_invalid_number(number),
         Kind::DuplicateDefinitionBlock { block } => format_duplicated_definition_block(*block),
-        Kind::InvalidDefinitionBlockOrder { block, .. } => format_invalid_definition_block_order(*block),
+        Kind::InvalidDefinitionBlockOrder { block, .. } => {
+            format_invalid_definition_block_order(*block)
+        }
         Kind::InvalidSymbolSignature { declaration, .. } => {
             format_invalid_symbol_signature(declaration, interner)
         }
@@ -125,9 +126,10 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
             format_symbol_declared_ambiguously_as_keyword(declaration, interner)
         }
         Kind::UnusedSymbol { declaration } => format_unused_symbol(declaration, interner),
-        Kind::DomainProblemNameMismatch { domain_name, problem_name } => {
-            format_domain_problem_name_mismatch(domain_name, problem_name, interner)
-        }
+        Kind::DomainProblemNameMismatch {
+            domain_name,
+            problem_name,
+        } => format_domain_problem_name_mismatch(domain_name, problem_name, interner),
         Kind::AmbiguousTypePredicateSymbol { ty, .. } => {
             format_ambiguous_type_predicate_symbol(ty, interner)
         }
@@ -138,9 +140,10 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
             format_duplicate_either_type(duplicate_types, interner)
         }
         Kind::CyclicTypeDeclaration { .. } => format_cyclic_type_declaration(),
-        Kind::CrossConflictSymbolDeclaration { problem_declaration, .. } => {
-            format_cross_conflict_symbol_declaration(problem_declaration, interner)
-        }
+        Kind::CrossConflictSymbolDeclaration {
+            problem_declaration,
+            ..
+        } => format_cross_conflict_symbol_declaration(problem_declaration, interner),
 
         Kind::DuplicateRequirementWarning { .. } => format_duplicate_requirement_warning(),
         Kind::CustomError { message, .. } => message.to_string(),
@@ -151,29 +154,58 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
         Kind::IncompatibleTypeDeclarations { symbol, kind, .. } => {
             format_incompatible_type_declarations(*symbol, *kind, interner)
         }
-        Kind::DeprecatedFeature { node_kind, .. } => {
-            format_deprecated_feature(*node_kind)
-        }
+        Kind::DeprecatedFeature { node_kind, .. } => format_deprecated_feature(*node_kind),
         Kind::MissingMandatoryBlock { language, kind } => {
             format_missing_mandatory_block(*language, *kind)
         }
+        Kind::UndeclaredType {
+            type_id,
+            declaration,
+        } => format_undeclared_type(*type_id, declaration, interner),
     }
 }
 
-fn format_missing_mandatory_block(language: Language, kind: AstKind) -> String {
+fn format_undeclared_type(
+    type_id: SymbolId,
+    declaration: &Declaration,
+    interner: Option<&SymbolInterner>,
+) -> String {
+    // Résolution du nom du type (ex: "mode")
+    let type_identifier = formatting::ident_to_string(type_id, interner);
 
+    // Résolution du nom du symbole qui l'utilise (ex: "image1")
+    let declared_symbol_name = formatting::symbol_to_string(declaration.symbol(), interner);
+
+    // Conversion du SymbolKind en nom lisible sans passer par AstKind
+    let entity_name = formatting::symbol_kind_to_string(declaration.symbol().kind());
+
+    format!(
+        "The type `{}` is not declared, but it is used in the declaration of {} `{}`.",
+        type_identifier,
+        entity_name.to_lowercase(), // "object", "constant", etc.
+        declared_symbol_name
+    )
+}
+
+fn format_missing_mandatory_block(language: Language, kind: AstKind) -> String {
     match kind {
         AstKind::Init => {
-            format!("The ':init' block is mandatory in a {} problem definition.", language.to_string())
+            format!(
+                "The ':init' block is mandatory in a {} problem definition.",
+                language.to_string()
+            )
         }
-        AstKind::Goal => {
-            "The ':goal' block is mandatory in a PDDL problem definition.".to_string()
-        }
+        AstKind::Goal => "The ':goal' block is mandatory in a PDDL problem definition.".to_string(),
         AstKind::InitialTaskNetwork => {
-            "The ':htn' block (Initial Task Network) is mandatory in a HDDL problem definition.".to_string()
+            "The ':htn' block (Initial Task Network) is mandatory in a HDDL problem definition."
+                .to_string()
         }
         _ => {
-            format!("The '{}' block is mandatory in this {} definition.", kind, language.to_string())
+            format!(
+                "The '{}' block is mandatory in this {} definition.",
+                kind,
+                language.to_string()
+            )
         }
     }
 }
@@ -188,7 +220,10 @@ fn format_missing_mandatory_block(language: Language, kind: AstKind) -> String {
 ///
 /// A `String` indicating that the block is out of order.
 pub fn format_invalid_definition_block_order(block: AstKind) -> String {
-    format!("Definition block '{}' is defined out of order.", block.to_syntax_string())
+    format!(
+        "Definition block '{}' is defined out of order.",
+        block.to_syntax_string()
+    )
 }
 
 /// Returns a suggestion message for a duplicated definition block.
@@ -275,15 +310,33 @@ fn format_extra_token(token: &str) -> String {
 ///
 /// A formatted string describing the invalid symbol signature, with specific
 /// formatting depending on the symbol kind.
-fn format_invalid_symbol_signature(declaration: &Declaration, interner: Option<&SymbolInterner>) -> String {
+fn format_invalid_symbol_signature(
+    declaration: &Declaration,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let symbol = declaration.symbol();
     let name = formatting::symbol_to_string(symbol, interner);
     match symbol.kind() {
-        SymbolKind::Function => format!("Function '{}' does not match any declared signature.", name),
-        SymbolKind::Predicate => format!("Predicate '{}' does not match any declared signature.", name),
-        SymbolKind::Task => format!("Compound task '{}' does not match any declared signature.", name),
-        SymbolKind::Action => format!("Primitive task '{}' does not match any declared signature.", name),
-        _ => format!("Symbol '{}' of kind {:?} does not match any declared signature.", name, symbol.kind()),
+        SymbolKind::Function => {
+            format!("Function '{}' does not match any declared signature.", name)
+        }
+        SymbolKind::Predicate => format!(
+            "Predicate '{}' does not match any declared signature.",
+            name
+        ),
+        SymbolKind::Task => format!(
+            "Compound task '{}' does not match any declared signature.",
+            name
+        ),
+        SymbolKind::Action => format!(
+            "Primitive task '{}' does not match any declared signature.",
+            name
+        ),
+        _ => format!(
+            "Symbol '{}' of kind {:?} does not match any declared signature.",
+            name,
+            symbol.kind()
+        ),
     }
 }
 
@@ -298,7 +351,11 @@ fn format_invalid_symbol_signature(declaration: &Declaration, interner: Option<&
 /// # Returns
 ///
 /// A formatted string describing the typing mismatch.
-fn format_type_mismatch(ty1: &Type<SymbolId>, ty2: &Type<SymbolId>, interner: Option<&SymbolInterner>) -> String {
+fn format_type_mismatch(
+    ty1: &Type<SymbolId>,
+    ty2: &Type<SymbolId>,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let ty1_str = formatting::type_to_string(ty1, interner);
     let ty2_str = formatting::type_to_string(ty2, interner);
     format!("Type mismatch between '{}' and '{}'.", ty1_str, ty2_str)
@@ -315,7 +372,11 @@ fn format_type_mismatch(ty1: &Type<SymbolId>, ty2: &Type<SymbolId>, interner: Op
 /// # Returns
 ///
 /// A formatted string describing the invalid operand types for a numeric expression.
-fn format_invalid_types_in_numeric_expression(ty1: &Type<SymbolId>, ty2: &Type<SymbolId>, interner: Option<&SymbolInterner>) -> String {
+fn format_invalid_types_in_numeric_expression(
+    ty1: &Type<SymbolId>,
+    ty2: &Type<SymbolId>,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let ty1_str = formatting::type_to_string(ty1, interner);
     let ty2_str = formatting::type_to_string(ty2, interner);
     format!("Invalid operand types for numeric expression: '{}' and '{}'. Operands must be numeric types.", ty1_str, ty2_str)
@@ -331,7 +392,10 @@ fn format_invalid_types_in_numeric_expression(ty1: &Type<SymbolId>, ty2: &Type<S
 ///
 /// A formatted string stating that the expression typing is disallowed by current requirements.
 fn format_requirement_violation(node_kind: &AstKind) -> String {
-    format!("Expression typing '{}' disallowed by current requirements.", node_kind)
+    format!(
+        "Expression typing '{}' disallowed by current requirements.",
+        node_kind
+    )
 }
 
 /// Formats a message indicating a duplicated symbol declaration within the same scope.
@@ -344,9 +408,15 @@ fn format_requirement_violation(node_kind: &AstKind) -> String {
 /// # Returns
 ///
 /// A formatted string warning about the symbol being declared multiple times in the same scope.
-fn format_duplicated_symbol_declaration(symbol: &Symbol, interner: Option<&SymbolInterner>) -> String {
+fn format_duplicated_symbol_declaration(
+    symbol: &Symbol,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let name = formatting::symbol_to_string(symbol, interner);
-    format!("Symbol '{}' is declared multiple times in the same scope.", name)
+    format!(
+        "Symbol '{}' is declared multiple times in the same scope.",
+        name
+    )
 }
 
 /// Formats a message indicating a duplicated variable declaration within a skeleton scope.
@@ -359,9 +429,15 @@ fn format_duplicated_symbol_declaration(symbol: &Symbol, interner: Option<&Symbo
 /// # Returns
 ///
 /// A formatted string warning about the variable being declared multiple times in a skeleton.
-fn format_duplicate_variable_skeleton_declaration(symbol: &Symbol, interner: Option<&SymbolInterner>) -> String {
+fn format_duplicate_variable_skeleton_declaration(
+    symbol: &Symbol,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let name = formatting::symbol_to_string(symbol, interner);
-    format!("Variable '{}' is declared multiple times in the same skeleton definition.", name)
+    format!(
+        "Variable '{}' is declared multiple times in the same skeleton definition.",
+        name
+    )
 }
 
 /// Formats a message indicating detection of a cyclic task-ordering constraint.
@@ -398,7 +474,10 @@ fn format_undeclared_symbol(usage: &Usage, interner: Option<&SymbolInterner>) ->
 /// # Returns
 ///
 /// A formatted string stating that the symbol is used as a language keyword.
-fn format_symbol_conflicts_with_keyword(declaration: &Declaration, interner: Option<&SymbolInterner>) -> String {
+fn format_symbol_conflicts_with_keyword(
+    declaration: &Declaration,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let name = formatting::symbol_to_string(declaration.symbol(), interner);
     format!("Symbol '{}' is used as a language keyword", name)
 }
@@ -413,7 +492,10 @@ fn format_symbol_conflicts_with_keyword(declaration: &Declaration, interner: Opt
 /// # Returns
 ///
 /// A formatted string stating that the symbol is ambiguous as a language keyword.
-fn format_symbol_declared_ambiguously_as_keyword(declaration: &Declaration, interner: Option<&SymbolInterner>) -> String {
+fn format_symbol_declared_ambiguously_as_keyword(
+    declaration: &Declaration,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let name = formatting::symbol_to_string(declaration.symbol(), interner);
     format!("Symbol '{}' is ambiguous as a language keyword", name)
 }
@@ -444,10 +526,17 @@ fn format_unused_symbol(declaration: &Declaration, interner: Option<&SymbolInter
 /// # Returns
 ///
 /// A formatted string stating that the domain and problem names do not match.
-fn format_domain_problem_name_mismatch(domain_name: &Declaration, problem_name: &Declaration, interner: Option<&SymbolInterner>) -> String {
+fn format_domain_problem_name_mismatch(
+    domain_name: &Declaration,
+    problem_name: &Declaration,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let domain_str = formatting::symbol_to_string(domain_name.symbol(), interner);
     let problem_str = formatting::symbol_to_string(problem_name.symbol(), interner);
-    format!("Domain '{}' and problem '{}' names do not match.", domain_str, problem_str)
+    format!(
+        "Domain '{}' and problem '{}' names do not match.",
+        domain_str, problem_str
+    )
 }
 
 /// Formats a message indicating an ambiguous symbol declared both as a typing and a predicate.
@@ -460,9 +549,15 @@ fn format_domain_problem_name_mismatch(domain_name: &Declaration, problem_name: 
 /// # Returns
 ///
 /// A formatted string stating the ambiguity of the symbol.
-fn format_ambiguous_type_predicate_symbol(ty: &Declaration, interner: Option<&SymbolInterner>) -> String {
+fn format_ambiguous_type_predicate_symbol(
+    ty: &Declaration,
+    interner: Option<&SymbolInterner>,
+) -> String {
     let ty_name = formatting::symbol_to_string(ty.symbol(), interner);
-    format!("Ambiguous symbol '{}': declared both as a typing and a predicate.", ty_name)
+    format!(
+        "Ambiguous symbol '{}': declared both as a typing and a predicate.",
+        ty_name
+    )
 }
 
 /// Formats a message indicating that a task argument uses a broader (super) typing than declared.
@@ -475,7 +570,10 @@ fn format_ambiguous_type_predicate_symbol(ty: &Declaration, interner: Option<&Sy
 /// # Returns
 ///
 /// A formatted string warning about the upcasting issue.
-fn format_task_argument_is_supertype(argument: &Declaration, interner: Option<&SymbolInterner>) -> String {
+fn format_task_argument_is_supertype(
+    argument: &Declaration,
+    interner: Option<&SymbolInterner>,
+) -> String {
     format!(
         "Type mismatch: argument '{}' uses a broader typing than declared (upcasting is discouraged).",
         formatting::symbol_to_string(argument.symbol(), interner)
@@ -492,7 +590,10 @@ fn format_task_argument_is_supertype(argument: &Declaration, interner: Option<&S
 /// # Returns
 ///
 /// A formatted string listing the duplicate types.
-fn format_duplicate_either_type(duplicate_types: &[SymbolId], interner: Option<&SymbolInterner>) -> String {
+fn format_duplicate_either_type(
+    duplicate_types: &[SymbolId],
+    interner: Option<&SymbolInterner>,
+) -> String {
     let names = formatting::format_ident_list(duplicate_types, interner);
     format!("Duplicate primitive types in 'either' typing: {}.", names)
 }
@@ -517,7 +618,10 @@ fn format_cyclic_type_declaration() -> String {
 /// # Returns
 ///
 /// A formatted string describing the conflict between problem and domain symbol declarations.
-fn format_cross_conflict_symbol_declaration(problem_declaration: &Declaration, interner: Option<&SymbolInterner>) -> String {
+fn format_cross_conflict_symbol_declaration(
+    problem_declaration: &Declaration,
+    interner: Option<&SymbolInterner>,
+) -> String {
     format!(
         "Conflicting declaration for symbol '{}' found between problem and domain.",
         formatting::symbol_to_string(problem_declaration.symbol(), interner)
@@ -538,7 +642,7 @@ fn format_cross_conflict_symbol_declaration(problem_declaration: &Declaration, i
 fn format_duplicated_declaration(
     ty: SymbolId,
     kind: AstKind,
-    interner: Option<&SymbolInterner>
+    interner: Option<&SymbolInterner>,
 ) -> String {
     let identifier = formatting::ident_to_string(ty, interner);
     let entity_name = ast_kind_to_entity_name(kind);
@@ -567,7 +671,7 @@ fn format_duplicated_declaration(
 fn format_incompatible_type_declarations(
     symbol: SymbolId,
     kind: AstKind,
-    interner: Option<&SymbolInterner>
+    interner: Option<&SymbolInterner>,
 ) -> String {
     let identifier = formatting::ident_to_string(symbol, interner);
     let entity_name = ast_kind_to_entity_name(kind);
@@ -593,11 +697,11 @@ fn format_incompatible_type_declarations(
 /// A static string slice containing the capitalized entity name (e.g., "Function").
 fn ast_kind_to_entity_name(kind: AstKind) -> &'static str {
     match kind {
-        AstKind::ObjectsDef   => "Object",
-        AstKind::TypesDef     => "Type",
+        AstKind::ObjectsDef => "Object",
+        AstKind::TypesDef => "Type",
         AstKind::ConstantsDef => "Constant",
         AstKind::FunctionsDef => "Function",
-        _                     => "Entity",
+        _ => "Entity",
     }
 }
 

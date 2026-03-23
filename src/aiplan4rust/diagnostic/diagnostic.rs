@@ -47,12 +47,12 @@ use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::{FastLineTable, Span};
 
-use std::collections::HashMap;
-use std::fmt;
-use lalrpop_util::ParseError;
 use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, Requirement, SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
+use lalrpop_util::ParseError;
+use std::collections::HashMap;
+use std::fmt;
 
 /// Represents a diagnostic message generated during parsing, validation, or compilation.
 ///
@@ -95,12 +95,7 @@ impl Diagnostic {
     /// # Returns
     ///
     /// A new `Diagnostic` ready to be added to the diagnostic manager or displayed.
-    fn new(
-        kind: Kind,
-        provider: Provider,
-        source: LiteralId,
-        span: Span,
-    ) -> Self {
+    fn new(kind: Kind, provider: Provider, source: LiteralId, span: Span) -> Self {
         Diagnostic {
             kind,
             provider,
@@ -200,7 +195,7 @@ impl Diagnostic {
     pub fn remap(
         &mut self,
         idents: &HashMap<SymbolId, SymbolId>,
-        literals: &HashMap<LiteralId, LiteralId>
+        literals: &HashMap<LiteralId, LiteralId>,
     ) -> Result<(), InternerError> {
         self.kind.remap_symbol(idents)?;
         self.source.remap_literal(literals);
@@ -284,11 +279,7 @@ impl Diagnostic {
     /// - `provider`: The origin of the diagnostic.
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source of the invalid token.
-    pub fn error_invalid_token(
-        provider: Provider,
-        source: LiteralId,
-        span: Span,
-    ) -> Self {
+    pub fn error_invalid_token(provider: Provider, source: LiteralId, span: Span) -> Self {
         Self {
             kind: Kind::InvalidToken,
             provider,
@@ -305,9 +296,16 @@ impl Diagnostic {
     /// * `provider` - The source of this diagnostic.
     /// * `source` - The interned identifier of the source file.
     /// * `span` - The span where the extra token was found.
-    pub fn error_extra_token(token: impl Into<String>, provider: Provider, source: LiteralId, span: Span) -> Self {
+    pub fn error_extra_token(
+        token: impl Into<String>,
+        provider: Provider,
+        source: LiteralId,
+        span: Span,
+    ) -> Self {
         Self {
-            kind: Kind::ExtraToken { token: token.into() },
+            kind: Kind::ExtraToken {
+                token: token.into(),
+            },
             provider,
             source,
             span,
@@ -473,7 +471,10 @@ impl Diagnostic {
         span: Span,
     ) -> Self {
         Self {
-            kind: Kind::RequirementViolation { node_kind, required },
+            kind: Kind::RequirementViolation {
+                node_kind,
+                required,
+            },
             provider,
             source,
             span,
@@ -559,11 +560,7 @@ impl Diagnostic {
     /// - `provider`: The origin of the diagnostic.
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source related to the cycle error.
-    pub fn error_cyclic_task_ordering(
-        provider: Provider,
-        source: LiteralId,
-        span: Span,
-    ) -> Self {
+    pub fn error_cyclic_task_ordering(provider: Provider, source: LiteralId, span: Span) -> Self {
         Self {
             kind: Kind::CyclicTaskOrdering,
             provider,
@@ -922,6 +919,32 @@ impl Diagnostic {
         }
     }
 
+    /// Constructs a diagnostic for an undeclared type used in a declaration.
+    ///
+    /// # Arguments
+    /// - `type_id`: The SymbolId of the missing type.
+    /// - `declaration`: The declaration containing the invalid type reference.
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source file.
+    /// - `span`: The location in the source where the error was found.
+    pub fn error_undeclared_type(
+        type_id: SymbolId,
+        declaration: Declaration,
+        provider: Provider,
+        source: LiteralId, // Correspond au source_id() de ton context
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::UndeclaredType {
+                type_id,
+                declaration,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
     /// Constructs a warning for duplicated requirements.
     ///
     /// # Arguments
@@ -936,7 +959,9 @@ impl Diagnostic {
         span: Span,
     ) -> Self {
         Self {
-            kind: Kind::DuplicateRequirementWarning { duplicate_requirements },
+            kind: Kind::DuplicateRequirementWarning {
+                duplicate_requirements,
+            },
             provider,
             source,
             span,
@@ -959,7 +984,10 @@ impl Diagnostic {
         span: Span,
     ) -> Self {
         Self {
-            kind: Kind::CustomError { message, suggestion },
+            kind: Kind::CustomError {
+                message,
+                suggestion,
+            },
             provider,
             source,
             span,
@@ -982,7 +1010,10 @@ impl Diagnostic {
         span: Span,
     ) -> Self {
         Self {
-            kind: Kind::CustomWarning { message, suggestion },
+            kind: Kind::CustomWarning {
+                message,
+                suggestion,
+            },
             provider,
             source,
             span,
@@ -1008,7 +1039,13 @@ impl fmt::Display for Diagnostic {
     }
 }
 
-impl<'a> From<(&'a ParseError<usize, Token, CustomParseError>, LiteralId, &'a FastLineTable)> for Diagnostic {
+impl<'a>
+    From<(
+        &'a ParseError<usize, Token, CustomParseError>,
+        LiteralId,
+        &'a FastLineTable,
+    )> for Diagnostic
+{
     /// Converts a LALRPOP `ParseError` into a structured `Diagnostic`, enriched with
     /// source span and interner-based file context.
     ///
@@ -1042,7 +1079,11 @@ impl<'a> From<(&'a ParseError<usize, Token, CustomParseError>, LiteralId, &'a Fa
     /// - For `User`-defined errors, a fallback empty span is used (position 0).
     /// - Expected token names are cleaned before being included in the message.
     fn from(
-        value: (&'a ParseError<usize, Token, CustomParseError>, LiteralId, &'a FastLineTable),
+        value: (
+            &'a ParseError<usize, Token, CustomParseError>,
+            LiteralId,
+            &'a FastLineTable,
+        ),
     ) -> Self {
         let (error, source, fast_line_table) = value;
 
@@ -1065,42 +1106,36 @@ impl<'a> From<(&'a ParseError<usize, Token, CustomParseError>, LiteralId, &'a Fa
                 )
             }
             // Handles invalid token errors at a specific location
-            ParseError::InvalidToken { location } => {
-                Diagnostic::new(
-                    DiagnosticKind::InvalidToken,
-                    Provider::Parser,
-                    source,
-                    fast_line_table.get_span(*location, *location),
-                )
-            }
-            // Handles user-defined errors with arbitrary messages
-            ParseError::User { error } => custom_parse_error_to_diagnostic(
-                error,
+            ParseError::InvalidToken { location } => Diagnostic::new(
+                DiagnosticKind::InvalidToken,
+                Provider::Parser,
                 source,
-                fast_line_table
+                fast_line_table.get_span(*location, *location),
             ),
-            // Handles unexpected EOF errors and lists expected tokens
-            ParseError::UnrecognizedEof { location, expected } => {
-                Diagnostic::new(
-                    DiagnosticKind::UnexpectedEof { expected: expected.clone() },
-                    Provider::Parser,
-                    source,
-                    fast_line_table.get_span(*location, *location),
-                )
+            // Handles user-defined errors with arbitrary messages
+            ParseError::User { error } => {
+                custom_parse_error_to_diagnostic(error, source, fast_line_table)
             }
+            // Handles unexpected EOF errors and lists expected tokens
+            ParseError::UnrecognizedEof { location, expected } => Diagnostic::new(
+                DiagnosticKind::UnexpectedEof {
+                    expected: expected.clone(),
+                },
+                Provider::Parser,
+                source,
+                fast_line_table.get_span(*location, *location),
+            ),
             // Handles extra token errors, providing the token string
             ParseError::ExtraToken {
                 token: (start, t, end),
-            } => {
-                Diagnostic::new(
-                    DiagnosticKind::ExtraToken {
-                        token: t.to_string(),
-                    },
-                    Provider::Parser,
-                    source,
-                    fast_line_table.get_span(*start, *end),
-                )
-            }
+            } => Diagnostic::new(
+                DiagnosticKind::ExtraToken {
+                    token: t.to_string(),
+                },
+                Provider::Parser,
+                source,
+                fast_line_table.get_span(*start, *end),
+            ),
         }
     }
 }
@@ -1122,16 +1157,12 @@ fn custom_parse_error_to_diagnostic(
     fast_line_table: &FastLineTable,
 ) -> Diagnostic {
     match error {
-        CustomParseError::DuplicateDefinitionBlock(block, start, end) => {
-            Diagnostic::new(
-                DiagnosticKind::DuplicateDefinitionBlock {
-                    block: *block,
-                },
-                Provider::Parser,
-                source,
-                fast_line_table.get_span(*start, *end),
-            )
-        }
+        CustomParseError::DuplicateDefinitionBlock(block, start, end) => Diagnostic::new(
+            DiagnosticKind::DuplicateDefinitionBlock { block: *block },
+            Provider::Parser,
+            source,
+            fast_line_table.get_span(*start, *end),
+        ),
         CustomParseError::InvalidDefinitionBlockOrder(block, start, end, ordered) => {
             Diagnostic::new(
                 DiagnosticKind::InvalidDefinitionBlockOrder {
@@ -1143,47 +1174,39 @@ fn custom_parse_error_to_diagnostic(
                 fast_line_table.get_span(*start, *end),
             )
         }
-        CustomParseError::InvalidNumber(number, start, end) => {
-            Diagnostic::new(
-                DiagnosticKind::InvalidNumber {
-                    number: number.to_string()
-                },
-                Provider::Parser,
-                source,
-                fast_line_table.get_span(*start, *end),
-            )
-        }
-        CustomParseError::Generic(msg, start, end) => {
-            Diagnostic::new(
-                DiagnosticKind::CustomError {
-                    message: msg.to_string(),
-                    suggestion: None,
-                },
-                Provider::Parser,
-                source,
-                fast_line_table.get_span(*start, *end),
-            )
-        }
-        CustomParseError::DeprecatedFeature(node_kind, start, end) => {
-            Diagnostic::new(
-                DiagnosticKind::DeprecatedFeature {
-                    node_kind: *node_kind,
-                },
-                Provider::Parser,
-                source,
-                fast_line_table.get_span(*start, *end),
-            )
-        }
-        CustomParseError::MissingMandatoryBlock(language, kind, start, end) => {
-            Diagnostic::new(
-                DiagnosticKind::MissingMandatoryBlock {
-                    language: *language,
-                    kind: *kind,
-                },
-                Provider::Parser,
-                source,
-                fast_line_table.get_span(*start, *end),
-            )
-        }
+        CustomParseError::InvalidNumber(number, start, end) => Diagnostic::new(
+            DiagnosticKind::InvalidNumber {
+                number: number.to_string(),
+            },
+            Provider::Parser,
+            source,
+            fast_line_table.get_span(*start, *end),
+        ),
+        CustomParseError::Generic(msg, start, end) => Diagnostic::new(
+            DiagnosticKind::CustomError {
+                message: msg.to_string(),
+                suggestion: None,
+            },
+            Provider::Parser,
+            source,
+            fast_line_table.get_span(*start, *end),
+        ),
+        CustomParseError::DeprecatedFeature(node_kind, start, end) => Diagnostic::new(
+            DiagnosticKind::DeprecatedFeature {
+                node_kind: *node_kind,
+            },
+            Provider::Parser,
+            source,
+            fast_line_table.get_span(*start, *end),
+        ),
+        CustomParseError::MissingMandatoryBlock(language, kind, start, end) => Diagnostic::new(
+            DiagnosticKind::MissingMandatoryBlock {
+                language: *language,
+                kind: *kind,
+            },
+            Provider::Parser,
+            source,
+            fast_line_table.get_span(*start, *end),
+        ),
     }
 }

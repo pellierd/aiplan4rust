@@ -68,8 +68,8 @@ use std::collections::{HashMap, HashSet};
 const MAX_UNION_SIMPLIFICATION_CAPACITY: usize = 128;
 
 /// PDDL Built-in symbols.
-const PDDL_BUILTIN_TYPES: [SymbolId; 2] = [
-    SymbolInterner::OBJECT_SYMBOL_ID,
+const PDDL_BUILTIN_TYPES: [SymbolId; 1] = [
+    //SymbolInterner::OBJECT_SYMBOL_ID,
     SymbolInterner::NUMBER_SYMBOL_ID,
 ];
 
@@ -381,7 +381,6 @@ impl<'a> TypeChecker<'a> {
                 // t1 is redundant if it is an ancestor of t2.
                 // We check if t1 exists within the ascending closure of t2.
                 let closure = self.ascending_type_closure(t2)?;
-                println!("DEBUG: Closure de {:?} contient: {:?}", t2, closure);
                 if closure.contains(&t1) {
                     to_remove_mask |= 1 << i;
                     changed = true;

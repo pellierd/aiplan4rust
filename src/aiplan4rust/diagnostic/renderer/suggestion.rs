@@ -25,6 +25,7 @@
 //! formatting for diagnostic suggestions, separate from primary error/warning messages.
 
 use crate::aiplan4rust::diagnostic::kind::Kind;
+use crate::aiplan4rust::diagnostic::renderer::formatting;
 use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind};
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{Requirement, SymbolId, Type};
@@ -237,7 +238,22 @@ fn format_suggestion_internal(
         Kind::MissingMandatoryBlock { kind, .. } => {
             format_missing_mandatory_block_suggestion(*kind)
         }
+        Kind::UndeclaredType { type_id, .. } => {
+            format_undeclared_type_suggestion(*type_id, interner)
+        }
     }
+}
+
+fn format_undeclared_type_suggestion(
+    type_id: SymbolId,
+    interner: Option<&SymbolInterner>,
+) -> Option<String> {
+    let type_name = formatting::ident_to_string(type_id, interner);
+
+    Some(format!(
+        "Ensure that the type `{}` is defined in the '(:types ...)' block of your domain, or check for typos.",
+        type_name
+    ))
 }
 
 fn format_missing_mandatory_block_suggestion(kind: AstKind) -> Option<String> {

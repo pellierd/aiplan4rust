@@ -12,12 +12,12 @@
 //! - Comma-separated formatting of identifier, declaration, and requirement lists
 //! - Friendly formatting for expected parser tokens (`format_expected_message`)
 
-use colored::Colorize;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{Requirement, SymbolId, Type};
-use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::{Span, SyntaxInternerDisplay};
 use crate::Severity;
+use colored::Colorize;
 
 /// Number of spaces to which a tab character (`\t`) expands.
 ///
@@ -149,9 +149,12 @@ pub(crate) fn span_to_string(span: &Span) -> String {
 /// A string of comma-separated symbols (idents) of the declarations, resolved via `format_ident_list`.
 pub(crate) fn format_declaration_list(
     declarations: &[Declaration],
-    interner: Option<&SymbolInterner>
+    interner: Option<&SymbolInterner>,
 ) -> String {
-    let idents: Vec<SymbolId> = declarations.iter().map(|decl| decl.symbol_ident()).collect();
+    let idents: Vec<SymbolId> = declarations
+        .iter()
+        .map(|decl| decl.symbol_ident())
+        .collect();
     format_ident_list(&idents, interner)
 }
 
@@ -174,7 +177,7 @@ pub(crate) fn format_declaration_list(
 pub(crate) fn format_requirement_list(requirements: &[Requirement]) -> String {
     requirements
         .iter()
-        .map(|r| format!("'{}'", r))  // Assumes Requirement implements Display
+        .map(|r| format!("'{}'", r)) // Assumes Requirement implements Display
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -195,11 +198,39 @@ pub(crate) fn format_requirement_list(requirements: &[Requirement]) -> String {
 pub(crate) fn format_expected_message(expected: &[String]) -> Option<String> {
     match expected.len() {
         0 => Some("Unexpected input. Please verify the syntax near this token.".to_string()),
-        1 => Some(format!("Expected token: `{}`.", expected[0].trim_matches('"'))),
+        1 => Some(format!(
+            "Expected token: `{}`.",
+            expected[0].trim_matches('"')
+        )),
         _ => Some(format!(
             "Expected one of the following tokens: {}.",
             join_expected_tokens(expected)
         )),
+    }
+}
+
+/// Maps a [`SymbolKind`] to its human-readable singular entity name.
+///
+/// This helper is used to normalize the terminology used in diagnostic messages
+/// when referring to semantic symbols (e.g., "Object", "Predicate").
+///
+/// # Arguments
+///
+/// * `kind` - The symbol kind to convert.
+///
+/// # Returns
+///
+/// A static string slice containing the capitalized entity name.
+pub(crate) fn symbol_kind_to_string(kind: SymbolKind) -> &'static str {
+    match kind {
+        SymbolKind::Constant => "Constant",
+        SymbolKind::Variable => "Variable",
+        SymbolKind::PrimitiveType => "Type",
+        SymbolKind::Function => "Function",
+        SymbolKind::Predicate => "Predicate",
+        SymbolKind::Task => "Task",
+        SymbolKind::Action => "Action",
+        _ => "Entity",
     }
 }
 
@@ -337,10 +368,18 @@ pub fn underline(severity: Severity, len: usize, color: bool) -> String {
     let underline = "^".repeat(len);
     match severity {
         Severity::Error => {
-            if color { underline.red().to_string() } else { underline }
+            if color {
+                underline.red().to_string()
+            } else {
+                underline
+            }
         }
         Severity::Warning => {
-            if color { underline.yellow().to_string() } else { underline }
+            if color {
+                underline.yellow().to_string()
+            } else {
+                underline
+            }
         }
         _ => underline,
     }
@@ -393,7 +432,7 @@ pub fn help_label(color: bool) -> String {
 /// // `offset` accounts for tab expansion before column 5
 /// ```
 pub fn compute_visual_offset(line: &str, column: usize) -> usize {
-    const TAB_WIDTH: usize = 4;  // ou récupère la constante TAB_WIDTH définie dans formatting
+    const TAB_WIDTH: usize = 4; // ou récupère la constante TAB_WIDTH définie dans formatting
     let mut offset = 0;
     for c in line.chars().take(column.saturating_sub(1)) {
         offset += match c {

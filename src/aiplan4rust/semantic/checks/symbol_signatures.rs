@@ -42,7 +42,7 @@ use crate::aiplan4rust::tree::{Node, NodeId};
 /// }
 /// ```
 
-pub fn check_declared_symbol_signatures(
+pub fn check_symbol_signatures(
     context: &CheckContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,

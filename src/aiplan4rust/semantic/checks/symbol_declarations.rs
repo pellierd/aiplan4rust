@@ -29,11 +29,11 @@ use std::collections::{HashMap, HashSet};
 ///     // Handle semantic errors
 /// }
 /// ```
-pub fn check_declared_symbols(
+pub fn check_symbol_declarations(
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
-    check_symbol_declarations(context, diagnostic_manager, None)
+    check_symbol_declarations_internal(context, diagnostic_manager, None)
 }
 
 /// Internal helper function that performs detailed checking for duplicate symbol declarations.
@@ -59,7 +59,7 @@ pub fn check_declared_symbols(
 /// - `Ok(true)` if no critical errors were found.
 /// - `Ok(false)` if conflicting symbol declarations were found (errors were logged).
 /// - `Err(SemanticCheckError)` if an internal error occurred (e.g., missing AST node).
-fn check_symbol_declarations(
+fn check_symbol_declarations_internal(
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
     kinds_to_check: Option<&HashSet<SymbolKind>>,

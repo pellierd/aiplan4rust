@@ -1,7 +1,7 @@
 
 (define (domain satellite)
   (:requirements :typing :fluents :equality)
- (:types satellite direction instrument mode- object)
+ (:types satellite direction instrument mode)
  (:predicates 
                (on_board ?i - instrument ?s - satellite)
 	       (supports ?i - instrument ?m - mode)

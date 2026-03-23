@@ -26,17 +26,19 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
+use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableError, SymbolTableOrigin};
+use crate::aiplan4rust::semantic::symbol_table::{
+    SymbolTableBuilder, SymbolTableError, SymbolTableOrigin,
+};
+use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -154,7 +156,7 @@ impl Table {
     ///
     /// # Returns
     /// An iter yielding (`&Ident`, `&SymbolEntry`) pairs for all entries.
-    pub fn iter(&self) -> impl Iterator<Item=(&SymbolId, &SymbolEntry)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&SymbolId, &SymbolEntry)> {
         self.symbols.iter()
     }
 
@@ -163,7 +165,7 @@ impl Table {
     /// # Returns
     /// An iter yielding (`&Ident`, `&mut SymbolEntry`) pairs,
     /// allowing in-place modification of symbols.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item=(&SymbolId, &mut SymbolEntry)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&SymbolId, &mut SymbolEntry)> {
         self.symbols.iter_mut()
     }
 
@@ -171,7 +173,7 @@ impl Table {
     ///
     /// # Returns
     /// An iter yielding `(Ident, SymbolEntry)` pairs, consuming the table.
-    pub fn into_iter(self) -> impl Iterator<Item=(SymbolId, SymbolEntry)> {
+    pub fn into_iter(self) -> impl Iterator<Item = (SymbolId, SymbolEntry)> {
         self.symbols.into_iter()
     }
 
@@ -210,7 +212,7 @@ impl Table {
     ///
     /// # Returns
     /// An iter yielding references to each `SymbolEntry` in the table.
-    pub fn values(&self) -> impl Iterator<Item=&SymbolEntry> {
+    pub fn values(&self) -> impl Iterator<Item = &SymbolEntry> {
         self.symbols.values()
     }
 
@@ -218,7 +220,7 @@ impl Table {
     ///
     /// # Returns
     /// An iter yielding mutable references to each `SymbolEntry`.
-    pub fn values_mut(&mut self) -> impl Iterator<Item=&mut SymbolEntry> {
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut SymbolEntry> {
         self.symbols.iter_mut().map(|(_, symbol)| symbol)
     }
 
@@ -283,7 +285,6 @@ impl Table {
             })
             .collect()
     }
-
 
     /// Collects symbols that have at least one usage matching the provided optional filters.
     ///
@@ -450,7 +451,8 @@ impl Table {
             }
         }
 
-        self.symbols.values()
+        self.symbols
+            .values()
             .flat_map(|symbol| Table::collect(kind, scope, symbol.usages()))
             .collect()
     }
@@ -484,7 +486,8 @@ impl Table {
         scope: Option<&Scope>,
         items: &'a HashSet<T>,
     ) -> Vec<&'a T> {
-        items.iter()
+        items
+            .iter()
             .filter(|item| {
                 if let Some(k) = kind {
                     if item.kind() != *k {
@@ -567,9 +570,7 @@ impl Table {
         let mut matching_iter = declarations.iter().filter(|decl| {
             let d_scope = decl.scope();
             // Le test de longueur ici aussi évite des comparaisons de vecteurs inutiles
-            d_scope.len() <= u_len
-                && decl.kind() == expected_kind
-                && u_scope.starts_with(d_scope)
+            d_scope.len() <= u_len && decl.kind() == expected_kind && u_scope.starts_with(d_scope)
         });
 
         // On récupère le premier match
@@ -596,10 +597,7 @@ impl Table {
             // 3. Pour chaque symbole, on parcourt ses usages
             for usage in entry.usages() {
                 // L'index ne contient plus que le NodeId vers l'Usage
-                self.usage_to_symbol.insert(
-                    usage.node_id(),
-                    usage.clone()
-                );
+                self.usage_to_symbol.insert(usage.node_id(), usage.clone());
             }
         }
     }
@@ -781,15 +779,17 @@ impl Table {
                 Self::validate_type_or_predicate_declarations(symbol_name, usage_kind, declarations)
             }
             // For Task kind, use task-specific validation ops
-            SymbolKind::Task => {
-                Self::validate_task_declarations(symbol_name, declarations)
-            }
+            SymbolKind::Task => Self::validate_task_declarations(symbol_name, declarations),
             // For all other kinds, handle based on the number of declarations found
             _ => match declarations.len() {
-                0 => Ok(None), // No declarations found
+                0 => Ok(None),                  // No declarations found
                 1 => Ok(Some(declarations[0])), // Exactly one declaration found, return it
                 // Multiple declarations found, return an error indicating ambiguity
-                _ => Err(SymbolTableError::duplicate_declaration(*symbol_name, *usage_kind, declarations.len())),
+                _ => Err(SymbolTableError::duplicate_declaration(
+                    *symbol_name,
+                    *usage_kind,
+                    declarations.len(),
+                )),
             },
         }
     }
@@ -806,15 +806,13 @@ impl Table {
             // For PrimitiveType usage, compatible with PrimitiveType or Predicate declarations
             SymbolKind::PrimitiveType => {
                 *decl_kind == SymbolKind::PrimitiveType || *decl_kind == SymbolKind::Predicate
-            },
+            }
             // For Predicate usage, compatible with Predicate or PrimitiveType declarations
             SymbolKind::Predicate => {
                 *decl_kind == SymbolKind::Predicate || *decl_kind == SymbolKind::PrimitiveType
-            },
+            }
             // For Task usage, compatible with Task or Action declarations
-            SymbolKind::Task => {
-                *decl_kind == SymbolKind::Task || *decl_kind == SymbolKind::Action
-            },
+            SymbolKind::Task => *decl_kind == SymbolKind::Task || *decl_kind == SymbolKind::Action,
             // For other usage kinds, no compatibility by default
             _ => false,
         }
@@ -839,7 +837,10 @@ impl Table {
         declarations: &[&'a Declaration],
     ) -> Result<Option<&'a Declaration>, SymbolTableError> {
         // Collect all declarations that exactly match the usage kind
-        let matching: Vec<_> = declarations.iter().filter(|d| d.symbol_kind() == *usage_kind).collect();
+        let matching: Vec<_> = declarations
+            .iter()
+            .filter(|d| d.symbol_kind() == *usage_kind)
+            .collect();
 
         match matching.len() {
             // No matching declarations found
@@ -851,15 +852,34 @@ impl Table {
                 // If there are exactly two declarations in total, check the other one
                 2 => match declarations.iter().find(|d| d.symbol_kind() != *usage_kind) {
                     // If the other declaration kind is compatible, still return the matching one
-                    Some(other) if Self::is_declaration_kind_compatible(usage_kind, &other.symbol_kind()) => Ok(Some(matching[0])),
+                    Some(other)
+                        if Self::is_declaration_kind_compatible(
+                            usage_kind,
+                            &other.symbol_kind(),
+                        ) =>
+                    {
+                        Ok(Some(matching[0]))
+                    }
                     // Otherwise, multiple conflicting declarations are found — return an error
-                    _ => Err(SymbolTableError::duplicate_declaration(*symbol_name, *usage_kind, declarations.len())),
+                    _ => Err(SymbolTableError::duplicate_declaration(
+                        *symbol_name,
+                        *usage_kind,
+                        declarations.len(),
+                    )),
                 },
                 // More than two declarations in total means ambiguity — return an error
-                _ => Err(SymbolTableError::duplicate_declaration(*symbol_name, *usage_kind, declarations.len())),
+                _ => Err(SymbolTableError::duplicate_declaration(
+                    *symbol_name,
+                    *usage_kind,
+                    declarations.len(),
+                )),
             },
             // More than one matching declaration is ambiguous — return an error
-            _ => Err(SymbolTableError::duplicate_declaration(*symbol_name, *usage_kind, declarations.len())),
+            _ => Err(SymbolTableError::duplicate_declaration(
+                *symbol_name,
+                *usage_kind,
+                declarations.len(),
+            )),
         }
     }
 
@@ -943,11 +963,7 @@ impl Table {
         &self,
         kind: SymbolKind,
     ) -> Result<Option<&Declaration>, SymbolTableError> {
-        let declarations = self.collect_declarations(
-            None,
-            Some(&kind),
-            Some(&self.root_scope()),
-        );
+        let declarations = self.collect_declarations(None, Some(&kind), Some(&self.root_scope()));
 
         match declarations.len() {
             0 => Ok(None),
@@ -994,6 +1010,43 @@ impl Table {
             None => Err(SymbolTableError::declaration_not_found_for_kind(kind)),
         }
     }
+
+    /// Collects all [`SymbolId`]s that are used as parent types within the symbol table.
+    ///
+    /// This method scans all declarations to identify symbols acting as supertypes.
+    /// It is designed to be called at the beginning of a validation pass to create a
+    /// "local cache," transforming hierarchical lookups into $O(1)$ operations.
+    ///
+    /// # Returns
+    ///
+    /// A [`HashSet<SymbolId>`] containing the identifiers of all symbols used as parents.
+    ///
+    /// # Performance
+    ///
+    /// This method performs a single linear scan of the symbol table ($O(N)$).
+    /// It uses a pre-allocated capacity to minimize re-hashing and memory allocations.
+    pub fn collect_parent_types(&self) -> HashSet<SymbolId> {
+        // Pre-allocate capacity (approx. 25% of total symbols) to reduce re-allocations.
+        // In typical PDDL domains, the number of parent types is significantly
+        // smaller than the total number of symbols.
+        let mut parents = HashSet::with_capacity(self.symbols.len() / 4);
+
+        for entry in self.symbols.values() {
+            for decl in entry.declarations() {
+                // We are only interested in type-related declarations.
+                if decl.kind() == SymbolKind::PrimitiveType {
+                    if let Some(ty) = decl.ty() {
+                        // ty.members() returns the SymbolIds of the parent types.
+                        // We insert them into the set to mark them as "valid parents".
+                        for &parent_id in ty.members() {
+                            parents.insert(parent_id);
+                        }
+                    }
+                }
+            }
+        }
+        parents
+    }
 }
 
 impl RemapSymbol for SymbolTable {
@@ -1015,7 +1068,8 @@ impl RemapSymbol for SymbolTable {
         let mut new_symbols = LinkedHashMap::with_capacity(self.symbols.len());
 
         for (key, symbol) in std::mem::take(&mut self.symbols) {
-            let new_key = map.get(&key)
+            let new_key = map
+                .get(&key)
                 .cloned()
                 .ok_or_else(|| InternerError::missing_ident(key))?;
 

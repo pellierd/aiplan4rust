@@ -282,11 +282,7 @@ fn perform_linking_checks(
         let type_checker = TypeChecker::new(&domain.symbol_table());
 
         // Validate signatures of declared symbols
-        semantic::checks::check_declared_symbol_signatures(
-            problem,
-            &type_checker,
-            diagnostic_manager,
-        )?;
+        semantic::checks::check_symbol_signatures(problem, &type_checker, diagnostic_manager)?;
 
         // Verify the type_checker correctness of logic in the problem
         semantic::checks::check_typed_expressions(

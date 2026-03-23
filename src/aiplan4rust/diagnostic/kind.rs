@@ -65,17 +65,13 @@ pub enum Kind {
     ///
     /// Typically occurs when a number contains invalid characters or an incorrectly placed decimal point.
     /// The `number` field contains the string slice that failed to parse.
-    InvalidNumber {
-        number: String,
-    },
+    InvalidNumber { number: String },
 
     /// Error indicating that a definition block appears more than once.
     ///
     /// This happens when a block of the same kind (e.g., `PredicatesDef`, `FunctionsDef`) is defined
     /// multiple times in the same context. The `block` field indicates which `AstKind` was duplicated.
-    DuplicateDefinitionBlock {
-        block: AstKind,
-    },
+    DuplicateDefinitionBlock { block: AstKind },
 
     /// Error indicating that a definition block appears out of the expected order.
     ///
@@ -83,10 +79,7 @@ pub enum Kind {
     /// before blocks that are expected to come earlier, this error is raised.
     /// - `block`: the block that is incorrectly ordered
     /// - `order`: a list of blocks that this block should have appeared after
-    InvalidDefinitionBlockOrder {
-        block: AstKind,
-        order: Vec<AstKind>,
-    },
+    InvalidDefinitionBlockOrder { block: AstKind, order: Vec<AstKind> },
 
     /// Error indicating that a symbol is used with a signature that does not match any declaration.
     ///
@@ -105,13 +98,19 @@ pub enum Kind {
     ///
     /// This error is raised when the expression involves incompatible types that
     /// cannot be reconciled, indicating a typing mismatch.
-    TypeMismatchInExpression { ty1: Type<SymbolId>, ty2: Type<SymbolId> },
+    TypeMismatchInExpression {
+        ty1: Type<SymbolId>,
+        ty2: Type<SymbolId>,
+    },
 
     /// Represents an error where two types used in a numeric expression are incompatible.
     ///
     /// This error occurs when an operation expecting numeric types receives types
     /// that are not valid for numeric computations (e.g., mixing incompatible or non-numeric types).
-    InvalidTypesInNumericExpression { ty1: Type<SymbolId>, ty2: Type<SymbolId> },
+    InvalidTypesInNumericExpression {
+        ty1: Type<SymbolId>,
+        ty2: Type<SymbolId>,
+    },
 
     /// Indicates that an expression node uses a feature or construct that violates
     /// the PDDL requirements currently active in the context.
@@ -537,9 +536,7 @@ pub enum Kind {
 
     /// Usage of a feature that is formally deprecated in the PDDL/HDDL standard.
     /// This allows the parser to continue while flagging the code as obsolete.
-    DeprecatedFeature {
-        node_kind: AstKind
-    },
+    DeprecatedFeature { node_kind: AstKind },
 
     /// A mandatory block (like :init, :goal, or :htn) was not found in the definition.
     /// This points out that the PDDL/HDDL file is functionally incomplete.
@@ -548,6 +545,12 @@ pub enum Kind {
         language: Language,
         /// The kind of the missing block (e.g., AstKind::Init).
         kind: AstKind,
+    },
+
+    /// A type is referenced in a declaration but has not been defined in the (:types) block.
+    UndeclaredType {
+        type_id: SymbolId,
+        declaration: Declaration,
     },
 }
 
@@ -576,7 +579,8 @@ impl Kind {
             Kind::SymbolConflictsWithKeyword { .. } => "014",
             Kind::CyclicTypeDeclaration { .. } => "015",
             Kind::CrossConflictSymbolDeclaration { .. } => "016",
-            Kind::MissingMandatoryBlock { .. } => {"017"}
+            Kind::MissingMandatoryBlock { .. } => "017",
+            Kind::UndeclaredType { .. } => "018",
 
             // WARNINGS (000..)
             Kind::DomainProblemNameMismatch { .. } => "000",
@@ -592,7 +596,6 @@ impl Kind {
             Kind::DuplicateVariableSkeletonDeclaration { .. } => "010",
             Kind::IncompatibleTypeDeclarations { .. } => "011",
             Kind::DeprecatedFeature { .. } => "012",
-
         }
     }
 
@@ -639,6 +642,7 @@ impl Kind {
             Kind::CrossConflictSymbolDeclaration { .. } => Severity::Error,
             Kind::IncompatibleTypeDeclarations { .. } => Severity::Error,
             Kind::MissingMandatoryBlock { .. } => Severity::Error,
+            Kind::UndeclaredType { .. } => Severity::Error,
             // WARNINGS
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => Severity::Warning,
             Kind::UnusedSymbol { .. } => Severity::Warning,
@@ -650,7 +654,6 @@ impl Kind {
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
             Kind::DuplicateVariableSkeletonDeclaration { .. } => Severity::Warning,
             Kind::DeprecatedFeature { .. } => Severity::Warning,
-
         }
     }
 }
@@ -691,7 +694,7 @@ impl RemapSymbol for DiagnosticKind {
     ///
     /// diagnostic.remap_idents(&map)?;
     /// ```
-    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>{
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         match self {
             Kind::InvalidSymbolSignature { declaration, usage } => {
                 declaration.remap_symbol(map)?;
@@ -707,7 +710,8 @@ impl RemapSymbol for DiagnosticKind {
                 original_declaration: declaration1,
                 conflicting_declaration: declaration2,
                 ..
-            } | Kind::DuplicateVariableSkeletonDeclaration {
+            }
+            | Kind::DuplicateVariableSkeletonDeclaration {
                 original_declaration: declaration1,
                 conflicting_declaration: declaration2,
                 ..
@@ -716,7 +720,7 @@ impl RemapSymbol for DiagnosticKind {
                 // elles sont garanties d'être liées peu importe la variante choisie.
                 declaration1.remap_symbol(map)?;
                 declaration2.remap_symbol(map)?;
-            },
+            }
 
             Kind::UndeclaredSymbol { usage } => {
                 usage.remap_symbol(map)?;
@@ -785,12 +789,18 @@ impl RemapSymbol for DiagnosticKind {
                 ty,
                 duplicate_types,
                 ..
-            }
-            => {
+            } => {
                 ty.remap_idents(map)?;
                 for ident in duplicate_types {
                     ident.remap_idents(map)?;
                 }
+            }
+            Kind::UndeclaredType {
+                type_id,
+                declaration,
+            } => {
+                type_id.remap_idents(map)?;
+                declaration.remap_symbol(map)?;
             }
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
@@ -805,10 +815,9 @@ impl RemapSymbol for DiagnosticKind {
             | Kind::CustomError { .. }
             | Kind::DeprecatedFeature { .. }
             | Kind::MissingMandatoryBlock { .. } => {}
-            | Kind::CustomWarning { .. } => {
+            Kind::CustomWarning { .. } => {
                 // No remap needed
             }
-
         }
         Ok(())
     }

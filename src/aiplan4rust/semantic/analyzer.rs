@@ -205,12 +205,6 @@ impl Analyzer {
         match root_ref.node().kind() {
             AstKind::Domain => {
                 Self::check_domain(&mut context, &mut self.diagnostic_manager)?;
-                /*println!(
-                    "DEBUG: {}",
-                    context
-                        .take_symbol_table()
-                        .to_string_with_interner(context.interner())
-                );*/
             }
             AstKind::Problem => {
                 let check_ctx = CheckContext::from(&context);
@@ -293,6 +287,10 @@ impl Analyzer {
         let mut checked =
             Self::check_symbols(context, &[], &[SymbolKind::Constant], diagnostic_manager)?;
 
+        // 2. NOUVEAU : On vérifie que TOUS les types utilisés existent
+        // (pour les variables, constantes, etc.)
+        checked &= semantic::checks::check_symbol_types(context, diagnostic_manager)?;
+
         checked &= semantic::checks::check_type_hierarchy(
             context,
             Provider::Analyzer,
@@ -309,11 +307,8 @@ impl Analyzer {
         let type_checker = TypeChecker::new(context.symbol_table());
         let mut checked = true;
 
-        checked &= semantic::checks::check_declared_symbol_signatures(
-            context,
-            &type_checker,
-            diagnostic_manager,
-        )?;
+        checked &=
+            semantic::checks::check_symbol_signatures(context, &type_checker, diagnostic_manager)?;
         checked &= semantic::checks::check_typed_expressions(
             context,
             &type_checker,
@@ -399,7 +394,7 @@ impl Analyzer {
         let mut checked = true;
 
         // Verify declared symbols correctness
-        checked &= semantic::checks::check_declared_symbols(context, diagnostic_manager)?;
+        checked &= semantic::checks::check_symbol_declarations(context, diagnostic_manager)?;
 
         // Check undeclared symbols, skipping specified types
         checked &= semantic::checks::check_undeclared_symbols(

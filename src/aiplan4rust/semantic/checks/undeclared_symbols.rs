@@ -3,8 +3,6 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::semantic::symbol::Declaration;
-use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
@@ -52,19 +50,24 @@ pub fn check_undeclared_symbols(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
-
     let symbol_table = context.symbol_table();
 
-    // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
-        // Iterate over all usages of the symbol.
         for usage in symbol.usages() {
-            // Skip the symbol if it meets the criteria (e.g., already declared or needs to be skipped).
-            if should_skip_symbol(symbol, context, usage.symbol_kind(), skip_symbols) {
+            let kind = usage.symbol_kind();
+
+            // 1. On garde ton skip_symbol actuel (built-ins + liste d'exclusion)
+            if should_skip_symbol(symbol, context, kind, skip_symbols) {
                 continue;
             }
 
-            // Check if the declaration for the symbol was found.
+            // 2. AJOUT : On ignore aussi les types ici car ils ont leur propre passe
+            // (check_symbol_types) qui gère les racines et les parents.
+            if kind == SymbolKind::PrimitiveType {
+                continue;
+            }
+
+            // 3. On vérifie si une déclaration existe pour le reste (Action, Variable, etc.)
             if !is_declaration_found(symbol, usage, context) {
                 checked = false;
                 let error = Diagnostic::error_undeclared_symbol(
@@ -156,7 +159,7 @@ fn should_skip_symbol(
 /// let declaration_found = is_declaration_found(&symbol, &usage);
 /// assert_eq!(declaration_found, true);  // Assuming a matching declaration was found.
 /// ```
-fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckContext) -> bool {
+/*fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckContext) -> bool {
     let usage_scope = usage.scope();
     let usage_kind = usage.symbol_kind();
 
@@ -201,6 +204,25 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
         }
         _ => symbol.declarations().iter().any(check_declarations),
     }
+}*/
+
+fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, _context: &CheckContext) -> bool {
+    let usage_scope = usage.scope();
+    let usage_kind = usage.symbol_kind();
+
+    // Pour tous les autres symboles (Action, Task, Predicate, Variable, Constant...)
+    symbol.declarations().iter().any(|declaration| {
+        let decl_kind = declaration.symbol_kind();
+
+        // 1. Le scope de l'usage doit être à l'intérieur du scope de la déclaration
+        let scope_match = usage_scope.starts_with(declaration.scope());
+
+        // 2. Le genre doit être compatible via ta méthode de partage d'espace de noms
+        let kind_match =
+            decl_kind == usage_kind || decl_kind.can_share_name_space_with(&usage_kind);
+
+        scope_match && kind_match
+    })
 }
 
 /// Checks if a symbol is a predefined PDDL built-in symbol.
@@ -235,8 +257,7 @@ fn is_pddl_builtin_symbol(symbol: &SymbolEntry, _context: &CheckContext) -> bool
     // They are considered part of the language's core vocabulary, decoupling symbol
     // existence from requirement-based feature activation.
     match symbol.ident() {
-        SymbolInterner::OBJECT_SYMBOL_ID
-        | SymbolInterner::NUMBER_SYMBOL_ID
+        SymbolInterner::NUMBER_SYMBOL_ID
         | SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
         | SymbolInterner::TOTAL_TIME_SYMBOL_ID
         | SymbolInterner::TOTAL_COST_SYMBOL_ID
