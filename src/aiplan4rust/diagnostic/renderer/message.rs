@@ -161,30 +161,14 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
         Kind::UndeclaredType {
             type_id,
             declaration,
-        } => format_undeclared_type(*type_id, declaration, interner),
+        } => format_undeclared_type(*type_id, interner),
     }
 }
 
-fn format_undeclared_type(
-    type_id: SymbolId,
-    declaration: &Declaration,
-    interner: Option<&SymbolInterner>,
-) -> String {
-    // Résolution du nom du type (ex: "mode")
-    let type_identifier = formatting::ident_to_string(type_id, interner);
+fn format_undeclared_type(type_id: SymbolId, interner: Option<&SymbolInterner>) -> String {
+    let type_name = formatting::ident_to_string(type_id, interner);
 
-    // Résolution du nom du symbole qui l'utilise (ex: "image1")
-    let declared_symbol_name = formatting::symbol_to_string(declaration.symbol(), interner);
-
-    // Conversion du SymbolKind en nom lisible sans passer par AstKind
-    let entity_name = formatting::symbol_kind_to_string(declaration.symbol().kind());
-
-    format!(
-        "The type `{}` is not declared, but it is used in the declaration of {} `{}`.",
-        type_identifier,
-        entity_name.to_lowercase(), // "object", "constant", etc.
-        declared_symbol_name
-    )
+    format!("The type `{}` is not declared.", type_name)
 }
 
 fn format_missing_mandatory_block(language: Language, kind: AstKind) -> String {

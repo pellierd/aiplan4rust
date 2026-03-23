@@ -267,11 +267,22 @@ fn perform_linking_checks(
     problem: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingError> {
+    let type_hierarchy = domain.symbol_table().to_type_hierarchy();
+    let type_checker = TypeChecker::new(&type_hierarchy);
+
     // Check that the domain name matches the problem's declared domain
     linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
 
+    // 2. On vérifie que les types utilisés dans le PROBLÈME existent dans le DOMAINE
+    // On réutilise la fonction du domaine !
+    let mut check = semantic::checks::check_symbol_types(
+        problem,         // On scanne la table du problème
+        &type_hierarchy, // Mais on valide par rapport à la hiérarchie du domaine
+        diagnostic_manager,
+    )?;
+
     // Check for duplicate symbol declarations across domain and problem
-    let mut check = linking::checks::check_cross_declared_symbols(
+    check &= linking::checks::check_cross_declared_symbols(
         domain,
         problem,
         Provider::Linker,
@@ -289,9 +300,6 @@ fn perform_linking_checks(
     // If structural checks passed, perform type_checker-dependent semantic checks
     if check {
         // Initialize a type_checker checker with the domain's symbol table
-        let type_hierarchy = domain.symbol_table().to_type_hierarchy();
-        let type_checker = TypeChecker::new(&type_hierarchy);
-
         // Validate signatures of declared symbols
         semantic::checks::check_symbol_signatures(problem, &type_checker, diagnostic_manager)?;
 

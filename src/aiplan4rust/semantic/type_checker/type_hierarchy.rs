@@ -102,13 +102,15 @@ impl TypeHierarchy {
         !self.is_parent(type_id)
     }
 
-    /// Returns true if the given SymbolId is declared as a parent of at least one other type.
+    /// Returns true if the given [`SymbolId`] is part of the type hierarchy.
     ///
-    /// In PDDL, this identifies "super-types" (e.g., 'vehicle' in 'truck - vehicle').
-    pub fn is_type_used_as_parent(&self, type_id: SymbolId) -> bool {
-        // On vérifie simplement si l'ID existe dans l'index inverse.
-        // Si oui, c'est qu'il a au moins un enfant.
-        self.parent_to_children.contains_key(&type_id)
+    /// This includes types that are parents, children, or even "orphan" types
+    /// declared without any hierarchical relationships (e.g., 'room - object'
+    /// or just 'room' in the :types section).
+    pub fn contains_type(&self, type_id: SymbolId) -> bool {
+        // Grâce à ta modif dans 'to_type_hierarchy', tous les types déclarés
+        // sont maintenant des clés dans ce HashMap.
+        self.child_to_parents.contains_key(&type_id)
     }
 }
 

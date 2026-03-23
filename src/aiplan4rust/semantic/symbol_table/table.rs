@@ -1027,24 +1027,30 @@ impl Table {
             HashMap::with_capacity(self.symbols.len() / 4);
 
         for (&id, entry) in self.symbols.iter() {
-            // We iterate through declarations to ensure we only capture
-            // the 'PrimitiveType' aspect of the symbol.
             for decl in entry.declarations() {
                 if decl.kind() == SymbolKind::PrimitiveType {
+                    // Étape 1 : On récupère les parents s'ils existent
                     if let Some(ty) = decl.ty() {
-                        // ty.members() contains the parent type IDs.
                         let parents = ty.members();
-                        if !parents.is_empty() {
-                            hierarchy_map
-                                .entry(id)
-                                .or_default()
-                                .extend(parents.iter().cloned());
+
+                        // Étape 2 : On insère les parents pour l'enfant actuel
+                        // On ne stocke pas le résultat de .entry() dans une variable longue durée
+                        hierarchy_map
+                            .entry(id)
+                            .or_default()
+                            .extend(parents.iter().cloned());
+
+                        // Étape 3 : On s'assure que chaque parent a sa propre entrée
+                        for &parent_id in parents {
+                            hierarchy_map.entry(parent_id).or_default();
                         }
+                    } else {
+                        // Si pas de parents, on s'assure quand même que le type existe (root)
+                        hierarchy_map.entry(id).or_default();
                     }
                 }
             }
         }
-
         TypeHierarchy::new(hierarchy_map)
     }
 }
