@@ -38,7 +38,7 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolOrigin, Usage};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
@@ -268,6 +268,7 @@ fn perform_linking_checks(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingError> {
     let type_hierarchy = domain.symbol_table().to_type_hierarchy();
+
     let type_checker = TypeChecker::new(&type_hierarchy);
 
     // Check that the domain name matches the problem's declared domain
@@ -356,72 +357,69 @@ fn resolve_external_references(
     domain: &SemanticContext,
     problem: &mut SemanticContext,
 ) -> Result<(), LinkingError> {
-    // Collect declared and undeclared symbols in the problem relative to the domain symbol table
     let mut declared = Vec::new();
     let mut undeclared = Vec::new();
+    let mut to_verify = Vec::new();
 
     collect_declared_and_undeclared_symbols(
         problem,
         domain.symbol_table(),
         &mut declared,
         &mut undeclared,
+        &mut to_verify,
     )?;
 
-    // For each declared symbol, inject the corresponding declaration into the problem context
+    if !to_verify.is_empty() {
+        let hierarchy = domain.symbol_table().to_type_hierarchy();
+        let type_checker = TypeChecker::new(&hierarchy);
+        let interner = domain.interner();
+
+        for (dom_decl, prob_decl) in to_verify {
+            if let (Some(dom_type), Some(prob_type)) = (dom_decl.ty(), prob_decl.ty()) {
+                // Règle de sous-typage stricte
+                match type_checker.is_any_subtype_of(dom_type, prob_type) {
+                    Ok(true) => {
+                        // Succès : Le problème confirme ou spécialise le domaine.
+                        // On ne fait rien, on laisse la déclaration du problème telle quelle.
+                    }
+                    _ => {
+                        let symbol_name = interner
+                            .resolve_symbol(prob_decl.symbol().id())
+                            .unwrap_or("unknown");
+                        let dom_type_str = interner
+                            .resolve_symbol(dom_type.members()[0])
+                            .unwrap_or("?");
+                        let prob_type_str = interner
+                            .resolve_symbol(prob_type.members()[0])
+                            .unwrap_or("?");
+
+                        panic!(
+                            "\n[Linking Error] Incompatible redefinition for symbol '{}':\n\
+                             - Domain expects:  {}\n\
+                             - Problem defined: {}\n\
+                             => To fix this for UM-Translog, change the domain constant to a parent type (e.g., Truck).",
+                            symbol_name, dom_type_str, prob_type_str
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // Injection des constantes du domaine dans le contexte du problème
     for (symbol_name, declaration) in declared {
-        // add_declaration returns a bool, but we can ignore it if we don't care
         problem.add_declaration(symbol_name, declaration);
     }
 
     Ok(())
 }
 
-/// Collects symbol declarations from the domain symbol table for problem symbols that lack declarations,
-/// and gathers symbols that remain undeclared.
-///
-/// This function does **not** mutate any symbol tables directly.
-/// Instead, it fills the provided vectors:
-/// - `declared`: collects `(symbol_name, declaration)` pairs to later add to the problem's symbol table.
-/// - `undeclared`: collects `(symbol_name, usage)` pairs representing unresolved symbols.
-///
-/// The function iterates over all symbols in the problem's symbol table that currently have no declarations.
-/// For each usage of such a symbol, it attempts to resolve a matching declaration in the domain's symbol table.
-/// If found, it clones the declaration, marks it as originating from the domain,
-/// and adds it to `declared`. Otherwise, it records the symbol and usage as `undeclared`.
-///
-/// # Arguments
-///
-/// * `problem` - Reference to the problem's semantic context.
-/// * `domain_symbol_table` - Reference to the domain's symbol table for resolving declarations.
-/// * `declared` - Mutable vector to collect declarations to add to problem symbols.
-/// * `undeclared` - Mutable vector to collect unresolved symbols and their usages.
-///
-/// # Returns
-///
-/// Returns `Ok(true)` if all problem symbols were successfully resolved from the domain.
-/// Returns `Ok(false)` if some symbols remain undeclared.
-/// Returns `Err(ParserInternalError)` if any error occurs during symbol resolution.
-///
-/// # Example
-///
-/// ```ignore
-/// let mut declared = Vec::new();
-/// let mut undeclared = Vec::new();
-/// let all_resolved = collect_declared_and_undeclared_symbols(
-///     &problem_context,
-///     &domain_symbol_table,
-///     &mut declared,
-///     &mut undeclared,
-/// )?;
-/// if !all_resolved {
-///     // Handle diagnostics for undeclared symbols here
-/// }
-/// ```
 fn collect_declared_and_undeclared_symbols<'a>(
     problem: &'a SemanticContext,
     domain_symbol_table: &'a SymbolTable,
     declared: &mut Vec<(SymbolId, Declaration)>,
     undeclared: &mut Vec<(SymbolId, &'a Usage)>,
+    to_verify: &mut Vec<(&'a Declaration, &'a Declaration)>,
 ) -> Result<bool, LinkingError> {
     let problem_symbol_table = problem.symbol_table();
     let mut all_resolved = true;
@@ -429,52 +427,65 @@ fn collect_declared_and_undeclared_symbols<'a>(
     for symbol in problem_symbol_table.values() {
         let symbol_ident = symbol.ident();
 
-        for usage in symbol.usages() {
-            let kind = usage.symbol_kind();
+        // --- MODIFICATION ICI : On exclut le nom du domaine et du problème ---
+        let problem_decls: Vec<&Declaration> = symbol
+            .declarations()
+            .iter()
+            .filter(|d| {
+                let k = d.symbol().kind();
+                k != SymbolKind::DomainName && k != SymbolKind::ProblemName
+            })
+            .collect();
 
-            // Count existing declarations for this kind in the problem
-            let matching_count = symbol
-                .declarations()
-                .iter()
-                .filter(|d| d.symbol().kind() == kind)
-                .count();
+        if problem_decls.is_empty() {
+            for usage in symbol.usages() {
+                let kind = usage.symbol_kind();
 
-            match matching_count {
-                // CASE 0: Missing declaration -> Resolve from domain
-                0 => {
-                    let domain_declaration_option = domain_symbol_table.resolve_declaration(
-                        &symbol_ident,
-                        &kind,
-                        &domain_symbol_table.root_scope(),
-                    )?;
-
-                    if let Some(domain_declaration) = domain_declaration_option {
-                        let mut domain_declaration = domain_declaration.clone();
-                        domain_declaration.set_origin(SymbolOrigin::Domain);
-                        domain_declaration
-                            .set_imported_scope(Some(domain_declaration.scope().clone()));
-                        domain_declaration.set_scope(problem.symbol_table().root_scope().clone());
-
-                        declared.push((symbol_ident, domain_declaration));
-                    } else {
-                        // Not found in problem OR domain
-                        undeclared.push((symbol_ident, usage));
-                        all_resolved = false;
-                    }
+                // On ignore aussi ces types dans les usages pour le linking
+                if kind == SymbolKind::DomainName || kind == SymbolKind::ProblemName {
+                    continue;
                 }
 
-                // CASE 1: Already correctly declared -> Nothing to do
-                1 => continue,
+                let dom_decl_opt = domain_symbol_table.resolve_declaration(
+                    &symbol_ident,
+                    &kind,
+                    &domain_symbol_table.root_scope(),
+                )?;
 
-                _ => {
-                    // More than one declaration found:
-                    // Return the error using the helper function.
-                    return Err(LinkingError::duplicate_symbol_declaration(Symbol::new(
-                        symbol_ident,
-                        kind,
-                    )));
+                if let Some(dom_decl) = dom_decl_opt {
+                    if !declared
+                        .iter()
+                        .any(|(id, d)| *id == symbol_ident && d.symbol().kind() == kind)
+                    {
+                        let mut linked_decl = dom_decl.clone();
+                        linked_decl.set_origin(SymbolOrigin::Domain);
+                        linked_decl.set_imported_scope(Some(dom_decl.scope().clone()));
+                        linked_decl.set_scope(problem.symbol_table().root_scope().clone());
+                        declared.push((symbol_ident, linked_decl));
+                    }
+                } else {
+                    undeclared.push((symbol_ident, usage));
+                    all_resolved = false;
                 }
             }
+        } else if problem_decls.len() == 1 {
+            let prob_decl = problem_decls[0];
+            let kind = prob_decl.symbol().kind();
+
+            let dom_decl_opt = domain_symbol_table.resolve_declaration(
+                &symbol_ident,
+                &kind,
+                &domain_symbol_table.root_scope(),
+            )?;
+
+            if let Some(dom_decl) = dom_decl_opt {
+                to_verify.push((dom_decl, prob_decl));
+            }
+        } else {
+            return Err(LinkingError::duplicate_symbol_declaration(Symbol::new(
+                symbol_ident,
+                problem_decls[0].symbol().kind(),
+            )));
         }
     }
 
