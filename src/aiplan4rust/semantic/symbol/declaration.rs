@@ -1,49 +1,55 @@
-//! Module for representing symbol declarations in the AI syntax Rust syntax and semantic analysis.
+//! Module for representing symbol declarations in the AI syntax and semantic analysis.
 //!
-//! This module defines the `Declaration` struct, which models the declaration of a symbol in the
-//! abstract syntax tree (AST) arena, enriched with semantic information such as scope, origin,
-//! types, and arguments. It also integrates source location (`Span`) and AST node identity (`NodeId`).
+//! This module defines the `Declaration` struct, which models a symbol's declaration
+//! within the AST arena. It enriches basic syntax with semantic metadata such as
+//! scope, origin, types, and arguments, while maintaining strict links to the
+//! source code via `Span` and `NodeId`.
 //!
 //! # Core Concepts
 //!
-//! - **SymbolRef**: A reference to a declared symbol, including its identifier and kind (variable, function, etc.).
-//! - **Scope**: The visibility and lifetime context of the declaration (e.g., global, local).
-//! - **SymbolOrigin**: Origin domain of the symbol, typically indicating if it comes from the domain model or problem context.
-//! - **Type** and **TypedList**: Optional typing annotations for the symbol and its parameters.
-//! - **Span**: Source code range indicating where the declaration occurs.
-//! - **NodeId**: The unique AST node identifier associated with the declaration.
+//! - **Symbol**: The identity of the declared symbol, including its identifier and kind (e.g., Variable, Predicate).
+//! - **Scope**: The visibility and lifetime context (e.g., Global, Local, Action-level).
+//! - **SymbolOrigin**: Indicates whether the declaration stems from a Domain or a Problem file.
+//! - **Types & Arguments**: Semantic structures (`Type`, `TypedList`) capturing the symbol's signature.
+//! - **Provenance Tracking**: A dual-layer tracking system using `Span` for general location and
+//!   `NodeId` vectors (`ty_node_ids`, `argument_node_ids`) for precise mapping of each component.
 //!
 //! # Functionality
 //!
 //! The `Declaration` struct:
-//! - Encapsulates all relevant data about a symbol declaration for semantic analysis.
-//! - Supports remapping of identifiers, useful in symbol transformations or logic logic.
-//! - Provides formatting helpers to display symbol types and arguments, with or without resolving interned strings.
-//! - Implements `fmt::Display` for human-readable string representations of declarations.
-//! - Implements `InternerDisplay` to format declarations using a `StringInterner` for readable names.
+//! - Encapsulates all data required for semantic validation and type checking.
+//! - Supports **Symbol Remapping**, allowing identifiers to be updated during AST transformations.
+//! - Facilitates **Precise Diagnostics** by linking every semantic element (like a specific type in an `either`)
+//!   to its original AST node.
+//! - Provides specialized formatting via `fmt::Display` and `InternerDisplay` for human-readable
+//!   output using interned strings.
 //!
 //! # Examples
 //!
 //! ```rust
-//! use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolRef, SymbolKind, Scope, SymbolOrigin};
-//! use crate::aiplan4rust::lang::{Ident, Type, TypedList};
+//! use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Scope, SymbolOrigin};
+//! use crate::aiplan4rust::lang::{Type, TypedList};
 //! use crate::aiplan4rust::syntax::{Span, NodeId};
 //!
-//! let symbol_ref = SymbolRef::new(Ident::from("x"), SymbolKind::Variable);
+//! // Creating a declaration for a variable 'x' of type 'object'
+//! let symbol = Symbol::new(symbol_id, SymbolKind::Variable);
 //! let declaration = Declaration::new(
-//!     symbol_ref,
+//!     symbol,
 //!     Scope::Global,
 //!     SymbolOrigin::Domain,
-//!     Some(Type::from(vec![Ident::from("int")])),
-//!     None,
-//!     Span::dummy(),
-//!     NodeId(1),
-//!     None,
+//!     Some(Type::from(vec![type_id])), // Semantic type
+//!     Some(vec![type_node_id]),        // Syntactic link
+//!     None,                            // No arguments
+//!     None,                            // No argument nodes
+//!     span,
+//!     main_node_id,
+//!     None,                            // No imported scope
 //! );
+//!
 //! println!("{}", declaration);
 //! ```
 //!
-//! This module depends on serde for serialization and deserialization of declarations.
+//! This module relies on `serde` for robust serialization/deserialization of the semantic model.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::Type;
@@ -59,61 +65,46 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt;
 
-/// Represents a declaration of a symbol in the abstract syntax arena (AST).
+/// Represents a formal declaration of a symbol within the AST.
 ///
-/// This struct captures detailed information about a symbol's declaration within
-/// the program, including its identity, scope, origin, associated types, parameters,
-/// AST syntax, and source code location.
-///
-/// # Fields
-///
-/// * `symbol_ref` - The reference to the symbol being declared, containing its identifier and kind.
-/// * `scope` - The scope in which this declaration is valid (e.g., global, local).
-/// * `origin` - The origin or source domain of the declaration, typically indicating
-///   whether it belongs to the domain or problem context.
-/// * `types` - An optional list of types associated with the symbol (e.g., return types or annotations).
-/// * `arguments` - Optional lists of typed parameters or arguments, grouped by parameter lists, if applicable.
-/// * `node_id` - The AST syntax identifier corresponding to this declaration.
-/// * `span` - The source span indicating where this declaration occurs in the source code.
-///
-/// # Example
-///
-/// ```rust
-/// let symbol_ref = SymbolRef::new(Ident::from("x"), SymbolKind::Variable);
-/// let declaration = Declaration::new(
-///     symbol_ref,
-///     Scope::Global,
-///     SymbolOrigin::Domain,   // Origin could be Domain or Problem
-///     Some(vec![Ident::from("int")]),
-///     None,
-///     Span::dummy(),
-///     NodeId(1),
-/// );
-/// ```
+/// This structure links semantic information (calculated during analysis) with
+/// precise syntactic anchors (NodeIds) to enable accurate diagnostics,
+/// symbol remapping, and source code patching.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Declaration {
-    /// Reference to the symbol declared.
+    /// The actual symbol being declared, containing its identifier and kind.
     symbol: Symbol,
 
-    /// The scope of the declaration.
+    /// The visibility context and lifetime of the declaration (e.g., Global, Local).
     scope: Scope,
 
-    /// The origin from which the declaration originates.
+    /// The source domain of the declaration, indicating if it originates
+    /// from a Domain or a Problem file.
     origin: SymbolOrigin,
 
-    /// Optional list of types associated with the symbol.
+    /// Optional semantic typing information associated with the symbol.
     ty: Option<Type<SymbolId>>,
 
-    /// Optional list of argument types, grouped in parameter lists.
+    /// Optional list of AST node identifiers corresponding to each type in `ty`.
+    /// This allows pinpointing the exact syntax for every declared type.
+    ty_node_ids: Option<Vec<NodeId>>,
+
+    /// Optional list of typed parameters, used for symbols with signatures
+    /// such as predicates or functions.
     arguments: Option<TypedList<SymbolId, SymbolId>>,
 
-    /// The span in source code where the declaration is located.
+    /// Optional list of AST node identifiers for each individual argument name.
+    /// Ensures a 1:1 mapping between semantic arguments and their syntactic origin.
+    argument_node_ids: Option<Vec<NodeId>>,
+
+    /// The specific range in the source code covered by this declaration.
     span: Span,
 
-    /// The AST syntax ID corresponding to this declaration.
+    /// The primary AST node identifier that represents this declaration.
     node_id: NodeId,
 
-    /// Original scope if this declaration was imported, otherwise `None`.
+    /// The original scope context if this declaration was imported
+    /// from an external module; otherwise `None`.
     imported_scope: Option<Scope>,
 }
 
@@ -121,19 +112,21 @@ impl Declaration {
     /// Creates a new `Declaration` instance.
     ///
     /// Constructs a `Declaration` that represents the declaration of a symbol within
-    /// a given scope, along with optional type_checker information and arguments.
+    /// a given scope, along with its semantic information (types, arguments) and
+    /// its syntactic anchoring in the AST.
     ///
-    /// # Parameters
+    /// # Arguments
     ///
-    /// - `symbol_ref`: A reference to the symbol being declared.
-    /// - `scope`: The scope in which this declaration is valid (e.g., function, module).
-    /// - `origin`: The origin or source of the declaration (e.g., domain or problem).
-    /// - `types`: An optional list of types associated with the symbol (e.g., return types or type_checker
-    ///   annotations).
-    /// - `arguments`: An optional list of typed symbols representing the parameters or arguments,
-    ///   possibly grouped by parameter lists.
-    /// - `span`: The source code span that locates where the declaration appears.
-    /// - `node_id`: The AST syntax identifier corresponding to this declaration.
+    /// * `symbol` - The symbol being declared (identity and kind).
+    /// * `scope` - The scope in which this declaration is valid (e.g., Global, Local).
+    /// * `origin` - The origin source of the declaration (e.g., Domain or Problem).
+    /// * `ty` - Optional semantic types associated with the symbol.
+    /// * `ty_node_ids` - Optional AST node identifiers for the type annotations.
+    /// * `arguments` - Optional typed list of parameters for predicates or functions.
+    /// * `argument_node_ids` - Optional AST node identifiers for each individual argument.
+    /// * `span` - The source code span locating the declaration.
+    /// * `node_id` - The main AST node identifier for this declaration.
+    /// * `imported_scope` - The original scope if the symbol was imported from another module.
     ///
     /// # Returns
     ///
@@ -141,23 +134,28 @@ impl Declaration {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust
     /// let decl = Declaration::new(
-    ///     symbol_ref,
+    ///     symbol,
     ///     scope,
-    ///     source,
-    ///     Some(vec![type_ident]),
-    ///     Some(vec![typed_arg]),
+    ///     origin,
+    ///     Some(types),
+    ///     Some(type_nodes),
+    ///     Some(args),
+    ///     Some(arg_nodes),
     ///     span,
     ///     node_id,
+    ///     None,
     /// );
     /// ```
     pub fn new(
         symbol: Symbol,
         scope: Scope,
         origin: SymbolOrigin,
-        types: Option<Type<SymbolId>>,
+        ty: Option<Type<SymbolId>>,
+        ty_node_ids: Option<Vec<NodeId>>,
         arguments: Option<TypedList<SymbolId, SymbolId>>,
+        argument_node_ids: Option<Vec<NodeId>>,
         span: Span,
         node_id: NodeId,
         imported_scope: Option<Scope>,
@@ -166,106 +164,219 @@ impl Declaration {
             symbol,
             scope,
             origin,
-            ty: types,
+            ty,
+            ty_node_ids,
             arguments,
+            argument_node_ids,
             span,
             node_id,
             imported_scope,
         }
     }
 
-    /// Returns a reference to the [`SymbolRef`] associated with this usage.
+    /// Returns a reference to the [`Symbol`] associated with this declaration.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the underlying symbol.
     pub fn symbol(&self) -> &Symbol {
         &self.symbol
     }
 
-    /// Returns the [`SymbolId`] of the referenced symbol.
+    /// Returns the [`SymbolId`] of the declared symbol.
+    ///
+    /// # Returns
+    ///
+    /// The unique identifier of the symbol.
     pub fn symbol_ident(&self) -> SymbolId {
         self.symbol.id()
     }
 
-    /// Returns the [`SymbolKind`] of the referenced symbol.
+    /// Returns the [`SymbolKind`] of the declared symbol.
+    ///
+    /// # Returns
+    ///
+    /// The kind of the symbol (e.g., Variable, PrimitiveType).
     pub fn symbol_kind(&self) -> SymbolKind {
         self.symbol.kind()
     }
 
-    /// Returns a reference to the [`Scope`] in which the symbol is used.
+    /// Returns a reference to the [`Scope`] in which the symbol is declared.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the scope context.
     pub fn scope(&self) -> &Scope {
         &self.scope
     }
 
+    /// Sets the visibility scope of the declaration.
+    ///
+    /// # Arguments
+    ///
+    /// * `scope` - The new scope to associate with this declaration.
     pub fn set_scope(&mut self, scope: Scope) {
         self.scope = scope;
     }
 
-    /// Returns an optional reference to the list of types associated with the symbol.
+    /// Returns an optional reference to the typing information associated with the symbol.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&Type<SymbolId>)` if the symbol is typed, or `None` otherwise.
     pub fn ty(&self) -> Option<&Type<SymbolId>> {
         self.ty.as_ref()
     }
 
-    /// Sets the types associated with this declaration.
+    /// Returns an optional slice of the AST node identifiers corresponding to the types.
+    ///
+    /// These IDs allow mapping each semantic type to its precise syntax location for diagnostics or patching.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&[NodeId])` representing the type nodes, or `None` if no type nodes are recorded.
+    pub fn ty_node_ids(&self) -> Option<&[NodeId]> {
+        self.ty_node_ids.as_deref()
+    }
+
+    /// Sets the semantic types associated with this declaration.
+    ///
+    /// # Arguments
+    ///
+    /// * `ty` - The type definition to assign.
     pub fn set_ty(&mut self, ty: Type<SymbolId>) {
         self.ty = Some(ty);
     }
 
-    /// Clears the types (if your logic allows untyped declarations).
-    pub fn clear_ty(&mut self) {
-        self.ty = None;
+    /// Sets the AST node identifiers corresponding to the typing syntax.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_ids` - A vector of node IDs representing the type components in the source tree.
+    pub fn set_ty_node_ids(&mut self, node_ids: Vec<NodeId>) {
+        self.ty_node_ids = Some(node_ids);
     }
 
-    /// Returns an optional reference to the list of arguments associated with the symbol.
+    /// Clears both semantic types and their associated syntax node identifiers.
+    pub fn clear_ty(&mut self) {
+        self.ty = None;
+        self.ty_node_ids = None;
+    }
+
+    /// Returns an optional reference to the list of arguments (parameters) associated with the symbol.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&TypedList<SymbolId, SymbolId>)` if the symbol has arguments, or `None` otherwise.
     pub fn arguments(&self) -> Option<&TypedList<SymbolId, SymbolId>> {
         self.arguments.as_ref()
     }
 
-    /// Sets a concrete list of arguments (used for predicates/functions).
+    /// Sets the list of arguments for symbols like predicates or functions.
+    ///
+    /// # Arguments
+    ///
+    /// * `arguments` - The typed parameter list to assign.
     pub fn set_arguments(&mut self, arguments: TypedList<SymbolId, SymbolId>) {
         self.arguments = Some(arguments);
     }
 
-    /// Explicitly removes the arguments (e.g., converting to a constant).
-    pub fn clear_arguments(&mut self) {
-        self.arguments = None;
+    /// Returns an optional slice of the AST node identifiers corresponding to the arguments.
+    ///
+    /// This provides a direct link between each parameter and its original syntax node.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&[NodeId])` representing the argument nodes, or `None` if no IDs are recorded.
+    pub fn argument_node_ids(&self) -> Option<&[NodeId]> {
+        self.argument_node_ids.as_deref()
     }
 
-    /// Returns a reference to the [`Span`] in the source code.
+    /// Sets the AST node identifiers corresponding to the argument syntax.
+    ///
+    /// # Arguments
+    ///
+    /// * `ids` - A vector of node IDs representing the arguments in the source tree.
+    pub fn set_argument_node_ids(&mut self, ids: Vec<NodeId>) {
+        self.argument_node_ids = Some(ids);
+    }
+
+    /// Clears both semantic arguments and their associated syntax node identifiers.
+    pub fn clear_arguments(&mut self) {
+        self.arguments = None;
+        self.argument_node_ids = None;
+    }
+
+    /// Returns a reference to the source code [`Span`] where the declaration is located.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the span indicating the start and end positions in the source.
     pub fn span(&self) -> &Span {
         &self.span
     }
 
     /// Sets the source code span associated with this declaration.
+    ///
+    /// # Arguments
+    ///
+    /// * `span` - The new span to assign.
     pub fn set_span(&mut self, span: Span) {
         self.span = span;
     }
 
-    /// Returns the [`NodeId`] of the AST syntax associated with this usage.
+    /// Returns the [`NodeId`] of the main AST node associated with this declaration.
+    ///
+    /// # Returns
+    ///
+    /// The unique identifier of the AST node.
     pub fn node_id(&self) -> NodeId {
         self.node_id
     }
 
-    /// Sets the [`NodeId`] of the AST syntax associated with this usage.
+    /// Sets the [`NodeId`] of the main AST node associated with this declaration.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - The new AST node identifier.
     pub fn set_node_id(&mut self, node_id: NodeId) {
         self.node_id = node_id;
     }
 
-    /// Returns a reference to the [`SymbolOrigin`] indicating the origin of the symbol.
+    /// Returns the [`SymbolOrigin`] indicating where the symbol was defined.
+    ///
+    /// # Returns
+    ///
+    /// The origin of the declaration (e.g., Domain or Problem).
     pub fn origin(&self) -> SymbolOrigin {
         self.origin
     }
 
-    /// Sets the [`SymbolOrigin`] of this declaration.
+    /// Sets the origin of the declaration.
     ///
-    /// This method is public within the crate to allow controlled updates.
+    /// # Arguments
+    ///
+    /// * `origin` - The new origin to assign.
     pub fn set_origin(&mut self, origin: SymbolOrigin) {
         self.origin = origin;
     }
 
-    /// Returns a reference to the imported scope if any.
+    /// Returns an optional reference to the imported scope.
+    ///
+    /// This field is populated if the declaration originates from an external source or module.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&Scope)` if imported, or `None` if the declaration is native to the current context.
     pub fn imported_scope(&self) -> Option<&Scope> {
         self.imported_scope.as_ref()
     }
 
-    /// Sets the imported scope.
+    /// Sets or clears the original scope of an imported declaration.
+    ///
+    /// # Arguments
+    ///
+    /// * `scope` - The optional scope to assign.
     pub fn set_imported_scope(&mut self, scope: Option<Scope>) {
         self.imported_scope = scope;
     }
@@ -448,12 +559,9 @@ impl fmt::Display for Declaration {
     /// Formats the `Declaration` for display purposes.
     ///
     /// This implementation writes a structured representation of the declaration,
-    /// including its AST syntax index, symbol kind, identifier, scope, source,
-    /// and optionally the associated types and argument types.
-    ///
-    /// The output format looks like:
-    /// `[index: <node_id>, kind: <symbol_kind>, ident: <identifier>, scope: <scope>, source:
-    ///  <source>, types: [...], arguments: [...]]`
+    /// including its AST node ID, symbol kind, identifier (raw ID), scope, origin,
+    /// and optionally the associated types, arguments, and their corresponding
+    /// syntax node IDs.
     ///
     /// # Arguments
     ///
@@ -461,34 +569,53 @@ impl fmt::Display for Declaration {
     ///
     /// # Returns
     ///
-    /// A `fmt::Result` which is `Ok` if formatting succeeded, or an error if it failed.
+    /// A `fmt::Result` indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Display the main elements: ast_old, kind, scope, and source
+        // 1. Basic information: node_id, kind, and raw symbol identifier
         write!(
             f,
-            "[index: {}, kind: {}, ident: {}",
+            "[node: {}, kind: {}, ident: {}",
             self.node_id().as_usize(),
             self.symbol_kind(),
             self.symbol_ident()
         )?;
 
-        // Add scope and source at the end
+        // 2. Context: scope, origin, and imported scope
         write!(
             f,
-            ", scope: {}, source: {}, imported: {}",
+            ", scope: {}, origin: {}, imported: {}",
             self.scope(),
             self.origin(),
             self.imported_scope()
                 .map_or("None".to_string(), |s| s.to_string())
         )?;
 
-        // Call the format_types function to format the types
+        // 3. Types and their node IDs
         self.fmt_types(f)?;
+        if let Some(nodes) = self.ty_node_ids() {
+            write!(f, " (nodes: ")?;
+            for (i, node) in nodes.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node.as_usize())?;
+            }
+            write!(f, ")")?;
+        }
 
-        // Call the format_arguments function to format the arguments
+        // 4. Arguments and their node IDs
         self.fmt_arguments(f)?;
+        if let Some(nodes) = self.argument_node_ids() {
+            write!(f, " (nodes: ")?;
+            for (i, node) in nodes.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node.as_usize())?;
+            }
+            write!(f, ")")?;
+        }
 
-        // Close the bracket
         write!(f, "]")
     }
 }
@@ -538,31 +665,54 @@ impl InternerDisplay for Declaration {
         f: &mut fmt::Formatter<'_>,
         interner: &SymbolInterner,
     ) -> fmt::Result {
-        let name_str = match interner.resolve_symbol(self.symbol_ident()) {
-            Some(name) => name,
-            None => "<uninterned>",
-        };
+        let name_str = interner
+            .resolve_symbol(self.symbol_ident())
+            .unwrap_or("<uninterned>");
 
+        // 1. Informations de base
         write!(
             f,
-            "[index: {}, kind: {}, ident: {}",
+            "[node: {}, kind: {}, ident: {}",
             self.node_id().as_usize(),
             self.symbol_kind(),
             name_str
         )?;
 
+        // 2. Contexte
         write!(
             f,
-            ", scope: {}, source: {}, imported: {}",
+            ", scope: {}, origin: {}, imported: {}",
             self.scope(),
             self.origin(),
             self.imported_scope()
                 .map_or("None".to_string(), |s| s.to_string())
         )?;
 
-        // Appelle les helpers définies dans ce même impl
+        // 3. Types sémantiques ET leurs NodeIds
         self.fmt_types_with(f, interner)?;
+        if let Some(nodes) = self.ty_node_ids() {
+            write!(f, " (nodes: ")?;
+            for (i, node) in nodes.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node.as_usize())?;
+            }
+            write!(f, ")")?;
+        }
+
+        // 4. Arguments sémantiques ET leurs NodeIds
         self.fmt_arguments_with(f, interner)?;
+        if let Some(nodes) = self.argument_node_ids() {
+            write!(f, " (nodes: ")?;
+            for (i, node) in nodes.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node.as_usize())?;
+            }
+            write!(f, ")")?;
+        }
 
         write!(f, "]")
     }

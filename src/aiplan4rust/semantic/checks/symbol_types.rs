@@ -35,11 +35,8 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
-use crate::aiplan4rust::syntax::Span;
-use crate::SymbolTable;
 
 /// Validates the semantic consistency of all type references within the symbol table.
 ///
@@ -84,14 +81,18 @@ pub fn check_symbol_types(
             // (e.g., in 'v - vehicle', we retrieve the ID for 'vehicle')
             if let Some(type_ids) = declaration.ty() {
                 // Iterate through each ID (handles simple types or 'either' unions)
-                for type_id in type_ids {
+                for (i, type_id) in type_ids.iter().enumerate() {
                     // Validate the type via built-ins, the hierarchy, or root declarations
                     if !is_type_symbol_valid(*type_id, type_hierarchy) {
                         no_error = false;
 
                         // Resolve the precise span for the undeclared type usage
-                        let precise_span =
-                            resolve_type_usage_span(*type_id, declaration, symbol_table);
+                        let precise_span = declaration
+                            .ty_node_ids()
+                            .and_then(|ids| ids.get(i)) // On cherche l'index exact
+                            .and_then(|&id| context.syntax_tree().try_node(id).ok()) // On cherche le nœud
+                            .map(|node| *node.span()) // On prend son span
+                            .unwrap_or_else(|| *declaration.span()); // FALLBACK : Le nom de l'objet (ex: Phenomenon7)
 
                         // Generate an error diagnostic for the user
                         diagnostic_manager.add_diagnostic(Diagnostic::error_undeclared_type(
@@ -140,62 +141,4 @@ fn is_type_symbol_valid(type_id: SymbolId, type_hierarchy: &TypeHierarchy) -> bo
     // Since the hierarchy stores all encountered types (including orphans and
     // those only appearing as parents), this is a definitive O(1) lookup.
     type_hierarchy.contains_type(type_id)
-}
-
-/// Resolves the precise [`Span`] of a type usage following a specific declaration.
-///
-/// In PDDL declarations like `entity - type`, the `Declaration` object often only
-/// holds the span of the declared entity. This helper searches the [`SymbolTable`]
-/// for the usage of the parent type that is physically closest to and appears
-/// after the declaration's span.
-///
-/// This is particularly useful for diagnostics, allowing the compiler to underline
-/// the specific undeclared type instead of the entire declaration line.
-///
-/// # Arguments
-///
-/// * `parent_type_id` - The identifier of the type whose span needs to be located.
-/// * `declaration` - The declaration acting as the anchor point (e.g., the child entity).
-/// * `symbol_table` - The table containing all recorded usages of the symbols.
-///
-/// # Returns
-///
-/// Returns the [`Span`] of the nearest usage found after the declaration.
-/// If no such usage is found, it falls back to the declaration's own span.
-fn resolve_type_usage_span(
-    parent_type_id: SymbolId,
-    declaration: &Declaration,
-    symbol_table: &SymbolTable,
-) -> Span {
-    let reference_end = declaration.span().end();
-
-    // Retrieve the symbol entry for the parent type (e.g., 'object')
-    if let Some(entry) = symbol_table.get_symbol(parent_type_id) {
-        let mut closest_span: Option<Span> = None;
-        let mut min_distance = usize::MAX;
-
-        // Iterate through all recorded usages for this symbol
-        for usage in entry.usages() {
-            let usage_start = usage.span().start();
-
-            // We only care about usages appearing AFTER our anchor declaration
-            if usage_start >= reference_end {
-                let distance = usage_start - reference_end;
-
-                // Track the usage with the minimum distance to the anchor
-                if distance < min_distance {
-                    min_distance = distance;
-                    closest_span = Some(*usage.span());
-                }
-            }
-        }
-
-        // Return the precisely located span if found
-        if let Some(span) = closest_span {
-            return span;
-        }
-    }
-
-    // Default fallback: return the declaration's span if no specific usage is resolved
-    *declaration.span()
 }
