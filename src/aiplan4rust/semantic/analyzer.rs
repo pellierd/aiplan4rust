@@ -62,7 +62,7 @@ use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
-use crate::aiplan4rust::semantic::AnalyzerResult;
+use crate::aiplan4rust::semantic::{finalization, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 
@@ -202,6 +202,7 @@ impl Analyzer {
         match root_ref.node().kind() {
             AstKind::Domain => {
                 Self::check_domain(&mut context, &mut self.diagnostic_manager)?;
+                finalization::finalize(&mut context)?;
             }
             AstKind::Problem => {
                 let check_ctx = CheckContext::from(&context);
@@ -288,6 +289,7 @@ impl Analyzer {
 
             // Perform type union simplification using the pre-extracted hierarchy.
             let type_checker = TypeChecker::new(&type_hierarchy);
+
             type_checker.simplify_symbol_table(table)?;
 
             // --- STEP 3: ADVANCED CHECK ---

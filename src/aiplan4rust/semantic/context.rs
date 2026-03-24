@@ -289,6 +289,11 @@ impl Context {
         &self.syntax_tree
     }
 
+    /// Returns a mutable reference to the syntax tree.
+    pub fn syntax_tree_mut(&mut self) -> &mut Tree<AstNode> {
+        &mut self.syntax_tree
+    }
+
     /// Takes ownership of the syntax tree, leaving an empty one in its place.
     pub fn take_syntax_tree(&mut self) -> Tree<AstNode> {
         std::mem::take(&mut self.syntax_tree)
@@ -476,6 +481,14 @@ impl Context {
 
         self.symbol_table.rebuild_usage_index();
         Ok(())
+    }
+
+    pub fn split_all_mut(&mut self) -> (&mut SymbolTable, &mut Tree<AstNode>, &mut SymbolInterner) {
+        (
+            &mut self.symbol_table,
+            &mut self.syntax_tree,
+            &mut self.interner,
+        )
     }
 }
 

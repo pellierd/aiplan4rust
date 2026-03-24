@@ -61,11 +61,11 @@
 //!
 //! The main entry point is [`normalize_typed_list`], which normalizes all `TypedList` nodes.
 
-use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstNode};
+use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::tree::Tree;
 
@@ -213,7 +213,6 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError
     Ok(())
 }
 
-
 /// Normalizes the children of a `TypedList` syntax by expanding each `TypedItem`
 /// so that each new `TypedItem` syntax contains exactly one element and an optional type_checker.
 ///
@@ -251,38 +250,42 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError
 /// ```
 fn normalize_typed_list_node_children(
     syntax_tree: &mut Tree<AstNode>,
-    node_id: NodeId,
+    node_id: NodeId, // C'est le TypedList
 ) -> Result<(), NormalizationPassError> {
-    // 1. Retrieve and clear the current children of the TypedList syntax.
     let old_typed_items = {
         let node = syntax_tree.try_node_mut(node_id)?;
         std::mem::take(node.children_mut())
     };
 
-    // Prepare a vector to hold new normalized TypedItem nodes.
     let mut new_typed_items = Vec::with_capacity(old_typed_items.len());
 
-    // 2. For each old TypedItem, extract its elements and create new TypedItem nodes,
-    //    each with exactly one element and the optional type_checker preserved.
     for typed_item_id in old_typed_items {
-        let (element_ids, type_id_opt, span) =
-            extract_typed_item_data(syntax_tree, typed_item_id)?;
+        let (element_ids, type_id_opt, span) = extract_typed_item_data(syntax_tree, typed_item_id)?;
 
         for element_id in element_ids {
-
-            let new_node = create_typed_item_node(
-                element_id,
-                type_id_opt,
-                span.clone(),
-                node_id,
-                syntax_tree,
-            )?;
+            // 1. Création du nouveau TypedItem
+            let new_node =
+                create_typed_item_node(element_id, type_id_opt, span, node_id, syntax_tree)?;
             let new_id = syntax_tree.alloc(new_node);
+
+            // 2. MISE À JOUR DU PARENT DE L'ÉLÉMENT (Ton ajout, parfait)
+            syntax_tree
+                .try_node_mut(element_id)?
+                .set_parent(Some(new_id));
+
+            // 3. MISE À JOUR DU PARENT DU TYPE CLONÉ (L'étape manquante)
+            // On regarde si un type a été ajouté (c'est le 2ème enfant, index 1)
+            let children = syntax_tree.try_node(new_id)?.children().to_vec();
+            if let Some(&type_node_id) = children.get(1) {
+                syntax_tree
+                    .try_node_mut(type_node_id)?
+                    .set_parent(Some(new_id));
+            }
+
             new_typed_items.push(new_id);
         }
     }
 
-    // 3. Replace the old children with the newly normalized TypedItem nodes.
     let node = syntax_tree.try_node_mut(node_id)?;
     *node.children_mut() = new_typed_items;
 

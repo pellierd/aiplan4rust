@@ -360,63 +360,44 @@ impl<'a> TypeChecker<'a> {
     pub fn simplify_type(
         &self,
         ty: &Type<SymbolId>,
-    ) -> Result<Option<Type<SymbolId>>, TypeCheckError> {
+    ) -> Result<Option<(Type<SymbolId>, Vec<usize>)>, TypeCheckError> {
         let members = ty.members();
         let n = members.len();
-
-        // 1. Fast path: 0 or 1 member cannot be redundant
         if n <= 1 {
             return Ok(None);
         }
 
-        // 2. Safety guard: bitmask capacity check (u128)
-        if n > MAX_UNION_SIMPLIFICATION_CAPACITY {
-            return Err(TypeCheckError::type_union_capacity_exceeded(n));
-        }
-
-        // 3. Bitmask to mark redundant types for removal (0 heap allocation)
-        // We use u128 to support up to 128 members.
         let mut to_remove_mask: u128 = 0;
         let mut changed = false;
 
         for i in 0..n {
-            let t1 = members[i];
             for j in 0..n {
                 if i == j {
                     continue;
                 }
-
-                let t2 = members[j];
-
-                // t1 is redundant if it is an ancestor of t2.
-                // We check if t1 exists within the ascending closure of t2.
-                let closure = self.ascending_type_closure(t2)?;
-                if closure.contains(&t1) {
+                let closure = self.ascending_type_closure(members[j])?;
+                if closure.contains(&members[i]) {
                     to_remove_mask |= 1 << i;
                     changed = true;
-                    break; // t1 is marked, skip to the next member (i)
+                    break;
                 }
             }
         }
 
-        // 4. If no redundancy detected, avoid any further allocation
         if !changed {
             return Ok(None);
         }
 
-        // 5. Final construction: single perfectly-sized Vec allocation.
-        // count_ones() on u128 is still a very fast intrinsic.
-        let final_capacity = n - to_remove_mask.count_ones() as usize;
-        let mut simplified_ids = Vec::with_capacity(final_capacity);
-
+        let mut simplified_ids = Vec::new();
+        let mut kept_indices = Vec::new();
         for i in 0..n {
-            // If bit i is not set, the type is kept
             if (to_remove_mask & (1 << i)) == 0 {
                 simplified_ids.push(members[i]);
+                kept_indices.push(i); // On stocke l'index d'origine
             }
         }
 
-        Ok(Some(Type::from(simplified_ids)))
+        Ok(Some((Type::from(simplified_ids), kept_indices)))
     }
 
     /// Simplifies union types (e.g., `either`) across all entries in a [`SymbolTable`].
@@ -496,12 +477,12 @@ impl<'a> TypeChecker<'a> {
         for (&symbol_id, entry) in target_table.iter() {
             for decl in entry.declarations().iter() {
                 if let Some(raw_ty) = decl.ty() {
-                    // Uses the internal hierarchy reference to check redundancy
-                    if let Some(new_type) = self.simplify_type(raw_ty)? {
+                    if let Some((new_type, kept_indices)) = self.simplify_type(raw_ty)? {
                         changes.push(TypeSimplification {
                             symbol_id,
                             node_id: decl.node_id(),
                             new_type,
+                            kept_indices,
                         });
                     }
                 }
@@ -537,17 +518,29 @@ impl<'a> TypeChecker<'a> {
     ) {
         for change in changes {
             if let Some(entry) = target_table.get_symbol_mut(change.symbol_id) {
-                let target_node_id = change.node_id;
-
-                // Find the specific declaration by its NodeId to update it
                 let key = entry
                     .declarations()
                     .iter()
-                    .find(|d| d.node_id() == target_node_id)
+                    .find(|d| d.node_id() == change.node_id)
                     .cloned();
 
                 if let Some(decl_key) = key {
                     if let Some(mut original) = entry.declarations_mut().take(&decl_key) {
+                        // On récupère les IDs qui sont MAINTENANT garantis (grâce à l'init)
+                        if let Some(old_ids) = original.ty_node_ids() {
+                            // On ne garde que les IDs des types qui n'ont pas été supprimés
+                            let new_ids: Vec<NodeId> = change
+                                .kept_indices
+                                .iter()
+                                .filter_map(|&i| old_ids.get(i))
+                                .cloned()
+                                .collect();
+
+                            // Si l'init et la simplification sont bons,
+                            // new_ids.len() sera TOUJOURS égal à change.new_type.len()
+                            original.set_ty_node_ids(new_ids);
+                        }
+
                         original.set_ty(change.new_type);
                         entry.declarations_mut().insert(original);
                     }
@@ -557,9 +550,35 @@ impl<'a> TypeChecker<'a> {
     }
 }
 
+/*fn apply_type_simplifications(
+    target_table: &mut SymbolTable,
+    changes: Vec<TypeSimplification>,
+) {
+    for change in changes {
+        if let Some(entry) = target_table.get_symbol_mut(change.symbol_id) {
+            let target_node_id = change.node_id;
+
+            // Find the specific declaration by its NodeId to update it
+            let key = entry
+                .declarations()
+                .iter()
+                .find(|d| d.node_id() == target_node_id)
+                .cloned();
+
+            if let Some(decl_key) = key {
+                if let Some(mut original) = entry.declarations_mut().take(&decl_key) {
+                    original.set_ty(change.new_type);
+                    entry.declarations_mut().insert(original);
+                }
+            }
+        }
+    }
+}*/
+
 /// Private internal structure representing a type modification to be applied.
 struct TypeSimplification {
     symbol_id: SymbolId,
     node_id: NodeId,
     new_type: Type<SymbolId>,
+    kept_indices: Vec<usize>, // <--- Les indices originaux des types conservés
 }

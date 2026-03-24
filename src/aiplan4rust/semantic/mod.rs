@@ -67,7 +67,7 @@ pub mod context;
 /// Defines semantic error types used throughout the semantic analysis pipeline.
 pub mod error;
 
-mod finalizer;
+mod finalization;
 mod requirements;
 /// Type checking module (internal, not publicly exposed).
 pub mod type_checker;

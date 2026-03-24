@@ -11,16 +11,17 @@
 //! these specific error types to enable convenient and consistent error handling across
 //! the semantic analysis pipeline.
 
-use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
+use crate::aiplan4rust::semantic::finalization::error::FinalizationError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
+use thiserror::Error;
 
 /// Represents all possible semantic errors that can occur during
 /// parsing, analysis, and typing checking phases.
@@ -43,7 +44,6 @@ use crate::aiplan4rust::tree::NodeId;
 /// - `InvalidNodeArity`: Errors for AST nodes with an incorrect number of children.
 #[derive(Debug, Error)]
 pub enum SemanticError {
-
     /// Errors related to the ast.
     #[error(transparent)]
     Ast(#[from] AstError),
@@ -68,6 +68,9 @@ pub enum SemanticError {
     #[error(transparent)]
     SemanticCheck(#[from] SemanticCheckError),
 
+    /// Errors related to the finalization.
+    #[error(transparent)]
+    Finalization(#[from] FinalizationError),
 
     /// Error related to the string interner.
     #[error(transparent)]
@@ -82,7 +85,9 @@ pub enum SemanticError {
     UnexpectedSyntaxTreeRootError,
 
     /// Occurs when a node has a kind that doesn't match the grammar's expectations.
-    #[error("Unexpected AST node kind at node {node_id:?}: expected {expected:?}, found {found:?}.")]
+    #[error(
+        "Unexpected AST node kind at node {node_id:?}: expected {expected:?}, found {found:?}."
+    )]
     UnexpectedNodeKind {
         node_id: NodeId,
         expected: Vec<AstKind>,
@@ -107,16 +112,13 @@ impl SemanticError {
     /// * `expected` - A vector of AST node kinds that were expected at this node.
     /// * `found` - The actual AST node kind found at this node.
     #[track_caller]
-    pub fn unexpected_node_kind(
-        node_id: NodeId,
-        expected: Vec<AstKind>,
-        found: AstKind,
-    ) -> Self {
+    pub fn unexpected_node_kind(node_id: NodeId, expected: Vec<AstKind>, found: AstKind) -> Self {
         Self::UnexpectedNodeKind {
             node_id,
             expected,
             found,
-        }.trace()
+        }
+        .trace()
     }
 
     /// Creates a [`SemanticError`] for an AST node that has an invalid number of children.
@@ -138,7 +140,8 @@ impl SemanticError {
             node_type,
             child_count,
             expected_arity,
-        }.trace()
+        }
+        .trace()
     }
 
     /// Returns a `SemanticError` when the syntax tree is empty or missing required nodes.

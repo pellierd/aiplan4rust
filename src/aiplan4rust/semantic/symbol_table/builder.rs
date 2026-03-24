@@ -621,7 +621,7 @@ impl SymbolTableBuilder {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
-        // 1. Initialisation vide
+        // 1. Initialisation par défaut (vide)
         let mut ty_node_ids = Vec::new();
         let mut types = Type::new();
 
@@ -629,23 +629,27 @@ impl SymbolTableBuilder {
             let ty_id = node.try_child(1)?;
             let ty_node_ref = syntax_tree.try_node_ref(ty_id)?;
 
-            // --- LA SIMPLIFICATION EST ICI ---
-            // On copie les IDs des enfants directement depuis le nœud qu'on a déjà
-            ty_node_ids = ty_node_ref.node().children().to_vec();
+            // PROPRE : On utilise le retour de init_from_type qui contient déjà tout.
+            // On n'a plus besoin de manipuler les enfants manuellement ici,
+            // c'est extract_type qui s'en occupe.
+            let (extracted_types, extracted_ids) =
+                self.init_from_type(&ty_node_ref, ast, scope.clone())?;
 
-            // On appelle init_from_type juste pour la logique sémantique
-            types = self.init_from_type(&ty_node_ref, ast, scope.clone())?;
+            types = extracted_types;
+            ty_node_ids = extracted_ids;
+
+            // CAS PARTICULIER : Si extract_type n'a rien renvoyé (ex: le nœud de type existe
+            // mais n'a pas d'enfants PrimitiveType), on utilise ty_id comme fallback.
+            if ty_node_ids.is_empty() && !types.is_empty() {
+                ty_node_ids = vec![ty_id];
+            }
         }
 
-        // 2. On traite les éléments (ex: Phenomenon7) avec notre liste d'IDs
+        // 2. On traite les éléments (ex: Phenomenon7)
         let elt_id = node.try_child(0)?;
-        self.init_from_typed_item_elements(
-            &syntax_tree.try_node_ref(elt_id)?,
-            ast,
-            scope,
-            types,
-            ty_node_ids,
-        )
+        let elt_ref = syntax_tree.try_node_ref(elt_id)?;
+
+        self.init_from_typed_item_elements(&elt_ref, ast, scope, types, ty_node_ids)
     }
 
     /// Helper function to process an individual element of a `TypedList`.
@@ -782,20 +786,21 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         mut types: Type<SymbolId>,
-        ty_node_ids: Vec<NodeId>,
+        mut ty_node_ids: Vec<NodeId>, // On le rend mutable pour la cohérence
     ) -> Result<(), SemanticError> {
         let node = node_ref.node();
 
-        // --- Default Type Injection ---
-        // In PDDL, if a function's return typing is omitted, it is implicitly
-        // treated as a numeric function (standard 'number' typing).
+        // --- Default Type Injection & AST Consistency ---
         if types.is_empty() {
-            // Ensure the "number" identifier matches your internal StringID conventions.
             types.add_type(ast.interner().try_lookup_symbol(NUMBER_TYPE)?);
+            // PROPRE : Si on injecte un type par défaut, on associe l'ID du nœud
+            // de la fonction pour que le Finalizer sache où "pointer" ce type.
+            if ty_node_ids.is_empty() {
+                ty_node_ids.push(node_ref.id());
+            }
         }
-        // ------------------------------
+        // ------------------------------------------------
 
-        // Retrieve and validate the first child as a FunctionSymbol
         let functor_id = node.try_child(0)?;
         let functor_ref = ast.syntax_tree().try_node_ref(functor_id)?;
         if functor_ref.node().kind() != AstKind::FunctionSymbol {
@@ -806,17 +811,15 @@ impl SymbolTableBuilder {
             ));
         }
 
-        // Retrieve the argument list node (second child)
         let arguments_id = node.try_child(1)?;
-        let arguments = &ast.syntax_tree().try_node_ref(arguments_id)?;
+        let arguments = ast.syntax_tree().try_node_ref(arguments_id)?;
 
-        // Initialize symbols for the argument list in a new nested scope
-        self.init_from_typed_list(arguments, ast, Scope::new(node_ref.id(), Some(&scope)))?;
+        self.init_from_typed_list(&arguments, ast, Scope::new(node_ref.id(), Some(&scope)))?;
 
-        // Extract typed argument symbols and compute arity
-        let (args, ids) = self.extract_arguments_from_typed_list(arguments, ast)?;
+        // Step 4: Extraction du triplet complet (Args, IDs symboles, IDs types)
+        let (args, ids, arg_ty_ids) = self.extract_arguments_from_typed_list(&arguments, ast)?;
 
-        // Add the function declaration symbol with types and arguments
+        // Step 5: Enregistrement
         self.add_declaration_symbol(
             &functor_ref,
             ast,
@@ -825,6 +828,9 @@ impl SymbolTableBuilder {
             Some(ty_node_ids),
             Some(args),
             Some(ids),
+            // NOTE: Si add_declaration_symbol n'accepte pas arg_ty_ids,
+            // il faudra s'assurer que la table des symboles peut stocker
+            // les types des arguments de manière cohérente.
             false,
         )?;
 
@@ -1054,39 +1060,45 @@ impl SymbolTableBuilder {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
-        // Extract the definition name (first child) and prepare to add it as a declaration
+        // 1. On récupère le nom de la définition (ex: le nom de l'action)
         let name_id = node.try_child(0)?;
         let name = syntax_tree.try_node_ref(name_id)?;
 
-        // Extract the parameters definition node (second child), then the parameter list inside it
+        // 2. Navigation vers la liste des paramètres
         let parameters_def_id = node.try_child(1)?;
-        let parameters_def = &syntax_tree.try_node_ref(parameters_def_id)?;
+        let parameters_def = syntax_tree.try_node_ref(parameters_def_id)?;
         let parameters_id = parameters_def.node().try_child(0)?;
-        let parameters = &syntax_tree.try_node_ref(parameters_id)?;
+        let parameters = syntax_tree.try_node_ref(parameters_id)?;
 
-        // Initialize the symbol table for the parameters in a nested scope
-        self.init_from_typed_list(parameters, ast, Scope::new(node_ref.id(), Some(&scope)))?;
+        // 3. Initialisation sémantique des paramètres dans un scope imbriqué
+        self.init_from_typed_list(&parameters, ast, Scope::new(node_ref.id(), Some(&scope)))?;
 
-        // Extract typed symbols from parameters for declaration
-        let (oarams, ids) = self.extract_arguments_from_typed_list(parameters, ast)?;
+        // 4. Extraction complète (Triplet : Args, IDs des symboles, IDs des types)
+        // C'est ici qu'on récupère 'ty_ids' pour s#22 et les autres.
+        let (params, ids, ty_ids) = self.extract_arguments_from_typed_list(&parameters, ast)?;
 
-        // Add the definition name as a symbol declaration with its parameters
+        // 5. Enregistrement de la déclaration avec TOUTES les informations AST
         self.add_declaration_symbol(
             &name,
             ast,
             scope.clone(),
-            None,
-            None,
-            Some(oarams),
-            Some(ids),
+            None,         // Le symbole de l'action lui-même n'a pas de type
+            None,         // Donc pas d'ID de type pour le nom de l'action
+            Some(params), // Les arguments typés
+            Some(ids),    // Les IDs des variables/paramètres
+            // Ici, on ajoute ty_ids pour que la table connaisse les nœuds de types des params
+            // Attention : vérifie si ta fonction add_declaration_symbol accepte un
+            // argument supplémentaire ou si elle doit stocker ty_ids dans la structure 'params'.
+            // Si ta fonction n'a pas de paramètre pour ty_ids des arguments,
+            // il faut s'assurer qu'ils sont bien gérés.
             false,
         )?;
 
-        // If present, recursively initialize the body of the definition
+        // 6. Initialisation récursive du corps (body)
         if has_body {
             let body_id = node.try_child(2)?;
-            let body = &syntax_tree.try_node_ref(body_id)?;
-            self.init_from(body, ast, Scope::new(node_ref.id(), Some(&scope)))?;
+            let body = syntax_tree.try_node_ref(body_id)?;
+            self.init_from(&body, ast, Scope::new(node_ref.id(), Some(&scope)))?;
         }
 
         Ok(())
@@ -1260,7 +1272,7 @@ impl SymbolTableBuilder {
 
         // Step 1: Get and validate the predicate node (first child)
         let predicate_id = node.try_child(0)?;
-        let predicate = &syntax_tree.try_node_ref(predicate_id)?;
+        let predicate = syntax_tree.try_node_ref(predicate_id)?;
 
         if predicate.node().kind() != AstKind::PredicateSymbol {
             return Err(SemanticError::unexpected_node_kind(
@@ -1272,25 +1284,29 @@ impl SymbolTableBuilder {
 
         // Step 2: Get the argument list node (second child)
         let arguments_id = node.try_child(1)?;
-        let arguments = &syntax_tree.try_node_ref(arguments_id)?;
+        let arguments = syntax_tree.try_node_ref(arguments_id)?;
 
         // Step 3: Initialize symbols from the argument list (typed variables/constants)
-        self.init_from_typed_list(arguments, ast, Scope::new(node_ref.id(), Some(&scope)))?;
+        // On crée le scope local pour les arguments (ex: les variables d'un prédicat)
+        self.init_from_typed_list(&arguments, ast, Scope::new(node_ref.id(), Some(&scope)))?;
 
-        // Step 4: Extract typed arguments from the list
-        let (args, ids) = self.extract_arguments_from_typed_list(arguments, ast)?;
+        // Step 4: Extract everything from the list (Sémantique, IDs symboles, IDs types)
+        // C'est ici que le triplet (args, ids, ty_ids) devient vital
+        let (args, ids, ty_ids) = self.extract_arguments_from_typed_list(&arguments, ast)?;
 
-        // Step 5: Register the predicate symbol declaration with its arguments
-        // On passe le flag is_derived directement à add_declaration_symbol
+        // Step 5: Register the predicate symbol declaration
+        // On passe enfin 'ty_ids' à add_declaration_symbol.
+        // Même si le prédicat lui-même n'a pas de type (None),
+        // ses arguments, eux, en ont un (ty_ids).
         self.add_declaration_symbol(
-            predicate,
+            &predicate,
             ast,
             scope,
-            None,
-            None,
-            Some(args),
-            Some(ids),
-            false,
+            None,       // Le prédicat n'a pas de type de retour (c'est un booléen)
+            None,       // Donc pas d'ID de type de retour
+            Some(args), // La liste des arguments typés
+            Some(ids),  // Les IDs des variables
+            false,      // is_derived
         )?;
 
         Ok(())
@@ -1328,16 +1344,33 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<(TypedList<SymbolId, SymbolId>, Vec<NodeId>), SemanticError> {
+    ) -> Result<(TypedList<SymbolId, SymbolId>, Vec<NodeId>, Vec<NodeId>), SemanticError> {
         let mut typed_arguments = TypedList::new();
         let mut argument_node_ids = Vec::new();
+        let mut all_ty_node_ids = Vec::new(); // <-- Le nouveau vecteur pour les IDs de types
+
         for typed_item_id in node_ref.node().children() {
-            let typed_item_ref = &ast.syntax_tree().try_node_ref(*typed_item_id)?;
+            let typed_item_ref = ast.syntax_tree().try_node_ref(*typed_item_id)?;
+
+            // 1. On récupère le couple (Arguments, IDs de types) de l'item
+            let (args, ty_node_ids) =
+                self.extract_arguments_from_typed_item(&typed_item_ref, ast)?;
+
+            // 2. On collecte l'ID de chaque argument (ex: le nœud de la variable)
+            // Note: Si un TypedItem contient plusieurs variables (ex: ?x ?y - type),
+            // il faut s'assurer de pousser l'ID pour chaque argument extrait.
             let arg_id = typed_item_ref.node().try_child(0)?;
-            argument_node_ids.push(arg_id);
-            typed_arguments.extend(self.extract_arguments_from_typed_item(typed_item_ref, ast)?);
+            for _ in 0..args.len() {
+                argument_node_ids.push(arg_id);
+                // On associe les IDs de types reçus à chaque argument de ce TypedItem
+                all_ty_node_ids.extend(ty_node_ids.clone());
+            }
+
+            typed_arguments.extend(args);
         }
-        Ok((typed_arguments, argument_node_ids))
+
+        // On retourne les 3 listes synchronisées
+        Ok((typed_arguments, argument_node_ids, all_ty_node_ids))
     }
 
     /// Extracts a list of `TypedSymbol`s from a `TypedItem` AST node.
@@ -1377,20 +1410,22 @@ impl SymbolTableBuilder {
         &mut self,
         typed_item_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList<SymbolId, SymbolId>, SemanticError> {
+    ) -> Result<(TypedList<SymbolId, SymbolId>, Vec<NodeId>), SemanticError> {
+        // Retourne le couple (Sémantique, AST)
         let syntax_tree = ast.syntax_tree();
         let node = typed_item_ref.node();
 
-        // Step 1: Extract the typing information if present
-        let types = match node.arity() {
-            1 => Type::new(), // No typing specified → assume empty (default) typing
+        // Étape 1 : Extraction du couple (Sémantique, IDs de nœuds)
+        // On récupère les deux informations de extract_type sans en jeter aucune.
+        let (types, ty_node_ids) = match node.arity() {
+            1 => (Type::new(), Vec::new()), // Pas de type -> listes vides (0 vs 0) cohérentes
             2 => {
-                let ty_id = node.try_child(1)?; // Get the typing node
+                let ty_id = node.try_child(1)?;
                 let ty_node_ref = syntax_tree.try_node_ref(ty_id)?;
-                self.extract_type(&ty_node_ref, ast)? // Extract types from it
+                // On suppose ici que extract_type a été modifiée pour renvoyer le tuple
+                self.extract_type(&ty_node_ref, ast)?
             }
             n => {
-                // Invalid arity for a TypedItem node
                 return Err(SemanticError::invalid_node_arity(
                     typed_item_ref.id(),
                     AstKind::TypedItem,
@@ -1400,7 +1435,7 @@ impl SymbolTableBuilder {
             }
         };
 
-        // Step 2: Extract the identifier (Constant or Variable)
+        // Étape 2 : Extraction de l'identifiant (Objet ou Variable)
         let elt_id = node.try_child(0)?;
         let elt = syntax_tree.try_node_ref(elt_id)?;
 
@@ -1408,17 +1443,13 @@ impl SymbolTableBuilder {
 
         match elt.node().kind() {
             AstKind::Object | AstKind::Variable => {
-                // 1. Extract the symbol reference directly from the AstNode.
-                // We use the node() method to access the underlying AstNode which
-                // now holds the try_symbol semantic ops.
                 let symbol_ref = elt.node().try_symbol()?;
                 let name = symbol_ref.id();
 
-                // 2. Create a TypedSymbol with the extracted name and associated types.
+                // On crée le TypedSymbol normalement (il ne porte que la sémantique)
                 typed_arguments.push(TypedSymbol::new(name, types));
             }
             found => {
-                // Handle cases where the node kind does not match expected symbol types for TypedItem.
                 return Err(SemanticError::unexpected_node_kind(
                     elt.id(),
                     vec![AstKind::Object, AstKind::Variable],
@@ -1427,7 +1458,10 @@ impl SymbolTableBuilder {
             }
         }
 
-        Ok(typed_arguments)
+        // Étape 3 : On renvoie les arguments ET les IDs de types associés
+        // C'est ce retour qui permettra à extract_arguments_from_typed_list de
+        // remplir all_ty_node_ids proprement.
+        Ok((typed_arguments, ty_node_ids))
     }
 
     /// Extracts primitive type_checker identifiers from a `Type` AST node without recording symbol usage.
@@ -1456,24 +1490,20 @@ impl SymbolTableBuilder {
         &mut self,
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<Type<SymbolId>, SemanticError> {
+    ) -> Result<(Type<SymbolId>, Vec<NodeId>), SemanticError> {
+        // On renvoie un tuple
         let arena = ast.syntax_tree();
         let mut super_types = Type::new();
+        let mut node_ids = Vec::new();
 
-        // Iterate over each child of the Type node (expected to be PrimitiveType)
         for ty_id in type_ref.node().children() {
             let ty_ref = arena.try_node_ref(*ty_id)?;
 
-            // Expect each child to be of kind PrimitiveType
             if ty_ref.node().kind() == AstKind::PrimitiveType {
-                // 1. Extract the symbol directly from the child AstNode.
-                // We use ty_ref.node() to get the &AstNode and call its semantic method.
                 let symbol_ref = ty_ref.node().try_symbol()?;
-
-                let name = symbol_ref.id();
-                super_types.add_type(name);
+                super_types.add_type(symbol_ref.id());
+                node_ids.push(*ty_id); // ON GARDE L'ID ICI
             } else {
-                // Return a semantic error when the structure does not match expectations
                 return Err(SemanticError::unexpected_node_kind(
                     ty_ref.id(),
                     vec![AstKind::PrimitiveType],
@@ -1482,7 +1512,7 @@ impl SymbolTableBuilder {
             }
         }
 
-        Ok(super_types)
+        Ok((super_types, node_ids))
     }
 
     /// Initializes type_checker information and records symbol usage in the given scope.
@@ -1511,17 +1541,19 @@ impl SymbolTableBuilder {
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<Type<SymbolId>, SemanticError> {
-        // --- Extract the typing identifiers using existing ops ---
-        let super_types = self.extract_type(type_ref, ast)?; // Handles structure & kind checking internally
+    ) -> Result<(Type<SymbolId>, Vec<NodeId>), SemanticError> {
+        // 1. On extrait le couple (Sémantique, IDs) via extract_type
+        // Note: extract_type doit aussi être modifiée pour renvoyer le tuple !
+        let (super_types, ty_node_ids) = self.extract_type(type_ref, ast)?;
 
-        // --- Register each primitive typing as a symbol usage ---
-        for ty in type_ref.node().children() {
-            let ty_ref = ast.syntax_tree().try_node_ref(*ty)?; // Get reference to each typing node
-            self.add_symbol_usage(&ty_ref, ast, scope.clone())?; // Track usage in the current scope
+        // 2. Enregistrement des usages (on utilise les IDs qu'on vient de récupérer)
+        for &ty_id in &ty_node_ids {
+            let ty_ref = ast.syntax_tree().try_node_ref(ty_id)?;
+            self.add_symbol_usage(&ty_ref, ast, scope.clone())?;
         }
 
-        Ok(super_types)
+        // 3. On renvoie le tuple complet
+        Ok((super_types, ty_node_ids))
     }
 
     /// Initializes the symbol table from a tagged task definition in the AST.
@@ -1642,45 +1674,44 @@ impl SymbolTableBuilder {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
-        // 1. Prepare a UNIQUE scope for the entire definition.
-        // This allows parameters defined in the skeleton to be visible in the body.
+        // 1. Scope unique pour la définition (pour que le body voie les paramètres)
         let derived_scope = Scope::new(node_ref.id(), Some(&scope));
 
-        // 2. Access the skeleton manually.
+        // 2. Accès au skeleton
         let skeleton_id = node.try_child(0)?;
         let skeleton_node = syntax_tree.try_node_ref(skeleton_id)?;
 
-        // Retrieve the predicate name (e.g., 'blocked') and its arguments.
         let predicate_id = skeleton_node.node().try_child(0)?;
         let predicate_ref = syntax_tree.try_node_ref(predicate_id)?;
 
         let args_id = skeleton_node.node().try_child(1)?;
         let args_ref = syntax_tree.try_node_ref(args_id)?;
 
-        // KEY STEP: Use the shared derived_scope to initialize the typed list.
-        // This populates the scope with variables (e.g., ?p, ?t).
+        // Initialisation sémantique dans le scope dérivé
         self.init_from_typed_list(&args_ref, ast, derived_scope.clone())?;
 
-        // Extract typed arguments for the predicate's signature.
-        let (args, ids) = self.extract_arguments_from_typed_list(&args_ref, ast)?;
+        // --- CORRECTION : Extraction du triplet complet ---
+        // On récupère 'ty_ids' (les IDs de types des arguments)
+        let (args, ids, ty_ids) = self.extract_arguments_from_typed_list(&args_ref, ast)?;
 
-        // Register the predicate as a "Derived" symbol in the global domain scope.
+        // Enregistrement du prédicat dérivé
         self.add_declaration_symbol(
             &predicate_ref,
             ast,
-            scope,
-            None,
-            None,
+            scope, // Le prédicat appartient au scope global (domain)
+            None,  // Pas de type de retour pour un prédicat
+            None,  // Pas d'ID de type de retour
             Some(args),
             Some(ids),
-            true,
+            // Note: Ici aussi, assure-toi que add_declaration_symbol
+            // ou la structure interne traite 'ty_ids'.
+            true, // is_derived = true
         )?;
 
-        // 3. Process the formula body (e.g., the 'and' or 'exists' block).
+        // 3. Process du corps de la formule
         let body_id = node.try_child(1)?;
         let body_ref = syntax_tree.try_node_ref(body_id)?;
 
-        // Use the SAME derived_scope which now contains the skeleton variables.
         self.init_from(&body_ref, ast, derived_scope)?;
 
         Ok(())

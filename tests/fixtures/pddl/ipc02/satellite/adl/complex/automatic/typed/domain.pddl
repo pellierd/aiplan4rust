@@ -3,7 +3,7 @@
   (:requirements :negative-preconditions :conditional-effects
 		 :equality :typing :fluents :durative-actions)
 (:types satellite direction instrument mode)
- (:predicates 
+ (:predicates
                (on_board ?i - instrument ?s - satellite)
 	       (supports ?i - instrument ?m - mode)
 	       (pointing ?s - satellite ?d - direction)
@@ -12,8 +12,8 @@
 	       (calibrated ?i - instrument)
 	       (have_image ?d - direction ?m - mode)
 	       (calibration_target ?i - instrument ?d - direction))
- 
- 
+
+
 
   (:functions (slew_time ?a ?b - direction)
             (calibration_time ?a - instrument ?d - direction)

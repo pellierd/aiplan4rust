@@ -145,6 +145,24 @@ impl Span {
     pub fn position(&self) -> (usize, usize) {
         (self.start, self.end)
     }
+
+    /// Returns a new `Span` that covers the entire range from the start of `self`
+    /// to the end of `other`.
+    ///
+    /// This is particularly useful when you want a parent node to encompass
+    /// multiple child nodes (e.g., merging `a` and `T2` in `a - T2`).
+    pub fn merge(&self, other: &Self) -> Self {
+        // We take the absolute minimum for the start and absolute maximum for the end.
+        // This handles cases where 'other' might actually start before 'self'.
+        Self {
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
+            begin_line: self.begin_line.min(other.begin_line),
+            begin_column: self.begin_column.min(other.begin_column),
+            end_line: self.end_line.max(other.end_line),
+            end_column: self.end_column.max(other.end_column),
+        }
+    }
 }
 
 impl fmt::Display for Span {
