@@ -60,6 +60,7 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
@@ -271,12 +272,12 @@ impl Analyzer {
         context: &mut SemanticContext,
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
-        // --- ÉTAPE 0 : EXTRACTION ---
-        // Generate the type hierarchy once. This becomes the static reference for all checks.
+        // --- STEP 0: TYPE HIERARCHY CACHING ---
+        // Extract a static view of the hierarchy to avoid multiple borrows of the symbol table.
         let type_hierarchy = context.symbol_table().to_type_hierarchy();
 
-        // --- STEP 1: BASE CHECK ---
-        // Scoped block to ensure CheckContext (immutable borrow) is dropped before mutation.
+        // --- STEP 1: BASE SEMANTIC CHECK ---
+        // Scoped to drop the immutable CheckContext before moving to mutable operations.
         let mut checked = {
             let check_ctx = context.as_check_context(Provider::Analyzer);
             Self::check_domain_base(&check_ctx, &type_hierarchy, diagnostic_manager)?
@@ -284,17 +285,21 @@ impl Analyzer {
 
         if checked {
             // --- STEP 2: SYMBOL TABLE OPTIMIZATION ---
-            // Accessing mutable symbol table is now safe as check_ctx is out of scope.
-            let table = context.symbol_table_mut();
-
-            // Perform type union simplification using the pre-extracted hierarchy.
             let type_checker = TypeChecker::new(&type_hierarchy);
 
-            //let context = PassContext::new(context.interner(), context.interner(), )
-            passes::simplify_symbol_table(&type_checker, table, diagnostic_manager)?;
+            // Ownership Transfer (Take/Set pattern):
+            // Isolate the symbol table to resolve E0502 borrow conflicts between
+            // the mutable table and the immutable context interner.
+            let mut table = context.take_symbol_table();
+            let ctx = PassContext::new(context.interner(), context.source(), Provider::Analyzer);
 
-            // --- STEP 3: ADVANCED CHECK ---
-            // Re-create a fresh CheckContext to reflect the simplified symbol table.
+            passes::simplify_symbol_table(&ctx, &type_checker, &mut table, diagnostic_manager)?;
+
+            // Restore ownership to the main context.
+            context.set_symbol_table(table);
+
+            // --- STEP 3: ADVANCED SEMANTIC CHECK ---
+            // Final validation performed on the simplified state.
             let check_ctx = context.as_check_context(Provider::Analyzer);
             checked &= Self::check_domain_advanced(&check_ctx, &type_checker, diagnostic_manager)?;
         }

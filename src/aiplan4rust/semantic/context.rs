@@ -61,7 +61,6 @@ use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;
-use crate::aiplan4rust::semantic::symbol::Declaration;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -107,7 +106,7 @@ pub struct Context {
     interner: SymbolInterner,
 
     /// The interned identifier of the source file or input from which the AST was parsed.
-    source_id: LiteralId,
+    source: LiteralId,
 
     /// Timestamp marking when semantic analysis was completed.
     generated_at: SystemTime,
@@ -126,7 +125,7 @@ impl Default for Context {
             required_requirements_trigger: Default::default(),
             symbol_table: Default::default(),
             interner: Default::default(),
-            source_id: Default::default(),
+            source: Default::default(),
             generated_at: SystemTime::now(),
         }
     }
@@ -176,7 +175,7 @@ impl Context {
 
         Ok(Self {
             syntax_tree,
-            source_id,
+            source: source_id,
             declared_requirements,
             required_requirements,
             required_requirements_trigger,
@@ -340,22 +339,17 @@ impl Context {
         &mut self.symbol_table
     }
 
-    /// Attempts to add a declaration to an existing symbol.
+    /// Définit une nouvelle table des symboles pour le contexte.
     ///
-    /// If the symbol identified by `symbol_name` exists, the declaration is added
-    /// and the method returns `true`. If the symbol does not exist, the context
-    /// is left unchanged and `false` is returned.
+    /// Cette méthode remplace l'ancienne table par celle fournie en argument.
+    /// Elle est généralement utilisée après une passe de simplification ou
+    /// lors de l'initialisation du contexte sémantique.
     ///
-    /// This operation is best-effort and does not report errors. It is intended
-    /// for controlled enrichment of the semantic context without exposing the
-    /// underlying symbol table.
-    pub fn add_declaration(&mut self, symbol_name: SymbolId, declaration: Declaration) -> bool {
-        let Some(symbol) = self.symbol_table.get_symbol_mut(symbol_name) else {
-            return false;
-        };
-
-        symbol.add_declaration(declaration);
-        true
+    /// # Arguments
+    ///
+    /// * `table` - La nouvelle instance de [`SymbolTable`] à associer à ce contexte.
+    pub fn set_symbol_table(&mut self, table: SymbolTable) {
+        self.symbol_table = table;
     }
 
     /// Takes ownership of the symbol table, leaving an empty one in its place.
@@ -375,8 +369,8 @@ impl Context {
     /// # Returns
     ///
     /// The `Literal` representing the interned source name.
-    pub fn source_id(&self) -> LiteralId {
-        self.source_id
+    pub fn source(&self) -> LiteralId {
+        self.source
     }
 
     /// Returns the resolved source name as an `Option<&str>`.
@@ -389,7 +383,7 @@ impl Context {
     /// * `Some(&str)` if the source name is found.
     /// * `None` if the source name is not present in the interner.
     pub fn source_name(&self) -> Option<&str> {
-        self.interner.resolve_literal(self.source_id)
+        self.interner.resolve_literal(self.source)
     }
 
     /// Returns the resolved source name as a `String`.
@@ -403,7 +397,7 @@ impl Context {
     pub fn source_name_string(&self) -> String {
         self.source_name()
             .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("Unknown<{:?}>", self.source_id))
+            .unwrap_or_else(|| format!("Unknown<{:?}>", self.source))
     }
 
     /// Attempts to resolve the source name as a string slice.
@@ -425,7 +419,7 @@ impl Context {
     /// }
     /// ```
     pub fn try_source_name(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_literal(self.source_id)
+        self.interner.try_resolve_literal(self.source)
     }
 
     /// Returns a reference to the string interner.
@@ -463,7 +457,7 @@ impl Context {
     /// let pass_ctx = semantic_ctx.as_pass_context(Provider::Analyzer);
     /// ```
     pub fn as_pass_context(&self, provider: Provider) -> PassContext {
-        PassContext::new(self.interner(), self.source_id(), provider)
+        PassContext::new(self.interner(), self.source(), provider)
     }
 
     /// Creates a new [`CheckContext`] by deriving it from the current unified context.
@@ -484,7 +478,7 @@ impl Context {
             self.syntax_tree(),
             self.symbol_table(),
             self.interner(),
-            self.source_id(),
+            self.source(),
             provider,
             self.declared_requirements(),
             self.required_requirements(),
@@ -523,9 +517,9 @@ impl Context {
 
         // Step 3: remap the source literal
         let new_source_id = literal_map
-            .get(&self.source_id)
-            .ok_or_else(|| InternerError::missing_literal(self.source_id))?;
-        self.source_id = *new_source_id;
+            .get(&self.source)
+            .ok_or_else(|| InternerError::missing_literal(self.source))?;
+        self.source = *new_source_id;
 
         self.symbol_table.rebuild_usage_index();
         Ok(())

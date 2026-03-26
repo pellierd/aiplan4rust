@@ -151,9 +151,7 @@ impl Span {
     ///
     /// This is particularly useful when you want a parent node to encompass
     /// multiple child nodes (e.g., merging `a` and `T2` in `a - T2`).
-    pub fn merge(&self, other: &Self) -> Self {
-        // We take the absolute minimum for the start and absolute maximum for the end.
-        // This handles cases where 'other' might actually start before 'self'.
+    pub fn merge(self, other: Self) -> Self {
         Self {
             start: self.start.min(other.start),
             end: self.end.max(other.end),

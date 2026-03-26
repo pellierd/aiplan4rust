@@ -552,6 +552,17 @@ pub enum Kind {
         type_id: SymbolId,
         declaration: Declaration,
     },
+
+    /// A type union contains redundant types (e.g., a type and its parent)
+    /// and has been simplified to a more concise representation.
+    RedundantTypeUnion {
+        /// The identifier of the symbol (constant, fluent, etc.) affected.
+        symbol_id: SymbolId,
+        /// The complex or redundant type as originally declared.
+        original_type: Type<SymbolId>,
+        /// The simplified version of the type.
+        simplified_type: Type<SymbolId>,
+    },
 }
 
 impl Kind {
@@ -596,6 +607,7 @@ impl Kind {
             Kind::DuplicateVariableSkeletonDeclaration { .. } => "010",
             Kind::IncompatibleTypeDeclarations { .. } => "011",
             Kind::DeprecatedFeature { .. } => "012",
+            Kind::RedundantTypeUnion { .. } => "013",
         }
     }
 
@@ -654,6 +666,7 @@ impl Kind {
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
             Kind::DuplicateVariableSkeletonDeclaration { .. } => Severity::Warning,
             Kind::DeprecatedFeature { .. } => Severity::Warning,
+            Kind::RedundantTypeUnion { .. } => Severity::Warning,
         }
     }
 }
@@ -802,6 +815,16 @@ impl RemapSymbol for DiagnosticKind {
                 type_id.remap_idents(map)?;
                 declaration.remap_symbol(map)?;
             }
+            Kind::RedundantTypeUnion {
+                symbol_id,
+                original_type,
+                simplified_type,
+            } => {
+                symbol_id.remap_idents(map)?;
+                original_type.remap_symbol(map)?;
+                simplified_type.remap_symbol(map)?;
+            }
+
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken

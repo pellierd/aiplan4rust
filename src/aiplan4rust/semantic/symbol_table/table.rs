@@ -198,6 +198,27 @@ impl Table {
         self.symbols.get(&name)
     }
 
+    /// Retrieves an immutable reference to a symbol by its ID, or returns an error if not found.
+    ///
+    /// This is the fallible version of `get_symbol`. It is preferred when a missing
+    /// symbol should stop the current semantic pass and provide a traced error.
+    ///
+    /// # Parameters
+    /// - `id`: The internal identifier ([`SymbolId`持) of the symbol to look up.
+    ///
+    /// # Returns
+    /// - `Ok(&SymbolEntry)`: A reference to the found symbol entry.
+    /// - `Err(SymbolTableError::SymbolNotFound)`: If the ID does not exist in the table.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`SymbolTableError::SymbolNotFound`] with a captured trace via `#[track_caller]`.
+    pub fn try_get_symbol(&self, id: SymbolId) -> Result<&SymbolEntry, SymbolTableError> {
+        self.symbols
+            .get(&id)
+            .ok_or_else(|| SymbolTableError::symbol_not_found(id))
+    }
+
     /// Retrieves a mutable reference to a symbol by its name.
     ///
     /// # Parameters
@@ -207,6 +228,30 @@ impl Table {
     /// An `Option` containing a mutable reference to the symbol, or `None` if not found.
     pub fn get_symbol_mut(&mut self, name: SymbolId) -> Option<&mut SymbolEntry> {
         self.symbols.get_mut(&name)
+    }
+
+    /// Retrieves a mutable reference to a symbol by its ID, or returns an error if not found.
+    ///
+    /// This method is the fallible counterpart to `get_symbol_mut`. It uses the internal
+    /// error factory to capture a trace if the symbol is missing.
+    ///
+    /// # Parameters
+    /// - `id`: The internal identifier ([`SymbolId`持) of the symbol to look up.
+    ///
+    /// # Returns
+    /// - `Ok(&mut SymbolEntry)`: A mutable reference to the found symbol entry.
+    /// - `Err(SymbolTableError::SymbolNotFound)`: If no symbol matches the provided ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`SymbolTableError::SymbolNotFound`] with a captured trace via `#[track_caller]`.
+    pub fn try_get_symbol_mut(
+        &mut self,
+        id: SymbolId,
+    ) -> Result<&mut SymbolEntry, SymbolTableError> {
+        self.symbols
+            .get_mut(&id)
+            .ok_or_else(|| SymbolTableError::symbol_not_found(id))
     }
 
     /// Returns an iter over all symbols in the table as immutable references.

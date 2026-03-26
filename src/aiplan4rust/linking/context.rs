@@ -17,11 +17,6 @@
 //! and the `Display` trait for human-readable summaries of the linked context.
 //!
 
-use std::collections::{HashSet, HashMap};
-use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::time::SystemTime;
-use chrono::{DateTime, Local};
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::linking::LinkingError;
@@ -29,6 +24,11 @@ use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::{NodeId, Tree};
+use chrono::{DateTime, Local};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::time::SystemTime;
 
 /// Represents a linked semantic context combining a domain and a problem.
 ///
@@ -166,7 +166,6 @@ impl LinkedSemanticContext {
         mut problem: SemanticContext,
         interner: SymbolInterner,
     ) -> Result<Self, LinkingError> {
-
         // Verify invariants before constructing
         Self::check_invariant(&domain, &problem)?;
 
@@ -195,8 +194,8 @@ impl LinkedSemanticContext {
         let problem_requirement_triggers = problem.take_requirement_triggers();
 
         // Step 5: Take interner and source ids
-        let domain_source_id = domain.source_id();
-        let problem_source_id = problem.source_id();
+        let domain_source_id = domain.source();
+        let problem_source_id = problem.source();
 
         Ok(LinkedSemanticContext {
             domain_syntax_tree,
@@ -258,7 +257,8 @@ impl LinkedSemanticContext {
         }
 
         // Check hierarchical consistency
-        if domain.is_required(Requirement::Hierarchy) != problem.is_required(Requirement::Hierarchy) {
+        if domain.is_required(Requirement::Hierarchy) != problem.is_required(Requirement::Hierarchy)
+        {
             return Err(LinkingError::hierarchical_mismatch());
         }
 
@@ -643,7 +643,11 @@ impl fmt::Display for LinkedSemanticContext {
 
         // Format SystemTime in local date/time
         let datetime: DateTime<Local> = self.generated_at.into();
-        writeln!(f, "  Generated at: {}", datetime.format("%Y-%m-%d %H:%M:%S"))?;
+        writeln!(
+            f,
+            "  Generated at: {}",
+            datetime.format("%Y-%m-%d %H:%M:%S")
+        )?;
 
         // Sorted declared requirements
         writeln!(f, "  Declared requirements:")?;
@@ -667,7 +671,6 @@ impl fmt::Display for LinkedSemanticContext {
         writeln!(f, "  Problem symbol table entries:\n{}", self.problem_table)?;
         Ok(())
     }
-
 }
 
 impl SerdeSerializable for LinkedSemanticContext {}

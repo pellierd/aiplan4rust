@@ -1,4 +1,6 @@
+use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::lang::{SymbolId, Type};
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::type_checker::{TypeCheckError, TypeHierarchy};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::tree::NodeId;
@@ -44,14 +46,15 @@ const MAX_UNION_SIMPLIFICATION_CAPACITY: usize = 128;
 /// The use of a stack-allocated bitmask and the `TypeChecker`'s internal
 /// transitive closure cache makes this highly efficient even for massive domains.
 pub fn simplify_symbol_table(
+    context: &PassContext,
     type_checker: &TypeChecker,
     target_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
-    //ctx: &PassContext,
 ) -> Result<(), TypeCheckError> {
     // Step 1: Scan and collect (Immutable phase)
     // The type_checker (hierarchy) is used for reading, target_table is scanned.
-    let changes = collect_type_simplifications(type_checker, target_table, diagnostic_manager)?;
+    let changes =
+        collect_type_simplifications(context, type_checker, target_table, diagnostic_manager)?;
 
     // Step 2: Apply changes (Mutable phase)
     // We pass target_table as &mut because 'changes' owns the collected data.
@@ -90,6 +93,7 @@ pub fn simplify_symbol_table(
 ///   applied in the second phase.
 /// - `Err(TypeCheckError)`: If a type resolution fails or exceeds simplification limits.
 fn collect_type_simplifications(
+    context: &PassContext,
     type_checker: &TypeChecker,
     target_table: &SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
@@ -108,16 +112,16 @@ fn collect_type_simplifications(
                         kept_indices,
                     });
 
-                    /*let warning = Diagnostic::warning_redundant_type_union(
+                    let warning = Diagnostic::warning_redundant_type_union(
                         symbol_id,
                         raw_ty.clone(),
                         new_type,
-                        Provider::Analyzer,
-                        context.source_id(),
-                        decl.span().clone(),
+                        context.provider(),
+                        context.source(),
+                        *decl.span(),
                     );
 
-                    diagnostic_manager.add_diagnostic(warning);*/
+                    diagnostic_manager.add_diagnostic(warning);
                 }
             }
         }

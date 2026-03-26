@@ -968,6 +968,38 @@ impl Diagnostic {
         }
     }
 
+    /// Constructs a warning for a redundant type union.
+    ///
+    /// This diagnostic is triggered when a type union contains redundant or overlapping
+    /// types that have been simplified.
+    ///
+    /// # Arguments
+    /// - `symbol_id`: The identifier of the symbol having a redundant type.
+    /// - `original_type`: The type before simplification.
+    /// - `simplified_type`: The resulting type after removing redundancies.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source where the redundant type is declared.
+    pub fn warning_redundant_type_union(
+        symbol_id: SymbolId,
+        original_type: Type<SymbolId>,
+        simplified_type: Type<SymbolId>,
+        provider: Provider,
+        source: LiteralId,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::RedundantTypeUnion {
+                symbol_id,
+                original_type,
+                simplified_type,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
     /// Constructs a custom error with a message and optional suggestion.
     ///
     /// # Arguments

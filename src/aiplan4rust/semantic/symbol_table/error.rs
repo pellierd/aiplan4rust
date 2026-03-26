@@ -5,7 +5,6 @@
 //! such as duplicate declarations, ambiguous symbol usage, invalid AST node types,
 //! or malformed typed items.
 
-use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
@@ -14,6 +13,7 @@ use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
+use thiserror::Error;
 
 /// Represents all errors that can occur during symbol table construction and resolution.
 ///
@@ -70,7 +70,6 @@ pub enum SymbolTableError {
         count: usize,
     },
 
-
     /// No declaration found corresponding to a usage AST node.
     #[error("No declaration found for usage at node '{node_id}'")]
     DeclarationNotFoundForUsage {
@@ -98,10 +97,13 @@ pub enum SymbolTableError {
         kind: SymbolKind,
     },
 
+    /// Error returned when a symbol lookup fails.
+    /// The `SymbolId` is included to help trace which identifier caused the issue.
+    #[error("Symbol not found: {0:?}")]
+    SymbolNotFound(SymbolId),
 }
 
 impl SymbolTableError {
-
     /// Constructs an `AmbiguousUsage` error.
     ///
     /// Used when more than one declaration is found for a usage node.
@@ -116,7 +118,11 @@ impl SymbolTableError {
     /// A new `SymbolTableError::AmbiguousUsage` instance.
     #[track_caller]
     pub fn ambiguous_usage(node_id: NodeId, candidates: Vec<Declaration>) -> Self {
-        SymbolTableError::AmbiguousUsage { node_id, candidates }.trace()
+        SymbolTableError::AmbiguousUsage {
+            node_id,
+            candidates,
+        }
+        .trace()
     }
 
     /// Constructs a `DuplicateUniqueDeclaration` error.
@@ -169,7 +175,12 @@ impl SymbolTableError {
     /// A new `SymbolTableError::DeclarationNotFound` instance.
     #[track_caller]
     pub fn declaration_not_found(symbol: SymbolId, kind: SymbolKind, scope: Scope) -> Self {
-        SymbolTableError::DeclarationNotFound { symbol, kind, scope }.trace()
+        SymbolTableError::DeclarationNotFound {
+            symbol,
+            kind,
+            scope,
+        }
+        .trace()
     }
 
     /// Constructs a `DeclarationNotFoundForKind` error indicating no unique declaration found for a kind.
@@ -199,16 +210,27 @@ impl SymbolTableError {
     ///
     /// A new `SymbolTableError::DuplicateDeclarations` instance.
     #[track_caller]
-    pub fn duplicate_declaration(
-        ident: SymbolId,
-        usage_kind: SymbolKind,
-        count: usize,
-    ) -> Self {
+    pub fn duplicate_declaration(ident: SymbolId, usage_kind: SymbolKind, count: usize) -> Self {
         SymbolTableError::DuplicateDeclarations {
             ident,
             usage_kind,
             count,
-        }.trace()
+        }
+        .trace()
+    }
+
+    /// Creates a new `SymbolNotFound` error indicating that a lookup failed for a specific ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `ident` - The identifier that could not be found in the symbol table.
+    ///
+    /// # Returns
+    ///
+    /// A new `SymbolTableError::SymbolNotFound` instance with captured stack trace.
+    #[track_caller]
+    pub fn symbol_not_found(ident: SymbolId) -> Self {
+        Self::SymbolNotFound(ident).trace()
     }
 }
 

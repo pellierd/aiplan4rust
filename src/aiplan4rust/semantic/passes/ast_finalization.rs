@@ -69,13 +69,14 @@ fn finalize_ast_types(
 
             // 4. Calcul du span du container Type
             // Si pas de membres (type object pur), on peut utiliser le span de l'élément (fallback)
-            let type_span = if let Some(first) = original_spans.first() {
+            let type_span = if let Some(&first) = original_spans.first() {
+                // .first() renvoie &Span, on déréférence avec &first pour obtenir une copie
                 original_spans
                     .iter()
                     .skip(1)
-                    .fold(first.clone(), |acc, s| acc.merge(s))
+                    .fold(first, |acc, &s| acc.merge(s)) // On passe les valeurs directement
             } else {
-                ast.try_node(element_id)?.span().clone()
+                *ast.try_node(element_id)?.span()
             };
 
             let new_type_node_id = ast.alloc(AstNode::new(

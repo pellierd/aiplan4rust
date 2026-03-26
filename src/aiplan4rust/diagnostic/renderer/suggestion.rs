@@ -241,7 +241,25 @@ fn format_suggestion_internal(
         Kind::UndeclaredType { type_id, .. } => {
             format_undeclared_type_suggestion(*type_id, interner)
         }
+        Kind::RedundantTypeUnion {
+            symbol_id,
+            simplified_type,
+            ..
+        } => format_redundant_type_union_suggestion(*symbol_id, simplified_type, interner),
     }
+}
+
+fn format_redundant_type_union_suggestion(
+    symbol_id: SymbolId,
+    simplified_type: &Type<SymbolId>,
+    interner: Option<&SymbolInterner>,
+) -> Option<String> {
+    let symbol_name = formatting::ident_to_string(symbol_id, interner);
+
+    Some(format!(
+        "Consider updating the declaration of `{}` to use the simplified type `{}` to improve readability.",
+        symbol_name, simplified_type
+    ))
 }
 
 fn format_undeclared_type_suggestion(

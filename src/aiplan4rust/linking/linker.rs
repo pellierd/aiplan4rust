@@ -38,6 +38,7 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
@@ -151,7 +152,10 @@ impl Linker {
                 // 2. On simplifie la table des symboles du problème
                 // Maintenant que le problème connaît les types du domaine,
                 // on peut réduire les (either A B) du problème.
+                let ctx =
+                    PassContext::new(&global_interner, problem_ctx.source(), Provider::Linker);
                 passes::simplify_symbol_table(
+                    &ctx,
                     &type_checker,
                     problem_ctx.symbol_table_mut(),
                     &mut self.diagnostic_manager,
@@ -166,7 +170,7 @@ impl Linker {
                     problem_ctx.syntax_tree(),
                     problem_ctx.symbol_table(),
                     &global_interner,
-                    problem_ctx.source_id(),
+                    problem_ctx.source(),
                     Provider::Linker,
                     &total_declared,
                     problem_ctx.required_requirements(),
@@ -393,8 +397,10 @@ fn resolve_external_references(
     }
 
     // Injection des constantes du domaine dans le contexte du problème
+    let symbol_table = problem.symbol_table_mut();
     for (symbol_name, declaration) in declared {
-        problem.add_declaration(symbol_name, declaration);
+        let symbol = symbol_table.try_get_symbol_mut(symbol_name)?;
+        symbol.add_declaration(declaration);
     }
 
     Ok(())

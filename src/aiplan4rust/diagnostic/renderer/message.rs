@@ -158,11 +158,27 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
         Kind::MissingMandatoryBlock { language, kind } => {
             format_missing_mandatory_block(*language, *kind)
         }
-        Kind::UndeclaredType {
-            type_id,
-            declaration,
-        } => format_undeclared_type(*type_id, interner),
+        Kind::UndeclaredType { type_id, .. } => format_undeclared_type(*type_id, interner),
+        Kind::RedundantTypeUnion {
+            symbol_id,
+            original_type,
+            simplified_type,
+        } => format_redundant_type_union(*symbol_id, original_type, simplified_type, interner),
     }
+}
+
+fn format_redundant_type_union(
+    symbol_id: SymbolId,
+    original_type: &Type<SymbolId>,
+    simplified_type: &Type<SymbolId>,
+    interner: Option<&SymbolInterner>,
+) -> String {
+    let symbol_name = formatting::ident_to_string(symbol_id, interner);
+
+    format!(
+        "The type union for symbol `{}` is redundant. Original type `{}` was simplified to `{}`.",
+        symbol_name, original_type, simplified_type
+    )
 }
 
 fn format_undeclared_type(type_id: SymbolId, interner: Option<&SymbolInterner>) -> String {
