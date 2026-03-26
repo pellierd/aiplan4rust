@@ -205,7 +205,7 @@ impl Analyzer {
                 passes::finalize(&mut context)?;
             }
             AstKind::Problem => {
-                let check_ctx = CheckContext::from(&context);
+                let check_ctx = context.as_check_context(Provider::Analyzer);
                 Self::check_problem(&check_ctx, &mut self.diagnostic_manager)?;
             }
             found => {
@@ -278,7 +278,7 @@ impl Analyzer {
         // --- STEP 1: BASE CHECK ---
         // Scoped block to ensure CheckContext (immutable borrow) is dropped before mutation.
         let mut checked = {
-            let check_ctx = CheckContext::from(&*context);
+            let check_ctx = context.as_check_context(Provider::Analyzer);
             Self::check_domain_base(&check_ctx, &type_hierarchy, diagnostic_manager)?
         };
 
@@ -295,7 +295,7 @@ impl Analyzer {
 
             // --- STEP 3: ADVANCED CHECK ---
             // Re-create a fresh CheckContext to reflect the simplified symbol table.
-            let check_ctx = CheckContext::from(&*context);
+            let check_ctx = context.as_check_context(Provider::Analyzer);
             checked &= Self::check_domain_advanced(&check_ctx, &type_checker, diagnostic_manager)?;
         }
 
@@ -344,11 +344,7 @@ impl Analyzer {
             semantic::checks::check_symbol_types(context, type_hierarchy, diagnostic_manager)?;
 
         // 3. Structural validation of the type tree/graph.
-        checked &= semantic::checks::check_type_hierarchy(
-            context,
-            Provider::Analyzer,
-            diagnostic_manager,
-        )?;
+        checked &= semantic::checks::check_type_hierarchy(context, diagnostic_manager)?;
 
         Ok(checked)
     }
@@ -394,24 +390,15 @@ impl Analyzer {
             semantic::checks::check_symbol_signatures(context, type_checker, diagnostic_manager)?;
 
         // 2. Perform deep type checking on the expression Arena (AST).
-        checked &= semantic::checks::check_typed_expressions(
-            context,
-            &type_checker,
-            Provider::Analyzer,
-            diagnostic_manager,
-        )?;
+        checked &=
+            semantic::checks::check_typed_expressions(context, &type_checker, diagnostic_manager)?;
 
         // 3. Validate structural ordering and task dependencies.
-        checked &=
-            semantic::checks::check_task_ordering(context, Provider::Analyzer, diagnostic_manager)?;
+        checked &= semantic::checks::check_task_ordering(context, diagnostic_manager)?;
 
         // 4. Ensure no undeclared PDDL requirements are being used.
         // This is a post-check that doesn't necessarily block 'checked' but reports errors.
-        semantic::checks::check_requirement_violations(
-            context,
-            Provider::Analyzer,
-            diagnostic_manager,
-        )?;
+        semantic::checks::check_requirements(context, diagnostic_manager)?;
 
         Ok(checked)
     }
@@ -444,8 +431,7 @@ impl Analyzer {
         let mut checked =
             Self::check_symbols(context, skip_types_undeclared, &[], diagnostic_manager)?;
 
-        checked &=
-            semantic::checks::check_task_ordering(context, Provider::Analyzer, diagnostic_manager)?;
+        checked &= semantic::checks::check_task_ordering(context, diagnostic_manager)?;
 
         Ok(checked)
     }
@@ -489,7 +475,6 @@ impl Analyzer {
         checked &= semantic::checks::check_undeclared_symbols(
             context,
             skip_types_undeclared,
-            Provider::Analyzer,
             diagnostic_manager,
         )?;
 
@@ -497,7 +482,6 @@ impl Analyzer {
         checked &= semantic::checks::check_unused_symbols(
             context,
             skip_symbols_unused,
-            Provider::Analyzer,
             diagnostic_manager,
         )?;
 

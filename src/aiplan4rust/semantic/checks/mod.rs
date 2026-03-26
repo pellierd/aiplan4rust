@@ -1,4 +1,4 @@
-pub mod requirement_violations;
+pub mod requirements;
 pub mod symbol_declarations;
 pub mod symbol_signatures;
 pub mod task_ordering;
@@ -15,7 +15,7 @@ pub mod unused_symbols;
 
 pub use context::Context as CheckContext;
 pub use error::SemanticCheckError;
-pub use requirement_violations::check_requirement_violations;
+pub use requirements::check_requirements;
 pub use symbol_declarations::check_symbol_declarations;
 pub use symbol_signatures::check_symbol_signatures;
 pub use symbol_types::check_symbol_types;

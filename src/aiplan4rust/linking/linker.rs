@@ -167,12 +167,13 @@ impl Linker {
                     problem_ctx.symbol_table(),
                     &global_interner,
                     problem_ctx.source_id(),
+                    Provider::Linker,
                     &total_declared,
                     problem_ctx.required_requirements(),
                     problem_ctx.requirement_triggers(),
                 );
                 perform_linking_checks(
-                    &domain_ctx,
+                    &domain_ctx.as_check_context(Provider::Linker),
                     &problem_check_ctx,
                     &mut self.diagnostic_manager,
                 )?;
@@ -267,7 +268,7 @@ impl Linker {
 /// }
 /// ```
 fn perform_linking_checks(
-    domain: &SemanticContext,
+    domain: &CheckContext,
     problem: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingError> {
@@ -276,7 +277,7 @@ fn perform_linking_checks(
     let type_checker = TypeChecker::new(&type_hierarchy);
 
     // Check that the domain name matches the problem's declared domain
-    linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
+    linking::checks::check_domain_name(domain, problem, diagnostic_manager)?;
 
     // 2. On vérifie que les types utilisés dans le PROBLÈME existent dans le DOMAINE
     // On réutilise la fonction du domaine !
@@ -287,20 +288,10 @@ fn perform_linking_checks(
     )?;
 
     // Check for duplicate symbol declarations across domain and problem
-    check &= linking::checks::check_cross_declared_symbols(
-        domain,
-        problem,
-        Provider::Linker,
-        diagnostic_manager,
-    )?;
+    check &= linking::checks::check_cross_declared_symbols(domain, problem, diagnostic_manager)?;
 
     // Check for undeclared symbols used in the problem
-    check &= semantic::checks::check_undeclared_symbols(
-        problem,
-        &[],
-        Provider::Linker,
-        diagnostic_manager,
-    )?;
+    check &= semantic::checks::check_undeclared_symbols(problem, &[], diagnostic_manager)?;
 
     // If structural checks passed, perform type_checker-dependent semantic checks
     if check {
@@ -309,22 +300,13 @@ fn perform_linking_checks(
         semantic::checks::check_symbol_signatures(problem, &type_checker, diagnostic_manager)?;
 
         // Verify the type_checker correctness of logic in the problem
-        semantic::checks::check_typed_expressions(
-            problem,
-            &type_checker,
-            Provider::Linker,
-            diagnostic_manager,
-        )?;
+        semantic::checks::check_typed_expressions(problem, &type_checker, diagnostic_manager)?;
 
         // Check task ordering constraints in the problem
-        semantic::checks::check_task_ordering(problem, Provider::Linker, diagnostic_manager)?;
+        semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
 
         // Check for any requirement violations
-        semantic::checks::check_requirement_violations(
-            problem,
-            Provider::Linker,
-            diagnostic_manager,
-        )?;
+        semantic::checks::check_requirements(problem, diagnostic_manager)?;
     }
 
     // Return whether all checks passed successfully

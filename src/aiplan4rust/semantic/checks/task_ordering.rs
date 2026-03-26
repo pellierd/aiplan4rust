@@ -1,87 +1,74 @@
 use std::collections::HashMap;
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, Tree};
 
-/// Checks the task ordering constraints in the provided annotated syntax arena and detects any
+/// Checks the task ordering constraints in the syntax tree and detects any
 /// cyclic dependencies.
 ///
-/// This function analyzes the annotated syntax arena to find task ordering constraints defined
-/// within it. It constructs a matrix representing direct task orderings, computes the transitive
-/// closure to reveal indirect orderings, and detects cycles in these constraints. If any cyclic
-/// dependencies are found, diagnostics are emitted to the `DiagnosticManager`.
+/// This function traverses the syntax tree to find task ordering constraints,
+/// constructs a matrix representing direct task orderings, and computes the
+/// transitive closure to reveal indirect orderings.
+///
+/// If any cyclic dependencies are found, diagnostics are emitted to the `DiagnosticManager`
+/// using the provider and source information stored in the context.
 ///
 /// # Parameters
 ///
-/// - `ast_old`: A reference to the `AnnotatedSyntaxTree` containing the AST and symbol table.
-///   The function traverses this arena to locate task ordering constraints
-///   (`TaskOrderingConstraintDef`).
-/// - `source`: The `DiagnosticSource` identifying the context or phase where this check is
-///   performed.
-/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` where errors will be
-///   reported.
+/// - `context`: A reference to the [`CheckContext`] providing access to the syntax tree,
+///   symbol table, and diagnostic metadata (provider, source ID).
+/// - `diagnostic_manager`: A mutable reference to the [`DiagnosticManager`] where
+///   detected cycles are reported.
 ///
 /// # Returns
 ///
-/// Returns a `Result<bool, ParserInternalError>` indicating the success of the check:
+/// Returns a `Result<bool, SemanticCheckError>`:
 /// - `Ok(true)`: No cyclic task ordering constraints were found.
 /// - `Ok(false)`: One or more cyclic dependencies were detected and reported.
-/// - `Err(ParserInternalError)`: An internal error occurred during extraction, matrix building, or
+/// - `Err(SemanticCheckError)`: An internal error occurred during matrix building or
 ///   cycle detection.
 ///
 /// # Behavior
 ///
-/// The function performs the following steps:
-/// 1. Traverse all nodes in the syntax arena looking for `TaskOrderingConstraintDef`.
-/// 2. Extract involved task IDs from each constraint syntax.
-/// 3. Build a matrix representing direct ordering relations among tasks.
-/// 4. Compute the transitive closure of this matrix to reveal indirect orderings.
-/// 5. Check for cycles in the transitive closure matrix.
-/// 6. If a cycle is found, emit a diagnostic error with location and context.
+/// 1. Iterates through all nodes in the syntax tree looking for `TaskOrderingConstraintDef`.
+/// 2. Extracts task identifiers involved in each constraint.
+/// 3. Builds a reachability matrix for task ordering relations.
+/// 4. Computes the transitive closure (e.g., via Floyd-Warshall or similar).
+/// 5. Detects cycles (self-loops in the closure matrix).
+/// 6. Emits a diagnostic error if a cycle is identified.
 ///
 /// # Example
 ///
 /// ```rust
-/// let result = check_task_ordering(&ast_old, DiagnosticSource::SemanticAnalyzer, &mut diagnostic_manager);
-/// match result {
-///     Ok(true) => println!("No cyclic dependencies detected."),
-///     Ok(false) => println!("Cyclic dependencies detected."),
-///     Err(e) => eprintln!("Internal error: {:?}", e),
-/// }
+/// let check_ctx = context.as_check_context(Provider::Analyzer);
+/// let is_valid = check_task_ordering(&check_ctx, &mut diagnostic_manager)?;
 /// ```
 ///
-/// # Errors
-///
-/// If any internal error occurs during task ID extraction, matrix construction, or cycle detection,
-/// the function returns a `ParserInternalError`.
-///
+/// [`CheckContext`]: crate::semantics::CheckContext
+/// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_task_ordering(
     context: &CheckContext,
-    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
 
     for node in context.syntax_tree().preorder().values() {
-        match node.kind() {
-            AstKind::TaskOrderingConstraintDef => {
-                let task_ids = extract_task_ids(node, context.syntax_tree())?;
-                let mut matrix = build_task_order_matrix(&task_ids)?;
-                transitive_closure(&mut matrix);
-                if is_cyclic(&matrix) {
-                    checked = false;
-                    let error = Diagnostic::error_cyclic_task_ordering(
-                        provider,
-                        context.source_id(),
-                        node.span().clone(),
-                    );
-                    diagnostic_manager.add_diagnostic(error);
-                }
+        if node.kind() == AstKind::TaskOrderingConstraintDef {
+            let task_ids = extract_task_ids(node, context.syntax_tree())?;
+            let mut matrix = build_task_order_matrix(&task_ids)?;
+            transitive_closure(&mut matrix);
+            if is_cyclic(&matrix) {
+                checked = false;
+                let error = Diagnostic::error_cyclic_task_ordering(
+                    context.provider(),
+                    context.source(),
+                    node.span().clone(),
+                );
+                diagnostic_manager.add_diagnostic(error);
             }
-            _ => {}
         }
     }
 
@@ -214,7 +201,6 @@ fn extract_task_ids(
 /// - Each consecutive pair of task IDs in the input slice represents an ordering constraint where
 ///   the first task must precede the second.
 fn build_task_order_matrix(task_ids: &Vec<SymbolId>) -> Result<Vec<Vec<bool>>, SemanticCheckError> {
-
     // Build a map from task IDs to unique indices
     let map = build_task_index_map(task_ids);
     let size = map.len(); // Number of unique tasks

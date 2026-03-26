@@ -1,52 +1,55 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 
-/// Checks if there are any undeclared symbols used in the given syntax arena.
+/// Checks for undeclared symbols within the syntax tree and reports missing declarations.
 ///
-/// This function scans all symbol usages in the provided `AnnotatedSyntaxTree`
-/// and verifies that each usage has at least one valid declaration. If any usage
-/// lacks a corresponding declaration, an `UndeclaredSymbolError` diagnostic
-/// is generated and recorded in the `DiagnosticManager`.
+/// This function iterates through all symbol usages stored in the symbol table and
+/// verifies that each one has at least one valid declaration within its visible scope.
 ///
-/// Symbol kinds listed in the `skip_symbols` slice (e.g., intentionally undeclared
-/// symbols like domain or problem names) are ignored.
+/// # Specific Handling
+///
+/// - **Exclusions**: Symbols provided in `skip_symbols` (like domain or problem names)
+///   are ignored.
+/// - **Types**: `PrimitiveType` usages are skipped here because they are validated
+///   by a dedicated pass ([`check_type_hierarchy`]).
+/// - **Built-ins**: Built-in PDDL symbols are automatically handled by the
+///   `should_skip_symbol` logic.
 ///
 /// # Parameters
-/// - `ast_old`: Reference to the `AnnotatedSyntaxTree` containing symbols and AST.
-/// - `skip_symbols`: Slice of `SymbolKind` to be ignored during undeclared symbol checking.
-/// - `source`: The `DiagnosticSource` indicating the analysis phase performing the check.
-/// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where diagnostics are stored.
+///
+/// - `context`: A reference to the [`CheckContext`] providing access to the symbol table,
+///   syntax tree, and diagnostic metadata.
+/// - `skip_symbols`: A slice of [`SymbolKind`] that should be explicitly ignored
+///   (e.g., top-level identifiers that don't require formal declarations).
+/// - `diagnostic_manager`: A mutable reference to the [`DiagnosticManager`] where
+///   undeclared symbol errors are recorded.
 ///
 /// # Returns
-/// - `Ok(true)` if no undeclared symbols were found.
-/// - `Ok(false)` if undeclared symbols were detected (no internal errors occurred).
-/// - `Err(ParserInternalError)` if an internal error occurs during checking.
+///
+/// - `Ok(true)`: All relevant symbol usages have matching declarations.
+/// - `Ok(false)`: One or more undeclared symbols were detected and reported.
+/// - `Err(SemanticCheckError)`: An internal error occurred during the check.
 ///
 /// # Example
-/// ```rust
-/// let result = check_undeclared_symbols(
-///     &annotated_syntax_tree,
-///     &[SymbolKind::ProblemName, SymbolKind::DomainName],
-///     DiagnosticSource::SemanticAnalyzer,
-///     &mut diagnostic_manager,
-/// );
 ///
-/// if let Ok(true) = result {
-///     println!("No undeclared symbols found.");
-/// } else {
-///     println!("Undeclared symbols detected.");
-/// }
+/// ```rust
+/// let check_ctx = context.as_check_context(Provider::Analyzer);
+/// let skip = [SymbolKind::DomainName, SymbolKind::ProblemName];
+///
+/// let is_valid = check_undeclared_symbols(&check_ctx, &skip, &mut diagnostic_manager)?;
 /// ```
+///
+/// [`CheckContext`]: crate::semantics::CheckContext
+/// [`SymbolKind`]: crate::semantics::SymbolKind
+/// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_undeclared_symbols(
     context: &CheckContext,
     skip_symbols: &[SymbolKind],
-    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
@@ -72,8 +75,8 @@ pub fn check_undeclared_symbols(
                 checked = false;
                 let error = Diagnostic::error_undeclared_symbol(
                     usage.clone(),
-                    provider,
-                    context.source_id(),
+                    context.provider(),
+                    context.source(),
                     usage.span().clone(),
                 );
                 diagnostic_manager.add_diagnostic(error);
@@ -132,80 +135,38 @@ fn should_skip_symbol(
     is_pddl_builtin_symbol(symbol, context) || skip_symbols.contains(&usage_kind)
 }
 
-/// Checks if a declaration for the given symbol usage exists in the symbol's declarations.
-/// This function handles different `SymbolKind`s and checks if the corresponding declaration
-/// matches the usage within the given scope.
+/// Checks if a valid declaration exists for a given symbol usage within the current context.
 ///
-/// The function verifies whether a declaration for the symbol exists that matches the scope
-/// and kind of the given usage. Special handling is provided for certain kinds of symbols,
-/// such as `PrimitiveType` and `Task`, to allow for cases where the declaration may be implicit
-/// or when certain symbols (like tasks or primitive types) can be used in special ways in PDDL.
+/// This function determines if any of the declarations associated with a [`SymbolEntry`]
+/// cover the specific [`Usage`]. It validates two main criteria:
+/// 1. **Scope Visibility**: The usage must occur within the scope of the declaration
+///    (or a sub-scope thereof).
+/// 2. **Namespace Compatibility**: The symbol kind of the declaration must match or be
+///    compatible with the kind of the usage (e.g., sharing name spaces in PDDL).
 ///
-/// # Arguments
+/// # Parameters
 ///
-/// * `symbol` - The symbol to check for declaration. This is the symbol that has potential
-///   declarations and usages in the symbol table.
-/// * `usage` - The usage of the symbol that needs to be checked. This indicates the context
-///   in which the symbol is being used, including the scope and kind of usage.
+/// - `symbol`: The [`SymbolEntry`] containing all known declarations for this identifier.
+/// - `usage`: The specific [`Usage`] instance being validated.
+/// - `_context`: A reference to the [`CheckContext`] (currently unused, but reserved for
+///   future context-aware resolution).
 ///
 /// # Returns
 ///
-/// * `bool` - Returns `true` if a matching declaration was found for the symbol usage,
-///   otherwise returns `false`.
+/// Returns `true` if at least one declaration matches the usage's scope and kind;
+/// otherwise returns `false`.
 ///
-/// # Example
+/// # Logic
 ///
-/// ```rust
-/// let declaration_found = is_declaration_found(&symbol, &usage);
-/// assert_eq!(declaration_found, true);  // Assuming a matching declaration was found.
-/// ```
-/*fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckContext) -> bool {
-    let usage_scope = usage.scope();
-    let usage_kind = usage.symbol_kind();
-
-    // --- LOGIQUE UNIFIÉE ---
-    // On vérifie si une déclaration est compatible avec l'usage
-    let check_declarations = |declaration: &Declaration| {
-        let decl_kind = declaration.symbol_kind();
-
-        // 1. Le scope doit correspondre
-        let scope_match = usage_scope.starts_with(&declaration.scope());
-
-        // 2. Le genre doit être compatible (soit identique, soit autorisé par can_share)
-        // Note: On utilise `decl_kind == usage_kind` ou `can_share`
-        // car can_share renvoie false si les genres sont identiques (sauf Constant).
-        let kind_match =
-            decl_kind == usage_kind || decl_kind.can_share_name_space_with(&usage_kind);
-
-        scope_match && kind_match
-    };
-
-    // Pour PrimitiveType, conservation de la logique de "root scope" (PDDL types implicites)
-    let check_usages_at_root_scope = |usage: &Usage| {
-        let root_id = context.syntax_tree().try_root_id().unwrap();
-        let root_scope = Scope::new(root_id, None);
-        symbol.usages().iter().any(|u| {
-            usage.scope().starts_with(&root_scope) && u.symbol_kind() == usage.symbol_kind()
-        })
-    };
-
-    match usage_kind {
-        // La logique spéciale Task/Action est maintenant absorbée par `can_share_name_space_with`
-        // si tu as bien configuré (Task, Action) dans ton match.
-        // Sinon, on garde le match spécifique ou on complète `can_share`.
-        SymbolKind::Task => symbol.declarations().iter().any(check_declarations), // Nettoyé !
-
-        SymbolKind::PrimitiveType => {
-            symbol.declarations().iter().any(check_declarations)
-                || symbol
-                    .usages()
-                    .iter()
-                    .any(|u| check_usages_at_root_scope(u))
-        }
-        _ => symbol.declarations().iter().any(check_declarations),
-    }
-}*/
-
+/// The function iterates through all declarations of the symbol and returns `true` if:
+/// - `usage.scope().starts_with(declaration.scope())`: Ensures the usage is in a
+///   legal visibility block.
+/// - `decl_kind.can_share_name_space_with(&usage_kind)`: Handles PDDL-specific
+///   rules where different entities might share names or overlap.
+///
+/// [`SymbolEntry`]: crate::semantics::SymbolEntry
+/// [`Usage`]: crate::semantics::Usage
+/// [`CheckContext`]: crate::semantics::CheckContext
 fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, _context: &CheckContext) -> bool {
     let usage_scope = usage.scope();
     let usage_kind = usage.symbol_kind();

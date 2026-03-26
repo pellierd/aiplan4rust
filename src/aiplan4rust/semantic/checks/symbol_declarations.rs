@@ -2,7 +2,7 @@
 //! specifically targeting detection of duplicated declarations. It integrates with
 //! the diagnostic infrastructure to report errors or warnings as needed during analysis.
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -198,8 +198,8 @@ fn handle_declaration_conflict(
             diagnostic_manager.add_diagnostic(Diagnostic::warning_ambiguous_type_predicate_symbol(
                 type_decl.clone(),
                 pred_decl.clone(),
-                Provider::Analyzer,
-                context.source_id(),
+                context.provider(),
+                context.source(),
                 ast_entry.span().clone(),
             ));
         }
@@ -228,8 +228,8 @@ fn handle_declaration_conflict(
                     previous_declaration.clone(),
                     declaration.clone(),
                     scope_node.kind(),
-                    Provider::Analyzer,
-                    context.source_id(),
+                    context.provider(),
+                    context.source(),
                     ast_entry.span().clone(),
                 ),
             );
@@ -242,8 +242,8 @@ fn handle_declaration_conflict(
                     previous_declaration.clone(),
                     declaration.clone(),
                     scope_node.kind(),
-                    Provider::Analyzer,
-                    context.source_id(),
+                    context.provider(),
+                    context.source(),
                     ast_entry.span().clone(),
                 ),
             );

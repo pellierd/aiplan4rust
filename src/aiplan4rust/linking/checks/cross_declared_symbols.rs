@@ -30,36 +30,47 @@
 //! containing details on the conflicting symbol name and kinds.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
-use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, SymbolOrigin};
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
+use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, SymbolOrigin};
+use crate::aiplan4rust::semantic::SymbolTable;
 
-/// Checks for conflicting symbol declarations between the problem and domain syntax trees.
+/// Checks for conflicting symbol declarations between the domain and the problem.
 ///
-/// This function verifies that no symbol declared in the problem conflicts with
-/// existing declarations in the domain. Specifically, it detects symbols that share
-/// the same name but differ in kind between the problem and domain declarations.
-/// When such conflicts are found, diagnostic errors are emitted.
+/// This function ensures that symbols declared in the problem do not shadow or conflict
+/// with existing declarations in the domain in an illegal way. It specifically uses
+/// namespace compatibility rules to determine if two symbols with the same name can coexist.
 ///
 /// # Parameters
 ///
-/// - `domain`: Reference to the domain's annotated semantic context.
-/// - `problem`: Reference to the problem's annotated semantic context.
-/// - `source`: The diagnostic provider identifying the source of diagnostics.
-/// - `diagnostic_manager`: Mutable reference to the diagnostic manager where conflict diagnostics
-///   are recorded.
+/// - `domain_ctx`: The [`CheckContext`] representing the domain (the reference).
+/// - `problem_ctx`: The [`CheckContext`] representing the problem being linked.
+/// - `diags`: A mutable reference to the [`DiagnosticManager`] for recording
+///   cross-declaration conflicts.
 ///
 /// # Returns
 ///
-/// - `Ok(true)` if no conflicting declarations were detected.
-/// - `Ok(false)` if conflicts were found and reported.
-/// - `Err(LinkingCheckError)` if an internal error occurs during checking.
+/// - `Ok(true)`: No illegal conflicts were detected between the domain and the problem.
+/// - `Ok(false)`: One or more conflicting declarations were found and reported.
+/// - `Err(LinkingCheckError)`: An internal error occurred during symbol table traversal.
+///
+/// # Logic
+///
+/// 1. Iterates over all symbols in the problem's symbol table.
+/// 2. For each declaration originating from the problem, it searches for matching
+///    identifiers in the domain's symbol table.
+/// 3. A conflict is reported if a domain declaration exists with a [`SymbolKind`] that
+///    **cannot** share a namespace with the problem's declaration (verified via
+///    `can_share_name_space_with`).
+/// 4. If a conflict is found, a `CrossConflictSymbolDeclaration` error is emitted.
+///
+/// [`CheckContext`]: crate::semantics::CheckContext
+/// [`SymbolKind`]: crate::semantics::SymbolKind
+/// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_cross_declared_symbols(
-    domain: &SemanticContext,
+    domain: &CheckContext,
     problem: &CheckContext,
-    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingCheckError> {
     let mut checked = true;
@@ -77,12 +88,15 @@ pub fn check_cross_declared_symbols(
                 // Check if there are any relevant domain declarations for this symbol
                 if has_relevant_domain_declarations(domain_symbol_table, symbol.ident()) {
                     // Retrieve all relevant domain declarations for this symbol
-                    let domain_declarations = get_relevant_domain_declarations(domain_symbol_table, symbol.ident());
+                    let domain_declarations =
+                        get_relevant_domain_declarations(domain_symbol_table, symbol.ident());
 
                     // On cherche s'il existe une déclaration dans le domaine qui NE PEUT PAS
                     // partager l'espace de noms avec la déclaration du problème.
                     let has_conflict = domain_declarations.iter().any(|d| {
-                        !declaration.symbol_kind().can_share_name_space_with(&d.symbol_kind())
+                        !declaration
+                            .symbol_kind()
+                            .can_share_name_space_with(&d.symbol_kind())
                     });
 
                     // If no domain declaration of the same kind exists, report a cross-conflict error
@@ -90,8 +104,8 @@ pub fn check_cross_declared_symbols(
                         let error = Diagnostic::error_cross_conflict_symbol_declaration(
                             declaration.clone(),
                             domain_declarations,
-                            provider,
-                            problem.source_id(),
+                            Provider::Linker,
+                            problem.source(),
                             declaration.span().clone(),
                         );
                         diagnostic_manager.add_diagnostic(error);
@@ -104,7 +118,6 @@ pub fn check_cross_declared_symbols(
 
     Ok(checked)
 }
-
 
 /// Checks if there are any relevant domain declarations for the given symbol name,
 /// excluding declarations exempt from conflict checks.
@@ -122,7 +135,11 @@ fn has_relevant_domain_declarations(
     symbol_name: SymbolId,
 ) -> bool {
     domain_symbol_table
-        .collect_declarations(Some(&symbol_name), None, Some(&&domain_symbol_table.root_scope()))
+        .collect_declarations(
+            Some(&symbol_name),
+            None,
+            Some(&&domain_symbol_table.root_scope()),
+        )
         .into_iter()
         .any(|d| !is_declaration_exempt_from_conflict_check(&d))
 }
@@ -157,7 +174,11 @@ fn get_relevant_domain_declarations(
     symbol_name: SymbolId,
 ) -> Vec<Declaration> {
     domain_symbol_table
-        .collect_declarations(Some(&symbol_name), None, Some(&domain_symbol_table.root_scope()))
+        .collect_declarations(
+            Some(&symbol_name),
+            None,
+            Some(&domain_symbol_table.root_scope()),
+        )
         .into_iter()
         .filter(|decl| !is_declaration_exempt_from_conflict_check(decl))
         .cloned() // clone because collect_declarations returns references

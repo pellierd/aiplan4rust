@@ -1,6 +1,5 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
@@ -12,52 +11,51 @@ use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::Tree;
 
-/// Checks for symbols that are declared but never used within their scope or any parent scope,
-/// emitting warnings for such unused declarations.
+/// Checks for symbol declarations that are never used within their valid scope.
 ///
-/// This function iterates over all symbol declarations in the annotated syntax arena and verifies
-/// whether each declaration has at least one usage within its scope or any parent scope. It skips
-/// checking for symbols of kinds specified in `skip_symbols` or those determined to be skipped by
-/// domain-specific rules.
+/// This function iterates over all declarations in the symbol table and verifies if each one
+/// has at least one corresponding usage. It emits a warning diagnostic for any declared
+/// symbol that appears to be redundant.
 ///
-/// Built-in PDDL symbols like `"object"` and `"number"` are always ignored as they are considered
-/// inherently valid.
+/// # Validation Steps
+///
+/// 1. **Filtering**: Skips symbols based on `skip_symbols` or domain-specific rules
+///    (e.g., built-in types, requirements).
+/// 2. **Keyword Validation**: Checks if the declaration conflicts with PDDL reserved
+///    keywords (delegated to [`check_pddl_builtin_symbol_declaration`]).
+/// 3. **Usage Analysis**: Determines if the specific declaration is referenced by
+///    at least one usage in a compatible scope.
 ///
 /// # Parameters
-/// - `ast_old`: A reference to the `AnnotatedSyntaxTree` containing the symbol table,
-///   declarations, and usages.
-/// - `skip_symbols`: A slice of `SymbolKind` indicating symbol kinds to exclude from the
-///   unused-symbol check.
-/// - `source`: The `DiagnosticSource` from which the diagnostic originates.
-/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` where warning diagnostics
-///   will be recorded.
+///
+/// - `context`: A reference to the [`CheckContext`] providing access to the symbol table,
+///   interner, and diagnostic metadata.
+/// - `skip_symbols`: A slice of [`SymbolKind`] to be explicitly excluded from this check
+///   (e.g., `SymbolKind::Requirement`).
+/// - `diagnostic_manager`: A mutable reference to the [`DiagnosticManager`] where
+///   warning diagnostics are recorded.
 ///
 /// # Returns
-/// - `Ok(true)` if the check completes successfully; warnings for unused symbols are recorded
-///   through `diagnostic_manager`.
-/// - `Err(ParserInternalError)` if any internal error occurs during processing, such as missing
-///   AST entries.
 ///
-/// # Notes
-/// - Symbols declared as built-in PDDL types or those matching skip rules are not checked.
-/// - For each unused symbol declaration found, a warning diagnostic is emitted.
+/// - `Ok(true)`: The check completed successfully. Note that unused symbols do not
+///   trigger an `Ok(false)` as they are reported as warnings, not hard errors.
+/// - `Err(SemanticCheckError)`: An internal error occurred during symbol table traversal.
 ///
 /// # Example
-/// ```no_run
-/// let result = check_unused_symbols_warning(
-///     &ast_old,
-///     &[SymbolKind::Requirement],
-///     source,
-///     &mut diagnostic_manager,
-/// );
-/// if let Err(e) = result {
-///     eprintln!("Error during unused symbol check: {:?}", e);
-/// }
+///
+/// ```rust
+/// let check_ctx = context.as_check_context(Provider::Analyzer);
+/// let skip = [SymbolKind::Requirement];
+///
+/// check_unused_symbols(&check_ctx, &skip, &mut diagnostic_manager)?;
 /// ```
+///
+/// [`CheckContext`]: crate::semantics::CheckContext
+/// [`SymbolKind`]: crate::semantics::SymbolKind
+/// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_unused_symbols(
     context: &CheckContext,
     skip_symbols: &[SymbolKind],
-    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let symbol_table = context.symbol_table();
@@ -74,20 +72,15 @@ pub fn check_unused_symbols(
             }
 
             // 2. Validate against PDDL built-in keywords (e.g., 'object', 'number')
-            check_pddl_builtin_symbol_declaration(
-                declaration,
-                context,
-                provider,
-                diagnostic_manager,
-            );
+            check_pddl_builtin_symbol_declaration(declaration, context, diagnostic_manager);
 
             // 3. Verify if the declaration is actually used or logically bound
             // We pass the entry and current declaration to the helper for clarity.
             if !has_valid_usage(symbol_entry, declaration) {
                 let warning = Diagnostic::warning_unused_symbol(
                     declaration.clone(),
-                    provider,
-                    context.source_id(),
+                    context.provider(),
+                    context.source(),
                     declaration.span().clone(),
                 );
                 diagnostic_manager.add_diagnostic(warning);
@@ -231,52 +224,48 @@ fn skip_unused_symbol_declaration(
     Ok(false)
 }
 
-/// Validates whether a symbol is correctly declared as a built-in symbol according to PDDL
-/// specifications.
+/// Validates whether a symbol declaration conflicts with PDDL reserved built-in symbols.
 ///
-/// This function checks if the given declaration corresponds to a reserved built-in symbol
-/// (such as `object`, `number`, `total-time`, or `?duration`) and verifies whether its
-/// kind matches the expected `SymbolKind` based on the domain's declared PDDL requirements.
+/// This function identifies if a declaration uses a reserved identifier (such as `object`,
+/// `number`, or `total-time`) based on the domain's active requirements. It then
+/// determines the severity of the overlap:
 ///
-/// It emits an error diagnostic if the declaration uses an incorrect kind for a reserved
-/// built-in symbol, and emits a warning diagnostic if the symbol is correctly declared but
-/// its usage may cause ambiguity or confusion due to keyword overlap.
+/// 1. **Direct Collision**: The declaration uses the same name and the same [`SymbolKind`]
+///    as the built-in (e.g., declaring `object` as a `PrimitiveType`). This is treated as
+///    an **Error**.
+/// 2. **Ambiguous Usage**: The declaration uses a reserved name but with a different,
+///    yet compatible [`SymbolKind`] (e.g., declaring `object` as a `Constant`).
+///    This is treated as a **Warning**.
+/// 3. **Namespace Conflict**: The declaration uses a reserved name with an incompatible
+///    kind. This is treated as a validation failure.
 ///
 /// # Parameters
-/// - `declaration`: Reference to the `Declaration` to validate.
-/// - `ast_old`: Reference to the `AnnotatedSyntaxTree` providing requirements and
-///   structural context needed for validation.
-/// - `checker`: The `Checker` context associated with this validation, used as diagnostic source.
-/// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where diagnostics
-///   (errors or warnings) will be recorded.
+///
+/// - `declaration`: A reference to the [`Declaration`] being validated.
+/// - `context`: The [`CheckContext`] providing access to PDDL requirements,
+///   the symbol interner, and diagnostic metadata.
+/// - `diagnostic_manager`: A mutable reference to the [`DiagnosticManager`] for
+///   recording errors and warnings.
 ///
 /// # Returns
-/// - `true` if the declaration either matches a known built-in symbol with the correct kind,
-///   or if it does not correspond to any recognized built-in symbol (no validation needed).
-/// - `false` if the declaration matches a known built-in symbol but is declared with
-///   an incorrect kind, in which case an error diagnostic is emitted.
+///
+/// - `true`: If a conflict was identified and handled (even if it resulted in an error/warning).
+///   This signal typically stops further standard validation for this specific symbol.
+/// - `false`: If no recognized built-in keyword was matched, or if the conflict is
+///   not considered a "keyword collision" requiring special diagnostics.
 ///
 /// # Diagnostics
-/// - Emits an error if a reserved built-in symbol is declared with a wrong kind.
-/// - Emits a warning if the symbol is correctly declared but might cause ambiguity due to
-///   keyword overlap.
 ///
-/// # Example
-/// ```no_run
-/// let result = check_pddl_builtin_symbol_declaration(
-///     &declaration,
-///     &ast_old,
-///     checker,
-///     &mut diagnostic_manager,
-/// );
-/// if !result {
-///     eprintln!("Symbol declared with incorrect kind.");
-/// }
-/// ```
+/// - **Error**: Emitted when a reserved keyword is re-declared with its native kind.
+/// - **Warning**: Emitted when a reserved keyword is used for a different but compatible
+///   namespace (as defined by `can_share_name_space_with`).
+///
+/// [`CheckContext`]: crate::semantics::CheckContext
+/// [`Declaration`]: crate::semantics::Declaration
+/// [`SymbolKind`]: crate::semantics::SymbolKind
 fn check_pddl_builtin_symbol_declaration(
     declaration: &Declaration,
     context: &CheckContext,
-    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
     let requirements = context.declared_requirements();
@@ -309,8 +298,8 @@ fn check_pddl_builtin_symbol_declaration(
             declaration.clone(),
             expected_kind,
             reqs,
-            provider,
-            context.source_id(),
+            context.provider(),
+            context.source(),
             declaration.span().clone(),
         );
         diagnostic_manager.add_diagnostic(error);
@@ -327,8 +316,8 @@ fn check_pddl_builtin_symbol_declaration(
             declaration.clone(),
             expected_kind,
             reqs,
-            provider,
-            context.source_id(),
+            context.provider(),
+            context.source(),
             declaration.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

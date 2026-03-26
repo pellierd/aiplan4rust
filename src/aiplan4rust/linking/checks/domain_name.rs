@@ -22,51 +22,57 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::linking::checks::error::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 
-/// Checks for consistency between the domain name declared in the domain AST
-/// and the domain name referenced in the problem AST.
+/// Checks for consistency between the domain name declared in the domain context
+/// and the domain name referenced in the problem context.
 ///
-/// This function performs the following steps:
-/// 1. Resolves the domain name declared in the domain file.
-/// 2. Resolves the domain name referenced in the problem file.
-/// 3. Compares the two names:
-///     - If they match, nothing happens.
-///     - If they differ, it emits a diagnostic warning indicating the mismatch.
-/// 4. If any expected declaration or AST entry is missing, a `LinkingError` is returned.
+/// This function verifies that a problem is actually linked to the correct domain by
+/// comparing their identifiers. If a mismatch is detected, a warning is emitted,
+/// but the process continues as PDDL parsers often allow this for flexibility.
 ///
-/// # Arguments
+/// # Parameters
 ///
-/// * `domain` - The annotated semantic context representing the domain file.
-/// * `problem` - The annotated semantic context representing the problem file.
-/// * `source` - The provider of diagnostic source information.
-/// * `diagnostic_manager` - The manager responsible for collecting diagnostics.
+/// - `domain_ctx`: The [`CheckContext`] representing the declared domain (the reference).
+/// - `problem_ctx`: The [`CheckContext`] representing the problem referencing a domain.
+/// - `diags`: A mutable reference to the [`DiagnosticManager`] for collecting
+///   mismatch warnings.
 ///
 /// # Returns
 ///
-/// * `Ok(true)` if the check completes successfully (regardless of whether names match).
-/// * `Err(LinkingCheckError)` if domain name declarations or AST entries are missing.
+/// - `Ok(true)`: The check completed successfully (even if names don't match,
+///   as a warning is sufficient).
+/// - `Err(LinkingCheckError)`: A structural error occurred, such as a missing
+///   domain name declaration in either the domain or the problem.
 ///
-/// # Diagnostics
+/// # Logic
 ///
-/// Emits a `DomainProblemNameMismatch` warning if the domain names differ.
+/// 1. Resolves the unique `DomainName` symbol in the **domain** context.
+/// 2. Resolves the unique `DomainName` symbol in the **problem** context.
+/// 3. Compares their internal symbol identifiers.
+/// 4. If they differ, emits a `DomainProblemNameMismatch` warning using the
+///    problem's source information and the span of the reference.
+///
+/// [`CheckContext`]: crate::semantics::CheckContext
+/// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_domain_name(
-    domain: &SemanticContext,
+    domain: &CheckContext,
     problem: &CheckContext,
-    source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingCheckError> {
     // --- 1. Resolve the domain name declared in the domain AST ---
-    let declared = domain.symbol_table().try_resolve_unique_declaration(SymbolKind::DomainName)?;
+    let declared = domain
+        .symbol_table()
+        .try_resolve_unique_declaration(SymbolKind::DomainName)?;
 
     // --- 2. Resolve the domain name referenced in the problem AST ---
-    let referenced = problem.symbol_table().try_resolve_unique_declaration(SymbolKind::DomainName)?;
+    let referenced = problem
+        .symbol_table()
+        .try_resolve_unique_declaration(SymbolKind::DomainName)?;
 
     // --- 3. Compare both domain names ---
     // If the names don't match, emit a diagnostic warning.
     if declared.symbol().id() != referenced.symbol().id() {
-
         // --- 4. Retrieve the corresponding AST entry ---
         let ast = problem.syntax_tree().try_node(referenced.node_id())?;
 
@@ -74,8 +80,8 @@ pub fn check_domain_name(
         let warning = Diagnostic::warning_domain_problem_name_mismatch(
             declared.clone(),
             referenced.clone(),
-            source,
-            problem.source_id(),
+            Provider::Linker,
+            problem.source(),
             ast.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

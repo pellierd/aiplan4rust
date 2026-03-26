@@ -11,54 +11,46 @@ use bimap::BiMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-/// Checks the type_checker hierarchy for inheritance cycles and emits diagnostics if any are found.
+/// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///
-/// This function analyzes the type_checker inheritance graph to detect circular dependencies among
-/// declared PDDL types. If any cycles are found, it emits detailed diagnostics for each involved
-/// type_checker using the provided `DiagnosticManager`.
+/// This function analyzes the inheritance graph of PDDL types to detect circular dependencies
+/// (e.g., Type A inherits from B, and B inherits from A). It uses the unified context
+/// to access the symbol table and metadata required for diagnostic reporting.
 ///
 /// # Parameters
-/// - `ast_old`: A reference to the `AnnotatedSyntaxTree`, which provides access to all
-///   declared types and their source context.
-/// - `source`: The `DiagnosticSource` identifying the current analysis phase (e.g., semantic check).
-/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` that will collect and emit
-///   error diagnostics.
+///
+/// - `context`: A reference to the [`CheckContext`] providing access to the symbol table,
+///   interner, and diagnostic metadata (provider, source ID).
+/// - `diagnostic_manager`: A mutable reference to the [`DiagnosticManager`] where
+///   detected cycles will be reported.
 ///
 /// # Returns
-/// - `Ok(true)`: No type_checker inheritance cycles were found; the type_checker hierarchy is valid.
-/// - `Ok(false)`: One or more cycles were detected and reported via diagnostics.
-/// - `Err(ParserInternalError)`: An internal error occurred, such as a missing declaration
-///   or unresolved reference, preventing the analysis from completing.
 ///
-/// # Algorithm Steps
-/// 1. Collect all `PrimitiveType` declarations from the root scope.
-/// 2. Assign each type_checker a unique numeric index via a bidirectional map.
-/// 3. Construct a directed adjacency matrix representing direct inheritance relationships.
-/// 4. Compute the transitive closure of the graph to expose indirect inheritance.
-/// 5. Detect cycles in the graph using Johnson’s algorithm.
-/// 6. Filter trivial or duplicate cycles.
-/// 7. Emit detailed diagnostics for each remaining cycle.
+/// - `Ok(true)`: The type hierarchy is directed and acyclic (valid).
+/// - `Ok(false)`: One or more inheritance cycles were detected and reported.
+/// - `Err(SemanticCheckError)`: An internal error occurred during graph construction
+///   or cycle detection.
 ///
-/// # Errors
-/// This function may return a `ParserInternalError` if critical internal data is missing
-/// (such as symbol declarations or span information), or if structural assumptions about
-/// the type_checker graph are violated.
+/// # Algorithm
+///
+/// 1. **Collection**: Retrieves all `PrimitiveType` declarations from the root scope.
+/// 2. **Indexing**: Maps each type name to a unique numeric index using a bidirectional map.
+/// 3. **Adjacency**: Constructs a directed matrix representing direct parent-child relationships.
+/// 4. **Closure**: Computes the transitive closure to expose indirect inheritance paths.
+/// 5. **Detection**: Identifies cycles using Johnson’s algorithm for elementary cycles.
+/// 6. **Reporting**: Filters redundant cycles and emits detailed diagnostics via the manager.
 ///
 /// # Example
+///
 /// ```rust
-/// let result = check_type_hierarchy(
-///     &ast_old,
-///     DiagnosticSource::SemanticAnalyzer,
-///     &mut diagnostic_manager,
-/// );
-/// match result {
-///     Ok(true) => println!("No type_checker cycles detected."),
-///     Ok(false) => println!("Cycles detected in type_checker hierarchy."),
-///     Err(err) => eprintln!("Internal error: {:?}", err),
-/// }
+/// let check_ctx = context.as_check_context(Provider::Analyzer);
+/// let is_valid = check_type_hierarchy(&check_ctx, &mut diagnostic_manager)?;
+/// ```
+///
+/// [`CheckContext`]: crate::semantics::CheckContext
+/// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_type_hierarchy(
     context: &CheckContext,
-    source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     // Step 1: Collect all type_checker declarations from the root scope (PrimitiveType only)
@@ -88,8 +80,8 @@ pub fn check_type_hierarchy(
         &filtered_cycles,
         &type_bimap,
         &types,
-        context.source_id(),
-        source,
+        context.source(),
+        context.provider(),
         diagnostic_manager,
     )?;
 

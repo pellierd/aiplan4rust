@@ -1,7 +1,6 @@
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::LiteralId;
-use crate::aiplan4rust::semantic::SemanticContext;
 
 pub struct PassContext<'a> {
     interner: &'a SymbolInterner,
@@ -14,14 +13,6 @@ impl<'a> PassContext<'a> {
         Self {
             interner,
             source,
-            provider,
-        }
-    }
-
-    pub fn from_semantic_context(context: &'a SemanticContext, provider: Provider) -> Self {
-        Self {
-            interner: context.interner(),
-            source: context.source_id(),
             provider,
         }
     }

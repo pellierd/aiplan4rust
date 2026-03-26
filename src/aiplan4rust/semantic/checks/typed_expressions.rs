@@ -1,5 +1,5 @@
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::CompareOp;
@@ -12,40 +12,46 @@ use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId};
 
-/// Checks the type_checker correctness of typed logic in the syntax arena, including comparisons,
-/// assignments, and arithmetic operations.
+/// Checks the type compatibility of typed expressions in the syntax tree, including
+/// comparisons, assignments, and arithmetic operations.
 ///
-/// This function traverses the annotated syntax arena to verify that logic have compatible
-/// types according to their operation kind. It supports:
-/// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand type_checker compatibility.
-/// - Other comparisons (`>`, `<`, `>=`, `<=`) and arithmetic assignments (`+=`, `-=`, `*=`, `/=`),
-///   ensuring operands are numeric or compatible.
+/// This function traverses the syntax tree to verify that expressions have compatible
+/// types according to their operation kind. It specifically validates:
+/// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand compatibility.
+/// - Numeric comparisons (`>`, `<`, `>=`, `<=`) and arithmetic assignments (`+=`, `-=`, etc.),
+///   ensuring operands are numeric.
 ///
-/// Type compatibility checks are delegated to helper functions (e.g., `check_equal_and_assignment_expression`,
-/// `check_numeric_expression`) and detailed errors are reported through the diagnostic manager.
+/// Type compatibility logic is delegated to specialized helper functions, and any
+/// mismatches are reported as diagnostics through the provided manager.
 ///
 /// # Parameters
-/// - `ast_old`: The annotated syntax arena containing AST nodes and symbol information.
-/// - `type_checker`: A `TypeChecker` instance used for type_checker resolution and compatibility validation.
-/// - `source`: The diagnostic source context, indicating where diagnostics originate.
-/// - `diagnostic_manager`: Mutable reference to the diagnostic manager for collecting errors.
+///
+/// - `context`: A reference to the [`CheckContext`] providing access to the syntax tree,
+///   symbol table, and diagnostic metadata (provider, source ID).
+/// - `type_checker`: A [`TypeChecker`] instance used for resolving type inheritance
+///   and compatibility.
+/// - `diagnostic_manager`: A mutable reference to the [`DiagnosticManager`] where
+///   type errors are collected.
 ///
 /// # Returns
-/// - `Ok(true)` if all typed logic are correct.
-/// - `Ok(false)` if one or more type_checker mismatches were found and reported.
-/// - `Err(ParserInternalError)` if an internal error occurred during processing.
+///
+/// - `Ok(true)`: All typed expressions are valid.
+/// - `Ok(false)`: One or more type mismatches were detected and reported.
+/// - `Err(SemanticError)`: An internal error occurred during tree traversal or type resolution.
 ///
 /// # Example
+///
 /// ```rust
-/// let result = check_typed_expressions(&ast_old, &type_checker, source, &mut diagnostic_manager)?;
-/// if result {
-///     println!("All typed logic are valid.");
-/// }
+/// let check_ctx = context.as_check_context(Provider::Analyzer);
+/// let is_valid = check_typed_expressions(&check_ctx, &type_checker, &mut diagnostic_manager)?;
 /// ```
+///
+/// [`CheckContext`]: crate::semantics::CheckContext
+/// [`TypeChecker`]: crate::types::TypeChecker
+/// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_typed_expressions(
     context: &CheckContext,
     type_checker: &TypeChecker,
-    source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {
     let mut no_error = true;
@@ -61,15 +67,13 @@ pub fn check_typed_expressions(
                 node,
                 &ty1,
                 &ty2,
-                source,
                 diagnostic_manager,
             )?;
         } else if is_numeric_expression(node) {
             let (ty1, ty2) = get_binary_operation_types(node, context)?;
 
             // Call check_other_cases function to handle these cases
-            no_error &=
-                check_numeric_expression(context, node, &ty1, &ty2, source, diagnostic_manager);
+            no_error &= check_numeric_expression(context, node, &ty1, &ty2, diagnostic_manager);
         }
     }
 
@@ -154,7 +158,6 @@ fn check_equal_and_assignment_expression(
     node: &AstNode,
     ty1: &Type<SymbolId>,
     ty2: &Type<SymbolId>,
-    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut no_error = true;
@@ -164,8 +167,8 @@ fn check_equal_and_assignment_expression(
         let error = Diagnostic::error_type_mismatch_in_expression(
             ty1.clone(),
             ty2.clone(),
-            provider,
-            context.source_id(),
+            context.provider(),
+            context.source(),
             node.span().clone(),
         );
 
@@ -217,7 +220,6 @@ fn check_numeric_expression(
     node: &AstNode,
     ty1: &Type<SymbolId>,
     ty2: &Type<SymbolId>,
-    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
     let mut no_error = true;
@@ -228,8 +230,8 @@ fn check_numeric_expression(
         let error = Diagnostic::error_invalid_types_in_numeric_expression(
             ty1.clone(),
             ty2.clone(),
-            provider,
-            context.source_id(),
+            context.provider(),
+            context.source(),
             node.span().clone(),
         );
         diagnostic_manager.add_diagnostic(error);

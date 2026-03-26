@@ -7,10 +7,10 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::LiteralId;
 use crate::aiplan4rust::lang::Requirement;
-use std::collections::HashSet;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::Node;
+use std::collections::HashSet;
 
 /// Validates that all requirements triggered by the AST are covered by the declared ones.
 ///
@@ -27,16 +27,14 @@ use crate::aiplan4rust::tree::Node;
 ///
 /// # Parameters
 /// - `context`: The semantic [`CheckContext`] containing the AST, requirements, and triggers.
-/// - `provider`: The diagnostic [`Provider`] (e.g., Semantic or Linker).
 /// - `diagnostic_manager`: A mutable reference to collect the reported warnings.
 ///
 /// # Returns
 /// - `Ok(true)` if all used features are covered by declarations.
 /// - `Ok(false)` if violations were found (one warning per missing requirement type).
 /// - `Err(SemanticCheckError)` if an AST node cannot be resolved.
-pub fn check_requirement_violations(
+pub fn check_requirements(
     context: &CheckContext,
-    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
@@ -62,8 +60,8 @@ pub fn check_requirement_violations(
                     report_warning_requirement_violation(
                         node,
                         context.declared_requirements(),
-                        context.source_id(),
-                        provider,
+                        context.source(),
+                        context.provider(),
                         diagnostic_manager,
                         vec![req.clone()],
                     );
@@ -115,7 +113,7 @@ pub fn check_requirement_violations(
 fn report_warning_requirement_violation(
     node: &AstNode,
     requirements: &HashSet<Requirement>,
-    source_id: LiteralId,
+    source: LiteralId,
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
     required: Vec<Requirement>,
@@ -125,7 +123,7 @@ fn report_warning_requirement_violation(
             node.kind().clone(),
             required,
             provider,
-            source_id,
+            source,
             node.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -103,8 +103,8 @@ pub fn check_symbol_signatures(
                     let error = Diagnostic::error_invalid_symbol_signature(
                         declaration.clone(),
                         usage.clone(),
-                        Provider::Analyzer,
-                        context.source_id(),
+                        context.provider(),
+                        context.source(),
                         entry.span().clone(),
                     );
 
@@ -285,8 +285,8 @@ fn match_argument(
             symbol_declaration.clone(),
             ty1.clone(),
             ty2.clone(),
-            Provider::Analyzer,
-            context.source_id(),
+            context.provider(),
+            context.source(),
             argument.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

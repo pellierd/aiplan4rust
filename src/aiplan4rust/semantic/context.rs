@@ -58,6 +58,9 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, Tree};
 
+use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -442,6 +445,51 @@ impl Context {
     /// The taken [`SymbolInterner`].
     pub fn take_interner(&mut self) -> SymbolInterner {
         std::mem::take(&mut self.interner)
+    }
+
+    /// Creates a new [`PassContext`] by deriving it from the current semantic context.
+    ///
+    /// This is a lightweight operation that extracts the symbol interner and the
+    /// source identifier to create a read-only environment for transformation passes.
+    ///
+    /// # Arguments
+    ///
+    /// * `provider` - The entity responsible for the upcoming transformation
+    ///   (e.g., `Provider::Analyzer` or `Provider::Optimizer`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let pass_ctx = semantic_ctx.as_pass_context(Provider::Analyzer);
+    /// ```
+    pub fn as_pass_context(&self, provider: Provider) -> PassContext {
+        PassContext::new(self.interner(), self.source_id(), provider)
+    }
+
+    /// Creates a new [`CheckContext`] by deriving it from the current unified context.
+    ///
+    /// This is a lightweight, zero-copy operation that provides a read-only environment
+    /// for semantic validation, including full access to PDDL requirements and their triggers.
+    ///
+    /// # Arguments
+    ///
+    /// * `provider` - The entity performing the check (e.g., `Provider::Analyzer`).
+    ///
+    /// # Returns
+    ///
+    /// A [`CheckContext`] instance borrowing all necessary metadata from this context.
+    #[inline]
+    pub fn as_check_context(&self, provider: Provider) -> CheckContext {
+        CheckContext::new(
+            self.syntax_tree(),
+            self.symbol_table(),
+            self.interner(),
+            self.source_id(),
+            provider,
+            self.declared_requirements(),
+            self.required_requirements(),
+            self.requirement_triggers(),
+        )
     }
 
     /// Remaps identifiers and literals in this semantic context.

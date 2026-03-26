@@ -10,12 +10,13 @@
 //! The module also includes convenient conversions from the full `SemanticContext`,
 //! allowing flexible and modular semantic analysis workflows.
 
+use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{LiteralId, Requirement};
-use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
-use std::collections::{HashMap, HashSet};
+use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::{NodeId, Tree};
+use std::collections::{HashMap, HashSet};
 
 /// A lightweight wrapper that provides semantic context components to verification functions.
 ///
@@ -65,6 +66,7 @@ pub struct Context<'a> {
     symbols: &'a SymbolTable,
     interner: &'a SymbolInterner,
     source_id: LiteralId,
+    provider: Provider,
     declared_requirements: &'a HashSet<Requirement>,
     required_requirements: &'a HashSet<Requirement>,
     requirement_triggers: &'a HashMap<Requirement, Vec<NodeId>>,
@@ -114,6 +116,7 @@ impl<'a> Context<'a> {
         symbols: &'a SymbolTable,
         interner: &'a SymbolInterner,
         source_id: LiteralId,
+        provider: Provider,
         declared_requirements: &'a HashSet<Requirement>,
         required_requirements: &'a HashSet<Requirement>,
         requirement_triggers: &'a HashMap<Requirement, Vec<NodeId>>,
@@ -123,6 +126,7 @@ impl<'a> Context<'a> {
             symbols,
             interner,
             source_id,
+            provider,
             declared_requirements,
             required_requirements,
             requirement_triggers,
@@ -145,8 +149,22 @@ impl<'a> Context<'a> {
     }
 
     /// Returns the interned [`LiteralId`] representing the source file associated with this context.
-    pub fn source_id(&self) -> LiteralId {
+    pub fn source(&self) -> LiteralId {
         self.source_id
+    }
+
+    // Returns the diagnostic provider associated with this context.
+    ///
+    /// The provider identifies the entity performing the current analysis phase
+    /// (e.g., the Analyzer, Optimizer, or a specific Linter) and is used to
+    /// tag any diagnostics generated during this process.
+    ///
+    /// # Returns
+    ///
+    /// A [`Provider`] enum value representing the current actor.
+    #[inline]
+    pub fn provider(&self) -> Provider {
+        self.provider
     }
 
     /// Retourne les requirements déclarés (ex: bloc :requirements).
@@ -167,38 +185,5 @@ impl<'a> Context<'a> {
     /// Helper rapide pour savoir si un besoin est présent.
     pub fn is_required(&self, req: Requirement) -> bool {
         self.required_requirements.contains(&req)
-    }
-}
-
-impl<'a> From<&'a SemanticContext> for Context<'a> {
-    /// Converts a reference to a `SemanticContext` into a `Context`.
-    ///
-    /// This implementation allows creating a `Context` from an existing
-    /// `SemanticContext` by borrowing its internal components.
-    ///
-    /// # Arguments
-    ///
-    /// * `ctx` - A reference to the `SemanticContext` to convert from.
-    ///
-    /// # Returns
-    ///
-    /// A new `Context` instance borrowing data from the provided `SemanticContext`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// let semantic_ctx: SemanticContext = ...;
-    /// let ctx: Context = Context::from(&semantic_ctx);
-    /// ```
-    fn from(ctx: &'a SemanticContext) -> Self {
-        Self {
-            syntax_tree: ctx.syntax_tree(), // On suppose que ces méthodes existent sur SemanticContext
-            symbols: ctx.symbol_table(),
-            interner: ctx.interner(),
-            source_id: ctx.source_id(),
-            declared_requirements: ctx.declared_requirements(),
-            required_requirements: ctx.required_requirements(),
-            requirement_triggers: ctx.requirement_triggers(),
-        }
     }
 }
