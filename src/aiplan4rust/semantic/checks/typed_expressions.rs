@@ -161,10 +161,6 @@ fn check_equal_and_assignment_expression(
 
     if !type_checker.have_common_supertype(&ty1, &ty2)? {
         no_error = false;
-        println!(
-            "Type mismatch in equality/assignment expression: {:?} vs {:?}",
-            ty1, ty2
-        );
         let error = Diagnostic::error_type_mismatch_in_expression(
             ty1.clone(),
             ty2.clone(),

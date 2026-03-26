@@ -15,7 +15,7 @@ use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
-use crate::aiplan4rust::semantic::finalization::error::FinalizationError;
+use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
@@ -70,7 +70,7 @@ pub enum SemanticError {
 
     /// Errors related to the finalization.
     #[error(transparent)]
-    Finalization(#[from] FinalizationError),
+    SemanticPass(#[from] SemanticPassError),
 
     /// Error related to the string interner.
     #[error(transparent)]

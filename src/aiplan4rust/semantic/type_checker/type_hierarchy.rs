@@ -11,6 +11,7 @@
 //! to perform transitive closure computations and subtype validations efficiently.
 
 use crate::aiplan4rust::lang::SymbolId;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -21,7 +22,7 @@ use std::fmt;
 ///
 /// The hierarchy is stored as an adjacency list in both directions to allow for
 /// efficient traversal whether ascending (to find supertypes) or descending (to find subtypes).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TypeHierarchy {
     /// Maps a child type to its immediate parent types.
     ///

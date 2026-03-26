@@ -39,7 +39,7 @@ use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, SymbolOrigin, Usage};
-use crate::aiplan4rust::semantic::AnalyzerResult;
+use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 
@@ -151,7 +151,11 @@ impl Linker {
                 // 2. On simplifie la table des symboles du problème
                 // Maintenant que le problème connaît les types du domaine,
                 // on peut réduire les (either A B) du problème.
-                type_checker.simplify_symbol_table(problem_ctx.symbol_table_mut())?;
+                passes::simplify_symbol_table(
+                    &type_checker,
+                    problem_ctx.symbol_table_mut(),
+                    &mut self.diagnostic_manager,
+                )?;
 
                 // Step 4: Create a check context for the problem using the global interner
                 // and perform semantic and structural linking checks on the problem

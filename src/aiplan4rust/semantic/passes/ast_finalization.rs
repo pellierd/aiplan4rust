@@ -1,7 +1,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{SymbolId, Type};
-use crate::aiplan4rust::semantic::finalization::error::FinalizationError;
+use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
@@ -10,7 +10,7 @@ use crate::SymbolTable;
 
 /// Point d'entrée unique pour la finalisation.
 /// C'est la seule fonction que tu appelles depuis ton Match.
-pub fn finalize(context: &mut SemanticContext) -> Result<(), FinalizationError> {
+pub fn finalize(context: &mut SemanticContext) -> Result<(), SemanticPassError> {
     // Étape A : On déstructure le tuple renvoyé par split_all_mut.
     // Contrairement à des appels de méthodes séparés, ici Rust voit
     // que 'ast', 'symbol_table' et 'interner' proviennent de champs disjoints.
@@ -31,8 +31,8 @@ pub fn finalize(context: &mut SemanticContext) -> Result<(), FinalizationError> 
 fn finalize_ast_types(
     ast: &mut Tree<AstNode>,
     symbol_table: &SymbolTable,
-    interner: &SymbolInterner,
-) -> Result<(), FinalizationError> {
+    _interner: &SymbolInterner,
+) -> Result<(), SemanticPassError> {
     for symbol in symbol_table.values() {
         for declaration in symbol.declarations() {
             if declaration.ty().is_none() {
@@ -117,18 +117,18 @@ fn finalize_ast_types(
 /// This function replaces previous panics/asserts with a recoverable Result.
 ///
 /// # Errors
-/// * [`FinalizationError::IncompleteDeclaration`] - If type data or node IDs are missing.
-/// * [`FinalizationError::TypeInconsistency`] - If there is a count mismatch between types and nodes.
+/// * [`SemanticPassError::IncompleteDeclaration`] - If type data or node IDs are missing.
+/// * [`SemanticPassError::TypeInconsistency`] - If there is a count mismatch between types and nodes.
 pub fn try_get_type_and_nodes(
     declaration: &Declaration,
-) -> Result<(&Type<SymbolId>, &[NodeId]), FinalizationError> {
+) -> Result<(&Type<SymbolId>, &[NodeId]), SemanticPassError> {
     let ty_opt = declaration.ty();
     let ids_opt = declaration.ty_node_ids();
     let symbol_id = declaration.symbol().id();
 
     // 1. Check if both data sets are present
     if ty_opt.is_none() || ids_opt.is_none() {
-        return Err(FinalizationError::incomplete_declaration(
+        return Err(SemanticPassError::incomplete_declaration(
             symbol_id,
             ty_opt.is_some(),
             ids_opt.is_some(),
@@ -140,7 +140,7 @@ pub fn try_get_type_and_nodes(
 
     // 2. Check for structural length consistency
     if ty.len() != ids.len() {
-        return Err(FinalizationError::type_inconsistency(
+        return Err(SemanticPassError::type_inconsistency(
             symbol_id,
             ty.len(),
             ids.len(),

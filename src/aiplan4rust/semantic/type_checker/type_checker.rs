@@ -59,13 +59,8 @@ use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::type_checker::{TypeCheckError, TypeHierarchy};
 
-use crate::aiplan4rust::tree::NodeId;
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
-
-/// The maximum number of members allowed in a type union for optimized simplification.
-/// This limit is defined by the size of the bitmask (u128) used in the algorithm.
-const MAX_UNION_SIMPLIFICATION_CAPACITY: usize = 128;
 
 /// PDDL Built-in symbols.
 const PDDL_BUILTIN_TYPES: [SymbolId; 1] = [
@@ -345,8 +340,8 @@ impl<'a> TypeChecker<'a> {
     pub fn is_pddl_builtin_types(ty: SymbolId) -> bool {
         PDDL_BUILTIN_TYPES.contains(&ty)
     }
-
-    /// Simplifies a type union by removing redundant super-types.
+}
+/*/// Simplifies a type union by removing redundant super-types.
     ///
     /// If an 'either' type contains both a type and its ancestor (e.g., `satellite` and `object`),
     /// the ancestor is redundant and removed.
@@ -550,6 +545,14 @@ impl<'a> TypeChecker<'a> {
     }
 }
 
+/// Private internal structure representing a type modification to be applied.
+struct TypeSimplification {
+    symbol_id: SymbolId,
+    node_id: NodeId,
+    new_type: Type<SymbolId>,
+    kept_indices: Vec<usize>, // <--- Les indices originaux des types conservés
+}*/
+
 /*fn apply_type_simplifications(
     target_table: &mut SymbolTable,
     changes: Vec<TypeSimplification>,
@@ -574,11 +577,3 @@ impl<'a> TypeChecker<'a> {
         }
     }
 }*/
-
-/// Private internal structure representing a type modification to be applied.
-struct TypeSimplification {
-    symbol_id: SymbolId,
-    node_id: NodeId,
-    new_type: Type<SymbolId>,
-    kept_indices: Vec<usize>, // <--- Les indices originaux des types conservés
-}
