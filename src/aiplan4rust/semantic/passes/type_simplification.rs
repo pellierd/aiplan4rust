@@ -118,7 +118,7 @@ fn collect_type_simplifications(
                         new_type,
                         context.provider(),
                         context.source(),
-                        *decl.span(),
+                        decl.span(),
                     );
 
                     diagnostic_manager.add_diagnostic(warning);

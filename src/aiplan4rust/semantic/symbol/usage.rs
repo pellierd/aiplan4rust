@@ -15,15 +15,15 @@
 //! for name rewriting or alpha-renaming in transformations.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
+use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
+use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolOrigin};
 use crate::aiplan4rust::syntax::Span;
-use std::collections::HashMap;
+use crate::aiplan4rust::tree::NodeId;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fmt;
 
 /// Represents a concrete use of a symbol within the Abstract Syntax Tree (AST).
@@ -123,15 +123,14 @@ impl Usage {
     }
 
     /// Returns a reference to the source code span for this usage.
-    pub fn span(&self) -> &Span {
-        &self.span
+    pub fn span(&self) -> Span {
+        self.span
     }
 
     /// Returns the AST node identifier (`NodeId`) where the symbol is used.
     pub fn node_id(&self) -> NodeId {
         self.node_id
     }
-
 }
 
 impl RemapSymbol for Usage {
@@ -147,7 +146,7 @@ impl RemapSymbol for Usage {
     /// # Errors
     ///
     /// Returns [`InternerError`] if remapping cannot be applied (propagated from nested remaps, if any).
-    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>{
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         if let Some(new_ident) = map.get(&self.symbol_id()) {
             self.symbol.set_ident(new_ident.clone());
         }

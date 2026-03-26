@@ -307,13 +307,16 @@ impl Declaration {
         self.argument_node_ids = None;
     }
 
-    /// Returns a reference to the source code [`Span`] where the declaration is located.
+    /// Returns the source code [`Span`] where the declaration is located.
+    ///
+    /// Since [`Span`] implements [`Copy`], this method returns a value rather than a reference,
+    /// making it easier to use without worrying about lifetimes.
     ///
     /// # Returns
     ///
-    /// A reference to the span indicating the start and end positions in the source.
-    pub fn span(&self) -> &Span {
-        &self.span
+    /// The span indicating the start and end positions in the source.
+    pub fn span(&self) -> Span {
+        self.span
     }
 
     /// Sets the source code span associated with this declaration.

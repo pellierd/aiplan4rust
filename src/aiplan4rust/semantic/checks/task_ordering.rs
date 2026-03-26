@@ -65,7 +65,7 @@ pub fn check_task_ordering(
                 let error = Diagnostic::error_cyclic_task_ordering(
                     context.provider(),
                     context.source(),
-                    node.span().clone(),
+                    node.span(),
                 );
                 diagnostic_manager.add_diagnostic(error);
             }

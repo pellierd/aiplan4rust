@@ -105,7 +105,7 @@ pub fn check_symbol_signatures(
                         usage.clone(),
                         context.provider(),
                         context.source(),
-                        entry.span().clone(),
+                        entry.span(),
                     );
 
                     diagnostic_manager.add_diagnostic(error);
@@ -287,7 +287,7 @@ fn match_argument(
             ty2.clone(),
             context.provider(),
             context.source(),
-            argument.span().clone(),
+            argument.span(),
         );
         diagnostic_manager.add_diagnostic(warning);
 

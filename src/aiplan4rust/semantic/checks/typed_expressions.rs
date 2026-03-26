@@ -169,7 +169,7 @@ fn check_equal_and_assignment_expression(
             ty2.clone(),
             context.provider(),
             context.source(),
-            node.span().clone(),
+            node.span(),
         );
 
         diagnostic_manager.add_diagnostic(error);
@@ -232,7 +232,7 @@ fn check_numeric_expression(
             ty2.clone(),
             context.provider(),
             context.source(),
-            node.span().clone(),
+            node.span(),
         );
         diagnostic_manager.add_diagnostic(error);
     }

@@ -91,8 +91,8 @@ pub fn check_symbol_types(
                             .ty_node_ids()
                             .and_then(|ids| ids.get(i)) // On cherche l'index exact
                             .and_then(|&id| context.syntax_tree().try_node(id).ok()) // On cherche le nœud
-                            .map(|node| *node.span()) // On prend son span
-                            .unwrap_or_else(|| *declaration.span()); // FALLBACK : Le nom de l'objet (ex: Phenomenon7)
+                            .map(|node| node.span()) // On prend son span
+                            .unwrap_or_else(|| declaration.span()); // FALLBACK : Le nom de l'objet (ex: Phenomenon7)
 
                         // Generate an error diagnostic for the user
                         diagnostic_manager.add_diagnostic(Diagnostic::error_undeclared_type(

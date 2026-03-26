@@ -200,7 +200,7 @@ fn handle_declaration_conflict(
                 pred_decl.clone(),
                 context.provider(),
                 context.source(),
-                ast_entry.span().clone(),
+                ast_entry.span(),
             ));
         }
 
@@ -230,7 +230,7 @@ fn handle_declaration_conflict(
                     scope_node.kind(),
                     context.provider(),
                     context.source(),
-                    ast_entry.span().clone(),
+                    ast_entry.span(),
                 ),
             );
         } else {
@@ -244,7 +244,7 @@ fn handle_declaration_conflict(
                     scope_node.kind(),
                     context.provider(),
                     context.source(),
-                    ast_entry.span().clone(),
+                    ast_entry.span(),
                 ),
             );
         }

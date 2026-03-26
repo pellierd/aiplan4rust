@@ -21,18 +21,18 @@
 //! Methods like [`AstNode::try_requirement`] and [`AstNode::as_symbol`] may return
 //! [`AstError`] or [`SyntaxTreeError`] when semantic constraints are violated.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Formatter};
 use std::ops::{Deref, DerefMut};
-use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{RemapSymbol, Requirement, SymbolId};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
-use crate::aiplan4rust::tree::{SyntaxBaseNode, Node, Tree, NodeId};
 use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::tree::{Node, NodeId, SyntaxBaseNode, Tree};
 
 /// Represents a node in the Abstract Syntax Tree (AST).
 ///
@@ -75,12 +75,14 @@ impl AstNode {
         AstNode { inner, span }
     }
 
-    /// Returns an immutable reference to the span of this node.
+    /// Returns the source code [`Span`] of this node.
+    ///
+    /// Since [`Span`] implements [`Copy`], this method returns the span by value.
     ///
     /// # Returns
-    /// A reference to the [`Span`] representing this node’s source location.
-    pub fn span(&self) -> &Span {
-        &self.span
+    /// The [`Span`] representing this node’s source location.
+    pub fn span(&self) -> Span {
+        self.span
     }
 
     /// Returns a mutable reference to the span of this node.
@@ -156,9 +158,7 @@ impl AstNode {
     pub(crate) fn try_symbol(&self) -> Result<Symbol, AstError> {
         self.as_symbol()?.ok_or_else(|| AstError::not_a_symbol_id())
     }
-
 }
-
 
 impl Deref for AstNode {
     type Target = SyntaxBaseNode<AstKind, AstContent>;
@@ -257,8 +257,6 @@ impl ArenaNode for AstNode {
     fn add_child(&mut self, child: NodeId) {
         self.inner.add_child(child);
     }
-
-
 }
 
 impl Node for AstNode {
@@ -365,7 +363,10 @@ impl Node for AstNode {
     /// assert!(node.is_time_specifier());
     /// ```
     fn is_time_specifier(&self) -> bool {
-        matches!(self.kind(), AstKind::AtStart | AstKind::AtEnd | AstKind::Overall)
+        matches!(
+            self.kind(),
+            AstKind::AtStart | AstKind::AtEnd | AstKind::Overall
+        )
     }
 
     /// Returns `true` if the node represents a **logical operator**.
@@ -383,7 +384,10 @@ impl Node for AstNode {
     /// assert!(node.is_logic());
     /// ```
     fn is_logic(&self) -> bool {
-        matches!(self.kind(), AstKind::And | AstKind::Or | AstKind::Not | AstKind::Imply)
+        matches!(
+            self.kind(),
+            AstKind::And | AstKind::Or | AstKind::Not | AstKind::Imply
+        )
     }
 
     /// Returns `true` if this node represents a logical negation (`Not`).
@@ -426,18 +430,21 @@ impl RemapSymbol for AstNode {
 }
 
 impl AstNode {
-
     // --- Rendu de l'Arbre (Visualisation) ---
     pub fn fmt_with_interner(
         &self,
         f: &mut Formatter<'_>,
         syntax_tree: &Tree<AstNode>,
-        interner: &SymbolInterner
+        interner: &SymbolInterner,
     ) -> fmt::Result {
         renderer::tree::render(self, f, syntax_tree, interner)
     }
 
-    pub fn to_string_with_interner(&self, tree: &Tree<AstNode>, interner: &SymbolInterner) -> String {
+    pub fn to_string_with_interner(
+        &self,
+        tree: &Tree<AstNode>,
+        interner: &SymbolInterner,
+    ) -> String {
         struct Wrapper<'a>(&'a AstNode, &'a Tree<AstNode>, &'a SymbolInterner);
         impl fmt::Display for Wrapper<'_> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

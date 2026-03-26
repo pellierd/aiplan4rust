@@ -81,7 +81,7 @@ pub fn check_unused_symbols(
                     declaration.clone(),
                     context.provider(),
                     context.source(),
-                    declaration.span().clone(),
+                    declaration.span(),
                 );
                 diagnostic_manager.add_diagnostic(warning);
             }
@@ -318,7 +318,7 @@ fn check_pddl_builtin_symbol_declaration(
             reqs,
             context.provider(),
             context.source(),
-            declaration.span().clone(),
+            declaration.span(),
         );
         diagnostic_manager.add_diagnostic(warning);
         false

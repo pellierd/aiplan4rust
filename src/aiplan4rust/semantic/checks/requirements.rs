@@ -120,11 +120,11 @@ fn report_warning_requirement_violation(
 ) -> bool {
     if required.iter().any(|r| !requirements.contains(r)) {
         let warning = Diagnostic::warning_missing_requirement(
-            node.kind().clone(),
+            node.kind(),
             required,
             provider,
             source,
-            node.span().clone(),
+            node.span(),
         );
         diagnostic_manager.add_diagnostic(warning);
         false

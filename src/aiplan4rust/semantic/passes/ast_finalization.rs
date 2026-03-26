@@ -76,7 +76,7 @@ fn finalize_ast_types(
                     .skip(1)
                     .fold(first, |acc, &s| acc.merge(s)) // On passe les valeurs directement
             } else {
-                *ast.try_node(element_id)?.span()
+                ast.try_node(element_id)?.span()
             };
 
             let new_type_node_id = ast.alloc(AstNode::new(

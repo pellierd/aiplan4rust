@@ -77,7 +77,7 @@ pub fn check_undeclared_symbols(
                     usage.clone(),
                     context.provider(),
                     context.source(),
-                    usage.span().clone(),
+                    usage.span(),
                 );
                 diagnostic_manager.add_diagnostic(error);
             }
