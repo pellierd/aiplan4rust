@@ -120,7 +120,7 @@ impl Linker {
             domain.take_semantic_context(),
             problem.take_semantic_context(),
         ) {
-            (Some(domain_ctx), Some(mut problem_ctx)) => {
+            (Some(mut domain_ctx), Some(mut problem_ctx)) => {
                 // Step 1: Merge the string interners from domain and problem to form a global interner
                 let mut result = InternerMergeResult::from_domain_and_problem(
                     domain_ctx.interner(),
@@ -142,7 +142,7 @@ impl Linker {
                     .add_diagnostic_from(problem_diag_mgr);
 
                 // Step 3: Resolve external references in the problem with respect to the domain
-                resolve_external_references(&domain_ctx, &mut problem_ctx)?;
+                resolve_external_references(&mut domain_ctx, &mut problem_ctx)?;
 
                 // --- NOUVELLE ÉTAPE : SIMPLIFICATION DU PROBLÈME ---
                 // 1. On prépare la hiérarchie du domaine (qui est la référence)
@@ -344,7 +344,7 @@ fn perform_linking_checks(
 /// resolve_external_references(&domain_context, &mut problem_context)?;
 /// ```
 fn resolve_external_references(
-    domain: &SemanticContext,
+    domain: &mut SemanticContext,
     problem: &mut SemanticContext,
 ) -> Result<(), LinkingError> {
     let mut declared = Vec::new();
@@ -364,11 +364,17 @@ fn resolve_external_references(
         let type_checker = TypeChecker::new(&hierarchy);
         let interner = domain.interner();
 
+        let mut tasks = Vec::new();
+
         for (dom_decl, prob_decl) in to_verify {
+            let symbol_id = prob_decl.symbol().id();
+            let kind = prob_decl.symbol().kind();
             if let (Some(dom_type), Some(prob_type)) = (dom_decl.ty(), prob_decl.ty()) {
                 // Règle de sous-typage stricte
                 match type_checker.is_any_subtype_of(dom_type, prob_type) {
                     Ok(true) => {
+                        tasks.push((symbol_id, kind, prob_type.clone()));
+
                         // Succès : Le problème confirme ou spécialise le domaine.
                         // On ne fait rien, on laisse la déclaration du problème telle quelle.
                     }
@@ -394,6 +400,24 @@ fn resolve_external_references(
                 }
             }
         }
+
+        // 2. Maintenant que 'to_verify' n'est plus utilisé, on peut modifier mutablement
+        /* for (symbol_id, kind, prob_type) in tasks {
+            // Mise à jour du DOMAINE
+            let dom_root = domain.symbol_table().root_scope();
+            // Utilisation de ton try_resolve_declaration (doit retourner &mut Declaration)
+            let mut m_dom_decl = domain
+                .symbol_table_mut()
+                .try_resolve_declaration_mut(&symbol_id, &kind, &dom_root)?;
+            m_dom_decl.set_ty(prob_type); // On injecte le type spécifique
+
+            // Mise à jour du PROBLÈME
+            let prob_root = problem.symbol_table().root_scope();
+            let mut m_prob_decl = problem
+                .symbol_table_mut()
+                .try_resolve_declaration_mut(&symbol_id, &kind, &prob_root)?;
+            m_prob_decl.set_origin(Origin::Shared); // On marque comme Shared pour le skip
+        }*/
     }
 
     // Injection des constantes du domaine dans le contexte du problème

@@ -14,6 +14,7 @@ use std::fmt;
 /// Display labels associated with each variant of [`Origin`].
 pub const SYMBOL_ORIGIN_DOMAIN: &str = "Domain";
 pub const SYMBOL_ORIGIN_PROBLEM: &str = "Problem";
+pub const SYMBOL_ORIGIN_SHARED: &str = "Shared";
 pub const SYMBOL_ORIGIN_UNKNOWN: &str = "Unknown";
 
 /// Describes the origin of a symbol in a PDDL context.
@@ -25,6 +26,7 @@ pub const SYMBOL_ORIGIN_UNKNOWN: &str = "Unknown";
 ///
 /// - `Domain`: Symbol originates from the domain file.
 /// - `Problem`: Symbol originates from the problem file.
+/// - `Shared`: Symbol is present in both domain and problem (e.g., a constant specialized in the problem).
 /// - `Unknown`: Origin is unknown or undetermined (default).
 ///
 /// # Example
@@ -32,8 +34,8 @@ pub const SYMBOL_ORIGIN_UNKNOWN: &str = "Unknown";
 /// ```rust
 /// use aiplan4rust::symbol::origin::Origin;
 ///
-/// let origin = Origin::Domain;
-/// assert_eq!(origin.to_string(), "Domain");
+/// let origin = Origin::Shared;
+/// assert_eq!(origin.to_string(), "Shared");
 /// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
 pub enum Origin {
@@ -42,6 +44,13 @@ pub enum Origin {
 
     /// Symbol is defined in the problem file.
     Problem,
+
+    /// Symbol is defined in both files.
+    ///
+    /// Used when a domain constant is specialized or redefined in a problem file.
+    /// This allows the linker to unify the symbol while preventing duplicate
+    /// encoding in the final representation (LIR).
+    Shared,
 
     /// Symbol origin is unknown or undetermined.
     #[default]
@@ -56,6 +65,7 @@ impl fmt::Display for Origin {
         let label = match self {
             Origin::Domain => SYMBOL_ORIGIN_DOMAIN,
             Origin::Problem => SYMBOL_ORIGIN_PROBLEM,
+            Origin::Shared => SYMBOL_ORIGIN_SHARED,
             Origin::Unknown => SYMBOL_ORIGIN_UNKNOWN,
         };
         write!(f, "{}", label)
