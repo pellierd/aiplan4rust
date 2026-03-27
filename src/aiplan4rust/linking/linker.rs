@@ -419,6 +419,8 @@ fn resolve_external_references(
                 .symbol_table_mut()
                 .try_resolve_declaration_mut(&symbol_id, &kind, &dom_root)?;
 
+            let alias_node_id = m_dom_decl.node_id();
+
             // On enregistre le changement AVANT de muter pour l'AST du domaine
             domain_changes.push(TypeSimplification::new(
                 symbol_id,
@@ -435,6 +437,7 @@ fn resolve_external_references(
                 .try_resolve_declaration_mut(&symbol_id, &kind, &prob_root)?;
 
             m_prob_decl.set_origin(Origin::Shared);
+            m_prob_decl.set_alias_node_id(alias_node_id);
         }
 
         // --- ÉTAPE DE SYNCHRONISATION AST ---

@@ -106,6 +106,8 @@ pub struct Declaration {
     /// The original scope context if this declaration was imported
     /// from an external module; otherwise `None`.
     imported_scope: Option<Scope>,
+
+    alias_node_id: Option<NodeId>,
 }
 
 impl Declaration {
@@ -159,6 +161,7 @@ impl Declaration {
         span: Span,
         node_id: NodeId,
         imported_scope: Option<Scope>,
+        alias_node_id: Option<NodeId>,
     ) -> Self {
         Declaration {
             symbol,
@@ -171,6 +174,7 @@ impl Declaration {
             span,
             node_id,
             imported_scope,
+            alias_node_id,
         }
     }
 
@@ -382,6 +386,23 @@ impl Declaration {
     /// * `scope` - The optional scope to assign.
     pub fn set_imported_scope(&mut self, scope: Option<Scope>) {
         self.imported_scope = scope;
+    }
+
+    /// Récupère l'ID du nœud original si cette déclaration est un alias.
+    /// Retourne `None` si c'est la source de vérité.
+    pub fn alias_node_id(&self) -> Option<NodeId> {
+        self.alias_node_id
+    }
+
+    /// Définit le nœud source pour cette déclaration (crée un alias).
+    /// Utile lors du linking pour pointer du Problème vers le Domaine.
+    pub fn set_alias_node_id(&mut self, node_id: NodeId) {
+        self.alias_node_id = Some(node_id);
+    }
+
+    /// Vérifie si la déclaration est un alias.
+    pub fn is_alias(&self) -> bool {
+        self.alias_node_id.is_some()
     }
 
     /// Formats the types of the declaration for display.

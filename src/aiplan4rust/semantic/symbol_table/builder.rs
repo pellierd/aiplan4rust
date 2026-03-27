@@ -398,6 +398,7 @@ impl SymbolTableBuilder {
                 node_ref.node().span().clone(), // Source code span for error diagnostics.
                 node_ref.id(),                  // AST node identifier.
                 None,                           // Optional additional data (currently None).
+                None,
             );
             // Append this declaration to the existing symbol's declarations list.
             symbol.add_declaration(declaration);
@@ -416,6 +417,7 @@ impl SymbolTableBuilder {
                 argument_node_ids,
                 node_ref.node().span().clone(),
                 node_ref.id(),
+                None,
                 None,
             );
 

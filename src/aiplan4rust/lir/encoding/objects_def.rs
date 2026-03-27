@@ -90,6 +90,7 @@ fn collect_object_ids(
             .try_get_declaration_from(symbol_id, symbol_node_id)?;
 
         if decl.origin() == Origin::Shared {
+            registry.register_object_symbol(symbol_id, symbol_node_id);
             continue;
         }
 
