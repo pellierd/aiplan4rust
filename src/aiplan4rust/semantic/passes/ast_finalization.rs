@@ -34,7 +34,7 @@ fn finalize_ast_types(
     _interner: &SymbolInterner,
 ) -> Result<(), SemanticPassError> {
     for symbol in symbol_table.values() {
-        for declaration in symbol.declarations() {
+        for declaration in symbol.declarations().values() {
             if declaration.ty().is_none() {
                 continue;
             }

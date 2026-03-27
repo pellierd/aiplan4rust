@@ -34,16 +34,16 @@ pub mod usage;
 
 pub mod declaration;
 pub mod filterable;
-pub mod entry;
 pub mod kind;
 pub mod origin;
 pub mod symbol;
 
+use crate::aiplan4rust::semantic::symbol_table::entry;
+pub use crate::aiplan4rust::semantic::symbol_table::entry::SymbolEntry;
 pub use declaration::Declaration;
 pub use filterable::Filterable;
-pub use scope::Scope;
-pub use entry::SymbolEntry;
 pub use kind::Kind as SymbolKind;
-pub use usage::Usage;
 pub use origin::Origin as SymbolOrigin;
+pub use scope::Scope;
 pub use symbol::Symbol;
+pub use usage::Usage;

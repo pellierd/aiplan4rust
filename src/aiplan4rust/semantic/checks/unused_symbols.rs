@@ -61,7 +61,7 @@ pub fn check_unused_symbols(
     let symbol_table = context.symbol_table();
 
     for symbol_entry in symbol_table.values() {
-        for declaration in symbol_entry.declarations() {
+        for declaration in symbol_entry.declarations().values() {
             let declaration_kind = declaration.symbol_kind();
 
             // 1. Filter out declarations that should be ignored (built-ins, specific kinds, etc.)
@@ -106,7 +106,7 @@ fn has_valid_usage(entry: &SymbolEntry, declaration: &Declaration) -> bool {
 
     // --- PART 1: EXPLICIT USAGE SEARCH ---
     // Check if the symbol is consumed in the domain (e.g., in actions or effects).
-    for usage in entry.usages() {
+    for usage in entry.usages().values() {
         let usage_kind = usage.symbol_kind();
 
         // A usage matches if it occurs within a compatible (descendant) scope.
@@ -125,7 +125,7 @@ fn has_valid_usage(entry: &SymbolEntry, declaration: &Declaration) -> bool {
     // If no explicit usage was found, check if this is a Predicate "saved"
     // by the existence of a matching Derived Predicate definition.
     if decl_kind == SymbolKind::Predicate {
-        for other_decl in entry.declarations() {
+        for other_decl in entry.declarations().values() {
             if other_decl.symbol_kind() == SymbolKind::DerivedPredicate {
                 // The predicate is bound to a derived definition, so it is valid.
                 return true;

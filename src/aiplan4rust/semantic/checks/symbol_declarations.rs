@@ -78,7 +78,7 @@ fn check_symbol_declarations_internal(
         // This is a zero-allocation operation that significantly speeds up analysis.
         seen_scopes.clear();
 
-        for declaration in symbol.declarations() {
+        for declaration in symbol.declarations().values() {
             // STEP 1: Filter by symbol category (if a restriction is provided)
             if let Some(kinds) = kinds_to_check {
                 if !kinds.contains(&declaration.symbol_kind()) {

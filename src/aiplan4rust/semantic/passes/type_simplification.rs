@@ -101,7 +101,7 @@ fn collect_type_simplifications(
     let mut changes = Vec::new();
 
     for (&symbol_id, entry) in target_table.iter() {
-        for decl in entry.declarations().iter() {
+        for decl in entry.declarations().values() {
             if let Some(raw_ty) = decl.ty() {
                 // Pass the type_checker to utilize its internal cache
                 if let Some((new_type, kept_indices)) = simplify_type(type_checker, raw_ty)? {
@@ -209,39 +209,32 @@ fn simplify_type(
 /// * `target_table` - The mutable symbol table where types and NodeIds will be updated.
 /// * `changes` - A vector of [`TypeSimplification`] instructions generated during
 ///   the collection phase.
-fn apply_type_simplifications(target_table: &mut SymbolTable, changes: Vec<TypeSimplification>) {
+pub fn apply_type_simplifications(
+    target_table: &mut SymbolTable,
+    changes: Vec<TypeSimplification>,
+) {
     for change in changes {
         if let Some(entry) = target_table.get_symbol_mut(change.symbol_id) {
-            // Locate the specific declaration by its NodeId
-            let key = entry
-                .declarations()
-                .iter()
-                .find(|d| d.node_id() == change.node_id)
-                .cloned();
+            // Avec IndexMap, on accède directement à la déclaration par son NodeId (O(1))
+            if let Some(original) = entry.declarations_mut().get_mut(&change.node_id) {
+                // 1. Synchronisation des NodeIds des types
+                if let Some(old_ids) = original.ty_node_ids() {
+                    // On ne garde que les NodeIds des types qui ont survécu
+                    let new_ids: Vec<NodeId> = change
+                        .kept_indices
+                        .iter()
+                        .filter_map(|&i| old_ids.get(i))
+                        .cloned()
+                        .collect();
 
-            if let Some(decl_key) = key {
-                // Use 'take' to gain ownership of the entry for mutation
-                if let Some(mut original) = entry.declarations_mut().take(&decl_key) {
-                    // Synchronize the AST NodeIds for the types
-                    if let Some(old_ids) = original.ty_node_ids() {
-                        // Keep only the NodeIds of the types that survived simplification
-                        let new_ids: Vec<NodeId> = change
-                            .kept_indices
-                            .iter()
-                            .filter_map(|&i| old_ids.get(i))
-                            .cloned()
-                            .collect();
-
-                        // Note: new_ids.len() should always match change.new_type.len()
-                        original.set_ty_node_ids(new_ids);
-                    }
-
-                    // Update the semantic type
-                    original.set_ty(change.new_type);
-
-                    // Re-insert the updated declaration into the HashSet
-                    entry.declarations_mut().insert(original);
+                    original.set_ty_node_ids(new_ids);
                 }
+
+                // 2. Mise à jour du type sémantique
+                original.set_ty(change.new_type);
+
+                // Note : Pas besoin de "take" ou de "insert",
+                // la modification est déjà faite en place !
             }
         }
     }

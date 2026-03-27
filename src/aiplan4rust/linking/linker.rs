@@ -446,7 +446,7 @@ fn collect_declared_and_undeclared_symbols<'a>(
         // --- MODIFICATION ICI : On exclut le nom du domaine et du problème ---
         let problem_decls: Vec<&Declaration> = symbol
             .declarations()
-            .iter()
+            .values()
             .filter(|d| {
                 let k = d.symbol().kind();
                 k != SymbolKind::DomainName && k != SymbolKind::ProblemName
@@ -454,7 +454,7 @@ fn collect_declared_and_undeclared_symbols<'a>(
             .collect();
 
         if problem_decls.is_empty() {
-            for usage in symbol.usages() {
+            for usage in symbol.usages().values() {
                 let kind = usage.symbol_kind();
 
                 // On ignore aussi ces types dans les usages pour le linking

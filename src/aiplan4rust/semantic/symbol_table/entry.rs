@@ -6,12 +6,14 @@
 //! The module leverages hash sets to ensure uniqueness of declarations and usages, and supports serialization via Serde.
 //! It integrates with a string interner for efficient symbol name handling.
 
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::tree::NodeId;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
@@ -37,28 +39,33 @@ use std::hash::{Hash, Hasher};
 /// // add declarations and usages...
 /// println!("{}", symbol);
 /// ```
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SymbolEntry {
     /// The unique identifier of the symbol.
     ident: SymbolId,
 
     /// The set of declarations where this symbol is introduced.
-    declarations: HashSet<Declaration>,
+    declarations: IndexMap<NodeId, Declaration>,
 
     /// The set of usages where this symbol is referenced.
-    usages: HashSet<Usage>,
+    usages: IndexMap<NodeId, Usage>,
 }
 
+impl PartialEq for SymbolEntry {
+    /// Deux entrées sont égales si elles ont le même identifiant.
+    fn eq(&self, other: &Self) -> bool {
+        self.ident == other.ident
+    }
+}
+
+impl Eq for SymbolEntry {} // Eq n'a pas de méthodes, c'est un marqueur
+
 impl Hash for SymbolEntry {
-    /// Computes the hash of the symbol based solely on its `ident`.
-    ///
-    /// This ensures that symbols with the same identifier hash identically,
-    /// regardless of their declarations or usages.
+    /// Hash basé uniquement sur l'identifiant pour rester cohérent avec PartialEq.
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.ident.hash(state);
     }
 }
-
 impl SymbolEntry {
     /// Creates a new `SymbolEntry` with the specified identifier.
     ///
@@ -72,8 +79,8 @@ impl SymbolEntry {
     pub fn new(ident: SymbolId) -> Self {
         SymbolEntry {
             ident,
-            declarations: HashSet::new(),
-            usages: HashSet::new(),
+            declarations: IndexMap::new(),
+            usages: IndexMap::new(),
         }
     }
 
@@ -87,18 +94,23 @@ impl SymbolEntry {
     }
 
     /// Returns a reference to the set of declarations of this symbol.
-    pub fn declarations(&self) -> &HashSet<Declaration> {
+    pub fn declarations(&self) -> &IndexMap<NodeId, Declaration> {
         &self.declarations
     }
 
     /// Returns a mutable reference to the set of declarations.
-    pub fn declarations_mut(&mut self) -> &mut HashSet<Declaration> {
+    pub fn declarations_mut(&mut self) -> &mut IndexMap<NodeId, Declaration> {
         &mut self.declarations
     }
 
     /// Returns a reference to the set of usages of this symbol.
-    pub fn usages(&self) -> &HashSet<Usage> {
+    pub fn usages(&self) -> &IndexMap<NodeId, Usage> {
         &self.usages
+    }
+
+    /// Returns a reference to the set of usages of this symbol.
+    pub fn usages_mut(&mut self) -> &mut IndexMap<NodeId, Usage> {
+        &mut self.usages
     }
 
     /// Adds a new declaration for this symbol, if it is not already present.
@@ -111,7 +123,13 @@ impl SymbolEntry {
     ///
     /// `true` if the declaration was added (was not present before), otherwise `false`.
     pub fn add_declaration(&mut self, declaration: Declaration) -> bool {
-        self.declarations.insert(declaration)
+        // Puisque la clé est le NodeId de la déclaration,
+        // on l'extrait pour l'insertion dans l'IndexMap.
+        let node_id = declaration.node_id();
+
+        // insert() renvoie Some(old_value) si la clé existait déjà.
+        // On retourne true seulement si le résultat est None (nouvelle insertion).
+        self.declarations.insert(node_id, declaration).is_none()
     }
 
     /// Adds a new usage of this symbol, if it is not already present.
@@ -124,7 +142,12 @@ impl SymbolEntry {
     ///
     /// `true` if the usage was added (was not present before), otherwise `false`.
     pub fn add_usage(&mut self, usage: Usage) -> bool {
-        self.usages.insert(usage)
+        // On utilise le NodeId comme clé unique pour l'usage dans la map
+        let node_id = usage.node_id();
+
+        // insert() renvoie Some(old_usage) si l'ID existait déjà.
+        // On retourne true seulement si l'insertion est nouvelle (None).
+        self.usages.insert(node_id, usage).is_none()
     }
 
     /// Merges another `SymbolEntry` into this one by combining declarations and usages.
@@ -165,26 +188,22 @@ impl RemapSymbol for SymbolEntry {
     /// Returns [`InternerError`] if any declaration or usage cannot be remapped
     /// according to the given map.
     fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
-        // Remap main symbol identifier
+        // 1. Remap l'identifiant principal du symbole
         if let Some(new_ident) = map.get(&self.ident) {
             self.ident = *new_ident;
         }
 
-        // Remap identifiers in declarations
-        let mut new_declarations = HashSet::with_capacity(self.declarations.len());
-        for mut decl in self.declarations.drain() {
+        // 2. Remap les identifiants dans les déclarations (Modification en place)
+        // On utilise values_mut() car le NodeId (la clé) ne change pas,
+        // seul le contenu de la Declaration est modifié.
+        for decl in self.declarations.values_mut() {
             decl.remap_symbol(map)?;
-            new_declarations.insert(decl);
         }
-        self.declarations = new_declarations;
 
-        // Remap identifiers in usages
-        let mut new_usages = HashSet::with_capacity(self.usages.len());
-        for mut usage in self.usages.drain() {
+        // 3. Remap les identifiants dans les usages (Modification en place)
+        for usage in self.usages.values_mut() {
             usage.remap_symbol(map)?;
-            new_usages.insert(usage);
         }
-        self.usages = new_usages;
 
         Ok(())
     }
@@ -209,12 +228,13 @@ impl fmt::Display for SymbolEntry {
         writeln!(f, "[Symbol: '{}']", self.ident)?;
 
         writeln!(f, " - Declarations ({}):", self.declarations.len())?;
-        for decl in &self.declarations {
+        // On utilise .values() pour ignorer la clé NodeId lors de l'affichage
+        for decl in self.declarations.values() {
             writeln!(f, "   - {}", decl)?;
         }
 
         writeln!(f, " - Usages ({}):", self.usages.len())?;
-        for usage in &self.usages {
+        for usage in self.usages.values() {
             writeln!(f, "   - {}", usage)?;
         }
 
@@ -237,20 +257,23 @@ impl InternerDisplay for SymbolEntry {
         w: &mut fmt::Formatter<'_>,
         interner: &SymbolInterner,
     ) -> fmt::Result {
+        // 1. Résolution du nom du symbole via l'interneur
         match interner.resolve_symbol(self.ident) {
             Some(name) => writeln!(w, "[Symbol: '{}']", name)?,
-            None => writeln!(w, "[Symbol: <uninterned:{}>]", self.ident)?,
+            None => writeln!(w, "[Symbol: <uninterned:{:?}>]", self.ident)?,
         }
 
+        // 2. Affichage des déclarations (via .values() pour ignorer le NodeId)
         writeln!(w, " - Declarations ({}):", self.declarations.len())?;
-        for decl in &self.declarations {
+        for decl in self.declarations.values() {
             write!(w, "   - ")?;
             decl.fmt_with_interner(w, interner)?;
             writeln!(w)?;
         }
 
+        // 3. Affichage des usages (via .values())
         writeln!(w, " - Usages ({}):", self.usages.len())?;
-        for usage in &self.usages {
+        for usage in self.usages.values() {
             write!(w, "   - ")?;
             usage.fmt_with_interner(w, interner)?;
             writeln!(w)?;

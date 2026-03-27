@@ -56,7 +56,7 @@ pub fn check_undeclared_symbols(
     let symbol_table = context.symbol_table();
 
     for symbol in symbol_table.values() {
-        for usage in symbol.usages() {
+        for usage in symbol.usages().values() {
             let kind = usage.symbol_kind();
 
             // 1. On garde ton skip_symbol actuel (built-ins + liste d'exclusion)
@@ -172,7 +172,7 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, _context: &CheckCon
     let usage_kind = usage.symbol_kind();
 
     // Pour tous les autres symboles (Action, Task, Predicate, Variable, Constant...)
-    symbol.declarations().iter().any(|declaration| {
+    symbol.declarations().values().any(|declaration| {
         let decl_kind = declaration.symbol_kind();
 
         // 1. Le scope de l'usage doit être à l'intérieur du scope de la déclaration

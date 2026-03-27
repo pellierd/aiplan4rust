@@ -53,7 +53,7 @@ pub fn check_symbol_signatures(
     // Loop over all symbols in the symbol table.
     for symbol in symbol_table.values() {
         // Check all declarations of the symbol.
-        for declaration in symbol.declarations() {
+        for declaration in symbol.declarations().values() {
             if !matches!(
                 declaration.symbol_kind(),
                 SymbolKind::Predicate
@@ -65,7 +65,7 @@ pub fn check_symbol_signatures(
             }
 
             // Check all usages of the symbol.
-            for usage in symbol.usages() {
+            for usage in symbol.usages().values() {
                 let usage_kind = usage.symbol_kind();
                 let decl_kind = declaration.symbol_kind();
 
