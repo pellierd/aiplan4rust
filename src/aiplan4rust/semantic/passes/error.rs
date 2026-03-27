@@ -1,11 +1,16 @@
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SemanticPassError {
+    /// Errors related to the symbol table.
+    #[error(transparent)]
+    SymbolTable(#[from] SymbolTableError),
+
     /// Errors related to the arena.
     #[error(transparent)]
     Arena(#[from] ArenaError),

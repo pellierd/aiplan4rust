@@ -101,6 +101,13 @@ pub enum SymbolTableError {
     /// The `SymbolId` is included to help trace which identifier caused the issue.
     #[error("Symbol not found: {0:?}")]
     SymbolNotFound(SymbolId),
+
+    /// La déclaration spécifiée par son NodeId est introuvable pour ce symbole.
+    #[error("Declaration not found for node ID '{node_id}'")]
+    DeclarationNotFoundForNode {
+        /// Le NodeId de la déclaration manquante.
+        node_id: NodeId,
+    },
 }
 
 impl SymbolTableError {
@@ -231,6 +238,12 @@ impl SymbolTableError {
     #[track_caller]
     pub fn symbol_not_found(ident: SymbolId) -> Self {
         Self::SymbolNotFound(ident).trace()
+    }
+
+    /// Construit une erreur `DeclarationNotFoundForNode`.
+    #[track_caller]
+    pub fn declaration_not_found_for_node(node_id: NodeId) -> Self {
+        SymbolTableError::DeclarationNotFoundForNode { node_id }.trace()
     }
 }
 

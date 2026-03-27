@@ -246,6 +246,50 @@ impl Table {
             .ok_or_else(|| SymbolTableError::symbol_not_found(id))
     }
 
+    pub fn get_declaration_from(
+        &self,
+        symbol_id: SymbolId,
+        node_id: NodeId,
+    ) -> Option<&Declaration> {
+        // Utilisation de get_symbol (et non get_symbol_mut) car la fonction est &self
+        self.get_symbol(symbol_id)?.declarations().get(&node_id)
+    }
+
+    pub fn try_get_declaration_from(
+        &self,
+        symbol_id: SymbolId,
+        node_id: NodeId,
+    ) -> Result<&Declaration, SymbolTableError> {
+        self.try_get_symbol(symbol_id)?
+            .declarations()
+            .get(&node_id)
+            // On utilise l'erreur existante qui prend juste le NodeId
+            .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(node_id))
+    }
+
+    /// Récupère une référence mutable vers une déclaration (Option).
+    pub fn get_declaration_from_mut(
+        &mut self,
+        symbol_id: SymbolId,
+        node_id: NodeId,
+    ) -> Option<&mut Declaration> {
+        self.get_symbol_mut(symbol_id)?
+            .declarations_mut()
+            .get_mut(&node_id)
+    }
+
+    /// Récupère une référence mutable vers une déclaration (Result).
+    pub fn try_get_declaration_from_mut(
+        &mut self,
+        symbol_id: SymbolId,
+        node_id: NodeId,
+    ) -> Result<&mut Declaration, SymbolTableError> {
+        self.try_get_symbol_mut(symbol_id)?
+            .declarations_mut()
+            .get_mut(&node_id)
+            .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(node_id))
+    }
+
     /// Returns an iter over all symbols in the table as immutable references.
     ///
     /// # Returns

@@ -9,6 +9,7 @@ use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
+use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
@@ -35,7 +36,11 @@ pub enum LinkingError {
 
     /// Error encountered during semantic consistency checking.
     #[error(transparent)]
-    SemanticCheckError(#[from] SemanticCheckError),
+    SemanticCheck(#[from] SemanticCheckError),
+
+    /// Error encountered during semantic passes.
+    #[error(transparent)]
+    SemanticPass(#[from] SemanticPassError),
 
     /// Error from symbol table operations such as lookup or insertion.
     #[error(transparent)]

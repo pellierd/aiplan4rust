@@ -38,7 +38,8 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::passes::PassContext;
+use crate::aiplan4rust::semantic::passes::{PassContext, TypeSimplification};
+use crate::aiplan4rust::semantic::symbol::origin::Origin;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
@@ -144,22 +145,30 @@ impl Linker {
                 // Step 3: Resolve external references in the problem with respect to the domain
                 resolve_external_references(&mut domain_ctx, &mut problem_ctx)?;
 
-                // --- NOUVELLE ÉTAPE : SIMPLIFICATION DU PROBLÈME ---
-                // 1. On prépare la hiérarchie du domaine (qui est la référence)
+                // --- ÉTAPE : SIMPLIFICATION DU PROBLÈME ---
+
+                // 1. On prépare la hiérarchie de référence (le Domaine)
                 let type_hierarchy = domain_ctx.symbol_table().to_type_hierarchy();
                 let type_checker = TypeChecker::new(&type_hierarchy);
 
-                // 2. On simplifie la table des symboles du problème
-                // Maintenant que le problème connaît les types du domaine,
-                // on peut réduire les (either A B) du problème.
+                // 2. On simplifie la Table du Problème
+                // On change 'finalize' pour qu'elle retourne les 'changes' comme on l'a fait avant
                 let ctx =
                     PassContext::new(&global_interner, problem_ctx.source(), Provider::Linker);
-                passes::simplify_symbol_table(
+
+                let changes = passes::symbol_table::finalize(
                     &ctx,
                     &type_checker,
-                    problem_ctx.symbol_table_mut(),
+                    problem_ctx.symbol_table_mut(), // On modifie la table du problème
                     &mut self.diagnostic_manager,
                 )?;
+
+                // 3. NOUVEAU : On synchronise l'AST du Problème
+                // Si on a des changements, on les répercute sur l'AST pour que
+                // le r-affichage (pretty print) du problème soit aussi propre que celui du domaine.
+                if !changes.is_empty() {
+                    passes::ast::finalize(&mut problem_ctx, &changes)?;
+                }
 
                 // Step 4: Create a check context for the problem using the global interner
                 // and perform semantic and structural linking checks on the problem
@@ -401,23 +410,38 @@ fn resolve_external_references(
             }
         }
 
+        let mut domain_changes = Vec::new();
         // 2. Maintenant que 'to_verify' n'est plus utilisé, on peut modifier mutablement
-        /* for (symbol_id, kind, prob_type) in tasks {
-            // Mise à jour du DOMAINE
+        for (symbol_id, kind, prob_type) in tasks {
+            // --- Mise à jour du DOMAINE ---
             let dom_root = domain.symbol_table().root_scope();
-            // Utilisation de ton try_resolve_declaration (doit retourner &mut Declaration)
             let mut m_dom_decl = domain
                 .symbol_table_mut()
                 .try_resolve_declaration_mut(&symbol_id, &kind, &dom_root)?;
-            m_dom_decl.set_ty(prob_type); // On injecte le type spécifique
 
-            // Mise à jour du PROBLÈME
+            // On enregistre le changement AVANT de muter pour l'AST du domaine
+            domain_changes.push(TypeSimplification::new(
+                symbol_id,
+                m_dom_decl.node_id(), // L'ID du nœud dans l'AST du Domaine
+                prob_type.clone(),    // Le type plus précis venant du Problème
+                vec![0],              // On garde l'index 0 car on a "aplati" vers le type du prob
+            ));
+            m_dom_decl.set_ty(prob_type.clone());
+
+            // --- Mise à jour du PROBLÈME ---
             let prob_root = problem.symbol_table().root_scope();
             let mut m_prob_decl = problem
                 .symbol_table_mut()
                 .try_resolve_declaration_mut(&symbol_id, &kind, &prob_root)?;
-            m_prob_decl.set_origin(Origin::Shared); // On marque comme Shared pour le skip
-        }*/
+
+            m_prob_decl.set_origin(Origin::Shared);
+        }
+
+        // --- ÉTAPE DE SYNCHRONISATION AST ---
+        // On applique les changements aux deux arbres
+        if !domain_changes.is_empty() {
+            passes::ast::finalize(domain, &domain_changes)?;
+        }
     }
 
     // Injection des constantes du domaine dans le contexte du problème

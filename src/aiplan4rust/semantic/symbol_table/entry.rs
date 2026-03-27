@@ -10,6 +10,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterne
 use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::tree::NodeId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -101,6 +102,19 @@ impl SymbolEntry {
     /// Returns a mutable reference to the set of declarations.
     pub fn declarations_mut(&mut self) -> &mut IndexMap<NodeId, Declaration> {
         &mut self.declarations
+    }
+
+    /// Retourne une référence à la déclaration pour un NodeId donné,
+    /// ou une erreur si elle n'existe pas.
+    pub fn try_get_declaration(&self, node_id: NodeId) -> Result<&Declaration, SymbolTableError> {
+        self.declarations
+            .get(&node_id)
+            .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(node_id))
+    }
+
+    /// Retourne une Option sur la déclaration.
+    pub fn get_declaration(&self, node_id: NodeId) -> Option<&Declaration> {
+        self.declarations.get(&node_id)
     }
 
     /// Returns a reference to the set of usages of this symbol.
