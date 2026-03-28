@@ -4,23 +4,27 @@
 //! the logical encoding pass. It links syntactic declarations (AST) to their
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
-use std::collections::HashMap;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId, TaskSymbolId, TaskSkeletonId, TypeId, VariableId, PreferenceSymbolId, SymbolId, TaskLabelSymbolId};
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lang::{
+    AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId,
+    PreferenceSymbolId, SymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId,
+    VariableId,
+};
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::tree::NodeId;
+use std::collections::HashMap;
 
 /// Context used during the encoding of actions, methods, and logic.
 ///
 /// This structure acts as a bridge between the semantic analysis and the LIR.
 /// It carries the necessary mappings to resolve names into indices.
-pub struct EncodingRegistry {
-
+pub struct EncodingRegistry<'a> {
     /// **The Symbol Table**: A reference to the semantic table containing
     /// identifiers for the current scope (e.g., action parameters, constants).
     symbol_table: SymbolTable,
+    pub interner: &'a SymbolInterner,
 
     /// **Type Mapping**: Links a semantic `Type` structure (primitive or union)
     /// to its unique index in the LIR.
@@ -57,11 +61,9 @@ pub struct EncodingRegistry {
 
     task_label_to_id: HashMap<SymbolId, TaskLabelSymbolId>,
     task_label_id_to_symbol: Vec<SymbolId>,
-
 }
 
-impl EncodingRegistry {
-
+impl<'a> EncodingRegistry<'a> {
     /// Reserved [`NodeId`] for the implicit `total-time` function.
     /// Maps to the temporal fluent representing elapsed plan time.
     pub const TOTAL_TIME_NODE_ID: NodeId = NodeId::new(usize::MAX - 1);
@@ -85,27 +87,25 @@ impl EncodingRegistry {
     /// * `symbol_table` - The table used to resolve local variables and symbols.
     /// * `ast_pred_to_idx` - The global evaluator of predicate indices.
     /// * `ast_func_to_idx` - The global evaluator of function indices.
-    pub fn new(
-        symbol_table: SymbolTable,
-    ) -> Self {
+    pub fn new(symbol_table: SymbolTable, interner: &'a SymbolInterner) -> Self {
         Self {
             symbol_table,
-            type_node_to_id : HashMap::new(),
+            interner,
+            type_node_to_id: HashMap::new(),
             type_symbol_to_id: HashMap::new(),
-            object_to_id : HashMap::new(),
-            object_symbol_to_id : HashMap::new(),
+            object_to_id: HashMap::new(),
+            object_symbol_to_id: HashMap::new(),
             atom_skeleton_to_id: HashMap::new(),
             predicate_to_id: HashMap::new(),
             function_skeleton_to_id: HashMap::new(),
             functor_to_id: HashMap::new(),
             task_skeleton_to_id: HashMap::new(),
             task_symbol_to_id: HashMap::new(),
-            variable_to_id : HashMap::new(),
+            variable_to_id: HashMap::new(),
             variable_id_to_symbol: Vec::new(),
             preference_to_id: HashMap::new(),
             task_label_to_id: HashMap::new(),
             task_label_id_to_symbol: Vec::new(),
-
         }
     }
 
@@ -120,19 +120,22 @@ impl EncodingRegistry {
     /// Returns the resolved `TypeId`.
     pub fn register_number_type(&mut self) -> TypeId {
         // Check if the symbol is already mapped to a TypeId
-        if let Some(&existing_id) = self.type_symbol_to_id.get(&SymbolInterner::NUMBER_SYMBOL_ID) {
+        if let Some(&existing_id) = self
+            .type_symbol_to_id
+            .get(&SymbolInterner::NUMBER_SYMBOL_ID)
+        {
             existing_id
         } else {
             // Force the use of the constant TypeId(1)
             let id = TypeId::NUMBER_TYPE_ID;
-            self.type_symbol_to_id.insert(SymbolInterner::NUMBER_SYMBOL_ID, id);
+            self.type_symbol_to_id
+                .insert(SymbolInterner::NUMBER_SYMBOL_ID, id);
 
             // Note: We don't necessarily have a NodeId here because it's
             // a built-in typing, so we only update the symbol-to-id map.
             id
         }
     }
-
 
     pub fn types_count(&self) -> usize {
         self.type_node_to_id.len()
@@ -177,7 +180,6 @@ impl EncodingRegistry {
             .ok_or_else(|| LirError::symbol_binding_failed(symbol))
     }
 
-
     pub fn resolve_atom_skeleton(&self, symbol: NodeId) -> Option<AtomSkeletonId> {
         self.atom_skeleton_to_id.get(&symbol).copied()
     }
@@ -200,7 +202,10 @@ impl EncodingRegistry {
         self.function_skeleton_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_function_skeleton(&self, symbol: NodeId) -> Result<FunctionSkeletonId, LirError> {
+    pub fn try_resolve_function_skeleton(
+        &self,
+        symbol: NodeId,
+    ) -> Result<FunctionSkeletonId, LirError> {
         self.resolve_function_skeleton(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
@@ -214,7 +219,6 @@ impl EncodingRegistry {
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
 
-
     /// Résout un ObjectID à partir de son nom (StringID).
     /// Retourne None si l'objet n'a pas été enregistré en Phase 1.
     pub fn resolve_object_symbol_by_name(&self, name_id: SymbolId) -> Option<ObjectId> {
@@ -225,7 +229,10 @@ impl EncodingRegistry {
     ///
     /// # Errors
     /// Retourne une erreur `LirError::ObjectNotFound` si le symbole est inconnu.
-    pub fn try_resolve_object_symbol_by_name(&self, name_id: SymbolId) -> Result<ObjectId, LirError> {
+    pub fn try_resolve_object_symbol_by_name(
+        &self,
+        name_id: SymbolId,
+    ) -> Result<ObjectId, LirError> {
         self.resolve_object_symbol_by_name(name_id)
             .ok_or_else(|| LirError::object_not_found(name_id))
     }
@@ -292,7 +299,6 @@ impl EncodingRegistry {
         self.resolve_preference(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
-
 
     pub fn register_type_symbol(&mut self, symbol: SymbolId, node_id: NodeId) -> TypeId {
         // 1. Check if the typing symbol is already registered
@@ -370,7 +376,6 @@ impl EncodingRegistry {
         self.task_label_id_to_symbol.push(symbol);
 
         id
-
     }
 
     pub fn resolve_task_label(&self, symbol: SymbolId) -> Option<TaskLabelSymbolId> {

@@ -40,20 +40,26 @@
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
 
+use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{ActionSymbolId, AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, Requirement, SymbolId, TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedSymbol};
+use crate::aiplan4rust::lang::{
+    ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
+    MethodSymbolId, ObjectId, PredicateSymbolId, Requirement, SymbolId, TaskSkeletonId,
+    TaskSymbolId, Type, TypeId, TypedSymbol,
+};
+use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
-use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork, ActionDef, DerivedPredicateDef, LirError, MethodDef};
+use crate::aiplan4rust::lir::{
+    renderers, ActionDef, DerivedPredicateDef, InitialTaskNetwork, LirError, MethodDef,
+};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
@@ -103,6 +109,7 @@ pub struct Problem {
 
     /// Predicates whose truth value is derived from other facts via axioms.
     derived_predicate_defs: Vec<DerivedPredicateDef>,
+    derived_predicates_map: Vec<Vec<DerivedPredicateDefId>>,
 
     /// Operators that can change the state of the world.
     action_defs: Vec<ActionDef>,
@@ -143,7 +150,7 @@ impl Problem {
     /// assert!(problem.action_defs().is_empty());
     /// assert!(problem.type_symbols().is_empty());
     /// ```
-    pub(crate) fn new(interner : SymbolInterner, requirements: HashSet<Requirement>) -> Self {
+    pub(crate) fn new(interner: SymbolInterner, requirements: HashSet<Requirement>) -> Self {
         Self {
             interner,
             domain_name: SymbolId::default(),
@@ -162,6 +169,7 @@ impl Problem {
             task_defs: Vec::new(),
             domain_constraints: Expr::empty_or(),
             derived_predicate_defs: Vec::new(),
+            derived_predicates_map: Vec::new(),
             action_defs: Vec::new(),
             action_symbols: SymbolRegistry::new(),
             method_defs: Vec::new(),
@@ -172,7 +180,6 @@ impl Problem {
             metric_spec: Expr::metric_none(),
             length_spec: Expr::empty_length_spec(),
             initial_task_network: InitialTaskNetwork::default(), // Add for HDDL
-
         }
     }
 
@@ -477,7 +484,10 @@ impl Problem {
     /// # Returns
     /// * `Ok(&mut TypedSymbol)` on success.
     /// * `Err(LirError::TypeDefinitionOrphan)` if the definition does not exist.
-    pub fn try_get_type_mut(&mut self, id: TypeId) -> Result<&mut TypedSymbol<TypeId, TypeId>, LirError> {
+    pub fn try_get_type_mut(
+        &mut self,
+        id: TypeId,
+    ) -> Result<&mut TypedSymbol<TypeId, TypeId>, LirError> {
         self.get_type_def_mut(id)
             .ok_or_else(|| LirError::type_definition_orphan(id))
     }
@@ -546,7 +556,10 @@ impl Problem {
     /// * `Ok(ObjectID)` - The ID of the successfully updated object.
     /// * `Err(LirError::ObjectDefinitionOrphan)` - If the ID's index exceeds the
     ///   allocated definitions, indicating the symbol was never registered.
-    pub fn add_object_def(&mut self, obj: TypedSymbol<ObjectId, TypeId>) -> Result<ObjectId, LirError> {
+    pub fn add_object_def(
+        &mut self,
+        obj: TypedSymbol<ObjectId, TypeId>,
+    ) -> Result<ObjectId, LirError> {
         let id = obj.symbol();
         let idx = id.as_usize();
 
@@ -575,7 +588,10 @@ impl Problem {
     }
 
     /// Returns a mutable reference to an object definition if it exists.
-    pub fn get_object_def_mut(&mut self, id: ObjectId) -> Option<&mut TypedSymbol<ObjectId, TypeId>> {
+    pub fn get_object_def_mut(
+        &mut self,
+        id: ObjectId,
+    ) -> Option<&mut TypedSymbol<ObjectId, TypeId>> {
         self.object_defs.get_mut(id.as_usize())
     }
 
@@ -592,7 +608,10 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::ObjectDefinitionOrphan` if the ID is not registered.
-    pub fn try_get_object_mut(&mut self, id: ObjectId) -> Result<&mut TypedSymbol<ObjectId, TypeId>, LirError> {
+    pub fn try_get_object_mut(
+        &mut self,
+        id: ObjectId,
+    ) -> Result<&mut TypedSymbol<ObjectId, TypeId>, LirError> {
         self.get_object_def_mut(id)
             .ok_or_else(|| LirError::object_definition_orphan(id))
     }
@@ -720,7 +739,10 @@ impl Problem {
     ///
     /// # Arguments
     /// * `id` - The [`AtomSkeletonId`] of the predicate to retrieve.
-    pub fn get_predicate_def_mut(&mut self, id: AtomSkeletonId) -> Option<&mut AtomicFormulaSkeleton> {
+    pub fn get_predicate_def_mut(
+        &mut self,
+        id: AtomSkeletonId,
+    ) -> Option<&mut AtomicFormulaSkeleton> {
         self.predicate_defs.get_mut(id.as_usize())
     }
 
@@ -728,7 +750,10 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::PredicateDefinitionOrphan` if the skeleton ID is invalid.
-    pub fn try_get_predicate(&self, id: AtomSkeletonId) -> Result<&AtomicFormulaSkeleton, LirError> {
+    pub fn try_get_predicate(
+        &self,
+        id: AtomSkeletonId,
+    ) -> Result<&AtomicFormulaSkeleton, LirError> {
         self.get_predicate_def(id)
             .ok_or_else(|| LirError::predicate_definition_orphan(id))
     }
@@ -737,7 +762,10 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::PredicateDefinitionOrphan` if the skeleton ID is invalid.
-    pub fn try_get_predicate_mut(&mut self, id: AtomSkeletonId) -> Result<&mut AtomicFormulaSkeleton, LirError> {
+    pub fn try_get_predicate_mut(
+        &mut self,
+        id: AtomSkeletonId,
+    ) -> Result<&mut AtomicFormulaSkeleton, LirError> {
         self.get_predicate_def_mut(id)
             .ok_or_else(|| LirError::predicate_definition_orphan(id))
     }
@@ -852,7 +880,10 @@ impl Problem {
     /// # Returns
     /// * `Some(&mut AtomicFunctionSkeleton)`: A mutable reference allowing in-place modification.
     /// * `None`: If the ID is out of bounds.
-    pub fn get_function_def_mut(&mut self, id: FunctionSkeletonId) -> Option<&mut AtomicFunctionSkeleton> {
+    pub fn get_function_def_mut(
+        &mut self,
+        id: FunctionSkeletonId,
+    ) -> Option<&mut AtomicFunctionSkeleton> {
         self.function_defs.get_mut(id.as_usize())
     }
 
@@ -864,7 +895,10 @@ impl Problem {
     /// # Returns
     /// * `Ok(&AtomicFunctionSkeleton)`: The reference to the requested definition.
     /// * `Err(LirError::FunctionDefinitionOrphan)`: If the ID has no associated definition.
-    pub fn try_get_function(&self, id: FunctionSkeletonId) -> Result<&AtomicFunctionSkeleton, LirError> {
+    pub fn try_get_function(
+        &self,
+        id: FunctionSkeletonId,
+    ) -> Result<&AtomicFunctionSkeleton, LirError> {
         self.get_function_def(id)
             .ok_or_else(|| LirError::function_definition_orphan(id))
     }
@@ -877,7 +911,10 @@ impl Problem {
     /// # Returns
     /// * `Ok(&mut AtomicFunctionSkeleton)`: The requested mutable reference.
     /// * `Err(LirError::FunctionDefinitionOrphan)`: If the ID is invalid, allowing for clean error handling.
-    pub fn try_get_function_mut(&mut self, id: FunctionSkeletonId) -> Result<&mut AtomicFunctionSkeleton, LirError> {
+    pub fn try_get_function_mut(
+        &mut self,
+        id: FunctionSkeletonId,
+    ) -> Result<&mut AtomicFunctionSkeleton, LirError> {
         self.get_function_def_mut(id)
             .ok_or_else(|| LirError::function_definition_orphan(id))
     }
@@ -1021,7 +1058,10 @@ impl Problem {
     ///
     /// # Errors
     /// Returns [`LirError::TaskDefinitionOrphan`] if the skeleton ID is invalid.
-    pub fn try_get_task_mut(&mut self, id: TaskSkeletonId) -> Result<&mut AtomicTaskSkeleton, LirError> {
+    pub fn try_get_task_mut(
+        &mut self,
+        id: TaskSkeletonId,
+    ) -> Result<&mut AtomicTaskSkeleton, LirError> {
         self.get_task_def_mut(id)
             .ok_or_else(|| LirError::task_definition_orphan(id))
     }
@@ -1151,7 +1191,6 @@ impl Problem {
     pub fn method_symbols(&self) -> &SymbolRegistry<MethodSymbolId> {
         &self.method_symbols
     }
-
 
     /// Insère un nom de méthode dans la table des symboles et retourne son ID.
     /// Utile pour obtenir l'identité de la méthode avant de construire sa structure (décomposition, contraintes).
@@ -1469,5 +1508,4 @@ impl Display for Problem {
     }
 }
 
-
-impl SerdeSerializable for Problem { }
+impl SerdeSerializable for Problem {}

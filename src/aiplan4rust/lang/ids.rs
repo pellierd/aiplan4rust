@@ -1,20 +1,20 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Index, IndexMut};
-use std::usize::MAX;
-use serde::{Deserialize, Serialize};
 
 // Imports de ton projet
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
-
 // Dans un module commun (ex: core/ids.rs)
 pub const INVALID_ID: usize = 1 << 62;
 
 /// Trait pour tous les wrappers d'identifiants basés sur un index usize.
-pub trait Id: Copy + Eq + Ord + Default + std::hash::Hash + Serialize + fmt::Display + From<usize> + Into<usize> {
+pub trait Id:
+    Copy + Eq + Ord + Default + std::hash::Hash + Serialize + fmt::Display + From<usize> + Into<usize>
+{
     fn new(idx: usize) -> Self;
     fn as_usize(self) -> usize;
     fn is_valid(self) -> bool {
@@ -26,50 +26,73 @@ pub trait Id: Copy + Eq + Ord + Default + std::hash::Hash + Serialize + fmt::Dis
 
 macro_rules! impl_id_type {
     ($id:ident) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+        #[derive(
+            Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize,
+        )]
         #[serde(transparent)]
         pub struct $id {
             pub value: usize,
         }
 
         impl Id for $id {
-            fn new(value: usize) -> Self { Self { value } }
-            fn as_usize(self) -> usize { self.value }
+            fn new(value: usize) -> Self {
+                Self { value }
+            }
+            fn as_usize(self) -> usize {
+                self.value
+            }
         }
 
         impl Default for $id {
-            fn default() -> Self { Self { value: INVALID_ID } }
+            fn default() -> Self {
+                Self { value: INVALID_ID }
+            }
         }
 
-       impl $id {
-
-            pub const fn new(value: usize) -> Self { Self { value } }
-
-            #[inline(always)]
-            pub fn as_usize(self) -> usize { self.value }
+        impl $id {
+            pub const fn new(value: usize) -> Self {
+                Self { value }
+            }
 
             #[inline(always)]
-            pub fn is_valid(&self) -> bool { self.value != INVALID_ID }
+            pub fn as_usize(self) -> usize {
+                self.value
+            }
 
             #[inline(always)]
-            pub fn invalid_value() -> usize { INVALID_ID }
+            pub fn is_valid(&self) -> bool {
+                self.value != INVALID_ID
+            }
+
+            #[inline(always)]
+            pub fn invalid_value() -> usize {
+                INVALID_ID
+            }
         }
 
         impl From<usize> for $id {
-            fn from(value: usize) -> Self { Self::new(value) }
+            fn from(value: usize) -> Self {
+                Self::new(value)
+            }
         }
 
         impl From<$id> for usize {
-            fn from(id: $id) -> Self { id.value }
+            fn from(id: $id) -> Self {
+                id.value
+            }
         }
 
         impl<T> Index<$id> for Vec<T> {
             type Output = T;
-            fn index(&self, id: $id) -> &Self::Output { &self[id.value] }
+            fn index(&self, id: $id) -> &Self::Output {
+                &self[id.value]
+            }
         }
 
         impl<T> IndexMut<$id> for Vec<T> {
-            fn index_mut(&mut self, id: $id) -> &mut Self::Output { &mut self[id.value] }
+            fn index_mut(&mut self, id: $id) -> &mut Self::Output {
+                &mut self[id.value]
+            }
         }
     };
 }
@@ -93,6 +116,7 @@ impl_id_type!(ActionSymbolId);
 impl_id_type!(ActionDefId);
 impl_id_type!(MethodSymbolId);
 impl_id_type!(TaskLabelSymbolId);
+impl_id_type!(DerivedPredicateDefId);
 
 //impl_id_type!(AtomSkeletonId);
 impl_id_type!(FunctionSkeletonId);
@@ -146,13 +170,15 @@ impl_display_prefix!(ObjectId, "o");
 // --- Domain Model Symbols (Names) ---
 // p5 (Predicate name/symbol)
 impl_display_prefix!(PredicateSymbolId, "p");
+
 // f2 (Function name/symbol - lower case to distinguish from skeleton)
 impl_display_prefix!(FunctionSymbolId, "f");
 // tk4 (Task symbol - specific to HTN/Planning)
 impl_display_prefix!(TaskSymbolId, "tk");
 // a3 (Action symbol/operator name)
 impl_display_prefix!(ActionSymbolId, "a");
-impl_display_prefix!(ActionDefId, "adef");
+impl_display_prefix!(ActionDefId, "ad");
+impl_display_prefix!(DerivedPredicateDefId, "dp");
 // m7 (Method symbol in HTN planning)
 impl_display_prefix!(MethodSymbolId, "m");
 // pr1 (Preference symbol for soft constraints)
@@ -233,7 +259,12 @@ impl InternerDisplay for LiteralId {
 }
 
 impl SyntaxInternerDisplay for SymbolId {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &SymbolInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &SymbolInterner,
+        indent: usize,
+    ) -> fmt::Result {
         write_indent(f, indent)?;
         if let Some(name) = interner.resolve_symbol(*self) {
             write!(f, "{}", name)
@@ -244,7 +275,12 @@ impl SyntaxInternerDisplay for SymbolId {
 }
 
 impl SyntaxInternerDisplay for LiteralId {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &SymbolInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &SymbolInterner,
+        indent: usize,
+    ) -> fmt::Result {
         write_indent(f, indent)?;
         if let Some(val) = interner.resolve_literal(*self) {
             write!(f, "{}", val)
@@ -253,7 +289,6 @@ impl SyntaxInternerDisplay for LiteralId {
         }
     }
 }
-
 
 const NEGATION_FLAG: usize = 1 << 63;
 const ID_MASK: usize = !NEGATION_FLAG;
@@ -292,14 +327,18 @@ impl Id for AtomSkeletonId {
     ///
     /// * `value`: The raw integer value (can include the `NEGATION_FLAG`).
     /// * **Returns**: A new `AtomSkeletonId` instance.
-    fn new(value: usize) -> Self { Self { value } }
+    fn new(value: usize) -> Self {
+        Self { value }
+    }
 
     /// Returns the raw index by masking the negation bit.
     ///
     /// * **Returns**: A `usize` index between `0` and `2^63 - 1` (on 64-bit systems),
     ///   guaranteed to be safe for vector indexing.
     #[inline(always)]
-    fn as_usize(self) -> usize { self.value & ID_MASK }
+    fn as_usize(self) -> usize {
+        self.value & ID_MASK
+    }
 }
 
 impl Default for AtomSkeletonId {
@@ -313,13 +352,17 @@ impl Default for AtomSkeletonId {
 
 impl AtomSkeletonId {
     /// Constant constructor for the ID.
-    pub const fn new(value: usize) -> Self { Self { value } }
+    pub const fn new(value: usize) -> Self {
+        Self { value }
+    }
 
     /// Returns the pure index, stripped of any negation flags.
     ///
     /// * **Returns**: The index part of the ID as a `usize`.
     #[inline(always)]
-    pub fn as_usize(self) -> usize { self.value & ID_MASK }
+    pub fn as_usize(self) -> usize {
+        self.value & ID_MASK
+    }
 
     /// Utilise la constante globale pour l'invalidité
     #[inline(always)]
@@ -358,12 +401,16 @@ impl AtomSkeletonId {
     /// * **Returns**: A new `AtomSkeletonId` with the MSB set to `0`.
     #[inline(always)]
     pub fn strip_negation(self) -> Self {
-        Self { value: self.value & ID_MASK }
+        Self {
+            value: self.value & ID_MASK,
+        }
     }
 }
 
 impl From<usize> for AtomSkeletonId {
-    fn from(value: usize) -> Self { Self::new(value) }
+    fn from(value: usize) -> Self {
+        Self::new(value)
+    }
 }
 
 impl From<AtomSkeletonId> for usize {
@@ -371,7 +418,9 @@ impl From<AtomSkeletonId> for usize {
     ///
     /// * **Warning**: This value includes the `NEGATION_FLAG`.
     ///   Do not use this for direct array indexing; use `.as_usize()` instead.
-    fn from(id: AtomSkeletonId) -> Self { id.value }
+    fn from(id: AtomSkeletonId) -> Self {
+        id.value
+    }
 }
 
 impl<T> Index<AtomSkeletonId> for Vec<T> {

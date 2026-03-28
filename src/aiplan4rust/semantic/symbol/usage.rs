@@ -65,6 +65,8 @@ pub struct Usage {
 
     /// The AST node identifier where the symbol usage occurs.
     node_id: NodeId,
+
+    resolved_declaration: Option<NodeId>,
 }
 
 impl Usage {
@@ -94,6 +96,7 @@ impl Usage {
             origin: source,
             span,
             node_id: ast,
+            resolved_declaration: None,
         }
     }
 
@@ -130,6 +133,14 @@ impl Usage {
     /// Returns the AST node identifier (`NodeId`) where the symbol is used.
     pub fn node_id(&self) -> NodeId {
         self.node_id
+    }
+
+    pub fn set_resolved_declaration(&mut self, node_id: NodeId) {
+        self.resolved_declaration = Some(node_id);
+    }
+
+    pub fn resolved_declaration(&self) -> Option<NodeId> {
+        self.resolved_declaration
     }
 }
 

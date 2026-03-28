@@ -6,12 +6,11 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingRegistry};
+use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -33,10 +32,10 @@ pub fn encode(
     // On extrait le nom (premier fils) et on génère l'ID sémantique
     let action_name_node_id = node.try_child(0)?;
     let action_name_node = ast.try_node(action_name_node_id)?;
-    let action_name_str_id = action_name_node.try_ident()?;
+    let action_name_id = action_name_node.try_ident()?;
 
     // Réservation de l'ID officiel dans le Problem
-    let action_symbol_id = ir.add_action_symbol(action_name_str_id);
+    let action_symbol_id = ir.add_action_symbol(action_name_id);
 
     // --- ÉTAPE 2 : Encodage de la Signature (Paramètres commune) ---
     registry.clear_variables();
@@ -51,7 +50,7 @@ pub fn encode(
 
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(vars_node, vars_node_id, ast),
-        registry
+        registry,
     )?;
 
     // --- ÉTAPE 3 : Bifurcation selon le typing d'Action ---
@@ -69,12 +68,18 @@ pub fn encode(
                     AstKind::PreconditionDef => {
                         let pre_node_id = child_node.try_child(0)?;
                         let pre_node = ast.try_node(pre_node_id)?;
-                        precondition = expr::encode(&SyntaxSubtree::new(pre_node, pre_node_id, ast), registry)?;
+                        precondition = expr::encode(
+                            &SyntaxSubtree::new(pre_node, pre_node_id, ast),
+                            registry,
+                        )?;
                     }
                     AstKind::EffectDef => {
                         let eff_node_id = child_node.try_child(0)?;
                         let eff_node = ast.try_node(eff_node_id)?;
-                        effect = expr::encode(&SyntaxSubtree::new(eff_node, eff_node_id, ast), registry)?;
+                        effect = expr::encode(
+                            &SyntaxSubtree::new(eff_node, eff_node_id, ast),
+                            registry,
+                        )?;
                     }
                     _ => return Err(LirError::action_ast_kind_error(child_node.kind())),
                 }
@@ -87,7 +92,10 @@ pub fn encode(
         }
         AstKind::DurativeActionDef => {
             // We register the duration variable
-            registry.register_variable(EncodingRegistry::DURATION_VARIABLE_NODE_ID, SymbolInterner::DURATION_VARIABLE_SYMBOL_ID);
+            registry.register_variable(
+                EncodingRegistry::DURATION_VARIABLE_NODE_ID,
+                SymbolInterner::DURATION_VARIABLE_SYMBOL_ID,
+            );
 
             // Encodage du corps d'une action durative
             let def_body_node = ast.try_node(node.try_child(2)?)?;
@@ -95,12 +103,18 @@ pub fn encode(
             // 1. Contraintes de durée (:duration ...)
             let duration_id = def_body_node.try_child(0)?;
             let duration_node = ast.try_node(duration_id)?;
-            let duration = expr::encode(&SyntaxSubtree::new(duration_node, duration_id, ast), registry)?;
+            let duration = expr::encode(
+                &SyntaxSubtree::new(duration_node, duration_id, ast),
+                registry,
+            )?;
 
             // 2. Conditions temporelles (:condition ...)
             let condition_id = def_body_node.try_child(1)?;
             let condition_node = ast.try_node(condition_id)?;
-            let condition = expr::encode(&SyntaxSubtree::new(condition_node, condition_id, ast), registry)?;
+            let condition = expr::encode(
+                &SyntaxSubtree::new(condition_node, condition_id, ast),
+                registry,
+            )?;
 
             // 3. Effets temporels (:effect ...)
             let eff_node_id = def_body_node.try_child(2)?;
@@ -108,7 +122,9 @@ pub fn encode(
             let effect = expr::encode(&SyntaxSubtree::new(eff_node, eff_node_id, ast), registry)?;
 
             let variable_symbols = registry.get_variable_symbols();
-            let action = Action::new_durative(action_symbol_id, parameters, duration, condition, effect).with_variable_symbols(variable_symbols);
+            let action =
+                Action::new_durative(action_symbol_id, parameters, duration, condition, effect)
+                    .with_variable_symbols(variable_symbols);
             ir.add_action_def(action);
         }
         _ => return Err(LirError::action_ast_kind_error(kind)),

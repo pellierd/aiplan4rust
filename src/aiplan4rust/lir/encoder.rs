@@ -160,7 +160,9 @@ pub fn encode_lifted_problem(
     // 3. Encode domain-level elements
     let domain_symbol_table = context.take_domain_table();
     let domain_syntax_tree = context.take_domain_syntax_tree();
-    let mut registry = EncodingRegistry::new(domain_symbol_table);
+
+    let interner_copy = problem.interner().clone();
+    let mut registry = EncodingRegistry::new(domain_symbol_table, &interner_copy);
 
     domain::encode(&domain_syntax_tree, &mut registry, &mut problem)?;
 

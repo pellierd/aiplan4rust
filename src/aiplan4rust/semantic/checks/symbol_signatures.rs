@@ -109,7 +109,27 @@ pub fn check_symbol_signatures(
                     );
 
                     diagnostic_manager.add_diagnostic(error);
-                }
+                } /*else {
+                      // --- LE VISSAGE ---
+                      // On récupère les IDs nécessaires avant de demander l'accès mutable
+                      let symbol_id = symbol.ident();
+                      let decl_node_id = declaration.node_id();
+                      let usage_node_id = usage.node_id();
+
+                      // On accède à la table de manière mutable via le contexte
+                      let mut_table = context.symbol_table_mut();
+
+                      if let Some(entry) = mut_table.get_mut(&symbol_id) {
+                          // Lien Usage -> Declaration
+                          if let Some(u) = entry.usages_mut().get_mut(&usage_node_id) {
+                              u.set_resolved_declaration(decl_node_id);
+                          }
+                          // Lien Declaration -> Usage
+                          if let Some(d) = entry.declarations_mut().get_mut(&decl_node_id) {
+                              d.add_resolved_usage(usage_node_id);
+                          }
+                      }
+                  }*/
             }
         }
     }

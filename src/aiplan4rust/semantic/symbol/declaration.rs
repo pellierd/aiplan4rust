@@ -108,6 +108,8 @@ pub struct Declaration {
     imported_scope: Option<Scope>,
 
     alias_node_id: Option<NodeId>,
+
+    resolved_usages: Vec<NodeId>,
 }
 
 impl Declaration {
@@ -175,6 +177,7 @@ impl Declaration {
             node_id,
             imported_scope,
             alias_node_id,
+            resolved_usages: vec![],
         }
     }
 
@@ -403,6 +406,18 @@ impl Declaration {
     /// Vérifie si la déclaration est un alias.
     pub fn is_alias(&self) -> bool {
         self.alias_node_id.is_some()
+    }
+
+    /// Ajoute un usage résolu à cette déclaration.
+    pub fn add_resolved_usage(&mut self, usage_node_id: NodeId) {
+        // Optionnel : éviter les doublons si la boucle de l'analyzer repasse
+        if !self.resolved_usages.contains(&usage_node_id) {
+            self.resolved_usages.push(usage_node_id);
+        }
+    }
+
+    pub fn resolved_usages(&self) -> &[NodeId] {
+        &self.resolved_usages
     }
 
     /// Formats the types of the declaration for display.
