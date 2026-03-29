@@ -341,26 +341,19 @@ fn encode_content(
             Ok(ExprContent::FunctionSkeleton(function_skeleton_id))
         }
         AstKind::Task => {
-            // The task identifier is the first child of the Task node
-            let task_id = ast_node.children()[0];
+            // L'identifiant de la task est le premier enfant
+            let task_node_id = ast_node.children()[0];
+            let task_node = subtree.tree().try_node(task_node_id)?;
+            let symbol = task_node.try_ident()?;
 
-            // 1. Attempt "soft" resolution for a Compound Task skeleton.
-            let declaration = match registry
+            // 1. Résolution unifiée : On demande à la table ce qui a été décidé en Phase 4.
+            // resolve_primary_declaration s'occupe de suivre le lien déjà calculé.
+            let declaration = registry
                 .symbol_table()
-                .resolve_declaration_by_usage(task_id, SymbolKind::Task)?
-            {
-                // Successfully resolved as a Compound Task
-                Some(decl) => decl,
+                .resolve_primary_declaration(symbol, task_node_id)?;
 
-                // 2. Fallback to "strict" resolution for a Primitive Action.
-                // If it's not a compound task, it must be an action.
-                None => registry
-                    .symbol_table()
-                    .try_resolve_declaration_by_usage(task_id, SymbolKind::Action)?,
-            };
-
-            // 3. Retrieve the unique Skeleton ID from the evaluator.
-            // This ID was generated during the first pass (Collection Phase).
+            // 2. On récupère le Skeleton ID.
+            // Ton registry doit être capable de donner un TaskSkeleton que la source soit une Task ou une Action.
             let task_skeleton_id = registry.try_resolve_task_skeleton(declaration.source())?;
 
             Ok(ExprContent::TaskSkeleton(task_skeleton_id))
