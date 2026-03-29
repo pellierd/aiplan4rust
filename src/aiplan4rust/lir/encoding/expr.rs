@@ -448,22 +448,16 @@ fn encode_content(
             Ok(ExprContent::Variable(variable_id))
         }
         AstKind::TaskSymbol => {
-            // 1. Attempt "soft" resolution for a Compound Task.
-            let declaration = match registry
+            let task_node = subtree.tree().try_node(ast_node_id)?;
+            let symbol = task_node.try_ident()?;
+
+            // 1. Plus de "match" ou de "fallback".
+            // On fait confiance au vissage de la Phase 4.
+            let declaration = registry
                 .symbol_table()
-                .resolve_declaration_by_usage(ast_node_id, SymbolKind::Task)?
-            {
-                // Successfully resolved as a Compound Task.
-                Some(decl) => decl,
+                .resolve_primary_declaration(symbol, ast_node_id)?;
 
-                // 2. Fallback to "strict" resolution for a Primitive Action.
-                // If it's not a Task, we try to resolve as an Action.
-                None => registry
-                    .symbol_table()
-                    .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Action)?,
-            };
-
-            // 3. Final ID Retrieval from the Registry (Pass 1).
+            // 2. On récupère l'ID symbolique via la source de la déclaration.
             let task_symbol_id = registry.try_resolve_task_symbol(declaration.source())?;
 
             Ok(ExprContent::TaskSymbol(task_symbol_id))
