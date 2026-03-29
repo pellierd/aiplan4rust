@@ -387,10 +387,17 @@ fn encode_content(
         // These nodes represent the symbols themselves. We resolve their
         // logical ID from the evaluator based on their declaration NodeId.
         AstKind::PredicateSymbol => {
-            let predicate_declaration = registry
+            let predicate_node = subtree.tree().try_node(ast_node_id)?;
+            let symbol = predicate_node.try_ident()?;
+
+            // 1. On récupère la déclaration (O(1) via resolved_declaration)
+            let declaration = registry
                 .symbol_table()
-                .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Predicate)?;
-            let predicate_id = registry.try_resolve_predicate(predicate_declaration.source())?;
+                .resolve_primary_declaration(symbol, ast_node_id)?;
+
+            // 2. On transforme la source de la déclaration en ID logique de prédicat
+            let predicate_id = registry.try_resolve_predicate(declaration.source())?;
+
             Ok(ExprContent::PredicateSymbol(predicate_id))
         }
         AstKind::FunctionSymbol => {
