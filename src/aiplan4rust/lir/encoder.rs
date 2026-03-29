@@ -160,6 +160,10 @@ pub fn encode_lifted_problem(
 
     // 3. Encode domain-level elements
     let domain_symbol_table = context.take_domain_table();
+    /*println!(
+        "Domain symbol table: {:#?}",
+        domain_symbol_table.to_string_with_interner(problem.interner())
+    );*/
     let domain_syntax_tree = context.take_domain_syntax_tree();
 
     let mut registry = EncodingRegistry::new(domain_symbol_table);

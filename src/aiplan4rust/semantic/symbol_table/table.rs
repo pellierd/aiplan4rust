@@ -323,6 +323,37 @@ impl Table {
         self.symbols.iter_mut().map(|(_, symbol)| symbol)
     }
 
+    /// Resolves a symbol usage to its primary source declaration by traversing the
+    /// bidirectional link (usage -> declaration).
+    ///
+    /// This provides O(1) access to the declaration that was linked to this specific
+    /// usage during the semantic analysis phase.
+    ///
+    /// # Arguments
+    /// * `symbol` - The identifier of the symbol to resolve.
+    /// * `usage_node_id` - The AST node identifier where the symbol is used.
+    ///
+    /// # Returns
+    /// * `Ok(&Declaration)` - A reference to the primary source declaration.
+    /// * `Err(SymbolTableError)` - If the usage record is missing or if the link
+    ///   to the declaration has not been established (unresolved).
+    pub fn resolve_primary_declaration(
+        &self,
+        symbol: SymbolId,
+        usage_node_id: NodeId,
+    ) -> Result<&Declaration, SymbolTableError> {
+        // 1. Get the usage record (O(1) access via the usage map)
+        let usage = self.try_get_usage_from(symbol, usage_node_id)?;
+
+        // 2. Get the node ID of the declaration it points to (the "vissage")
+        let decl_node_id = usage
+            .resolved_declaration()
+            .ok_or_else(|| SymbolTableError::unresolved_usage(symbol, usage_node_id))?;
+
+        // 3. Retrieve the final declaration from the table using its source NodeId
+        self.try_get_declaration_from(symbol, decl_node_id)
+    }
+
     /// This method scans all symbols of kind [`SymbolKind::PrimitiveType`],
     /// collects their parent declarations, and packages them into a
     /// standalone [`TypeHierarchy`].

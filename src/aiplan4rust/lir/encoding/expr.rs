@@ -304,21 +304,20 @@ fn encode_content(
             //let atom_skeleton_declaration = registry.symbol_table()
             //    .try_resolve_declaration_by_usage(predicate_node_id, SymbolKind::Predicate)?;
 
+            // Utilisation de la nouvelle fonction factorisée (remplace tout l'ancien bloc)
             let predicate_node = subtree.tree().try_node(predicate_node_id)?;
             let predicate_symbol = predicate_node.try_ident()?;
-            let usage = registry
-                .symbol_table()
-                .try_get_usage_from(predicate_symbol, predicate_node_id)?;
-            let decl_node = usage.resolved_declaration().unwrap();
-            let atom_skeleton_declaration = registry
-                .symbol_table()
-                .try_get_declaration_from(predicate_symbol, decl_node)?;
 
-            let atom_skeleton_id =
-                registry.try_resolve_atom_skeleton(atom_skeleton_declaration.source())?;
+            let declaration = registry
+                .symbol_table()
+                .resolve_primary_declaration(predicate_symbol, predicate_node_id)?;
+
+            // On résout le squelette en utilisant la source de la déclaration (le NodeId original)
+            let atom_skeleton_id = registry.try_resolve_atom_skeleton(declaration.source())?;
 
             Ok(ExprContent::AtomSkeleton(atom_skeleton_id))
         }
+
         AstKind::Function => {
             let function_id = ast_node.children()[0];
             let symbol = subtree.tree().try_node(function_id)?.try_ident()?;

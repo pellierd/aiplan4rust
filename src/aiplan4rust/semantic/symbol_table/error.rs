@@ -108,6 +108,18 @@ pub enum SymbolTableError {
         /// Le NodeId de la déclaration manquante.
         node_id: NodeId,
     },
+
+    /// The usage was found, but it has not been resolved to any declaration.
+    /// This indicates a failure in the semantic analysis or "vissage" phase.
+    #[error(
+        "Usage of symbol '{symbol}' at node {usage_node_id} is not resolved to any declaration"
+    )]
+    UnresolvedUsage {
+        /// The identifier of the symbol.
+        symbol: SymbolId,
+        /// The AST node ID where the symbol is used.
+        usage_node_id: NodeId,
+    },
 }
 
 impl SymbolTableError {
@@ -244,6 +256,23 @@ impl SymbolTableError {
     #[track_caller]
     pub fn declaration_not_found_for_node(node_id: NodeId) -> Self {
         SymbolTableError::DeclarationNotFoundForNode { node_id }.trace()
+    }
+
+    /// Constructs an `UnresolvedUsage` error.
+    ///
+    /// This is used when a symbol usage exists in the table but its
+    /// `resolved_declaration` link is None.
+    ///
+    /// # Arguments
+    /// * `symbol` - The symbol identifier.
+    /// * `usage_node_id` - The AST node ID of the usage.
+    #[track_caller]
+    pub fn unresolved_usage(symbol: SymbolId, usage_node_id: NodeId) -> Self {
+        SymbolTableError::UnresolvedUsage {
+            symbol,
+            usage_node_id,
+        }
+        .trace()
     }
 }
 
