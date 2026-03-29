@@ -402,6 +402,7 @@ fn encode_content(
         }
         AstKind::FunctionSymbol => {
             let symbol = ast_node.try_ident()?;
+
             let functor_id = match symbol {
                 SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
                     registry.try_resolve_functor(EncodingRegistry::TOTAL_TIME_NODE_ID)?
@@ -410,9 +411,11 @@ fn encode_content(
                     registry.try_resolve_functor(EncodingRegistry::TOTAL_COST_NODE_ID)?
                 }
                 _ => {
+                    // Utilisation de resolve_primary_declaration pour bousiller la dépendance au cache
                     let declaration = registry
                         .symbol_table()
-                        .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Function)?;
+                        .resolve_primary_declaration(symbol, ast_node_id)?;
+
                     registry.try_resolve_functor(declaration.source())?
                 }
             };
