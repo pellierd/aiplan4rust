@@ -320,7 +320,8 @@ fn encode_content(
 
         AstKind::Function => {
             let function_id = ast_node.children()[0];
-            let symbol = subtree.tree().try_node(function_id)?.try_ident()?;
+            let function_node = subtree.tree().try_node(function_id)?;
+            let symbol = function_node.try_ident()?;
 
             let function_skeleton_id =
                 match symbol {
@@ -328,11 +329,12 @@ fn encode_content(
                         .try_resolve_function_skeleton(EncodingRegistry::TOTAL_TIME_NODE_ID)?,
                     SymbolInterner::TOTAL_COST_SYMBOL_ID => registry
                         .try_resolve_function_skeleton(EncodingRegistry::TOTAL_COST_NODE_ID)?,
-                    // Cas utilisateur : Résolution via la table des symboles
                     _ => {
+                        // Utilisation directe de resolve_primary_declaration
                         let declaration = registry
                             .symbol_table()
-                            .try_resolve_declaration_by_usage(function_id, SymbolKind::Function)?;
+                            .resolve_primary_declaration(symbol, function_id)?;
+
                         registry.try_resolve_function_skeleton(declaration.source())?
                     }
                 };
