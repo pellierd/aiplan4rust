@@ -21,7 +21,6 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{AssignOp, CompareOp, Requirement, SymbolId};
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent, Tree};
@@ -228,26 +227,34 @@ pub fn extract_required_requirements(
                         break;
                     }
 
-                    // Resolve function declaration to inspect the return type.
-                    if let Ok(Some(decl)) =
-                        symbol_table.resolve_declaration_by_usage(*child_id, SymbolKind::Function)
+                    // 1. On récupère l'identifiant du symbole (le nom de la fonction)
+                    // On utilise .ok() pour transformer les différents Result en Option et éviter le conflit de types d'erreurs
+                    if let Some(sym_id) = syntax_tree
+                        .try_node(*child_id)
+                        .ok()
+                        .and_then(|n| n.try_ident().ok())
                     {
-                        if let Some(ty) = decl.ty() {
-                            if ty.is_number() {
-                                // Function returns a number: requires :numeric-fluents.
+                        // 2. On utilise le vissage direct O(1) établi précédemment.
+                        // resolve_primary_declaration garantit qu'on pointe vers la bonne déclaration.
+                        if let Ok(decl) =
+                            symbol_table.resolve_primary_declaration(sym_id, *child_id)
+                        {
+                            // 3. On extrait le type pour déterminer le requirement (Numeric vs Object)
+                            if let Some(ty) = decl.ty() {
+                                if ty.is_number() {
+                                    if !has_numeric {
+                                        add_req!(Requirement::NumericFluents, id);
+                                    }
+                                } else {
+                                    if !has_object {
+                                        add_req!(Requirement::ObjectFluents, id);
+                                    }
+                                }
+                            } else {
+                                // Par défaut en PDDL, une fonction non typée est considérée comme numérique
                                 if !has_numeric {
                                     add_req!(Requirement::NumericFluents, id);
                                 }
-                            } else {
-                                // Function returns an object: requires :object-fluents.
-                                if !has_object {
-                                    add_req!(Requirement::ObjectFluents, id);
-                                }
-                            }
-                        } else {
-                            // PDDL default: Untyped functions in a typed domain default to numeric.
-                            if !has_numeric {
-                                add_req!(Requirement::NumericFluents, id);
                             }
                         }
                     }
@@ -759,21 +766,23 @@ fn get_term_requirement(
 
     // 3. Functions (Fluent lookups)
     if node.kind() == AstKind::Function {
-        if let Ok(sym) = get_function_symbol(id, tree) {
-            if sym == SymbolInterner::TOTAL_COST_SYMBOL_ID {
+        // Une seule extraction de l'identifiant pour tout le bloc
+        if let Some(sym_id) = tree.try_node(id).ok().and_then(|n| n.try_ident().ok()) {
+            // Cas particulier : total-cost (Action Costs)
+            if sym_id == SymbolInterner::TOTAL_COST_SYMBOL_ID {
                 // Return None to let the caller distinguish between action-costs and numeric-fluents.
                 return Ok(None);
             }
-        }
 
-        // Resolve the function declaration to check its return type.
-        if let Ok(Some(decl)) = table.resolve_declaration_by_usage(id, SymbolKind::Function) {
-            if let Some(ty) = decl.ty() {
-                return Ok(Some(if ty.is_number() {
-                    Requirement::NumericFluents
-                } else {
-                    Requirement::ObjectFluents
-                }));
+            // Vissage direct O(1) pour tous les autres fluents
+            if let Ok(decl) = table.resolve_primary_declaration(sym_id, id) {
+                if let Some(ty) = decl.ty() {
+                    return Ok(Some(if ty.is_number() {
+                        Requirement::NumericFluents
+                    } else {
+                        Requirement::ObjectFluents
+                    }));
+                }
             }
         }
 

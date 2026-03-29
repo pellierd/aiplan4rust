@@ -75,10 +75,6 @@ pub struct Table {
 
     /// Root node ID used to construct the root scope.
     pub(super) root_id: NodeId,
-
-    // --- AJOUT ICI ---
-    // Permet de trouver instantanément le nom du symbole à partir d'un ID de nœud
-    pub(super) usage_to_symbol: HashMap<NodeId, Usage>,
 }
 
 impl Default for Table {
@@ -101,7 +97,6 @@ impl Default for Table {
             symbols: LinkedHashMap::new(),
             origin: SymbolTableOrigin::default(),
             root_id: NodeId::default(),
-            usage_to_symbol: HashMap::new(),
         }
     }
 }

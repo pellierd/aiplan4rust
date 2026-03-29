@@ -520,7 +520,6 @@ impl Context {
             .ok_or_else(|| InternerError::missing_literal(self.source))?;
         self.source = *new_source_id;
 
-        self.symbol_table.rebuild_usage_index();
         Ok(())
     }
 

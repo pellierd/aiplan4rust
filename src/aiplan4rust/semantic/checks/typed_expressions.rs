@@ -7,7 +7,6 @@ use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId};
@@ -418,11 +417,17 @@ fn get_variable_type(
     context: &CheckContext,
     symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    // 1. Priority: Check for an explicit declaration in the symbol table.
-    // This handles cases where a user might redefine a reserved name (shadowing).
-    if let Some(decl) = symbol_table.resolve_declaration_by_usage(index, SymbolKind::Variable)? {
-        return Ok(decl.ty().cloned());
+    // 1. Priority: Use the "vissage" (primary declaration)
+    // On essaie de résoudre la déclaration à laquelle l'usage est lié.
+    match symbol_table.resolve_primary_declaration(symbol, index) {
+        Ok(decl) => return Ok(decl.ty().cloned()),
+        // Si ce n'est pas résolu, on ne panique pas, on continue vers l'implicite
+        Err(_) => {}
     }
+
+    //if let Some(decl) = symbol_table.resolve_declaration_by_usage(index, SymbolKind::Variable)? {
+    //    return Ok(decl.ty().cloned());
+    //}
 
     // 2. Implicit Case: If no explicit declaration exists, check for reserved symbols.
     // ?duration is implicitly a 'number' in durative actions.
@@ -433,7 +438,7 @@ fn get_variable_type(
     }
 
     // 3. Fallback: Standard declaration lookup.
-    get_declaration_type(index, symbol_table, SymbolKind::Variable)
+    get_declaration_type(symbol, index, symbol_table)
 }
 
 /// Retrieves the type_checker of a constant symbol from the symbol table.
@@ -460,10 +465,10 @@ fn get_variable_type(
 /// ```
 fn get_constant_type(
     index: NodeId,
-    _symbol: SymbolId,
+    symbol: SymbolId,
     symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    get_declaration_type(index, symbol_table, SymbolKind::Constant)
+    get_declaration_type(symbol, index, symbol_table)
 }
 
 /// Helper function to retrieve the types associated with a symbol usage from the symbol table.
@@ -494,13 +499,13 @@ fn get_constant_type(
 /// }
 /// ```
 fn get_declaration_type(
+    symbol: SymbolId,
     node_id: NodeId,
     symbol_table: &SymbolTable,
-    kind: SymbolKind,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    match symbol_table.resolve_declaration_by_usage(node_id, kind)? {
-        Some(decl) => Ok(decl.ty().cloned()),
-        None => Ok(None),
+    match symbol_table.resolve_primary_declaration(symbol, node_id) {
+        Ok(decl) => Ok(decl.ty().cloned()),
+        Err(_) => Ok(None),
     }
 }
 
@@ -538,12 +543,13 @@ fn get_function_term_type(
     let functor_entry = context.syntax_tree().try_node(functor_index)?;
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
-        if functor_entry.try_ident()? == SymbolInterner::TOTAL_TIME_SYMBOL_ID
+        let function_symbol = functor_entry.try_ident()?;
+        if function_symbol == SymbolInterner::TOTAL_TIME_SYMBOL_ID
             && context.declared_requirements().contains(&NumericFluents)
         {
             return get_number_type();
         }
-        return get_declaration_type(functor_index, symbol_table, SymbolKind::Function);
+        return get_declaration_type(function_symbol, functor_index, symbol_table);
     }
 
     Err(SemanticError::unexpected_node_kind(

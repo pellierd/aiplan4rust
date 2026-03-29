@@ -502,9 +502,6 @@ impl SymbolTableBuilder {
         // 3. Mise à jour de la Table (via méthodes publiques)
         let table = self.table_mut();
 
-        // Mise à jour de l'index de résolution rapide (NodeId -> Usage)
-        table.usage_to_symbol.insert(target_id, usage.clone());
-
         // Ajout de l'usage dans l'entrée du symbole
         // Comme on n'a pas accès à .entry(), on utilise tes méthodes get_mut / insert
         if let Some(symbol_entry) = table.get_symbol_mut(ident) {
