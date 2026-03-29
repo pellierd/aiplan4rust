@@ -131,7 +131,7 @@ impl Usage {
     }
 
     /// Returns the AST node identifier (`NodeId`) where the symbol is used.
-    pub fn node_id(&self) -> NodeId {
+    pub fn source(&self) -> NodeId {
         self.node_id
     }
 

@@ -37,7 +37,6 @@
 //! ```
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -161,10 +160,6 @@ pub fn encode_lifted_problem(
 
     // 3. Encode domain-level elements
     let domain_symbol_table = context.take_domain_table();
-    println!(
-        "Domain symbol table: {}",
-        domain_symbol_table.to_string_with_interner(problem.interner())
-    );
     let domain_syntax_tree = context.take_domain_syntax_tree();
 
     let mut registry = EncodingRegistry::new(domain_symbol_table);
@@ -173,6 +168,11 @@ pub fn encode_lifted_problem(
 
     // 4. Encode problem-level elements
     let problem_symbol_table = context.take_problem_table();
+    /*println!(
+        "problem_symbol_table symbol table: {}",
+        problem_symbol_table.to_string_with_interner(problem.interner())
+    );*/
+
     let problem_syntax_tree = context.take_problem_syntax_tree();
     registry.set_symbol_table(problem_symbol_table);
 

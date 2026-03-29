@@ -99,7 +99,7 @@ pub fn check_symbol_signatures(
                 )? {
                     no_error = false; // Utilisation de false directement (plus idiomatique que &=)
 
-                    let entry = context.syntax_tree().get_node(usage.node_id()).unwrap();
+                    let entry = context.syntax_tree().get_node(usage.source()).unwrap();
 
                     let error = Diagnostic::error_invalid_symbol_signature(
                         declaration.clone(),
@@ -111,7 +111,7 @@ pub fn check_symbol_signatures(
 
                     diagnostic_manager.add_diagnostic(error);
                 } else {
-                    bindings.push((symbol.ident(), declaration.source(), usage.node_id()));
+                    bindings.push((symbol.ident(), declaration.source(), usage.source()));
                 }
             }
         }
@@ -160,7 +160,7 @@ fn match_declaration_with_usage(
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {
-    let ast_usage = context.syntax_tree().try_node(usage.node_id())?;
+    let ast_usage = context.syntax_tree().try_node(usage.source())?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
         let argument = context.syntax_tree().get_node(*argument_index).unwrap();
@@ -171,7 +171,7 @@ fn match_declaration_with_usage(
             AstKind::Function => SymbolKind::Function,
             found => {
                 return Err(SemanticError::unexpected_node_kind(
-                    usage.node_id(),
+                    usage.source(),
                     vec![AstKind::Variable, AstKind::Object, AstKind::Function], // tous les attendus
                     found,
                 ));

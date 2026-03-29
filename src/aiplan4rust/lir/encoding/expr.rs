@@ -43,7 +43,6 @@ use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree};
 
@@ -423,24 +422,34 @@ fn encode_content(
             Ok(ExprContent::FunctionSymbol(functor_id))
         }
         AstKind::Object => {
+            let symbol_id = ast_node.try_ident()?;
+
+            // 1. Utilisation du lien direct (O(1)) établi par check_undeclared_symbols
             let constant_declaration = registry
                 .symbol_table()
-                .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Constant)?;
+                .resolve_primary_declaration(symbol_id, ast_node_id)?;
+
+            // 2. Résolution de l'ID de l'objet via la source de la déclaration
             let constant_id = registry.try_resolve_object(constant_declaration.source())?;
+
             Ok(ExprContent::Object(constant_id))
         }
         AstKind::Variable => {
-            let symbol = ast_node.try_ident()?;
-            let variable_id = match symbol {
-                // Special case : ?duration
+            let symbol_id = ast_node.try_ident()?; // Récupère le SymbolId (?x, etc.)
+
+            let variable_id = match symbol_id {
+                // Cas spécial : ?duration
                 SymbolInterner::DURATION_VARIABLE_SYMBOL_ID => {
                     registry.try_resolve_variable(EncodingRegistry::DURATION_VARIABLE_NODE_ID)?
                 }
                 // Cas standard : paramètres d'actions ou variables de quantificateurs
                 _ => {
+                    // Utilise ta nouvelle méthode de vissage O(1)
                     let declaration = registry
                         .symbol_table()
-                        .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Variable)?;
+                        .resolve_primary_declaration(symbol_id, ast_node_id)?;
+
+                    // On utilise .source() qui est le NodeId de la déclaration
                     registry.try_resolve_variable(declaration.source())?
                 }
             };

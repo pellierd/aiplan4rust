@@ -312,7 +312,7 @@ impl Table {
             // 3. Pour chaque symbole, on parcourt ses usages
             for usage in entry.usages().values() {
                 // L'index ne contient plus que le NodeId vers l'Usage
-                self.usage_to_symbol.insert(usage.node_id(), usage.clone());
+                self.usage_to_symbol.insert(usage.source(), usage.clone());
             }
         }
     }

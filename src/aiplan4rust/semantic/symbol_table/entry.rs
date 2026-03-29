@@ -157,7 +157,7 @@ impl SymbolEntry {
     /// `true` if the usage was added (was not present before), otherwise `false`.
     pub fn add_usage(&mut self, usage: Usage) -> bool {
         // On utilise le NodeId comme clé unique pour l'usage dans la map
-        let node_id = usage.node_id();
+        let node_id = usage.source();
 
         // insert() renvoie Some(old_usage) si l'ID existait déjà.
         // On retourne true seulement si l'insertion est nouvelle (None).
