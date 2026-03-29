@@ -473,14 +473,14 @@ fn resolve_external_references(
                 .symbol_table_mut()
                 .try_resolve_declaration_mut(&symbol_id, &kind, &dom_root)?;
 
-            let alias_node_id = m_dom_decl.node_id();
+            let alias_node_id = m_dom_decl.source();
 
             // On enregistre le changement AVANT de muter pour l'AST du domaine
             domain_changes.push(TypeSimplification::new(
                 symbol_id,
-                m_dom_decl.node_id(), // L'ID du nœud dans l'AST du Domaine
-                prob_type.clone(),    // Le type plus précis venant du Problème
-                vec![0],              // On garde l'index 0 car on a "aplati" vers le type du prob
+                m_dom_decl.source(), // L'ID du nœud dans l'AST du Domaine
+                prob_type.clone(),   // Le type plus précis venant du Problème
+                vec![0],             // On garde l'index 0 car on a "aplati" vers le type du prob
             ));
             m_dom_decl.set_ty(prob_type.clone());
 
@@ -491,7 +491,7 @@ fn resolve_external_references(
                 .try_resolve_declaration_mut(&symbol_id, &kind, &prob_root)?;
 
             m_prob_decl.set_origin(Origin::Shared);
-            m_prob_decl.set_alias_node_id(alias_node_id);
+            m_prob_decl.set_alias(alias_node_id);
         }
 
         // --- ÉTAPE DE SYNCHRONISATION AST ---

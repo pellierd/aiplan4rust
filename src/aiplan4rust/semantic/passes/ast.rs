@@ -40,7 +40,7 @@ fn finalize_types(
         // 2. Ta fonction 'try' qui garantit que resolved_ty et original_node_ids sont synchros
         let (resolved_ty, original_node_ids) = try_get_type_and_nodes(declaration)?;
 
-        let element_id = declaration.node_id();
+        let element_id = declaration.source();
         let parent_id = ast.try_node(element_id)?.try_parent()?;
 
         // 3. Récupération sécurisée des spans via les NodeIds synchronisés
@@ -124,7 +124,7 @@ pub fn try_get_type_and_nodes(
     declaration: &Declaration,
 ) -> Result<(&Type<SymbolId>, &[NodeId]), SemanticPassError> {
     let ty_opt = declaration.ty();
-    let ids_opt = declaration.ty_node_ids();
+    let ids_opt = declaration.type_sources();
     let symbol_id = declaration.symbol().id();
 
     // 1. Check if both data sets are present

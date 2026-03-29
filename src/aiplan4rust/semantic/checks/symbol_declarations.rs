@@ -172,7 +172,7 @@ fn handle_declaration_conflict(
     let mut is_valid = true;
     let current_kind = declaration.symbol_kind();
     let previous_kind = previous_declaration.symbol_kind();
-    let ast_entry = context.syntax_tree().try_node(declaration.node_id())?;
+    let ast_entry = context.syntax_tree().try_node(declaration.source())?;
 
     // --- CASE 1: Shared Namespaces (Silent or Warning) ---
     // We check if the language rules (via can_share_name_space_with) allow this overlap.

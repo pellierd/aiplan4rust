@@ -89,7 +89,7 @@ pub fn check_symbol_types(
 
                         // Resolve the precise span for the undeclared type usage
                         let precise_span = declaration
-                            .ty_node_ids()
+                            .type_sources()
                             .and_then(|ids| ids.get(i)) // On cherche l'index exact
                             .and_then(|&id| context.syntax_tree().try_node(id).ok()) // On cherche le nœud
                             .map(|node| node.span()) // On prend son span

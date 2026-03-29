@@ -315,7 +315,7 @@ fn encode_content(
                 .try_get_declaration_from(predicate_symbol, decl_node)?;
 
             let atom_skeleton_id =
-                registry.try_resolve_atom_skeleton(atom_skeleton_declaration.node_id())?;
+                registry.try_resolve_atom_skeleton(atom_skeleton_declaration.source())?;
 
             Ok(ExprContent::AtomSkeleton(atom_skeleton_id))
         }
@@ -334,7 +334,7 @@ fn encode_content(
                         let declaration = registry
                             .symbol_table()
                             .try_resolve_declaration_by_usage(function_id, SymbolKind::Function)?;
-                        registry.try_resolve_function_skeleton(declaration.node_id())?
+                        registry.try_resolve_function_skeleton(declaration.source())?
                     }
                 };
             Ok(ExprContent::FunctionSkeleton(function_skeleton_id))
@@ -360,7 +360,7 @@ fn encode_content(
 
             // 3. Retrieve the unique Skeleton ID from the evaluator.
             // This ID was generated during the first pass (Collection Phase).
-            let task_skeleton_id = registry.try_resolve_task_skeleton(declaration.node_id())?;
+            let task_skeleton_id = registry.try_resolve_task_skeleton(declaration.source())?;
 
             Ok(ExprContent::TaskSkeleton(task_skeleton_id))
         }
@@ -396,7 +396,7 @@ fn encode_content(
             let predicate_declaration = registry
                 .symbol_table()
                 .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Predicate)?;
-            let predicate_id = registry.try_resolve_predicate(predicate_declaration.node_id())?;
+            let predicate_id = registry.try_resolve_predicate(predicate_declaration.source())?;
             Ok(ExprContent::PredicateSymbol(predicate_id))
         }
         AstKind::FunctionSymbol => {
@@ -412,7 +412,7 @@ fn encode_content(
                     let declaration = registry
                         .symbol_table()
                         .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Function)?;
-                    registry.try_resolve_functor(declaration.node_id())?
+                    registry.try_resolve_functor(declaration.source())?
                 }
             };
 
@@ -422,7 +422,7 @@ fn encode_content(
             let constant_declaration = registry
                 .symbol_table()
                 .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Constant)?;
-            let constant_id = registry.try_resolve_object(constant_declaration.node_id())?;
+            let constant_id = registry.try_resolve_object(constant_declaration.source())?;
             Ok(ExprContent::Object(constant_id))
         }
         AstKind::Variable => {
@@ -437,7 +437,7 @@ fn encode_content(
                     let declaration = registry
                         .symbol_table()
                         .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Variable)?;
-                    registry.try_resolve_variable(declaration.node_id())?
+                    registry.try_resolve_variable(declaration.source())?
                 }
             };
 
@@ -460,7 +460,7 @@ fn encode_content(
             };
 
             // 3. Final ID Retrieval from the Registry (Pass 1).
-            let task_symbol_id = registry.try_resolve_task_symbol(declaration.node_id())?;
+            let task_symbol_id = registry.try_resolve_task_symbol(declaration.source())?;
 
             Ok(ExprContent::TaskSymbol(task_symbol_id))
         }
@@ -480,7 +480,7 @@ fn encode_content(
             AstContent::ArithmeticOp(op) => Ok(ExprContent::ArithmeticOp(*op)),
             AstContent::OptimizationOp(op) => Ok(ExprContent::OptimizationOp(*op)),
             AstContent::None => Ok(ExprContent::None),
-            _ => Err(ExprError::unsupported_content(ast_node.content().clone()).into()),
+            _ => Err(ExprError::unsupported_content(*ast_node.content()).into()),
         },
     }
 }

@@ -139,7 +139,7 @@ impl SymbolEntry {
     pub fn add_declaration(&mut self, declaration: Declaration) -> bool {
         // Puisque la clé est le NodeId de la déclaration,
         // on l'extrait pour l'insertion dans l'IndexMap.
-        let node_id = declaration.node_id();
+        let node_id = declaration.source();
 
         // insert() renvoie Some(old_value) si la clé existait déjà.
         // On retourne true seulement si le résultat est None (nouvelle insertion).

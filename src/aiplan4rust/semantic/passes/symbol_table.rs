@@ -110,7 +110,7 @@ fn collect_type_simplifications(
                 if let Some((new_type, kept_indices)) = simplify_type(type_checker, raw_ty)? {
                     changes.push(TypeSimplification::new(
                         symbol_id,
-                        decl.node_id(),
+                        decl.source(),
                         new_type.clone(),
                         kept_indices,
                     ));
@@ -221,7 +221,7 @@ pub fn apply_type_simplifications(
         if let Some(entry) = target_table.get_symbol_mut(change.symbol_id()) {
             if let Some(original) = entry.declarations_mut().get_mut(&change.node_id()) {
                 // 1. Synchronisation des NodeIds
-                if let Some(old_ids) = original.ty_node_ids() {
+                if let Some(old_ids) = original.type_sources() {
                     // On itère sur les indices (copie d'entiers, donc pas de clone lourd)
                     let new_ids: Vec<NodeId> = change
                         .kept_indices()
@@ -230,7 +230,7 @@ pub fn apply_type_simplifications(
                         .copied()
                         .collect();
 
-                    original.set_ty_node_ids(new_ids);
+                    original.set_type_sources(new_ids);
                 }
 
                 // 2. Mise à jour du type sémantique

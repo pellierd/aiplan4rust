@@ -4,7 +4,7 @@ use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 use crate::{DiagnosticManager, SymbolTable};
 
 pub fn check_derived_predicates(
-    context: &CheckContext,
+    _context: &CheckContext,
     symbol_table: &mut SymbolTable,
     type_checker: &TypeChecker,
     _diagnostic_manager: &mut DiagnosticManager,
@@ -33,7 +33,7 @@ pub fn check_derived_predicates(
             let mut found = false;
             for base in &base_predicates {
                 if match_signatures(base, derived, type_checker)? {
-                    links_to_create.push((entry.ident(), base.node_id(), derived.node_id()));
+                    links_to_create.push((entry.ident(), base.source(), derived.source()));
                     found = true;
                     break; // On a trouvé le match, on passe au dérivé suivant
                 }
@@ -53,12 +53,12 @@ pub fn check_derived_predicates(
 
         // Lien Base -> Derived (Ajout à la liste Vec<NodeId>)
         if let Some(base_decl) = declarations.get_mut(&base_id) {
-            base_decl.add_refined_by(derived_id);
+            base_decl.add_derivation(derived_id);
         }
 
         // Lien Derived -> Base (Option<NodeId>)
         if let Some(derived_decl) = declarations.get_mut(&derived_id) {
-            derived_decl.set_refines(base_id);
+            derived_decl.set_derived_source(base_id);
         }
     }
 

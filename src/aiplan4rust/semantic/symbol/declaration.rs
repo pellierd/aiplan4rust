@@ -78,7 +78,7 @@ pub struct Declaration {
     /// The visibility context and lifetime of the declaration (e.g., Global, Local).
     scope: Scope,
 
-    /// The source domain of the declaration, indicating if it originates
+    /// The source file of the declaration, indicating if it originates
     /// from a Domain or a Problem file.
     origin: SymbolOrigin,
 
@@ -86,47 +86,42 @@ pub struct Declaration {
     ty: Option<Type<SymbolId>>,
 
     /// Optional list of AST node identifiers corresponding to each type in `ty`.
-    /// This allows pinpointing the exact syntax for every declared type.
-    ty_node_ids: Option<Vec<NodeId>>,
+    /// Provides the exact syntactic source for every declared type.
+    type_sources: Option<Vec<NodeId>>,
 
     /// Optional list of typed parameters, used for symbols with signatures
     /// such as predicates or functions.
     arguments: Option<TypedList<SymbolId, SymbolId>>,
 
     /// Optional list of AST node identifiers for each individual argument name.
-    /// Ensures a 1:1 mapping between semantic arguments and their syntactic origin.
-    argument_node_ids: Option<Vec<NodeId>>,
+    /// Ensures a 1:1 mapping between semantic arguments and their syntactic source.
+    argument_sources: Option<Vec<NodeId>>,
 
     /// The specific range in the source code covered by this declaration.
     span: Span,
 
-    /// The primary AST node identifier that represents this declaration.
-    node_id: NodeId,
+    /// The primary AST node identifier representing this declaration's main definition.
+    source: NodeId,
 
     /// The original scope context if this declaration was imported
     /// from an external module; otherwise `None`.
     imported_scope: Option<Scope>,
 
-    /// L'identifiant du nœud d'alias dans le fichier source.
-    /// Utilisé principalement pour pointer vers le nœud du `Domain`
-    /// lorsqu'un symbole est déclaré ou importé, permettant de conserver
-    /// la trace de la déclaration originale.
-    alias_node_id: Option<NodeId>,
+    /// The AST node identifier of the original declaration if this is an alias.
+    /// Primarily used to link Problem declarations back to their Domain source.
+    alias: Option<NodeId>,
 
-    /// Liste des identifiants de nœuds d'utilisation (`Usage`) qui ont été
-    /// formellement résolus vers cette déclaration. C'est le résultat du "vissage"
-    /// bidirectionnel entre l'utilisation et sa définition.
-    resolved_usages: Vec<NodeId>,
+    /// List of AST node identifiers (`Usage`) formally resolved to this declaration.
+    /// Represents the result of the bidirectional linking between usage and definition.
+    usages: Vec<NodeId>,
 
-    /// Dans le cas d'un `SymbolKind::Predicate`, contient l'identifiant du nœud
-    /// du `DerivedPredicate` qui l'implémente ou le raffine logiquement.
-    /// Permet de rediriger l'évaluation vers la logique de l'axiome.
-    refined_by: Vec<NodeId>,
+    /// For `SymbolKind::Predicate`, contains the identifiers of `DerivedPredicate`
+    /// nodes (axioms) that provide a logical implementation for this symbol.
+    derivations: Vec<NodeId>,
 
-    /// Dans le cas d'un `SymbolKind::DerivedPredicate`, contient l'identifiant
-    /// du nœud du `Predicate` de base (la signature) dont il provient.
-    /// Assure le lien inverse entre l'implémentation et sa définition abstraite.
-    refines: Option<NodeId>,
+    /// For `SymbolKind::DerivedPredicate`, contains the identifier of the base
+    /// `Predicate` node (the signature) from which this implementation originates.
+    derived_source: Option<NodeId>,
 }
 
 impl Declaration {
@@ -174,29 +169,29 @@ impl Declaration {
         scope: Scope,
         origin: SymbolOrigin,
         ty: Option<Type<SymbolId>>,
-        ty_node_ids: Option<Vec<NodeId>>,
+        type_sources: Option<Vec<NodeId>>,
         arguments: Option<TypedList<SymbolId, SymbolId>>,
-        argument_node_ids: Option<Vec<NodeId>>,
+        argument_sources: Option<Vec<NodeId>>,
         span: Span,
-        node_id: NodeId,
+        source: NodeId,
         imported_scope: Option<Scope>,
-        alias_node_id: Option<NodeId>,
+        alias: Option<NodeId>,
     ) -> Self {
         Declaration {
             symbol,
             scope,
             origin,
             ty,
-            ty_node_ids,
+            type_sources,
             arguments,
-            argument_node_ids,
+            argument_sources,
             span,
-            node_id,
+            source,
             imported_scope,
-            alias_node_id,
-            resolved_usages: vec![],
-            refined_by: vec![],
-            refines: None,
+            alias,
+            usages: vec![],
+            derivations: vec![],
+            derived_source: None,
         }
     }
 
@@ -239,8 +234,7 @@ impl Declaration {
     /// Sets the visibility scope of the declaration.
     ///
     /// # Arguments
-    ///
-    /// * `scope` - The new scope to associate with this declaration.
+    /// * `scope` - The new visibility context (e.g., Global, Local) to associate with this declaration.
     pub fn set_scope(&mut self, scope: Scope) {
         self.scope = scope;
     }
@@ -248,28 +242,27 @@ impl Declaration {
     /// Returns an optional reference to the typing information associated with the symbol.
     ///
     /// # Returns
-    ///
-    /// `Some(&Type<SymbolId>)` if the symbol is typed, or `None` otherwise.
+    /// * `Some(&Type<SymbolId>)` - A reference to the semantic type definition if the symbol is typed.
+    /// * `None` - If the symbol has no associated type.
     pub fn ty(&self) -> Option<&Type<SymbolId>> {
         self.ty.as_ref()
     }
 
     /// Returns an optional slice of the AST node identifiers corresponding to the types.
     ///
-    /// These IDs allow mapping each semantic type to its precise syntax location for diagnostics or patching.
+    /// These sources allow mapping each semantic type back to its precise syntactic location.
     ///
     /// # Returns
-    ///
-    /// `Some(&[NodeId])` representing the type nodes, or `None` if no type nodes are recorded.
-    pub fn ty_node_ids(&self) -> Option<&[NodeId]> {
-        self.ty_node_ids.as_deref()
+    /// * `Some(&[NodeId])` - A slice of node identifiers representing the type components.
+    /// * `None` - If no type source nodes are recorded.
+    pub fn type_sources(&self) -> Option<&[NodeId]> {
+        self.type_sources.as_deref()
     }
 
     /// Sets the semantic types associated with this declaration.
     ///
     /// # Arguments
-    ///
-    /// * `ty` - The type definition to assign.
+    /// * `ty` - The semantic type definition to assign to this symbol.
     pub fn set_ty(&mut self, ty: Type<SymbolId>) {
         self.ty = Some(ty);
     }
@@ -277,23 +270,22 @@ impl Declaration {
     /// Sets the AST node identifiers corresponding to the typing syntax.
     ///
     /// # Arguments
-    ///
-    /// * `node_ids` - A vector of node IDs representing the type components in the source tree.
-    pub fn set_ty_node_ids(&mut self, node_ids: Vec<NodeId>) {
-        self.ty_node_ids = Some(node_ids);
+    /// * `node_ids` - A vector of node identifiers representing the type components in the source tree.
+    pub fn set_type_sources(&mut self, node_ids: Vec<NodeId>) {
+        self.type_sources = Some(node_ids);
     }
 
     /// Clears both semantic types and their associated syntax node identifiers.
-    pub fn clear_ty(&mut self) {
+    pub fn clear_type(&mut self) {
         self.ty = None;
-        self.ty_node_ids = None;
+        self.type_sources = None;
     }
 
-    /// Returns an optional reference to the list of arguments (parameters) associated with the symbol.
+    /// Returns an optional reference to the parameters associated with the symbol.
     ///
     /// # Returns
-    ///
-    /// `Some(&TypedList<SymbolId, SymbolId>)` if the symbol has arguments, or `None` otherwise.
+    /// * `Some(&TypedList<SymbolId, SymbolId>)` - A reference to the argument list (e.g., for predicates).
+    /// * `None` - If the symbol does not have arguments.
     pub fn arguments(&self) -> Option<&TypedList<SymbolId, SymbolId>> {
         self.arguments.as_ref()
     }
@@ -301,7 +293,6 @@ impl Declaration {
     /// Sets the list of arguments for symbols like predicates or functions.
     ///
     /// # Arguments
-    ///
     /// * `arguments` - The typed parameter list to assign.
     pub fn set_arguments(&mut self, arguments: TypedList<SymbolId, SymbolId>) {
         self.arguments = Some(arguments);
@@ -309,28 +300,27 @@ impl Declaration {
 
     /// Returns an optional slice of the AST node identifiers corresponding to the arguments.
     ///
-    /// This provides a direct link between each parameter and its original syntax node.
+    /// This provides a direct link between each semantic parameter and its original syntax node.
     ///
     /// # Returns
-    ///
-    /// `Some(&[NodeId])` representing the argument nodes, or `None` if no IDs are recorded.
-    pub fn argument_node_ids(&self) -> Option<&[NodeId]> {
-        self.argument_node_ids.as_deref()
+    /// * `Some(&[NodeId])` - A slice of node identifiers representing the argument nodes.
+    /// * `None` - If no argument source nodes are recorded.
+    pub fn argument_sources(&self) -> Option<&[NodeId]> {
+        self.argument_sources.as_deref()
     }
 
     /// Sets the AST node identifiers corresponding to the argument syntax.
     ///
     /// # Arguments
-    ///
-    /// * `ids` - A vector of node IDs representing the arguments in the source tree.
-    pub fn set_argument_node_ids(&mut self, ids: Vec<NodeId>) {
-        self.argument_node_ids = Some(ids);
+    /// * `ids` - A vector of node identifiers representing the arguments in the source tree.
+    pub fn set_argument_sources(&mut self, ids: Vec<NodeId>) {
+        self.argument_sources = Some(ids);
     }
 
     /// Clears both semantic arguments and their associated syntax node identifiers.
     pub fn clear_arguments(&mut self) {
         self.arguments = None;
-        self.argument_node_ids = None;
+        self.argument_sources = None;
     }
 
     /// Returns the source code [`Span`] where the declaration is located.
@@ -354,22 +344,22 @@ impl Declaration {
         self.span = span;
     }
 
-    /// Returns the [`NodeId`] of the main AST node associated with this declaration.
+    /// Returns the primary AST node identifier associated with this declaration.
+    ///
+    /// This node represents the main syntactic definition of the symbol in the source code.
     ///
     /// # Returns
-    ///
-    /// The unique identifier of the AST node.
-    pub fn node_id(&self) -> NodeId {
-        self.node_id
+    /// * `NodeId` - The unique identifier of the associated AST node.
+    pub fn source(&self) -> NodeId {
+        self.source
     }
 
-    /// Sets the [`NodeId`] of the main AST node associated with this declaration.
+    /// Sets the primary AST node identifier for this declaration.
     ///
     /// # Arguments
-    ///
-    /// * `node_id` - The new AST node identifier.
-    pub fn set_node_id(&mut self, node_id: NodeId) {
-        self.node_id = node_id;
+    /// * `node_id` - The new AST node identifier to be associated with this declaration.
+    pub fn set_source(&mut self, node_id: NodeId) {
+        self.source = node_id;
     }
 
     /// Returns the [`SymbolOrigin`] indicating where the symbol was defined.
@@ -410,63 +400,100 @@ impl Declaration {
         self.imported_scope = scope;
     }
 
-    /// Récupère l'ID du nœud original si cette déclaration est un alias.
-    /// Retourne `None` si c'est la source de vérité.
-    pub fn alias_node_id(&self) -> Option<NodeId> {
-        self.alias_node_id
+    /// Returns the original AST node identifier if this declaration is an alias.
+    ///
+    /// # Returns
+    /// * `Some(NodeId)` - The identifier of the source of truth.
+    /// * `None` - If this declaration is the primary definition.
+    pub fn alias(&self) -> Option<NodeId> {
+        self.alias
     }
 
-    /// Définit le nœud source pour cette déclaration (crée un alias).
-    /// Utile lors du linking pour pointer du Problème vers le Domaine.
-    pub fn set_alias_node_id(&mut self, node_id: NodeId) {
-        self.alias_node_id = Some(node_id);
+    /// Defines the source node for this declaration, effectively creating an alias.
+    ///
+    /// This is typically used during the linkage phase to point from a
+    /// Problem-specific declaration back to its original Domain definition.
+    ///
+    /// # Arguments
+    /// * `node_id` - The identifier of the original declaration node.
+    pub fn set_alias(&mut self, node_id: NodeId) {
+        self.alias = Some(node_id);
     }
 
-    /// Vérifie si la déclaration est un alias.
+    /// Returns whether this declaration is an alias to another node.
+    ///
+    /// # Returns
+    /// * `true` - If the declaration is an alias.
+    /// * `false` - If it is a primary declaration.
     pub fn is_alias(&self) -> bool {
-        self.alias_node_id.is_some()
+        self.alias.is_some()
     }
 
-    /// Ajoute un usage résolu à cette déclaration.
-    pub fn add_resolved_usage(&mut self, usage_node_id: NodeId) -> bool {
-        // Optionnel : éviter les doublons si la boucle de l'analyzer repasse
-        if !self.resolved_usages.contains(&usage_node_id) {
-            self.resolved_usages.push(usage_node_id);
-            return true;
+    /// Registers a resolved usage for this declaration.
+    ///
+    /// # Arguments
+    /// * `usage_node_id` - The AST node identifier where this symbol is used.
+    ///
+    /// # Returns
+    /// * `true` - If the usage was newly added.
+    /// * `false` - If the usage was already registered.
+    pub fn add_usage(&mut self, usage_node_id: NodeId) -> bool {
+        if !self.usages.contains(&usage_node_id) {
+            self.usages.push(usage_node_id);
+            true
+        } else {
+            false
         }
-        false
     }
 
-    pub fn resolved_usages(&self) -> &[NodeId] {
-        &self.resolved_usages
+    /// Returns a slice of all AST node identifiers resolved to this declaration.
+    ///
+    /// # Returns
+    /// * `&[NodeId]` - A slice containing all registered usage identifiers.
+    pub fn usages(&self) -> &[NodeId] {
+        &self.usages
     }
 
-    /// Retourne la liste des nœuds de prédicats dérivés qui raffinent ce symbole.
-    /// Si le vecteur est vide, retourne une slice vide.
-    pub fn refined_by(&self) -> &[NodeId] {
-        &self.refined_by
+    /// Returns the list of `DerivedPredicate` nodes that define this symbol's logic.
+    ///
+    /// # Returns
+    /// * `&[NodeId]` - A slice of identifiers for the associated axiom nodes.
+    pub fn derivations(&self) -> &[NodeId] {
+        &self.derivations
     }
 
-    /// Retourne le nœud du prédicat de base que ce prédicat dérivé implémente.
-    pub fn refines(&self) -> Option<NodeId> {
-        self.refines
+    /// Returns the base `Predicate` signature node that this derived predicate implements.
+    ///
+    /// # Returns
+    /// * `Some(NodeId)` - The ID of the abstract predicate signature.
+    /// * `None` - If this symbol is not a derived predicate.
+    pub fn derived_source(&self) -> Option<NodeId> {
+        self.derived_source
     }
 
-    // --- Mutators (Setters / Adders) ---
-
-    /// Ajoute un lien vers un prédicat dérivé (axiome).
-    /// Si le vecteur n'existe pas encore, il est créé.
-    pub fn add_refined_by(&mut self, derived_node_id: NodeId) -> bool {
-        if !self.refined_by.contains(&derived_node_id) {
-            self.refined_by.push(derived_node_id);
-            return true;
+    /// Establishes a link to a derived predicate (axiom) for this symbol.
+    ///
+    /// # Arguments
+    /// * `derived_node_id` - The AST node identifier of the `DerivedPredicate`.
+    ///
+    /// # Returns
+    /// * `true` - If the derivation link was newly established.
+    /// * `false` - If the link already existed.
+    pub fn add_derivation(&mut self, derived_node_id: NodeId) -> bool {
+        if !self.derivations.contains(&derived_node_id) {
+            self.derivations.push(derived_node_id);
+            true
+        } else {
+            false
         }
-        false
     }
 
-    /// Définit le prédicat de base dont provient ce prédicat dérivé.
-    pub fn set_refines(&mut self, base_node_id: NodeId) {
-        self.refines = Some(base_node_id);
+    /// Sets the base predicate signature node that this derived predicate refers to.
+    ///
+    /// # Arguments
+    /// * `node_id` - The identifier of the base `Predicate` signature node.
+    pub fn set_derived_source(&mut self, node_id: NodeId) {
+        self.derived_source = Some(node_id);
     }
 
     /// Formats the types of the declaration for display.
@@ -575,18 +602,24 @@ impl Declaration {
         w: &mut std::fmt::Formatter<'_>,
         interner: &SymbolInterner,
     ) -> fmt::Result {
-        if let Some(types) = &self.ty {
-            write!(w, ", types: (")?;
+        write!(w, ", types: (")?;
 
-            match types.members() {
-                [] => { /* no types */ }
-                [single] => match interner.resolve_symbol(*single) {
-                    Some(name) => write!(w, "{}", name)?,
-                    None => write!(w, "<uninterned:{}>", single)?,
-                },
+        if let Some(types) = &self.ty {
+            let members = types.members();
+            match members.len() {
+                0 => {} // Reste vide : ()
+                1 => {
+                    // Un seul type
+                    let ty = members[0];
+                    match interner.resolve_symbol(ty) {
+                        Some(name) => write!(w, "{}", name)?,
+                        None => write!(w, "<uninterned:{}>", ty)?,
+                    }
+                }
                 _ => {
+                    // Plusieurs types (PDDL 'either')
                     write!(w, "either")?;
-                    for ty in types.iter() {
+                    for ty in members {
                         match interner.resolve_symbol(*ty) {
                             Some(name) => write!(w, " {}", name)?,
                             None => write!(w, " <uninterned:{}>", ty)?,
@@ -594,13 +627,9 @@ impl Declaration {
                     }
                 }
             }
-
-            write!(w, ")")?;
-        } else {
-            write!(w, ", types: ()")?;
         }
 
-        Ok(())
+        write!(w, ")")
     }
 
     /// Formats the arguments of the declaration using a `StringInterner`
@@ -626,100 +655,18 @@ impl Declaration {
         w: &mut std::fmt::Formatter<'_>,
         interner: &SymbolInterner,
     ) -> fmt::Result {
-        if let Some(arguments) = &self.arguments {
-            write!(w, ", arguments: (")?;
+        write!(w, ", arguments: (")?;
 
+        if let Some(arguments) = &self.arguments {
             for (i, typed_symbol) in arguments.iter().enumerate() {
                 if i > 0 {
                     write!(w, " ")?;
                 }
                 typed_symbol.fmt_with_interner(w, interner)?;
             }
-
-            write!(w, ")")?;
         }
 
-        Ok(())
-    }
-}
-
-impl fmt::Display for Declaration {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // 1. Identité de base (node_id, kind et l'ID du symbole brut)
-        write!(
-            f,
-            "[node: {}, kind: {}, ident: {}",
-            self.node_id(),
-            self.symbol_kind(),
-            self.symbol_ident()
-        )?;
-
-        // 2. Contexte et Provenance (Alias, Origine, Scope)
-        write!(
-            f,
-            ", scope: {}, origin: {}, alias: {}, imported: {}",
-            self.scope(),
-            self.origin(),
-            self.alias_node_id()
-                .map_or("None".to_string(), |id| id.as_usize().to_string()),
-            self.imported_scope()
-                .map_or("None".to_string(), |s| s.to_string())
-        )?;
-
-        // 3. Types et leurs node IDs
-        self.fmt_types(f)?;
-        if let Some(nodes) = self.ty_node_ids() {
-            write!(f, " (nodes: ")?;
-            for (i, node) in nodes.iter().enumerate() {
-                if i > 0 {
-                    write!(f, ", ")?;
-                }
-                write!(f, "{}", node)?;
-            }
-            write!(f, ")")?;
-        }
-
-        // 4. Arguments (Signatures) et leurs node IDs
-        self.fmt_arguments(f)?;
-        if let Some(nodes) = self.argument_node_ids() {
-            write!(f, " (nodes: ")?;
-            for (i, node) in nodes.iter().enumerate() {
-                if i > 0 {
-                    write!(f, ", ")?;
-                }
-                write!(f, "{}", node)?;
-            }
-            write!(f, ")")?;
-        }
-
-        // 5. Vissage entre Prédicats (Base <-> Derived)
-        // On itère sur le vecteur de raffinements
-        write!(f, ", refined_by: [")?;
-        for (i, node) in self.refined_by().iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "{}", node)?;
-        }
-        write!(f, "]")?;
-
-        if let Some(base) = self.refines() {
-            write!(f, ", refines: {}", base)?;
-        }
-
-        // 6. Usages résolus (Vissage final)
-        if !self.resolved_usages().is_empty() {
-            write!(f, ", resolved_usages: [")?;
-            for (i, node) in self.resolved_usages().iter().enumerate() {
-                if i > 0 {
-                    write!(f, ", ")?;
-                }
-                write!(f, "{}", node)?;
-            }
-            write!(f, "]")?;
-        }
-
-        write!(f, "]")
+        write!(w, ")")
     }
 }
 
@@ -739,29 +686,119 @@ impl RemapSymbol for Declaration {
     ///
     /// Returns [`InternerError`] if any argument identifier cannot be remapped according to `map`.
     fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
-        // Remap the main symbol name
-        if let Some(new_ident) = map.get(&self.symbol_ident()) {
-            self.symbol.set_ident(new_ident.clone());
+        // 1. Remap the main symbol name
+        if let Some(&new_ident) = map.get(&self.symbol_ident()) {
+            self.symbol.set_ident(new_ident);
         }
 
-        // Remap associated types
-        if let Some(ref mut types) = self.ty {
+        // 2. Remap associated types
+        if let Some(types) = self.ty.as_mut() {
             for ident in types.iter_mut() {
-                if let Some(new_ident) = map.get(ident) {
-                    *ident = new_ident.clone();
+                if let Some(&new_ident) = map.get(ident) {
+                    *ident = new_ident;
                 }
             }
         }
 
-        // Remap argument identifiers
-        if let Some(ref mut args) = self.arguments {
+        // 3. Remap argument identifiers (recursive call)
+        if let Some(args) = self.arguments.as_mut() {
             for arg in args.iter_mut() {
                 arg.remap_symbol(map)?;
             }
         }
+
         Ok(())
     }
 }
+
+impl fmt::Display for Declaration {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // 1. Core Identity
+        // Displays the node index, the category of symbol, and the raw SymbolId.
+        write!(
+            f,
+            "[node: {}, kind: {}, ident: {}",
+            self.source(),
+            self.symbol_kind(),
+            self.symbol_ident()
+        )?;
+
+        // 2. Context and Provenance
+        // Shows visibility (scope), file origin, and aliasing/import metadata.
+        write!(
+            f,
+            ", scope: {}, origin: {}, alias: {}, imported: {}",
+            self.scope(),
+            self.origin(),
+            self.alias()
+                .map_or("None".to_string(), |id| id.as_usize().to_string()),
+            self.imported_scope()
+                .map_or("None".to_string(), |s| s.to_string())
+        )?;
+
+        // 3. Types and Source Mapping
+        // Renders type information and maps them back to their specific AST NodeIds.
+        self.fmt_types(f)?;
+        if let Some(nodes) = self.type_sources() {
+            write!(f, " (sources: ")?;
+            for (i, node) in nodes.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node)?;
+            }
+            write!(f, ")")?;
+        }
+
+        // 4. Arguments (Signatures) and Source Mapping
+        // Renders parameter lists and links names back to their syntactic origin.
+        self.fmt_arguments(f)?;
+        if let Some(nodes) = self.argument_sources() {
+            write!(f, " (sources: ")?;
+            for (i, node) in nodes.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node)?;
+            }
+            write!(f, ")")?;
+        }
+
+        // 5. Predicate Linkage (Base <-> Derived)
+        // Lists all axioms (derivations) defining this predicate's logic.
+        if !self.derivations().is_empty() {
+            write!(f, ", derivations: [")?;
+            for (i, node) in self.derivations().iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node)?;
+            }
+            write!(f, "]")?;
+        }
+
+        // If this is a DerivedPredicate, point back to its original signature source.
+        if let Some(source) = self.derived_source() {
+            write!(f, ", derived_from: {}", source)?;
+        }
+
+        // 6. Usage Tracking
+        // Lists all AST nodes that have been formally resolved to this declaration.
+        if !self.usages().is_empty() {
+            write!(f, ", usages: [")?;
+            for (i, node) in self.usages().iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node)?;
+            }
+            write!(f, "]")?;
+        }
+
+        write!(f, "]")
+    }
+}
+
 impl InternerDisplay for Declaration {
     fn fmt_with_interner(
         &self,
@@ -772,31 +809,34 @@ impl InternerDisplay for Declaration {
             .resolve_symbol(self.symbol_ident())
             .unwrap_or("<uninterned>");
 
-        // 1. Identité de base
+        // 1. Core Identity
+        // Displays the node index, the category of symbol, and its string representation.
         write!(
             f,
             "[node: {}, kind: {}, ident: {}",
-            self.node_id().as_usize(),
+            self.source().as_usize(),
             self.symbol_kind(),
             name_str
         )?;
 
-        // 2. Contexte et Provenance (Alias, Origine, Scope)
+        // 2. Context and Provenance
+        // Shows visibility (scope), file origin, and aliasing/import metadata.
         write!(
             f,
             ", scope: {}, origin: {}, alias: {}, imported: {}",
             self.scope(),
             self.origin(),
-            self.alias_node_id()
+            self.alias()
                 .map_or("None".to_string(), |id| id.as_usize().to_string()),
             self.imported_scope()
                 .map_or("None".to_string(), |s| s.to_string())
         )?;
 
-        // 3. Types sémantiques ET leurs NodeIds
+        // 3. Semantic Types and Source Mapping
+        // Renders types and links them back to their specific AST NodeIds.
         self.fmt_types_with(f, interner)?;
-        if let Some(nodes) = self.ty_node_ids() {
-            write!(f, " (nodes: ")?;
+        if let Some(nodes) = self.type_sources() {
+            write!(f, " (sources: ")?;
             for (i, node) in nodes.iter().enumerate() {
                 if i > 0 {
                     write!(f, ", ")?;
@@ -806,10 +846,11 @@ impl InternerDisplay for Declaration {
             write!(f, ")")?;
         }
 
-        // 4. Arguments (Signatures) ET leurs NodeIds
+        // 4. Arguments (Signatures) and Source Mapping
+        // Renders parameter lists and links names back to their syntactic origin.
         self.fmt_arguments_with(f, interner)?;
-        if let Some(nodes) = self.argument_node_ids() {
-            write!(f, " (nodes: ")?;
+        if let Some(nodes) = self.argument_sources() {
+            write!(f, " (sources: ")?;
             for (i, node) in nodes.iter().enumerate() {
                 if i > 0 {
                     write!(f, ", ")?;
@@ -819,26 +860,29 @@ impl InternerDisplay for Declaration {
             write!(f, ")")?;
         }
 
-        // 5. Vissage entre Prédicats (Base <-> Derived)
-        // refined_by est maintenant un Vec car un prédicat peut avoir plusieurs axiomes
-        write!(f, ", refined_by: [")?;
-        for (i, node) in self.refined_by().iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
+        // 5. Predicate Linkage (Base <-> Derived)
+        // If this is a base predicate, list all axioms (derivations) defining its logic.
+        if !self.derivations().is_empty() {
+            write!(f, ", derivations: [")?;
+            for (i, node) in self.derivations().iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node.as_usize())?;
             }
-            write!(f, "{}", node.as_usize())?;
-        }
-        write!(f, "]")?;
-
-        // Un DerivedPredicate, en revanche, ne raffine qu'une seule signature de base
-        if let Some(base) = self.refines() {
-            write!(f, ", refines: {}", base.as_usize())?;
+            write!(f, "]")?;
         }
 
-        // 6. Résolution des Usages
-        if !self.resolved_usages().is_empty() {
-            write!(f, ", resolved_usages: [")?;
-            for (i, node) in self.resolved_usages().iter().enumerate() {
+        // If this is a DerivedPredicate, point back to its original signature source.
+        if let Some(source) = self.derived_source() {
+            write!(f, ", derived_from: {}", source.as_usize())?;
+        }
+
+        // 6. Usage Tracking
+        // Lists all AST nodes that have been formally resolved to this declaration.
+        if !self.usages().is_empty() {
+            write!(f, ", usages: [")?;
+            for (i, node) in self.usages().iter().enumerate() {
                 if i > 0 {
                     write!(f, ", ")?;
                 }

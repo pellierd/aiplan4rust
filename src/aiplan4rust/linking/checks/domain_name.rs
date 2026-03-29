@@ -73,7 +73,7 @@ pub fn check_domain_name(
     // If the names don't match, emit a diagnostic warning.
     if declared.symbol().id() != referenced.symbol().id() {
         // --- 4. Retrieve the corresponding AST entry ---
-        let ast = problem.syntax_tree().try_node(referenced.node_id())?;
+        let ast = problem.syntax_tree().try_node(referenced.source())?;
 
         // --- 5. Emit a warning about the mismatch ---
         let warning = Diagnostic::warning_domain_problem_name_mismatch(

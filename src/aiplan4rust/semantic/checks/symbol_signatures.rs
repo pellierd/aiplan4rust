@@ -111,7 +111,7 @@ pub fn check_symbol_signatures(
 
                     diagnostic_manager.add_diagnostic(error);
                 } else {
-                    bindings.push((symbol.ident(), declaration.node_id(), usage.node_id()));
+                    bindings.push((symbol.ident(), declaration.source(), usage.node_id()));
                 }
             }
         }
@@ -128,7 +128,7 @@ pub fn check_symbol_signatures(
         }
         // Lien Declaration -> Usage
         if let Some(d) = entry.declarations_mut().get_mut(&decl_node_id) {
-            d.add_resolved_usage(usage_node_id);
+            d.add_usage(usage_node_id);
         }
     }
 
