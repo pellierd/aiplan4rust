@@ -6,8 +6,8 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
-use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{Node, NodeId};
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax arena.
 ///
@@ -163,29 +163,17 @@ fn match_declaration_with_usage(
     let ast_usage = context.syntax_tree().try_node(usage.source())?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
-        let argument = context.syntax_tree().get_node(*argument_index).unwrap();
+        let argument_node = context.syntax_tree().try_node(*argument_index)?;
 
-        let kind = match argument.kind() {
-            AstKind::Variable => SymbolKind::Variable,
-            AstKind::Object => SymbolKind::Constant,
-            AstKind::Function => SymbolKind::Function,
-            found => {
-                return Err(SemanticError::unexpected_node_kind(
-                    usage.source(),
-                    vec![AstKind::Variable, AstKind::Object, AstKind::Function], // tous les attendus
-                    found,
-                ));
-            }
-        };
-
+        // On fonce directement au match_argument.
+        // C'est match_argument qui s'occupera du vissage O(1).
         if !match_argument(
             declaration,
             usage,
             symbol_table,
             context,
-            argument,
+            argument_node,
             argument_index.as_usize(),
-            kind,
             index,
             type_checker,
             diagnostic_manager,
@@ -223,28 +211,30 @@ fn match_argument(
     context: &CheckContext,
     argument: &AstNode,
     argument_index: usize,
-    kind: SymbolKind,
     index: usize,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     // Retrieve the symbol name associated with the argument from the annotated syntax arena
+    let argument_node_id = NodeId::new(argument_index); // Identifiant unique du nœud
     let name = context
         .syntax_tree()
-        .try_node(NodeId::new(argument_index))?
+        .try_node(argument_node_id)?
         .try_ident()?;
 
-    // Look up the corresponding declaration in the symbol table,
-    // given the expected kind and usage scope
-    let symbol_declaration = match symbol_table.resolve_declaration(&name, &kind, usage.scope())? {
-        Some(decl) => decl,
-        None => {
+    // --- MODIFICATION : UTILISATION DU VISSAGE DIRECT O(1) ---
+    // Look up the corresponding declaration using the primary binding (already established)
+    let symbol_declaration = match symbol_table.resolve_primary_declaration(name, argument_node_id)
+    {
+        Ok(decl) => decl,
+        Err(_) => {
             return Err(SemanticCheckError::missing_declaration(
                 name,
                 usage.scope().clone(),
             ));
         }
     };
+    // ---------------------------------------------------------
 
     // Get the declared arguments of the main declaration (the context declaration)
     let declared_arguments = match declaration.arguments() {
