@@ -255,6 +255,11 @@ impl Table {
         self.get_symbol(symbol_id)?.declarations().get(&node_id)
     }
 
+    pub fn get_usage_from(&self, symbol_id: SymbolId, node_id: NodeId) -> Option<&Usage> {
+        // Utilisation de get_symbol (et non get_symbol_mut) car la fonction est &self
+        self.get_symbol(symbol_id)?.usages().get(&node_id)
+    }
+
     pub fn try_get_declaration_from(
         &self,
         symbol_id: SymbolId,
@@ -262,6 +267,18 @@ impl Table {
     ) -> Result<&Declaration, SymbolTableError> {
         self.try_get_symbol(symbol_id)?
             .declarations()
+            .get(&node_id)
+            // On utilise l'erreur existante qui prend juste le NodeId
+            .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(node_id))
+    }
+
+    pub fn try_get_usage_from(
+        &self,
+        symbol_id: SymbolId,
+        node_id: NodeId,
+    ) -> Result<&Usage, SymbolTableError> {
+        self.try_get_symbol(symbol_id)?
+            .usages()
             .get(&node_id)
             // On utilise l'erreur existante qui prend juste le NodeId
             .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(node_id))

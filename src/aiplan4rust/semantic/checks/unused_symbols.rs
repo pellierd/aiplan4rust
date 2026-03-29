@@ -10,6 +10,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::Tree;
+use crate::SymbolTable;
 
 /// Checks for symbol declarations that are never used within their valid scope.
 ///
@@ -55,11 +56,10 @@ use crate::aiplan4rust::tree::Tree;
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_unused_symbols(
     context: &CheckContext,
+    symbol_table: &mut SymbolTable,
     skip_symbols: &[SymbolKind],
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
-    let symbol_table = context.symbol_table();
-
     for symbol_entry in symbol_table.values() {
         for declaration in symbol_entry.declarations().values() {
             let declaration_kind = declaration.symbol_kind();

@@ -175,9 +175,26 @@ impl Linker {
                 let mut total_declared = domain_ctx.declared_requirements().clone();
                 total_declared.extend(problem_ctx.declared_requirements());
 
+                // 1. On "prend" les tables (elles sont remplacées par des tables vides dans les contextes)
+                // Cela libère domain_ctx et problem_ctx de tout emprunt mutable sur leurs tables.
+                let mut domain_table = take(domain_ctx.symbol_table_mut());
+                let mut problem_table = take(problem_ctx.symbol_table_mut());
+
+                // 2. Maintenant, on peut créer les CheckContext sans conflit !
+                // Rust autorise l'emprunt immuable de domain_ctx car domain_table est
+                // maintenant une variable indépendante sur la pile.
+                let domain_check_ctx = CheckContext::new(
+                    domain_ctx.syntax_tree(),
+                    &global_interner,
+                    domain_ctx.source(),
+                    Provider::Linker,
+                    domain_ctx.declared_requirements(),
+                    domain_ctx.required_requirements(),
+                    domain_ctx.requirement_triggers(),
+                );
+
                 let problem_check_ctx = CheckContext::new(
                     problem_ctx.syntax_tree(),
-                    problem_ctx.symbol_table(),
                     &global_interner,
                     problem_ctx.source(),
                     Provider::Linker,
@@ -185,11 +202,18 @@ impl Linker {
                     problem_ctx.required_requirements(),
                     problem_ctx.requirement_triggers(),
                 );
+
+                // 3. On fait l'analyse avec les tables "volées" (et mutables !)
                 perform_linking_checks(
-                    &domain_ctx.as_check_context(Provider::Linker),
+                    &domain_check_ctx,
                     &problem_check_ctx,
+                    &mut domain_table,
+                    &mut problem_table,
                     &mut self.diagnostic_manager,
                 )?;
+
+                domain_ctx.set_symbol_table(domain_table);
+                problem_ctx.set_symbol_table(problem_table);
 
                 // Step 5: If errors, return early with diagnostics only
                 if self
@@ -283,37 +307,67 @@ impl Linker {
 fn perform_linking_checks(
     domain: &CheckContext,
     problem: &CheckContext,
+    domain_table: &mut SymbolTable,
+    problem_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingError> {
-    let type_hierarchy = domain.symbol_table().to_type_hierarchy();
+    let type_hierarchy = domain_table.to_type_hierarchy();
 
     let type_checker = TypeChecker::new(&type_hierarchy);
 
     // Check that the domain name matches the problem's declared domain
-    linking::checks::check_domain_name(domain, problem, diagnostic_manager)?;
+    linking::checks::check_domain_name(
+        domain,
+        problem,
+        domain_table,
+        problem_table,
+        diagnostic_manager,
+    )?;
 
     // 2. On vérifie que les types utilisés dans le PROBLÈME existent dans le DOMAINE
     // On réutilise la fonction du domaine !
     let mut check = semantic::checks::check_symbol_types(
-        problem,         // On scanne la table du problème
+        problem,
+        problem_table,   // On scanne la table du problème
         &type_hierarchy, // Mais on valide par rapport à la hiérarchie du domaine
         diagnostic_manager,
     )?;
 
     // Check for duplicate symbol declarations across domain and problem
-    check &= linking::checks::check_cross_declared_symbols(domain, problem, diagnostic_manager)?;
+    check &= linking::checks::check_cross_declared_symbols(
+        domain,
+        problem,
+        domain_table,
+        problem_table,
+        diagnostic_manager,
+    )?;
 
     // Check for undeclared symbols used in the problem
-    check &= semantic::checks::check_undeclared_symbols(problem, &[], diagnostic_manager)?;
+    check &= semantic::checks::check_undeclared_symbols(
+        problem,
+        problem_table,
+        &[],
+        diagnostic_manager,
+    )?;
 
     // If structural checks passed, perform type_checker-dependent semantic checks
     if check {
         // Initialize a type_checker checker with the domain's symbol table
         // Validate signatures of declared symbols
-        semantic::checks::check_symbol_signatures(problem, &type_checker, diagnostic_manager)?;
+        semantic::checks::check_symbol_signatures(
+            problem,
+            problem_table,
+            &type_checker,
+            diagnostic_manager,
+        )?;
 
         // Verify the type_checker correctness of logic in the problem
-        semantic::checks::check_typed_expressions(problem, &type_checker, diagnostic_manager)?;
+        semantic::checks::check_typed_expressions(
+            problem,
+            problem_table,
+            &type_checker,
+            diagnostic_manager,
+        )?;
 
         // Check task ordering constraints in the problem
         semantic::checks::check_task_ordering(problem, diagnostic_manager)?;

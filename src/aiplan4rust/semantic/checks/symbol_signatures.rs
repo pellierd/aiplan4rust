@@ -41,14 +41,15 @@ use crate::aiplan4rust::tree::{Node, NodeId};
 ///     self.error_manager.add_errors_from(&errors);
 /// }
 /// ```
-
 pub fn check_symbol_signatures(
     context: &CheckContext,
+    symbol_table: &mut SymbolTable,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {
-    let symbol_table = context.symbol_table();
     let mut no_error = true;
+
+    let mut bindings = Vec::new();
 
     // Loop over all symbols in the symbol table.
     for symbol in symbol_table.values() {
@@ -109,28 +110,25 @@ pub fn check_symbol_signatures(
                     );
 
                     diagnostic_manager.add_diagnostic(error);
-                } /*else {
-                      // --- LE VISSAGE ---
-                      // On récupère les IDs nécessaires avant de demander l'accès mutable
-                      let symbol_id = symbol.ident();
-                      let decl_node_id = declaration.node_id();
-                      let usage_node_id = usage.node_id();
-
-                      // On accède à la table de manière mutable via le contexte
-                      let mut_table = context.symbol_table_mut();
-
-                      if let Some(entry) = mut_table.get_mut(&symbol_id) {
-                          // Lien Usage -> Declaration
-                          if let Some(u) = entry.usages_mut().get_mut(&usage_node_id) {
-                              u.set_resolved_declaration(decl_node_id);
-                          }
-                          // Lien Declaration -> Usage
-                          if let Some(d) = entry.declarations_mut().get_mut(&decl_node_id) {
-                              d.add_resolved_usage(usage_node_id);
-                          }
-                      }
-                  }*/
+                } else {
+                    bindings.push((symbol.ident(), declaration.node_id(), usage.node_id()));
+                }
             }
+        }
+    }
+
+    // --- PHASE 2 : LE VISSAGE (Mutation) ---
+    // La boucle précédente est terminée, l'emprunt immuable sur symbol_table est libéré.
+    // On peut maintenant demander l'accès mutable exclusif.
+    for (symbol_id, decl_node_id, usage_node_id) in bindings {
+        let mut entry = symbol_table.try_get_symbol_mut(symbol_id)?;
+        // Lien Usage -> Declaration
+        if let Some(u) = entry.usages_mut().get_mut(&usage_node_id) {
+            u.set_resolved_declaration(decl_node_id);
+        }
+        // Lien Declaration -> Usage
+        if let Some(d) = entry.declarations_mut().get_mut(&decl_node_id) {
+            d.add_resolved_usage(usage_node_id);
         }
     }
 

@@ -71,11 +71,11 @@ use crate::aiplan4rust::semantic::SymbolTable;
 pub fn check_cross_declared_symbols(
     domain: &CheckContext,
     problem: &CheckContext,
+    domain_symbol_table: &mut SymbolTable,
+    problem_symbol_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingCheckError> {
     let mut checked = true;
-    let domain_symbol_table = domain.symbol_table();
-    let problem_symbol_table = problem.symbol_table();
 
     // Iterate over all symbols declared in the problem context
     for symbol in problem_symbol_table.values() {

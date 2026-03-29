@@ -476,7 +476,6 @@ impl Context {
     pub fn as_check_context(&self, provider: Provider) -> CheckContext {
         CheckContext::new(
             self.syntax_tree(),
-            self.symbol_table(),
             self.interner(),
             self.source(),
             provider,

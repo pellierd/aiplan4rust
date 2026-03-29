@@ -6,8 +6,10 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
-use crate::aiplan4rust::lir::encoding::{atomic_formula_skeleton, expr};
+use crate::aiplan4rust::lir::encoding::{expr, typed_list};
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
@@ -37,7 +39,8 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<DerivedPredicate, LirError> {
+    ir: &mut LiftedProblem,
+) -> Result<(), LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
@@ -56,23 +59,26 @@ pub fn encode(
     let declaration =
         symbol_table.try_get_declaration_from(predicate_symbol_id, predicate_symbol_node_id)?;
 
-    /*println!(
-        "{}",
-        symbol_table.to_string_with_interner(registry.interner)
-    );
+    //println!("{}", symbol_table.to_string_with_interner(ir.interner()));
 
-    println!("{}", declaration);*/
+    //println!("{}", declaration);
+    let base_predicate_node_id = declaration.refines().unwrap();
+    let predicate_id = registry.try_resolve_predicate(base_predicate_node_id)?;
+    let head_skeleton_id = registry.try_resolve_atom_skeleton(base_predicate_node_id)?;
 
-    let predicate_id = registry.try_resolve_predicate(declaration.node_id())?;
-    let head_skeleton_id = registry.try_resolve_atom_skeleton(declaration.node_id())?;
+    // --- ÉTAPE 3 : Encodage du Head (Variables locales à l'axiome) ---
+    let params_node_id = head_node.try_child(1)?;
+    let params_node = ast.try_node(params_node_id)?;
 
-    // --- ÉTAPE 3 : Encodage du Head (Signature) ---
-    // C'est ici que les variables (?x, ?y) sont enregistrées dans le registre
-    let head_skeleton = atomic_formula_skeleton::encode(
-        &SyntaxSubtree::new(head_node, head_node_id, ast),
+    // On enregistre les variables (?x, ?y) SANS vider le registre
+    let parameters = typed_list::encode_variable_list(
+        &SyntaxSubtree::new(params_node, params_node_id, ast),
         registry,
-        predicate_id,
     )?;
+
+    let variable_symbols = registry.get_variable_symbols();
+    let head_skeleton = AtomicFormulaSkeleton::new(predicate_id, parameters)
+        .with_variable_symbols(variable_symbols);
 
     // --- ÉTAPE 4 : Encodage du Body ---
     // Maintenant que le registre contient uniquement les variables du head,
@@ -86,7 +92,8 @@ pub fn encode(
     let derived_predicate = DerivedPredicate::new(head_skeleton_id, head_skeleton, body)
         .with_variable_symbols(variable_symbols);
 
-    Ok(derived_predicate)
+    ir.add_derived_predicate_def(derived_predicate);
+    Ok(())
 }
 
 /*pub fn encode(

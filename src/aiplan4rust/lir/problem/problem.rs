@@ -109,7 +109,7 @@ pub struct Problem {
 
     /// Predicates whose truth value is derived from other facts via axioms.
     derived_predicate_defs: Vec<DerivedPredicateDef>,
-    derived_predicates_map: Vec<Vec<DerivedPredicateDefId>>,
+    predicate_derivations: Vec<Vec<DerivedPredicateDefId>>,
 
     /// Operators that can change the state of the world.
     action_defs: Vec<ActionDef>,
@@ -150,9 +150,9 @@ impl Problem {
     /// assert!(problem.action_defs().is_empty());
     /// assert!(problem.type_symbols().is_empty());
     /// ```
-    pub(crate) fn new(interner: SymbolInterner, requirements: HashSet<Requirement>) -> Self {
+    pub(crate) fn new(requirements: HashSet<Requirement>) -> Self {
         Self {
-            interner,
+            interner: SymbolInterner::new(),
             domain_name: SymbolId::default(),
             problem_name: SymbolId::default(),
             requirements,
@@ -169,7 +169,7 @@ impl Problem {
             task_defs: Vec::new(),
             domain_constraints: Expr::empty_or(),
             derived_predicate_defs: Vec::new(),
-            derived_predicates_map: Vec::new(),
+            predicate_derivations: Vec::new(),
             action_defs: Vec::new(),
             action_symbols: SymbolRegistry::new(),
             method_defs: Vec::new(),
@@ -1129,8 +1129,43 @@ impl Problem {
     ///
     /// # Parameters
     /// * `predicate`: The [`LiftedDerivedPredicate`] definition to be added.
-    pub fn add_derived_predicate_def(&mut self, predicate: DerivedPredicateDef) {
-        self.derived_predicate_defs.push(predicate);
+    pub fn add_derived_predicate_def(&mut self, def: DerivedPredicateDef) {
+        let skeleton_id = def.header_id();
+        let next_def_id = DerivedPredicateDefId::new(self.derived_predicate_defs.len());
+
+        // 1. Ajouter la définition à la liste globale
+        self.derived_predicate_defs.push(def);
+
+        // 2. Mettre à jour la table de dérivation
+        let idx = skeleton_id.as_usize();
+        if idx >= self.predicate_derivations.len() {
+            // On remplit avec des Vec vides pour les prédicats non-dérivés
+            self.predicate_derivations.resize(idx + 1, Vec::new());
+        }
+
+        // 3. "Visser" cette dérivation à sa signature
+        self.predicate_derivations[idx].push(next_def_id);
+    }
+
+    /// Retourne vrai si le prédicat associé à ce squelette est un prédicat dérivé.
+    /// (S'il possède au moins une dérivation/axiome).
+    pub fn is_derived(&self, skeleton_id: AtomSkeletonId) -> bool {
+        let idx = skeleton_id.as_usize();
+        // On vérifie si l'index existe et si le vecteur de dérivations n'est pas vide
+        self.predicate_derivations
+            .get(idx)
+            .map(|derivations| !derivations.is_empty())
+            .unwrap_or(false)
+    }
+
+    /// Retourne la liste des IDs de définitions (axiomes) pour un squelette donné.
+    /// Retourne une slice vide si le prédicat n'est pas dérivé.
+    pub fn get_derivations(&self, skeleton_id: AtomSkeletonId) -> &[DerivedPredicateDefId] {
+        let idx = skeleton_id.as_usize();
+        self.predicate_derivations
+            .get(idx)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     pub fn action_symbols(&self) -> &SymbolRegistry<ActionSymbolId> {

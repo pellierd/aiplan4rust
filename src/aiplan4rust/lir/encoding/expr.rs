@@ -38,12 +38,11 @@
 //! available for resolution by child nodes (the quantifier's body) during the
 //! traversal.
 
-use std::any::Any;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree};
@@ -296,52 +295,67 @@ fn encode_content(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
 ) -> Result<ExprContent, LirError> {
-
     match ast_node.kind() {
         // --- Complex Terms (Signatures / Skeletons) ---
         // These nodes represent "calls" (e.g., p(x, y)). We resolve the structural
         // skeleton which contains the symbol ID and the expected argument types.
         AstKind::AtomicFormula => {
             let predicate_node_id = ast_node.children()[0];
-            let atom_skeleton_declaration = registry.symbol_table()
-                .try_resolve_declaration_by_usage(predicate_node_id, SymbolKind::Predicate)?;
-            let atom_skeleton_id = registry.try_resolve_atom_skeleton(atom_skeleton_declaration.node_id())?;
+            //let atom_skeleton_declaration = registry.symbol_table()
+            //    .try_resolve_declaration_by_usage(predicate_node_id, SymbolKind::Predicate)?;
+
+            let predicate_node = subtree.tree().try_node(predicate_node_id)?;
+            let predicate_symbol = predicate_node.try_ident()?;
+            let usage = registry
+                .symbol_table()
+                .try_get_usage_from(predicate_symbol, predicate_node_id)?;
+            let decl_node = usage.resolved_declaration().unwrap();
+            let atom_skeleton_declaration = registry
+                .symbol_table()
+                .try_get_declaration_from(predicate_symbol, decl_node)?;
+
+            let atom_skeleton_id =
+                registry.try_resolve_atom_skeleton(atom_skeleton_declaration.node_id())?;
 
             Ok(ExprContent::AtomSkeleton(atom_skeleton_id))
-        },
+        }
         AstKind::Function => {
             let function_id = ast_node.children()[0];
             let symbol = subtree.tree().try_node(function_id)?.try_ident()?;
 
-            let function_skeleton_id = match symbol {
-                SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
-                    registry.try_resolve_function_skeleton(EncodingRegistry::TOTAL_TIME_NODE_ID)?
-                }
-                SymbolInterner::TOTAL_COST_SYMBOL_ID => {
-                    registry.try_resolve_function_skeleton(EncodingRegistry::TOTAL_COST_NODE_ID)?
-                }
-                // Cas utilisateur : Résolution via la table des symboles
-                _ => {
-                    let declaration = registry.symbol_table()
-                        .try_resolve_declaration_by_usage(function_id, SymbolKind::Function)?;
-                    registry.try_resolve_function_skeleton(declaration.node_id())?
-                }
-            };
+            let function_skeleton_id =
+                match symbol {
+                    SymbolInterner::TOTAL_TIME_SYMBOL_ID => registry
+                        .try_resolve_function_skeleton(EncodingRegistry::TOTAL_TIME_NODE_ID)?,
+                    SymbolInterner::TOTAL_COST_SYMBOL_ID => registry
+                        .try_resolve_function_skeleton(EncodingRegistry::TOTAL_COST_NODE_ID)?,
+                    // Cas utilisateur : Résolution via la table des symboles
+                    _ => {
+                        let declaration = registry
+                            .symbol_table()
+                            .try_resolve_declaration_by_usage(function_id, SymbolKind::Function)?;
+                        registry.try_resolve_function_skeleton(declaration.node_id())?
+                    }
+                };
             Ok(ExprContent::FunctionSkeleton(function_skeleton_id))
-        },
+        }
         AstKind::Task => {
             // The task identifier is the first child of the Task node
             let task_id = ast_node.children()[0];
 
             // 1. Attempt "soft" resolution for a Compound Task skeleton.
-            let declaration = match registry.symbol_table().resolve_declaration_by_usage(task_id, SymbolKind::Task)? {
+            let declaration = match registry
+                .symbol_table()
+                .resolve_declaration_by_usage(task_id, SymbolKind::Task)?
+            {
                 // Successfully resolved as a Compound Task
                 Some(decl) => decl,
 
                 // 2. Fallback to "strict" resolution for a Primitive Action.
                 // If it's not a compound task, it must be an action.
-                None => registry.symbol_table()
-                    .try_resolve_declaration_by_usage(task_id, SymbolKind::Action)?
+                None => registry
+                    .symbol_table()
+                    .try_resolve_declaration_by_usage(task_id, SymbolKind::Action)?,
             };
 
             // 3. Retrieve the unique Skeleton ID from the evaluator.
@@ -349,7 +363,7 @@ fn encode_content(
             let task_skeleton_id = registry.try_resolve_task_skeleton(declaration.node_id())?;
 
             Ok(ExprContent::TaskSkeleton(task_skeleton_id))
-        },
+        }
 
         // --- Quantifiers (Scope Management) ---
         AstKind::Forall | AstKind::Exists => {
@@ -373,16 +387,18 @@ fn encode_content(
             }
 
             Ok(ExprContent::QuantifierVariables(vars))
-        },
+        }
 
         // --- Atomic Symbols (Identities) ---
         // These nodes represent the symbols themselves. We resolve their
         // logical ID from the evaluator based on their declaration NodeId.
         AstKind::PredicateSymbol => {
-            let predicate_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Predicate)?;
+            let predicate_declaration = registry
+                .symbol_table()
+                .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Predicate)?;
             let predicate_id = registry.try_resolve_predicate(predicate_declaration.node_id())?;
             Ok(ExprContent::PredicateSymbol(predicate_id))
-        },
+        }
         AstKind::FunctionSymbol => {
             let symbol = ast_node.try_ident()?;
             let functor_id = match symbol {
@@ -393,19 +409,22 @@ fn encode_content(
                     registry.try_resolve_functor(EncodingRegistry::TOTAL_COST_NODE_ID)?
                 }
                 _ => {
-                    let declaration = registry.symbol_table()
+                    let declaration = registry
+                        .symbol_table()
                         .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Function)?;
                     registry.try_resolve_functor(declaration.node_id())?
                 }
             };
 
             Ok(ExprContent::FunctionSymbol(functor_id))
-        },
+        }
         AstKind::Object => {
-            let constant_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Constant)?;
+            let constant_declaration = registry
+                .symbol_table()
+                .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Constant)?;
             let constant_id = registry.try_resolve_object(constant_declaration.node_id())?;
             Ok(ExprContent::Object(constant_id))
-        },
+        }
         AstKind::Variable => {
             let symbol = ast_node.try_ident()?;
             let variable_id = match symbol {
@@ -415,24 +434,29 @@ fn encode_content(
                 }
                 // Cas standard : paramètres d'actions ou variables de quantificateurs
                 _ => {
-                    let declaration = registry.symbol_table()
+                    let declaration = registry
+                        .symbol_table()
                         .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Variable)?;
                     registry.try_resolve_variable(declaration.node_id())?
                 }
             };
 
             Ok(ExprContent::Variable(variable_id))
-        },
+        }
         AstKind::TaskSymbol => {
             // 1. Attempt "soft" resolution for a Compound Task.
-            let declaration = match registry.symbol_table().resolve_declaration_by_usage(ast_node_id, SymbolKind::Task)? {
+            let declaration = match registry
+                .symbol_table()
+                .resolve_declaration_by_usage(ast_node_id, SymbolKind::Task)?
+            {
                 // Successfully resolved as a Compound Task.
                 Some(decl) => decl,
 
                 // 2. Fallback to "strict" resolution for a Primitive Action.
                 // If it's not a Task, we try to resolve as an Action.
-                None => registry.symbol_table()
-                    .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Action)?
+                None => registry
+                    .symbol_table()
+                    .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Action)?,
             };
 
             // 3. Final ID Retrieval from the Registry (Pass 1).
@@ -456,10 +480,8 @@ fn encode_content(
             AstContent::ArithmeticOp(op) => Ok(ExprContent::ArithmeticOp(*op)),
             AstContent::OptimizationOp(op) => Ok(ExprContent::OptimizationOp(*op)),
             AstContent::None => Ok(ExprContent::None),
-            _ => {
-                Err(ExprError::unsupported_content(ast_node.content().clone()).into())
-            },
-        }
+            _ => Err(ExprError::unsupported_content(ast_node.content().clone()).into()),
+        },
     }
 }
 

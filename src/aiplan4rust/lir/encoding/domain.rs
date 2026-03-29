@@ -11,11 +11,14 @@
 
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{Requirement, SymbolId, Type, TypeId, TypedList};
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::encoding::{action, predicates_def, functions_def, types_def, constants_def, expr, method, derived_predicate, task};
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::encoding::{
+    action, constants_def, derived_predicate, expr, functions_def, method, predicates_def, task,
+    types_def,
+};
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 
@@ -50,7 +53,6 @@ pub(crate) fn encode(
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-
     // 1. Collection Phase: Populate IR skeletons and mapping tables.
     // This is separated to avoid simultaneous mutable borrows of the IR
     // while traversing the symbol tables.
@@ -93,9 +95,7 @@ fn collect_definitions(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
-
 ) -> Result<(), LirError> {
-
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
 
@@ -145,7 +145,6 @@ fn encode_logic(
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
 
@@ -154,14 +153,12 @@ fn encode_logic(
                 let constraints = expr::encode(&subtree, registry)?;
                 ir.set_domain_constraints(constraints);
             }
-            AstKind::ActionDef
-            | AstKind::DurativeActionDef => action::encode(&subtree, registry, ir)?,
-            AstKind::DerivedDef => {
-                let derived_predicate = derived_predicate::encode(&subtree, registry)?;
-                ir.add_derived_predicate_def(derived_predicate);
+            AstKind::ActionDef | AstKind::DurativeActionDef => {
+                action::encode(&subtree, registry, ir)?
             }
+            AstKind::DerivedDef => derived_predicate::encode(&subtree, registry, ir)?,
             AstKind::MethodDef => method::encode(&subtree, registry, ir)?,
-            _ => {} 
+            _ => {}
         }
     }
 
@@ -207,8 +204,8 @@ pub fn encode_builtin_functions(
     let reqs = ir.requirements();
 
     let has_action_costs = reqs.contains(&Requirement::ActionCosts);
-    let has_numeric_fluents = reqs.contains(&Requirement::Fluents)
-        || reqs.contains(&Requirement::NumericFluents);
+    let has_numeric_fluents =
+        reqs.contains(&Requirement::Fluents) || reqs.contains(&Requirement::NumericFluents);
     let has_durative = reqs.contains(&Requirement::DurativeActions);
 
     // Case: Action Costs -> Register 'total-cost'
@@ -272,11 +269,8 @@ fn register_builtin_function(
 
     // 2. Define and register the function skeleton (signature)
     // System functions like total-time/total-cost always have an empty parameter list.
-    let skeleton = AtomicFunctionSkeleton::new(
-        sym,
-        TypedList::empty(),
-        Type::primitive(return_type),
-    );
+    let skeleton =
+        AtomicFunctionSkeleton::new(sym, TypedList::empty(), Type::primitive(return_type));
 
     let def_id = ir.add_function_def(skeleton);
     registry.register_function_skeleton(virtual_node_id, def_id);

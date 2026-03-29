@@ -11,6 +11,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId};
+use crate::SymbolTable;
 
 /// Checks the type compatibility of typed expressions in the syntax tree, including
 /// comparisons, assignments, and arithmetic operations.
@@ -51,6 +52,7 @@ use crate::aiplan4rust::tree::{Node, NodeId};
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_typed_expressions(
     context: &CheckContext,
+    symbol_table: &mut SymbolTable,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {
@@ -58,7 +60,7 @@ pub fn check_typed_expressions(
 
     for node in context.syntax_tree().preorder().values() {
         if is_equal_binary_comp(node) || is_assign(node) {
-            let (ty1, ty2) = get_binary_operation_types(node, context)?;
+            let (ty1, ty2) = get_binary_operation_types(node, context, symbol_table)?;
 
             // Call check_equal_and_assign function to handle this case
             no_error &= check_equal_and_assignment_expression(
@@ -70,7 +72,7 @@ pub fn check_typed_expressions(
                 diagnostic_manager,
             )?;
         } else if is_numeric_expression(node) {
-            let (ty1, ty2) = get_binary_operation_types(node, context)?;
+            let (ty1, ty2) = get_binary_operation_types(node, context, symbol_table)?;
 
             // Call check_other_cases function to handle these cases
             no_error &= check_numeric_expression(context, node, &ty1, &ty2, diagnostic_manager);
@@ -269,6 +271,7 @@ fn check_numeric_expression(
 fn get_binary_operation_types(
     node: &AstNode,
     context: &CheckContext,
+    symbol_table: &SymbolTable,
 ) -> Result<(Type<SymbolId>, Type<SymbolId>), SemanticError> {
     let ast = context.syntax_tree();
 
@@ -281,13 +284,11 @@ fn get_binary_operation_types(
     let arg2 = ast.try_node(arg2_id)?;
 
     // Get the typing of the first operand, or return a specific error if missing
-    let ty1 = get_type(arg1_id, arg1, context)?.ok_or_else(|| {
-        println!("DEBUG////{}{}", arg1.kind(), arg1.to_string());
-        SemanticCheckError::missing_operand_type(arg1_id, 0)
-    })?;
+    let ty1 = get_type(arg1_id, arg1, context, symbol_table)?
+        .ok_or_else(|| SemanticCheckError::missing_operand_type(arg1_id, 0))?;
 
     // Get the typing of the second operand, or return a specific error if missing
-    let ty2 = get_type(arg2_id, arg2, context)?
+    let ty2 = get_type(arg2_id, arg2, context, symbol_table)?
         .ok_or_else(|| SemanticCheckError::missing_operand_type(arg2_id, 1))?;
 
     Ok((ty1, ty2))
@@ -324,19 +325,22 @@ pub fn get_type(
     index: NodeId,
     node: &AstNode,
     context: &CheckContext,
+    symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
         AstKind::Number => get_number_type(),
 
         // Case 2: Variable
-        AstKind::Variable => get_variable_type(index, node.content().try_ident()?, context),
+        AstKind::Variable => {
+            get_variable_type(index, node.content().try_ident()?, context, symbol_table)
+        }
 
         // Case 3: Constant
-        AstKind::Object => get_constant_type(index, node.content().try_ident()?, context),
+        AstKind::Object => get_constant_type(index, node.content().try_ident()?, symbol_table),
 
         // Case 4: Function Term
-        AstKind::Function => get_function_term_type(node, context),
+        AstKind::Function => get_function_term_type(node, context, symbol_table),
 
         // Case 5: Arithmetic Operation
         AstKind::Arithmetic => get_number_type(),
@@ -412,13 +416,11 @@ fn get_variable_type(
     index: NodeId,
     symbol: SymbolId,
     context: &CheckContext,
+    symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
     // 1. Priority: Check for an explicit declaration in the symbol table.
     // This handles cases where a user might redefine a reserved name (shadowing).
-    if let Some(decl) = context
-        .symbol_table()
-        .resolve_declaration_by_usage(index, SymbolKind::Variable)?
-    {
+    if let Some(decl) = symbol_table.resolve_declaration_by_usage(index, SymbolKind::Variable)? {
         return Ok(decl.ty().cloned());
     }
 
@@ -431,7 +433,7 @@ fn get_variable_type(
     }
 
     // 3. Fallback: Standard declaration lookup.
-    get_declaration_type(index, context, SymbolKind::Variable)
+    get_declaration_type(index, symbol_table, SymbolKind::Variable)
 }
 
 /// Retrieves the type_checker of a constant symbol from the symbol table.
@@ -459,9 +461,9 @@ fn get_variable_type(
 fn get_constant_type(
     index: NodeId,
     _symbol: SymbolId,
-    context: &CheckContext,
+    symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    get_declaration_type(index, context, SymbolKind::Constant)
+    get_declaration_type(index, symbol_table, SymbolKind::Constant)
 }
 
 /// Helper function to retrieve the types associated with a symbol usage from the symbol table.
@@ -493,13 +495,10 @@ fn get_constant_type(
 /// ```
 fn get_declaration_type(
     node_id: NodeId,
-    context: &CheckContext,
+    symbol_table: &SymbolTable,
     kind: SymbolKind,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    match context
-        .symbol_table()
-        .resolve_declaration_by_usage(node_id, kind)?
-    {
+    match symbol_table.resolve_declaration_by_usage(node_id, kind)? {
         Some(decl) => Ok(decl.ty().cloned()),
         None => Ok(None),
     }
@@ -533,6 +532,7 @@ fn get_declaration_type(
 fn get_function_term_type(
     node: &AstNode,
     context: &CheckContext,
+    symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
     let functor_index = node.try_child(0)?;
     let functor_entry = context.syntax_tree().try_node(functor_index)?;
@@ -543,7 +543,7 @@ fn get_function_term_type(
         {
             return get_number_type();
         }
-        return get_declaration_type(functor_index, context, SymbolKind::Function);
+        return get_declaration_type(functor_index, symbol_table, SymbolKind::Function);
     }
 
     Err(SemanticError::unexpected_node_kind(

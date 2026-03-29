@@ -7,6 +7,7 @@ use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 
+use crate::SymbolTable;
 use bimap::BiMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -51,13 +52,14 @@ use std::collections::HashSet;
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_type_hierarchy(
     context: &CheckContext,
+    symbol_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     // Step 1: Collect all type_checker declarations from the root scope (PrimitiveType only)
-    let types = context.symbol_table().collect_declarations(
+    let types = symbol_table.collect_declarations(
         None,
         Some(&SymbolKind::PrimitiveType),
-        Some(&context.symbol_table().root_scope()),
+        Some(&symbol_table.root_scope()),
     );
 
     // Step 2: Build a bidirectional mapping between type_checker names and unique numeric indices

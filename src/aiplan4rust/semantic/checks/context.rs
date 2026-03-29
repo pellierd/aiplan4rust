@@ -13,7 +13,6 @@
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{LiteralId, Requirement};
-use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::{NodeId, Tree};
 use std::collections::{HashMap, HashSet};
@@ -63,7 +62,6 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone)]
 pub struct Context<'a> {
     syntax_tree: &'a Tree<AstNode>,
-    symbols: &'a SymbolTable,
     interner: &'a SymbolInterner,
     source_id: LiteralId,
     provider: Provider,
@@ -113,7 +111,6 @@ impl<'a> Context<'a> {
     /// [`Literal`]: crate::interner::Literal
     pub fn new(
         syntax_tree: &'a Tree<AstNode>,
-        symbols: &'a SymbolTable,
         interner: &'a SymbolInterner,
         source_id: LiteralId,
         provider: Provider,
@@ -123,7 +120,6 @@ impl<'a> Context<'a> {
     ) -> Self {
         Self {
             syntax_tree,
-            symbols,
             interner,
             source_id,
             provider,
@@ -136,11 +132,6 @@ impl<'a> Context<'a> {
     /// Returns the AST.
     pub fn syntax_tree(&self) -> &'a Tree<AstNode> {
         self.syntax_tree
-    }
-
-    /// Returns the symbol table.
-    pub fn symbol_table(&self) -> &'a SymbolTable {
-        self.symbols
     }
 
     /// Returns the string interner.

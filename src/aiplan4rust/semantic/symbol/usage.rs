@@ -166,29 +166,28 @@ impl RemapSymbol for Usage {
 }
 
 impl fmt::Display for Usage {
-    /// Formats the usage using standard formatting.
-    ///
-    /// The output includes the AST index, symbol kind, identifier, scope, and origin.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
+            "[node: {}, kind: {}, ident: {}, scope: {}, origin: {}",
             self.node_id.as_usize(),
             self.symbol_kind(),
             self.symbol_id(),
             self.scope,
             self.origin
-        )
+        )?;
+
+        if let Some(decl_node_id) = self.resolved_declaration {
+            write!(f, ", resolved_decl: {}", decl_node_id.as_usize())?;
+        } else {
+            write!(f, ", resolved_decl: None")?;
+        }
+
+        write!(f, "]")
     }
 }
 
 impl InternerDisplay for Usage {
-    /// Formats the usage using the given interner to resolve interned identifiers.
-    ///
-    /// # Parameters
-    ///
-    /// - `f`: Formatter used to produce the output.
-    /// - `interner`: A `StringInterner` for resolving interned `Ident` values to strings.
     fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -197,14 +196,24 @@ impl InternerDisplay for Usage {
         let symbol_str = interner
             .resolve_symbol(self.symbol_id())
             .unwrap_or("<uninterned>");
+
         write!(
             f,
-            "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
+            "[node: {}, kind: {}, ident: {}, scope: {}, origin: {}",
             self.node_id.as_usize(),
             self.symbol_kind(),
             symbol_str,
             self.scope,
             self.origin
-        )
+        )?;
+
+        // Affichage du lien vers la déclaration (le vissage)
+        if let Some(decl_node_id) = self.resolved_declaration {
+            write!(f, ", resolved_decl: {}", decl_node_id.as_usize())?;
+        } else {
+            write!(f, ", resolved_decl: None")?;
+        }
+
+        write!(f, "]")
     }
 }

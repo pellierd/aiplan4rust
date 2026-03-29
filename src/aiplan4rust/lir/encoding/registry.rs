@@ -20,11 +20,10 @@ use std::collections::HashMap;
 ///
 /// This structure acts as a bridge between the semantic analysis and the LIR.
 /// It carries the necessary mappings to resolve names into indices.
-pub struct EncodingRegistry<'a> {
+pub struct EncodingRegistry {
     /// **The Symbol Table**: A reference to the semantic table containing
     /// identifiers for the current scope (e.g., action parameters, constants).
     symbol_table: SymbolTable,
-    pub interner: &'a SymbolInterner,
 
     /// **Type Mapping**: Links a semantic `Type` structure (primitive or union)
     /// to its unique index in the LIR.
@@ -63,7 +62,7 @@ pub struct EncodingRegistry<'a> {
     task_label_id_to_symbol: Vec<SymbolId>,
 }
 
-impl<'a> EncodingRegistry<'a> {
+impl EncodingRegistry {
     /// Reserved [`NodeId`] for the implicit `total-time` function.
     /// Maps to the temporal fluent representing elapsed plan time.
     pub const TOTAL_TIME_NODE_ID: NodeId = NodeId::new(usize::MAX - 1);
@@ -87,10 +86,9 @@ impl<'a> EncodingRegistry<'a> {
     /// * `symbol_table` - The table used to resolve local variables and symbols.
     /// * `ast_pred_to_idx` - The global evaluator of predicate indices.
     /// * `ast_func_to_idx` - The global evaluator of function indices.
-    pub fn new(symbol_table: SymbolTable, interner: &'a SymbolInterner) -> Self {
+    pub fn new(symbol_table: SymbolTable) -> Self {
         Self {
             symbol_table,
-            interner,
             type_node_to_id: HashMap::new(),
             type_symbol_to_id: HashMap::new(),
             object_to_id: HashMap::new(),

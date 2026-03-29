@@ -5,6 +5,7 @@ use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
+use crate::SymbolTable;
 
 /// Checks for undeclared symbols within the syntax tree and reports missing declarations.
 ///
@@ -49,11 +50,11 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_undeclared_symbols(
     context: &CheckContext,
+    symbol_table: &mut SymbolTable,
     skip_symbols: &[SymbolKind],
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
-    let symbol_table = context.symbol_table();
 
     for symbol in symbol_table.values() {
         for usage in symbol.usages().values() {

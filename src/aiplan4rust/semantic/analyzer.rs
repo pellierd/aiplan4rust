@@ -66,6 +66,8 @@ use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
+use crate::SymbolTable;
+use std::mem::take;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -205,7 +207,7 @@ impl Analyzer {
             }
 
             AstKind::Problem => {
-                self.perform_problem_analysis(&context)?;
+                self.perform_problem_analysis(&mut context)?;
             }
 
             found => {
@@ -248,47 +250,66 @@ impl Analyzer {
         // On extrait la hiérarchie une seule fois pour tout le processus.
         let type_hierarchy = context.symbol_table().to_type_hierarchy();
         let type_checker = TypeChecker::new(&type_hierarchy);
+        let mut symbol_table = take(context.symbol_table_mut());
+
+        let check_ctx = CheckContext::new(
+            context.syntax_tree(),
+            context.interner(),
+            context.source(),
+            Provider::Analyzer,
+            context.declared_requirements(),
+            context.required_requirements(),
+            context.requirement_triggers(),
+        );
 
         // --- ÉTAPE 1 : VALIDATION DE BASE ---
         // Utilisation d'un scope pour libérer l'emprunt immuable du contexte avant la mutation.
         let checked = {
-            let check_ctx = context.as_check_context(Provider::Analyzer);
-            Self::check_domain_base(&check_ctx, &type_hierarchy, &mut self.diagnostic_manager)?
+            Self::check_domain_base(
+                &check_ctx,
+                &mut symbol_table,
+                &type_hierarchy,
+                &mut self.diagnostic_manager,
+            )? // pass peut echoue et la table non remise
         };
 
         // Si la base est invalide ou contient des erreurs critiques, on s'arrête.
         if !checked {
+            context.set_symbol_table(symbol_table);
             return Ok(false);
         }
 
         // --- ÉTAPE 2 : OPTIMISATION & FINALISATION (Mutation) ---
         // On transforme l'AST pour refléter les types simplifiés.
-        let mut table = context.take_symbol_table();
         let changes = {
             let pass_ctx =
                 PassContext::new(context.interner(), context.source(), Provider::Analyzer);
             passes::symbol_table::finalize(
                 &pass_ctx,
                 &type_checker,
-                &mut table,
+                &mut symbol_table,
                 &mut self.diagnostic_manager,
-            )?
+            )? // pass peut echoue et la table non remise
+        };
+
+        // --- ÉTAPE 3 : VALIDATION AVANCÉE ---
+        // Cette phase profite de la SymbolTable simplifiée et de l'AST patché.
+        let advanced_checked = {
+            Self::check_domain_advanced(
+                &check_ctx,
+                &mut symbol_table,
+                &type_checker,
+                &mut self.diagnostic_manager,
+            )? // pass peut echoue et la table non remise
         };
 
         // On remet la table (optimisée) dans le contexte.
-        context.set_symbol_table(table);
+        context.set_symbol_table(symbol_table);
 
         // Patch chirurgical de l'AST basé sur les changements collectés.
         if !changes.is_empty() {
             passes::ast::finalize(context, &changes)?;
         }
-
-        // --- ÉTAPE 3 : VALIDATION AVANCÉE ---
-        // Cette phase profite de la SymbolTable simplifiée et de l'AST patché.
-        let advanced_checked = {
-            let check_ctx = context.as_check_context(Provider::Analyzer);
-            Self::check_domain_advanced(&check_ctx, &type_checker, &mut self.diagnostic_manager)?
-        };
 
         Ok(advanced_checked)
     }
@@ -322,20 +343,31 @@ impl Analyzer {
     /// - `Err(SemanticError)` if an unexpected internal error occurs during validation.
     fn check_domain_base(
         context: &CheckContext,
+        symbol_table: &mut SymbolTable,
         type_hierarchy: &TypeHierarchy,
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
         // 1. Validate basic symbol declarations (starting with Constants).
-        let mut checked =
-            Self::check_symbols(context, &[], &[SymbolKind::Constant], diagnostic_manager)?;
+        let mut checked = Self::check_symbols(
+            context,
+            symbol_table,
+            &[],
+            &[SymbolKind::Constant],
+            diagnostic_manager,
+        )?;
 
         // 2. Verify that ALL types used across the domain are properly declared.
         // This catches "ghost types" by comparing references against the established hierarchy.
-        checked &=
-            semantic::checks::check_symbol_types(context, type_hierarchy, diagnostic_manager)?;
+        checked &= semantic::checks::check_symbol_types(
+            context,
+            symbol_table,
+            type_hierarchy,
+            diagnostic_manager,
+        )?;
 
         // 3. Structural validation of the type tree/graph.
-        checked &= semantic::checks::check_type_hierarchy(context, diagnostic_manager)?;
+        checked &=
+            semantic::checks::check_type_hierarchy(context, symbol_table, diagnostic_manager)?;
 
         Ok(checked)
     }
@@ -371,18 +403,34 @@ impl Analyzer {
     /// simplification phase have completed successfully.
     fn check_domain_advanced(
         context: &CheckContext,
+        symbol_table: &mut SymbolTable,
         type_checker: &TypeChecker,
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
         let mut checked = true;
 
+        checked &= semantic::checks::check_derived_predicates(
+            context,
+            symbol_table,
+            type_checker,
+            diagnostic_manager,
+        )?;
+
         // 1. Verify that all calls to predicates/functions respect their type signatures.
-        checked &=
-            semantic::checks::check_symbol_signatures(context, type_checker, diagnostic_manager)?;
+        checked &= semantic::checks::check_symbol_signatures(
+            context,
+            symbol_table,
+            type_checker,
+            diagnostic_manager,
+        )?;
 
         // 2. Perform deep type checking on the expression Arena (AST).
-        checked &=
-            semantic::checks::check_typed_expressions(context, &type_checker, diagnostic_manager)?;
+        checked &= semantic::checks::check_typed_expressions(
+            context,
+            symbol_table,
+            &type_checker,
+            diagnostic_manager,
+        )?;
 
         // 3. Validate structural ordering and task dependencies.
         checked &= semantic::checks::check_task_ordering(context, diagnostic_manager)?;
@@ -408,9 +456,9 @@ impl Analyzer {
     /// or `Err(SemanticError)` if internal errors occur.
     fn perform_problem_analysis(
         &mut self,
-        context: &SemanticContext,
+        context: &mut SemanticContext,
     ) -> Result<bool, SemanticError> {
-        // Skip these kinds during undeclared symbol check in problems
+        // 1. On définit les filtres
         let skip_types_undeclared = &[
             SymbolKind::PrimitiveType,
             SymbolKind::Constant,
@@ -419,9 +467,18 @@ impl Analyzer {
             SymbolKind::Task,
         ];
 
+        // 2. ON SORT LA TABLE (Take)
+        // Cela libère context de tout emprunt mutable.
+        let mut symbol_table = std::mem::take(context.symbol_table_mut());
+
+        // 3. ON CRÉE LE CONTEXTE DE CHECK
+        // Comme la table est sortie, context peut être emprunté en immuable sans conflit.
         let check_context = context.as_check_context(Provider::Analyzer);
+
+        // 4. ANALYSE
         let mut checked = Self::check_symbols(
             &check_context,
+            &mut symbol_table, // On utilise la table extraite
             skip_types_undeclared,
             &[],
             &mut self.diagnostic_manager,
@@ -429,6 +486,9 @@ impl Analyzer {
 
         checked &=
             semantic::checks::check_task_ordering(&check_context, &mut self.diagnostic_manager)?;
+
+        // 5. ON REMET LA TABLE
+        context.set_symbol_table(symbol_table);
 
         Ok(checked)
     }
@@ -459,6 +519,7 @@ impl Analyzer {
     /// ```
     pub fn check_symbols(
         context: &CheckContext,
+        symbol_table: &mut SymbolTable,
         skip_types_undeclared: &[SymbolKind],
         skip_symbols_unused: &[SymbolKind],
         diagnostic_manager: &mut DiagnosticManager,
@@ -466,11 +527,13 @@ impl Analyzer {
         let mut checked = true;
 
         // Verify declared symbols correctness
-        checked &= semantic::checks::check_symbol_declarations(context, diagnostic_manager)?;
+        checked &=
+            semantic::checks::check_symbol_declarations(context, symbol_table, diagnostic_manager)?;
 
         // Check undeclared symbols, skipping specified types
         checked &= semantic::checks::check_undeclared_symbols(
             context,
+            symbol_table,
             skip_types_undeclared,
             diagnostic_manager,
         )?;
@@ -478,6 +541,7 @@ impl Analyzer {
         // Check for unused symbols, skipping specified symbols
         checked &= semantic::checks::check_unused_symbols(
             context,
+            symbol_table,
             skip_symbols_unused,
             diagnostic_manager,
         )?;

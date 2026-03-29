@@ -23,6 +23,7 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::linking::checks::error::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::SymbolTable;
 
 /// Checks for consistency between the domain name declared in the domain context
 /// and the domain name referenced in the problem context.
@@ -58,17 +59,15 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 pub fn check_domain_name(
     domain: &CheckContext,
     problem: &CheckContext,
+    domain_symbol_table: &mut SymbolTable,
+    problem_symbol_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingCheckError> {
     // --- 1. Resolve the domain name declared in the domain AST ---
-    let declared = domain
-        .symbol_table()
-        .try_resolve_unique_declaration(SymbolKind::DomainName)?;
+    let declared = domain_symbol_table.try_resolve_unique_declaration(SymbolKind::DomainName)?;
 
     // --- 2. Resolve the domain name referenced in the problem AST ---
-    let referenced = problem
-        .symbol_table()
-        .try_resolve_unique_declaration(SymbolKind::DomainName)?;
+    let referenced = problem_symbol_table.try_resolve_unique_declaration(SymbolKind::DomainName)?;
 
     // --- 3. Compare both domain names ---
     // If the names don't match, emit a diagnostic warning.

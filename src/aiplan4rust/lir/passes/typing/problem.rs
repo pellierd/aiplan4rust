@@ -24,14 +24,14 @@
 //! type system where every symbol points to a single canonical [`TypeId`].
 
 use crate::aiplan4rust::lang::{Type, TypeId, TypedSymbol};
+use crate::aiplan4rust::lir::passes::typing::registry::TypeRegistry;
+use crate::aiplan4rust::lir::passes::typing::{
+    action, atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr,
+    initial_task_network, method, task, typed_symbol,
+};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::passes::typing::{
-    atomic_formula_skeleton, atomic_function_skeleton, derived_predicate,
-    expr, typed_symbol, task, action, method, initial_task_network
-};
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::lir::passes::typing::registry::TypeRegistry;
 
 /// Prefix used for the generation of unified anonymous type symbols.
 const ANONYMOUS_PREFIX: &str = "anonymous_either";
@@ -130,10 +130,11 @@ pub fn normalize(problem: &mut LiftedProblem) -> Result<(), LirError> {
 /// * `Ok(TypeId)` containing the identifier for the root type (always 0).
 /// * `Err(LirError)` if the type definition could not be registered.
 fn create_root_type(problem: &mut LiftedProblem) -> Result<TypeId, LirError> {
-
     // 1. Intern the "object" string
     // This provides a consistent symbol name for the root of the hierarchy.
-    let name_id = problem.interner_mut().intern_symbol(ROOT_TYPE_NAME.to_string());
+    let name_id = problem
+        .interner_mut()
+        .intern_symbol(ROOT_TYPE_NAME.to_string());
 
     // 2. Register the symbol in the problem
     // In a clean LIR state, the first type added must be ID 0.
@@ -141,8 +142,7 @@ fn create_root_type(problem: &mut LiftedProblem) -> Result<TypeId, LirError> {
 
     // Safety Check: Catch logical errors where a type was registered before 'object'.
     debug_assert_eq!(
-        registered_id,
-        ROOT_TYPE_ID,
+        registered_id, ROOT_TYPE_ID,
         "Root type 'object' desynchronized. Expected ID 0, got {:?}",
         registered_id
     );
@@ -150,10 +150,7 @@ fn create_root_type(problem: &mut LiftedProblem) -> Result<TypeId, LirError> {
     // 3. Definition Registration
     // The root type is the ultimate parent; in the LIR, it is defined as a
     // Type::root() to stop recursive parent lookups.
-    problem.add_type_defs(TypedSymbol::new(
-        registered_id,
-        Type::root()
-    ))?;
+    problem.add_type_defs(TypedSymbol::new(registered_id, Type::root()))?;
 
     Ok(registered_id)
 }
@@ -220,14 +217,14 @@ fn create_anonymous_either_type(
     let registered_id = problem.add_type_symbol(name_id);
 
     // Safety Check: Ensure the registry counter remains synchronized with the problem's state.
-    debug_assert_eq!(id, registered_id, "Desynchronization between TypeRegistry and Problem TypeTable");
+    debug_assert_eq!(
+        id, registered_id,
+        "Desynchronization between TypeRegistry and Problem TypeTable"
+    );
 
     // --- 4. Definition Registration ---
     // Inject the new TypedSymbol (the actual Type definition) into the problem's registry.
-    problem.add_type_defs(TypedSymbol::new(
-        registered_id,
-        members
-    ))?;
+    problem.add_type_defs(TypedSymbol::new(registered_id, members))?;
 
     Ok(registered_id)
 }
@@ -262,7 +259,6 @@ fn normalize_problem(
     registry: &mut TypeRegistry,
     stack: &mut Vec<NodeId>,
 ) -> Result<(), LirError> {
-
     // --- 1. Objects & Constants ---
     // Re-type all objects and constants to match the unified type space.
     // This is the foundation of the grounding domain.
@@ -324,11 +320,12 @@ fn normalize_problem(
 
 #[cfg(test)]
 mod tests {
-    use super::*; // Importe flatten et create_anonymous_either_type
-    use crate::aiplan4rust::interner::SymbolInterner;
-    use crate::aiplan4rust::lang::{Type, TypeId, TypedSymbol};
-    use crate::aiplan4rust::lir::problem::LiftedProblem;
+    use super::*;
+    // Importe flatten et create_anonymous_either_type
+        use crate::aiplan4rust::interner::SymbolInterner;
+    use crate::aiplan4rust::lang::{Type, TypedSymbol};
     use crate::aiplan4rust::lir::expr::ExprBuilder;
+    use crate::aiplan4rust::lir::problem::LiftedProblem;
     use std::collections::HashSet;
     #[test]
     /// ### Objective
@@ -336,7 +333,8 @@ mod tests {
     /// `Either` types located inside quantified expressions (Exists/Forall).
     fn test_flatten_quantified_expression_types() -> Result<(), Box<dyn std::error::Error>> {
         let interner = SymbolInterner::new();
-        let mut problem = LiftedProblem::new(interner, HashSet::new());
+        let mut problem = LiftedProblem::new(HashSet::new());
+        problem.set_interner(interner);
 
         // 1. Définition des types de base (Roots)
         let sym_a = problem.interner_mut().intern_symbol("a");
@@ -376,7 +374,10 @@ mod tests {
         let final_expr = problem.problem_constraints();
 
         // On récupère les variables du quantificateur après transformation
-        let vars = final_expr.try_root_node()?.content().try_quantifier_vars()?;
+        let vars = final_expr
+            .try_root_node()?
+            .content()
+            .try_quantifier_vars()?;
         let var_type = vars[0].ty();
 
         // Verification 1 : Le typing ad-hoc [a, b] doit avoir été remplacé par un ID unique (longueur 1)
@@ -391,8 +392,14 @@ mod tests {
         let new_type_def = problem.try_get_type(new_type_id)?.ty();
 
         // Verification 3 : Le nouveau typing doit contenir les racines originales
-        assert!(new_type_def.members().contains(&id_a), "Le nouveau type doit contenir 'a'");
-        assert!(new_type_def.members().contains(&id_b), "Le nouveau type doit contenir 'b'");
+        assert!(
+            new_type_def.members().contains(&id_a),
+            "Le nouveau type doit contenir 'a'"
+        );
+        assert!(
+            new_type_def.members().contains(&id_b),
+            "Le nouveau type doit contenir 'b'"
+        );
 
         // Verification 4 : Le nom doit être déterministe et utiliser ton préfixe
         let sym_id = problem.type_symbols().try_get_ident(new_type_id)?;

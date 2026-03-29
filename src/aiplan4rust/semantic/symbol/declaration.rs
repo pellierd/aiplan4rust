@@ -107,9 +107,26 @@ pub struct Declaration {
     /// from an external module; otherwise `None`.
     imported_scope: Option<Scope>,
 
+    /// L'identifiant du nœud d'alias dans le fichier source.
+    /// Utilisé principalement pour pointer vers le nœud du `Domain`
+    /// lorsqu'un symbole est déclaré ou importé, permettant de conserver
+    /// la trace de la déclaration originale.
     alias_node_id: Option<NodeId>,
 
+    /// Liste des identifiants de nœuds d'utilisation (`Usage`) qui ont été
+    /// formellement résolus vers cette déclaration. C'est le résultat du "vissage"
+    /// bidirectionnel entre l'utilisation et sa définition.
     resolved_usages: Vec<NodeId>,
+
+    /// Dans le cas d'un `SymbolKind::Predicate`, contient l'identifiant du nœud
+    /// du `DerivedPredicate` qui l'implémente ou le raffine logiquement.
+    /// Permet de rediriger l'évaluation vers la logique de l'axiome.
+    refined_by: Vec<NodeId>,
+
+    /// Dans le cas d'un `SymbolKind::DerivedPredicate`, contient l'identifiant
+    /// du nœud du `Predicate` de base (la signature) dont il provient.
+    /// Assure le lien inverse entre l'implémentation et sa définition abstraite.
+    refines: Option<NodeId>,
 }
 
 impl Declaration {
@@ -178,6 +195,8 @@ impl Declaration {
             imported_scope,
             alias_node_id,
             resolved_usages: vec![],
+            refined_by: vec![],
+            refines: None,
         }
     }
 
@@ -409,15 +428,45 @@ impl Declaration {
     }
 
     /// Ajoute un usage résolu à cette déclaration.
-    pub fn add_resolved_usage(&mut self, usage_node_id: NodeId) {
+    pub fn add_resolved_usage(&mut self, usage_node_id: NodeId) -> bool {
         // Optionnel : éviter les doublons si la boucle de l'analyzer repasse
         if !self.resolved_usages.contains(&usage_node_id) {
             self.resolved_usages.push(usage_node_id);
+            return true;
         }
+        false
     }
 
     pub fn resolved_usages(&self) -> &[NodeId] {
         &self.resolved_usages
+    }
+
+    /// Retourne la liste des nœuds de prédicats dérivés qui raffinent ce symbole.
+    /// Si le vecteur est vide, retourne une slice vide.
+    pub fn refined_by(&self) -> &[NodeId] {
+        &self.refined_by
+    }
+
+    /// Retourne le nœud du prédicat de base que ce prédicat dérivé implémente.
+    pub fn refines(&self) -> Option<NodeId> {
+        self.refines
+    }
+
+    // --- Mutators (Setters / Adders) ---
+
+    /// Ajoute un lien vers un prédicat dérivé (axiome).
+    /// Si le vecteur n'existe pas encore, il est créé.
+    pub fn add_refined_by(&mut self, derived_node_id: NodeId) -> bool {
+        if !self.refined_by.contains(&derived_node_id) {
+            self.refined_by.push(derived_node_id);
+            return true;
+        }
+        false
+    }
+
+    /// Définit le prédicat de base dont provient ce prédicat dérivé.
+    pub fn set_refines(&mut self, base_node_id: NodeId) {
+        self.refines = Some(base_node_id);
     }
 
     /// Formats the types of the declaration for display.
@@ -595,41 +644,29 @@ impl Declaration {
 }
 
 impl fmt::Display for Declaration {
-    /// Formats the `Declaration` for display purposes.
-    ///
-    /// This implementation writes a structured representation of the declaration,
-    /// including its AST node ID, symbol kind, identifier (raw ID), scope, origin,
-    /// and optionally the associated types, arguments, and their corresponding
-    /// syntax node IDs.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter used to write the string representation.
-    ///
-    /// # Returns
-    ///
-    /// A `fmt::Result` indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // 1. Basic information: node_id, kind, and raw symbol identifier
+        // 1. Identité de base (node_id, kind et l'ID du symbole brut)
         write!(
             f,
             "[node: {}, kind: {}, ident: {}",
-            self.node_id().as_usize(),
+            self.node_id(),
             self.symbol_kind(),
             self.symbol_ident()
         )?;
 
-        // 2. Context: scope, origin, and imported scope
+        // 2. Contexte et Provenance (Alias, Origine, Scope)
         write!(
             f,
-            ", scope: {}, origin: {}, imported: {}",
+            ", scope: {}, origin: {}, alias: {}, imported: {}",
             self.scope(),
             self.origin(),
+            self.alias_node_id()
+                .map_or("None".to_string(), |id| id.as_usize().to_string()),
             self.imported_scope()
                 .map_or("None".to_string(), |s| s.to_string())
         )?;
 
-        // 3. Types and their node IDs
+        // 3. Types et leurs node IDs
         self.fmt_types(f)?;
         if let Some(nodes) = self.ty_node_ids() {
             write!(f, " (nodes: ")?;
@@ -637,12 +674,12 @@ impl fmt::Display for Declaration {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "{}", node.as_usize())?;
+                write!(f, "{}", node)?;
             }
             write!(f, ")")?;
         }
 
-        // 4. Arguments and their node IDs
+        // 4. Arguments (Signatures) et leurs node IDs
         self.fmt_arguments(f)?;
         if let Some(nodes) = self.argument_node_ids() {
             write!(f, " (nodes: ")?;
@@ -650,9 +687,36 @@ impl fmt::Display for Declaration {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "{}", node.as_usize())?;
+                write!(f, "{}", node)?;
             }
             write!(f, ")")?;
+        }
+
+        // 5. Vissage entre Prédicats (Base <-> Derived)
+        // On itère sur le vecteur de raffinements
+        write!(f, ", refined_by: [")?;
+        for (i, node) in self.refined_by().iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", node)?;
+        }
+        write!(f, "]")?;
+
+        if let Some(base) = self.refines() {
+            write!(f, ", refines: {}", base)?;
+        }
+
+        // 6. Usages résolus (Vissage final)
+        if !self.resolved_usages().is_empty() {
+            write!(f, ", resolved_usages: [")?;
+            for (i, node) in self.resolved_usages().iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node)?;
+            }
+            write!(f, "]")?;
         }
 
         write!(f, "]")
@@ -708,7 +772,7 @@ impl InternerDisplay for Declaration {
             .resolve_symbol(self.symbol_ident())
             .unwrap_or("<uninterned>");
 
-        // 1. Informations de base
+        // 1. Identité de base
         write!(
             f,
             "[node: {}, kind: {}, ident: {}",
@@ -717,12 +781,14 @@ impl InternerDisplay for Declaration {
             name_str
         )?;
 
-        // 2. Contexte
+        // 2. Contexte et Provenance (Alias, Origine, Scope)
         write!(
             f,
-            ", scope: {}, origin: {}, imported: {}",
+            ", scope: {}, origin: {}, alias: {}, imported: {}",
             self.scope(),
             self.origin(),
+            self.alias_node_id()
+                .map_or("None".to_string(), |id| id.as_usize().to_string()),
             self.imported_scope()
                 .map_or("None".to_string(), |s| s.to_string())
         )?;
@@ -740,7 +806,7 @@ impl InternerDisplay for Declaration {
             write!(f, ")")?;
         }
 
-        // 4. Arguments sémantiques ET leurs NodeIds
+        // 4. Arguments (Signatures) ET leurs NodeIds
         self.fmt_arguments_with(f, interner)?;
         if let Some(nodes) = self.argument_node_ids() {
             write!(f, " (nodes: ")?;
@@ -751,6 +817,34 @@ impl InternerDisplay for Declaration {
                 write!(f, "{}", node.as_usize())?;
             }
             write!(f, ")")?;
+        }
+
+        // 5. Vissage entre Prédicats (Base <-> Derived)
+        // refined_by est maintenant un Vec car un prédicat peut avoir plusieurs axiomes
+        write!(f, ", refined_by: [")?;
+        for (i, node) in self.refined_by().iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", node.as_usize())?;
+        }
+        write!(f, "]")?;
+
+        // Un DerivedPredicate, en revanche, ne raffine qu'une seule signature de base
+        if let Some(base) = self.refines() {
+            write!(f, ", refines: {}", base.as_usize())?;
+        }
+
+        // 6. Résolution des Usages
+        if !self.resolved_usages().is_empty() {
+            write!(f, ", resolved_usages: [")?;
+            for (i, node) in self.resolved_usages().iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", node.as_usize())?;
+            }
+            write!(f, "]")?;
         }
 
         write!(f, "]")

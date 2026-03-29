@@ -155,14 +155,14 @@ pub fn encode_lifted_problem(
     let requirements = context.take_required_requirements();
 
     // 2. Create a new LiftedProblem with interner and requirements
-    let mut problem = LiftedProblem::new(interner, requirements);
+    let mut problem = LiftedProblem::new(requirements);
+    problem.set_interner(interner);
 
     // 3. Encode domain-level elements
     let domain_symbol_table = context.take_domain_table();
     let domain_syntax_tree = context.take_domain_syntax_tree();
 
-    let interner_copy = problem.interner().clone();
-    let mut registry = EncodingRegistry::new(domain_symbol_table, &interner_copy);
+    let mut registry = EncodingRegistry::new(domain_symbol_table);
 
     domain::encode(&domain_syntax_tree, &mut registry, &mut problem)?;
 

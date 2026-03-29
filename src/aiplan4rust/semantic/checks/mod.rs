@@ -9,11 +9,13 @@ pub mod undeclared_symbols;
 pub mod type_hierarchy;
 
 pub mod context;
+pub mod derived_predicate;
 pub mod error;
 mod symbol_types;
 pub mod unused_symbols;
 
 pub use context::Context as CheckContext;
+pub use derived_predicate::check_derived_predicates;
 pub use error::SemanticCheckError;
 pub use requirements::check_requirements;
 pub use symbol_declarations::check_symbol_declarations;

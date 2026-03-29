@@ -8,6 +8,7 @@ use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolEntry};
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::SymbolTable;
 use std::collections::{HashMap, HashSet};
 
 /// Entry point for checking declared symbols in the symbol table for semantic issues
@@ -31,9 +32,10 @@ use std::collections::{HashMap, HashSet};
 /// ```
 pub fn check_symbol_declarations(
     context: &CheckContext,
+    symbol_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
-    check_symbol_declarations_internal(context, diagnostic_manager, None)
+    check_symbol_declarations_internal(context, symbol_table, diagnostic_manager, None)
 }
 
 /// Internal helper function that performs detailed checking for duplicate symbol declarations.
@@ -61,11 +63,11 @@ pub fn check_symbol_declarations(
 /// - `Err(SemanticCheckError)` if an internal error occurred (e.g., missing AST node).
 fn check_symbol_declarations_internal(
     context: &CheckContext,
+    symbol_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
     kinds_to_check: Option<&HashSet<SymbolKind>>,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
-    let symbol_table = context.symbol_table();
 
     // Pre-allocate the map outside the loop to reuse its memory capacity across all symbols.
     // This avoids thousands of small heap allocations by using references (&Scope, &Declaration)

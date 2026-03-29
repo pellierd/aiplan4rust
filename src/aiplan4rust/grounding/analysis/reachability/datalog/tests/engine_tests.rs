@@ -1,15 +1,18 @@
-use std::error::Error;
-use std::collections::HashSet;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::engine::DatalogEngine;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{Requirement, Type, TypedSymbol, VariableId, TypedList, AtomSkeletonId, ObjectId, ActionSymbolId, CompareOp, TypeId};
-use crate::aiplan4rust::lir::ActionDef;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lang::{
+    AtomSkeletonId, CompareOp, ObjectId, Requirement, Type, TypedList,
+    TypedSymbol, VariableId,
+};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::ActionDef;
+use std::collections::HashSet;
+use std::error::Error;
 
 mod unification_tests;
 
@@ -20,7 +23,8 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
     reqs.insert(Requirement::Typing);
     reqs.insert(Requirement::Strips);
 
-    let mut problem = LiftedProblem::new(interner, reqs);
+    let mut problem = LiftedProblem::new(reqs);
+    problem.set_interner(interner);
 
     // 2. Configuration des Types
     let name_obj = problem.interner_mut().intern_symbol("object");
@@ -30,7 +34,9 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
     let type_loc_id = problem.add_type_symbol(name_loc);
 
     let loc_def = TypedSymbol::new(type_loc_id, Type::primitive(type_obj_id));
-    problem.add_type_defs(loc_def).expect("Failed to add typing def");
+    problem
+        .add_type_defs(loc_def)
+        .expect("Failed to add typing def");
 
     // 3. Configuration des Objets
     let name_robot = problem.interner_mut().intern_symbol("robot");
@@ -50,8 +56,14 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
     let pred_at_sym = problem.add_predicate_symbol(name_at);
 
     let mut params_at = TypedList::new();
-    params_at.push(TypedSymbol::new(VariableId::from(0), Type::primitive(type_obj_id)));
-    params_at.push(TypedSymbol::new(VariableId::from(1), Type::primitive(type_loc_id)));
+    params_at.push(TypedSymbol::new(
+        VariableId::from(0),
+        Type::primitive(type_obj_id),
+    ));
+    params_at.push(TypedSymbol::new(
+        VariableId::from(1),
+        Type::primitive(type_loc_id),
+    ));
 
     let sk_at = problem.add_predicate_def(AtomicFormulaSkeleton::new(pred_at_sym, params_at));
 
@@ -59,8 +71,14 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
     let pred_conn_sym = problem.add_predicate_symbol(name_conn);
 
     let mut params_conn = TypedList::new();
-    params_conn.push(TypedSymbol::new(VariableId::from(0), Type::primitive(type_loc_id)));
-    params_conn.push(TypedSymbol::new(VariableId::from(1), Type::primitive(type_loc_id)));
+    params_conn.push(TypedSymbol::new(
+        VariableId::from(0),
+        Type::primitive(type_loc_id),
+    ));
+    params_conn.push(TypedSymbol::new(
+        VariableId::from(1),
+        Type::primitive(type_loc_id),
+    ));
 
     let sk_conn = problem.add_predicate_def(AtomicFormulaSkeleton::new(pred_conn_sym, params_conn));
 
@@ -98,7 +116,8 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
     let mut b_eff = ExprBuilder::new();
     let v_r_eff = b_eff.variable(var_r);
     let v_from_eff = b_eff.variable(var_from);
-    let atom_del = b_eff.atomic_formula_with_skeleton(pred_at_sym, vec![v_r_eff, v_from_eff], sk_at);
+    let atom_del =
+        b_eff.atomic_formula_with_skeleton(pred_at_sym, vec![v_r_eff, v_from_eff], sk_at);
     let eff_del = b_eff.not(atom_del);
 
     let v_r_add = b_eff.variable(var_r);
@@ -119,7 +138,8 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
     let c_room_b = builder.constant(id_room_b);
 
     let fact_at = builder.atomic_formula_with_skeleton(pred_at_sym, vec![c_robot, c_room_a], sk_at);
-    let fact_conn = builder.atomic_formula_with_skeleton(pred_conn_sym, vec![c_room_a, c_room_b], sk_conn);
+    let fact_conn =
+        builder.atomic_formula_with_skeleton(pred_conn_sym, vec![c_room_a, c_room_b], sk_conn);
 
     let root_and = builder.and(vec![fact_at, fact_conn]);
     builder.set_root(root_and)?;
@@ -144,24 +164,41 @@ fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
 
     // --- 2. Vérification des Seuils (Fluents & Miroir) ---
     // Dans le mock : at (0), connected (1) -> fluence_threshold = 2
-    assert_eq!(engine.fluence_threshold, 2, "Le seuil des fluents devrait être 2");
+    assert_eq!(
+        engine.fluence_threshold, 2,
+        "Le seuil des fluents devrait être 2"
+    );
 
     // Miroir activé : type_segment_start = 2 * 2 = 4
-    assert_eq!(engine.type_segment_start, 4, "Les types devraient commencer à l'ID 4 (après le miroir)");
+    assert_eq!(
+        engine.type_segment_start, 4,
+        "Les types devraient commencer à l'ID 4 (après le miroir)"
+    );
 
     // --- 3. Vérification des Types ---
     // Les types commencent à type_segment_start (4)
     let id_type_object = AtomSkeletonId::from(engine.type_segment_start);
-    assert!(engine.is_type(id_type_object), "L'ID {} devrait être un type", id_type_object.as_usize());
+    assert!(
+        engine.is_type(id_type_object),
+        "L'ID {} devrait être un type",
+        id_type_object.as_usize()
+    );
 
     // Le typing ROOT est le dernier du segment des types
     let id_type_root = AtomSkeletonId::from(engine.type_threshold - 1);
-    assert!(engine.is_type(id_type_root), "L'ID {} (ROOT) devrait être un type", id_type_root.as_usize());
+    assert!(
+        engine.is_type(id_type_root),
+        "L'ID {} (ROOT) devrait être un type",
+        id_type_root.as_usize()
+    );
 
     // --- 4. Vérification des Actions ---
     // L'action move prend l'ID qui suit les types.
     // L'action_threshold marque la fin de ce segment.
-    assert!(engine.action_threshold > engine.type_threshold, "Il devrait y avoir au moins une action");
+    assert!(
+        engine.action_threshold > engine.type_threshold,
+        "Il devrait y avoir au moins une action"
+    );
 
     // --- 5. Vérification de la Database (Instance des Types) ---
     // Le robot (ObjectId 0) est un 'object' (ID 4)
@@ -170,7 +207,8 @@ fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
 
     assert!(
         engine.db.contains_delta(sk_object, &[id_robot]),
-        "Le robot doit être présent dans l'extension du type d'ID {}", sk_object.as_usize()
+        "Le robot doit être présent dans l'extension du type d'ID {}",
+        sk_object.as_usize()
     );
 
     // --- 6. Vérification des Auxiliaires ---
@@ -189,7 +227,10 @@ fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
 
     // L'égalité ne doit PAS être un auxiliaire (c'est un builtin)
     let equality_id = AtomSkeletonId::from(Atom::EQUALITY_ID);
-    assert!(!engine.is_auxiliary(equality_id), "L'ID d'égalité ne doit pas être un auxiliaire");
+    assert!(
+        !engine.is_auxiliary(equality_id),
+        "L'ID d'égalité ne doit pas être un auxiliaire"
+    );
 
     Ok(())
 }
@@ -258,14 +299,16 @@ fn test_type_inheritance_ingestion() -> Result<(), Box<dyn Error>> {
     // room_a est défini comme une 'location' dans le mock
     assert!(
         engine.db.contains_delta(sk_loc, &[id_room_a]),
-        "L'objet room_a (ID 1) doit être une location (ID {})", sk_loc.as_usize()
+        "L'objet room_a (ID 1) doit être une location (ID {})",
+        sk_loc.as_usize()
     );
 
     // --- 3. Vérification de l'héritage (Inférence lors du load) ---
     // room_a doit AUSSI être un object car location <: object
     assert!(
         engine.db.contains_delta(sk_obj, &[id_room_a]),
-        "L'objet room_a devrait hériter du type parent 'object' (ID {})", sk_obj.as_usize()
+        "L'objet room_a devrait hériter du type parent 'object' (ID {})",
+        sk_obj.as_usize()
     );
 
     // --- 4. Vérification du typing ROOT ---
@@ -273,7 +316,8 @@ fn test_type_inheritance_ingestion() -> Result<(), Box<dyn Error>> {
     let sk_root = AtomSkeletonId::from(engine.type_threshold - 1);
     assert!(
         engine.db.contains_delta(sk_root, &[id_room_a]),
-        "Tout objet doit appartenir au type ROOT (ID {})", sk_root.as_usize()
+        "Tout objet doit appartenir au type ROOT (ID {})",
+        sk_root.as_usize()
     );
 
     Ok(())
@@ -294,32 +338,47 @@ fn test_action_rule_ingestion() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Vérification des Type Guards
     // Dans le mock, 'move' a 3 paramètres : ?r (robot), ?from (location), ?to (location)
-    let type_guards_count = rule.body().iter()
+    let type_guards_count = rule
+        .body()
+        .iter()
         .filter(|a| engine.is_type(a.skeleton_id()))
         .count();
-    assert_eq!(type_guards_count, 3, "Il devrait y avoir exactement 3 type guards pour les paramètres");
+    assert_eq!(
+        type_guards_count, 3,
+        "Il devrait y avoir exactement 3 type guards pour les paramètres"
+    );
 
     // 3. Vérification de la cohérence des variables (le Robot ?r)
     // On vérifie que la variable en position 0 de l'action est bien liée au corps
     if let Some(var_r) = rule.head().terms().get(0) {
-        let found_r_in_body = rule.body().iter()
-            .any(|atom| atom.terms().contains(var_r));
-        assert!(found_r_in_body, "La variable ?r de la tête doit être présente dans le corps (sécurité de jointure)");
+        let found_r_in_body = rule.body().iter().any(|atom| atom.terms().contains(var_r));
+        assert!(
+            found_r_in_body,
+            "La variable ?r de la tête doit être présente dans le corps (sécurité de jointure)"
+        );
     }
 
     // 4. Vérification de la logique (Préconditions & Auxiliaires)
     // On filtre tout ce qui n'est pas un typing (donc les fluents PDDL ou les auxiliaires PNF)
-    let logical_atoms_count = rule.body().iter()
+    let logical_atoms_count = rule
+        .body()
+        .iter()
         .filter(|a| !engine.is_type(a.skeleton_id()))
         .count();
 
     // On attend au moins 1 atome logique (ex: (at ?r ?from))
-    assert!(logical_atoms_count >= 1, "La règle doit contenir au moins une précondition logique");
+    assert!(
+        logical_atoms_count >= 1,
+        "La règle doit contenir au moins une précondition logique"
+    );
 
     // 5. Vérification de l'ID de tête
     // L'ID de l'action doit être dans le segment [type_threshold .. action_threshold]
     let head_id = rule.head().skeleton_id();
-    assert!(engine.is_action(head_id), "L'atome de tête doit être identifié comme une Action");
+    assert!(
+        engine.is_action(head_id),
+        "L'atome de tête doit être identifié comme une Action"
+    );
 
     Ok(())
 }
@@ -333,10 +392,10 @@ fn test_optimize_body_efficiency() {
     engine.type_segment_start = 10;
     engine.type_threshold = 20;
 
-    let sk_at = AtomSkeletonId::from(1);      // Fluent
-    let sk_fuel = AtomSkeletonId::from(2);    // Fluent
-    let sk_robot = AtomSkeletonId::from(11);  // Type
-    let sk_loc = AtomSkeletonId::from(12);    // Type
+    let sk_at = AtomSkeletonId::from(1); // Fluent
+    let sk_fuel = AtomSkeletonId::from(2); // Fluent
+    let sk_robot = AtomSkeletonId::from(11); // Type
+    let sk_loc = AtomSkeletonId::from(12); // Type
 
     // --- REMPLISSAGE DE LA DB ---
 
@@ -351,13 +410,17 @@ fn test_optimize_body_efficiency() {
 
     // 3. At : gros (1000 faits)
     for i in 0..1000 {
-        engine.db.insert_delta_fact(sk_at, &[ObjectId::from(i), ObjectId::from(i+1)]);
+        engine
+            .db
+            .insert_delta_fact(sk_at, &[ObjectId::from(i), ObjectId::from(i + 1)]);
     }
 
     // 4. Fuel : on lui met 10 faits (plus que Robot qui en a 2)
     // C'est ce qui manquait ! Sinon, Fuel (taille 0) passait devant Robot (taille 2)
     for i in 0..10 {
-        engine.db.insert_delta_fact(sk_fuel, &[ObjectId::from(1), ObjectId::from(i)]);
+        engine
+            .db
+            .insert_delta_fact(sk_fuel, &[ObjectId::from(1), ObjectId::from(i)]);
     }
 
     engine.db.commit_delta();
@@ -380,11 +443,18 @@ fn test_optimize_body_efficiency() {
     // --- VÉRIFICATIONS ---
     // Maintenant Robot (Taille 2) est plus petit que Fuel (Taille 10), At (1000) et Loc (1000).
     // De plus, c'est un Type (Priorité 0). Il sera 1er.
-    assert_eq!(body[0].skeleton_id(), sk_robot, "Le type le plus petit doit être premier");
+    assert_eq!(
+        body[0].skeleton_id(),
+        sk_robot,
+        "Le type le plus petit doit être premier"
+    );
 
     // Le deuxième doit être Fuel ou At (car ils utilisent la variable ?r qui vient d'être liée)
     let second_sk = body[1].skeleton_id();
-    assert!(second_sk == sk_fuel || second_sk == sk_at, "Le second doit utiliser la variable ?r liée");
+    assert!(
+        second_sk == sk_fuel || second_sk == sk_at,
+        "Le second doit utiliser la variable ?r liée"
+    );
 }
 
 #[test]
@@ -406,7 +476,11 @@ fn test_duplicate_fact_prevention() {
 
     // 4. Deuxième appel avec les mêmes données : ne doit RIEN ajouter
     engine.evaluate_head(&rule);
-    assert_eq!(engine.discovered_facts.len(), 1, "Le doublon n'a pas été filtré dans discovered_facts");
+    assert_eq!(
+        engine.discovered_facts.len(),
+        1,
+        "Le doublon n'a pas été filtré dans discovered_facts"
+    );
 
     // 5. On simule le commit dans la DB
     engine.db.insert_delta_fact(sk_id, &[obj_1]);
@@ -414,7 +488,11 @@ fn test_duplicate_fact_prevention() {
 
     // 6. Troisième appel : ne doit RIEN ajouter car c'est déjà dans la DB
     engine.evaluate_head(&rule);
-    assert_eq!(engine.discovered_facts.len(), 0, "Le fait existe déjà dans la DB, il ne doit pas être redécouvert");
+    assert_eq!(
+        engine.discovered_facts.len(),
+        0,
+        "Le fait existe déjà dans la DB, il ne doit pas être redécouvert"
+    );
 }
 
 #[test]
@@ -470,7 +548,10 @@ fn test_transitive_closure() {
     engine.run();
 
     // Doit avoir déduit que A est l'ancêtre de C
-    assert!(engine.db.contains_stable(sk_anc, &[p_a, p_c]), "La fermeture transitive a échoué");
+    assert!(
+        engine.db.contains_stable(sk_anc, &[p_a, p_c]),
+        "La fermeture transitive a échoué"
+    );
 }
 
 #[test]
@@ -492,7 +573,11 @@ fn test_fixed_point_termination() {
     // engine.run() ne s'arrêtera jamais ici (Timeout).
     engine.run();
 
-    assert_eq!(engine.db.get_relation_size(sk_p), 1, "Le moteur aurait dû s'arrêter avec un seul fait");
+    assert_eq!(
+        engine.db.get_relation_size(sk_p),
+        1,
+        "Le moteur aurait dû s'arrêter avec un seul fait"
+    );
 }
 
 #[test]
@@ -509,7 +594,10 @@ fn test_full_mock_move_reachability() -> Result<(), Box<dyn Error>> {
     let robot = ObjectId::from(0);
     let room_b = ObjectId::from(2);
 
-    assert!(!engine.db.contains_delta(sk_at, &[robot, room_b]), "Le robot ne devrait pas être en room_b au départ");
+    assert!(
+        !engine.db.contains_delta(sk_at, &[robot, room_b]),
+        "Le robot ne devrait pas être en room_b au départ"
+    );
 
     // 3. Exécution du moteur (Saturation Datalog)
     // C'est ici que les règles Preconds -> Action et Action -> Effects s'activent
@@ -539,7 +627,7 @@ fn test_mixed_arity_zero_and_vars() {
     let mut engine = DatalogEngine::new();
     let sk_prop = AtomSkeletonId::from(0); // Arity 0
     let sk_fact = AtomSkeletonId::from(1); // Arity 1
-    let sk_res = AtomSkeletonId::from(2);  // Arity 1
+    let sk_res = AtomSkeletonId::from(2); // Arity 1
     let obj_a = ObjectId::from(100);
     let obj_b = ObjectId::from(200);
 
@@ -550,10 +638,7 @@ fn test_mixed_arity_zero_and_vars() {
     // Règle : Res(?x) :- Prop(), Fact(?x)
     let var_x = Term::Variable(VariableId::from(0));
     let head = Atom::new(sk_res, vec![var_x.clone()]);
-    let body = vec![
-        Atom::new(sk_prop, vec![]),
-        Atom::new(sk_fact, vec![var_x]),
-    ];
+    let body = vec![Atom::new(sk_prop, vec![]), Atom::new(sk_fact, vec![var_x])];
     engine.rules.push(Rule::new(head, body));
 
     // RUN 1 : Ne doit rien produire (Prop est faux)
@@ -591,7 +676,11 @@ fn test_constant_not_in_db() {
 
     engine.run();
 
-    assert_eq!(engine.db.get_relation_size(sk_res), 0, "Le moteur a déduit un fait alors qu'une constante était absente");
+    assert_eq!(
+        engine.db.get_relation_size(sk_res),
+        0,
+        "Le moteur a déduit un fait alors qu'une constante était absente"
+    );
 }
 
 #[test]
@@ -607,7 +696,11 @@ fn test_triangle_join_consistency() {
 
     // Règle : Triangle(x,y,z) :- P(x,y), P(y,z), P(z,x)
     let sk_tri = AtomSkeletonId::from(1);
-    let (vx, vy, vz) = (Term::Variable(VariableId::from(0)), Term::Variable(VariableId::from(1)), Term::Variable(VariableId::from(2)));
+    let (vx, vy, vz) = (
+        Term::Variable(VariableId::from(0)),
+        Term::Variable(VariableId::from(1)),
+        Term::Variable(VariableId::from(2)),
+    );
     let head = Atom::new(sk_tri, vec![vx.clone(), vy.clone(), vz.clone()]);
     let body = vec![
         Atom::new(sk_p, vec![vx.clone(), vy.clone()]),
@@ -618,7 +711,10 @@ fn test_triangle_join_consistency() {
 
     engine.run();
 
-    assert!(engine.db.contains_stable(sk_tri, &[a, b, c]), "Le join cyclique (triangle) a échoué");
+    assert!(
+        engine.db.contains_stable(sk_tri, &[a, b, c]),
+        "Le join cyclique (triangle) a échoué"
+    );
 }
 
 #[test]
@@ -645,7 +741,7 @@ fn test_deep_recursive_chain() {
     // Règle 1 : Path(x, y) :- Link(x, y)
     engine.rules.push(Rule::new(
         Atom::new(sk_path, vec![vx.clone(), vy.clone()]),
-        vec![Atom::new(sk_link, vec![vx.clone(), vy.clone()])]
+        vec![Atom::new(sk_link, vec![vx.clone(), vy.clone()])],
     ));
 
     // Règle 2 : Path(x, z) :- Path(x, y), Link(y, z)
@@ -654,7 +750,7 @@ fn test_deep_recursive_chain() {
         vec![
             Atom::new(sk_path, vec![vx.clone(), vy.clone()]),
             Atom::new(sk_link, vec![vy.clone(), vz.clone()]),
-        ]
+        ],
     ));
 
     // Règle 3 : Goal(x) :- Path(1, x), Link(x, 4)
@@ -664,14 +760,20 @@ fn test_deep_recursive_chain() {
         vec![
             Atom::new(sk_path, vec![Term::Constant(c1), vx.clone()]),
             Atom::new(sk_link, vec![vx.clone(), Term::Constant(c4)]),
-        ]
+        ],
     ));
 
     engine.run();
 
     // Vérifications
-    assert!(engine.db.contains_stable(sk_path, &[c1, c3]), "Le chemin long 1->3 n'a pas été trouvé");
-    assert!(engine.db.contains_stable(sk_goal, &[c3]), "Le but final basé sur la récursion a échoué");
+    assert!(
+        engine.db.contains_stable(sk_path, &[c1, c3]),
+        "Le chemin long 1->3 n'a pas été trouvé"
+    );
+    assert!(
+        engine.db.contains_stable(sk_goal, &[c3]),
+        "Le but final basé sur la récursion a échoué"
+    );
 }
 
 #[test]
@@ -698,7 +800,7 @@ fn test_diamond_join_consistency() {
             Atom::new(sk_a, vec![vx.clone(), vy.clone()]),
             Atom::new(sk_b, vec![vy.clone(), vz.clone()]),
             Atom::new(sk_c, vec![vx.clone(), vz.clone()]),
-        ]
+        ],
     ));
 
     // ÉTAPE 1 : On insère A et B. Rien ne doit se passer (C manque).
@@ -712,7 +814,10 @@ fn test_diamond_join_consistency() {
     engine.run();
 
     // Vérification
-    assert!(engine.db.contains_stable(sk_res, &[obj1, obj3]), "Le join en diamant a échoué");
+    assert!(
+        engine.db.contains_stable(sk_res, &[obj1, obj3]),
+        "Le join en diamant a échoué"
+    );
 }
 
 #[test]
@@ -744,11 +849,7 @@ fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
 
     // (AND (at robot ?v0) (location ?v1) (NOT (= ?v0 ?v1)))
     let atom_at = builder.atomic_formula_with_skeleton(0, vec![c_robot, v0], sk_at);
-    let atom_type_v1 = builder.atomic_formula_with_skeleton(
-        type_loc_id,
-        vec![v1],
-        sk_loc
-    );
+    let atom_type_v1 = builder.atomic_formula_with_skeleton(type_loc_id, vec![v1], sk_loc);
 
     // Utilisation de l'opérateur de comparaison standard
     let eq = builder.comparison(CompareOp::Equal, v0, v1);
@@ -763,7 +864,10 @@ fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
     params.push(TypedSymbol::new(VariableId::from(1), Type::root()));
 
     // L'encodeur va transformer le NOT(=) en utilisant Atom::EQUALITY_ID (0xFFFF_FC00)
-    let head_atom = engine.encoder.encode_expr(&builder.finish(), root, &mut rules, &params)?.unwrap();
+    let head_atom = engine
+        .encoder
+        .encode_expr(&builder.finish(), root, &mut rules, &params)?
+        .unwrap();
     engine.rules.extend(rules);
 
     // 5. Injection des faits
@@ -806,21 +910,33 @@ fn test_ground_action_extraction() -> Result<(), Box<dyn Error>> {
     let reachable_actions = engine.get_reachable_actions();
 
     // 3. VÉRIFICATIONS ÉLÉMENTAIRES
-    assert!(!reachable_actions.is_empty(), "Le moteur aurait dû trouver au moins une action valide");
+    assert!(
+        !reachable_actions.is_empty(),
+        "Le moteur aurait dû trouver au moins une action valide"
+    );
 
     // 4. VÉRIFICATION PRÉCISE DES PARAMÈTRES
     let id_robot = {
-        let sym = problem.interner().lookup_symbol("robot").ok_or("Symbol robot not found")?;
+        let sym = problem
+            .interner()
+            .lookup_symbol("robot")
+            .ok_or("Symbol robot not found")?;
         problem.object_symbol().try_get_id(&sym)?
     };
 
     let id_room_a = {
-        let sym = problem.interner().lookup_symbol("room_a").ok_or("Symbol room_a not found")?;
+        let sym = problem
+            .interner()
+            .lookup_symbol("room_a")
+            .ok_or("Symbol room_a not found")?;
         problem.object_symbol().try_get_id(&sym)?
     };
 
     let id_room_b = {
-        let sym = problem.interner().lookup_symbol("room_b").ok_or("Symbol room_b not found")?;
+        let sym = problem
+            .interner()
+            .lookup_symbol("room_b")
+            .ok_or("Symbol room_b not found")?;
         problem.object_symbol().try_get_id(&sym)?
     };
 
@@ -829,7 +945,10 @@ fn test_ground_action_extraction() -> Result<(), Box<dyn Error>> {
         action.args() == &[id_robot, id_room_a, id_room_b]
     });
 
-    assert!(found_move, "L'action instanciée move(robot, room_a, room_b) est manquante");
+    assert!(
+        found_move,
+        "L'action instanciée move(robot, room_a, room_b) est manquante"
+    );
 
     // 5. VÉRIFICATION DU "NOT" (Inégalité)
     let invalid_move = reachable_actions.iter().any(|action| {
@@ -837,7 +956,10 @@ fn test_ground_action_extraction() -> Result<(), Box<dyn Error>> {
         action.args() == &[id_robot, id_room_a, id_room_a]
     });
 
-    assert!(!invalid_move, "Le grounder a généré une action move(a, a) malgré l'inégalité");
+    assert!(
+        !invalid_move,
+        "Le grounder a généré une action move(a, a) malgré l'inégalité"
+    );
 
     Ok(())
 }

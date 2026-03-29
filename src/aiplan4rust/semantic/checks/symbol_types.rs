@@ -37,6 +37,7 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
+use crate::SymbolTable;
 
 /// Validates the semantic consistency of all type references within the symbol table.
 ///
@@ -67,11 +68,11 @@ use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 /// domains with thousands of symbols.
 pub fn check_symbol_types(
     context: &CheckContext,
+    symbol_table: &mut SymbolTable,
     type_hierarchy: &TypeHierarchy,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {
     let mut no_error = true;
-    let symbol_table = context.symbol_table();
 
     // Iterate through every symbol stored in the table (constants, types, predicates, etc.)
     for symbol in symbol_table.values() {
