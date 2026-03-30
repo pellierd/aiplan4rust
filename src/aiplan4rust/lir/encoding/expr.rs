@@ -311,8 +311,11 @@ fn encode_content(
                 .symbol_table()
                 .resolve_primary_declaration(predicate_symbol, predicate_node_id)?;
 
+            // Apply redirection when declaration are defined in domain
+            let effective_id = declaration.alias().unwrap_or(declaration.source());
+
             // On résout le squelette en utilisant la source de la déclaration (le NodeId original)
-            let atom_skeleton_id = registry.try_resolve_atom_skeleton(declaration.source())?;
+            let atom_skeleton_id = registry.try_resolve_atom_skeleton(effective_id)?;
 
             Ok(ExprContent::AtomSkeleton(atom_skeleton_id))
         }
@@ -334,7 +337,10 @@ fn encode_content(
                             .symbol_table()
                             .resolve_primary_declaration(symbol, function_id)?;
 
-                        registry.try_resolve_function_skeleton(declaration.source())?
+                        // Apply redirection when declaration are defined in domain
+                        let effective_id = declaration.alias().unwrap_or(declaration.source());
+
+                        registry.try_resolve_function_skeleton(effective_id)?
                     }
                 };
             Ok(ExprContent::FunctionSkeleton(function_skeleton_id))
@@ -351,9 +357,12 @@ fn encode_content(
                 .symbol_table()
                 .resolve_primary_declaration(symbol, task_node_id)?;
 
+            // Apply redirection when declaration are defined in domain
+            let effective_id = declaration.alias().unwrap_or(declaration.source());
+
             // 2. On récupère le Skeleton ID.
             // Ton registry doit être capable de donner un TaskSkeleton que la source soit une Task ou une Action.
-            let task_skeleton_id = registry.try_resolve_task_skeleton(declaration.source())?;
+            let task_skeleton_id = registry.try_resolve_task_skeleton(effective_id)?;
 
             Ok(ExprContent::TaskSkeleton(task_skeleton_id))
         }
@@ -394,8 +403,13 @@ fn encode_content(
                 .symbol_table()
                 .resolve_primary_declaration(symbol, ast_node_id)?;
 
+            // --- CORRECTION ICI ---
+            // Si la déclaration a un alias (NodeId du domaine), on prend l'alias.
+            // Sinon on prend la source normale (NodeId local).
+            let effective_id = declaration.alias().unwrap_or(declaration.source());
+
             // 2. On transforme la source de la déclaration en ID logique de prédicat
-            let predicate_id = registry.try_resolve_predicate(declaration.source())?;
+            let predicate_id = registry.try_resolve_predicate(effective_id)?;
 
             Ok(ExprContent::PredicateSymbol(predicate_id))
         }
@@ -414,8 +428,9 @@ fn encode_content(
                     let declaration = registry
                         .symbol_table()
                         .resolve_primary_declaration(symbol, ast_node_id)?;
-
-                    registry.try_resolve_functor(declaration.source())?
+                    // Apply redirection when declaration are defined in domain
+                    let effective_id = declaration.alias().unwrap_or(declaration.source());
+                    registry.try_resolve_functor(effective_id)?
                 }
             };
 
@@ -425,12 +440,13 @@ fn encode_content(
             let symbol_id = ast_node.try_ident()?;
 
             // 1. Utilisation du lien direct (O(1)) établi par check_undeclared_symbols
-            let constant_declaration = registry
+            let declaration = registry
                 .symbol_table()
                 .resolve_primary_declaration(symbol_id, ast_node_id)?;
 
             // 2. Résolution de l'ID de l'objet via la source de la déclaration
-            let constant_id = registry.try_resolve_object(constant_declaration.source())?;
+            let effective_id = declaration.alias().unwrap_or(declaration.source());
+            let constant_id = registry.try_resolve_object(effective_id)?;
 
             Ok(ExprContent::Object(constant_id))
         }
@@ -467,7 +483,8 @@ fn encode_content(
                 .resolve_primary_declaration(symbol, ast_node_id)?;
 
             // 2. On récupère l'ID symbolique via la source de la déclaration.
-            let task_symbol_id = registry.try_resolve_task_symbol(declaration.source())?;
+            let effective_id = declaration.alias().unwrap_or(declaration.source());
+            let task_symbol_id = registry.try_resolve_task_symbol(effective_id)?;
 
             Ok(ExprContent::TaskSymbol(task_symbol_id))
         }

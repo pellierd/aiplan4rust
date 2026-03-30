@@ -33,16 +33,14 @@
 use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::interner::InternerMergeResult;
-use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
+use crate::aiplan4rust::linking::checks::perform_linking;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::passes::{PassContext, TypeSimplification};
-use crate::aiplan4rust::semantic::symbol::origin::Origin;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, SymbolOrigin, Usage};
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
-use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
+use crate::aiplan4rust::semantic::{SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 
 /// The `Linker` struct is responsible for performing the linking phase
@@ -143,7 +141,7 @@ impl Linker {
                     .add_diagnostic_from(problem_diag_mgr);
 
                 // Step 3: Resolve external references in the problem with respect to the domain
-                resolve_external_references(&mut domain_ctx, &mut problem_ctx)?;
+                //resolve_external_references(&mut domain_ctx, &mut problem_ctx)?;
 
                 // --- ÉTAPE : SIMPLIFICATION DU PROBLÈME ---
 
@@ -304,7 +302,7 @@ impl Linker {
 ///     eprintln!("Some linking checks failed");
 /// }
 /// ```
-fn perform_linking_checks(
+pub fn perform_linking_checks(
     domain: &CheckContext,
     problem: &CheckContext,
     domain_table: &mut SymbolTable,
@@ -312,10 +310,32 @@ fn perform_linking_checks(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingError> {
     let type_hierarchy = domain_table.to_type_hierarchy();
-
     let type_checker = TypeChecker::new(&type_hierarchy);
+    let mut check = true;
 
-    // Check that the domain name matches the problem's declared domain
+    // 2. PHASE UNIFIÉE : LE LINKER (Vissage)
+    // Cette seule fonction remplace désormais link_undeclared, link_signatures et link_types.
+    // Elle parcourt tous les usages et crée les proxies nécessaires.
+    check &= perform_linking(
+        problem_table,
+        domain_table,
+        problem, // Ton context pour match_declaration_with_usage
+        &type_checker,
+        diagnostic_manager,
+    )?;
+
+    println!(
+        "DOMAIN\n{}",
+        domain_table.to_string_with_interner(domain.interner())
+    );
+    println!(
+        "PROBLEM:\n{}",
+        problem_table.to_string_with_interner(problem.interner())
+    );
+
+    // 1. Vérification de base : Nom du domaine
+
+    // 1. Vérification de base : Nom du domaine
     linking::checks::check_domain_name(
         domain,
         problem,
@@ -324,44 +344,36 @@ fn perform_linking_checks(
         diagnostic_manager,
     )?;
 
+    let mut check = linking::checks::check_unresolved_usages(
+        problem_table,
+        domain_table,
+        problem,
+        diagnostic_manager,
+    );
+
     // 2. On vérifie que les types utilisés dans le PROBLÈME existent dans le DOMAINE
     // On réutilise la fonction du domaine !
-    let mut check = semantic::checks::check_symbol_types(
+    check = semantic::checks::check_symbol_types(
         problem,
         problem_table,   // On scanne la table du problème
         &type_hierarchy, // Mais on valide par rapport à la hiérarchie du domaine
         diagnostic_manager,
     )?;
 
-    // Check for duplicate symbol declarations across domain and problem
-    check &= linking::checks::check_cross_declared_symbols(
-        domain,
-        problem,
-        domain_table,
-        problem_table,
-        diagnostic_manager,
-    )?;
-
-    // Check for undeclared symbols used in the problem
-    check &= semantic::checks::check_undeclared_symbols(
-        problem,
-        problem_table,
-        &[],
-        diagnostic_manager,
-    )?;
-
-    // If structural checks passed, perform type_checker-dependent semantic checks
+    // 3. Vérifications sémantiques post-linking
     if check {
-        // Initialize a type_checker checker with the domain's symbol table
-        // Validate signatures of declared symbols
-        semantic::checks::check_symbol_signatures(
+        // Optionnel : tu peux garder cette vérification si tu veux détecter
+        // explicitement des collisions (même nom déclaré dans les deux)
+        check &= linking::checks::check_cross_declared_symbols(
+            domain,
             problem,
+            domain_table,
             problem_table,
-            &type_checker,
             diagnostic_manager,
         )?;
 
-        // Verify the type_checker correctness of logic in the problem
+        // Vérification des expressions typées (préconditions, effets, etc.)
+        // Maintenant que les liens sont faits, le TypeChecker pourra remonter aux types du domaine.
         semantic::checks::check_typed_expressions(
             problem,
             problem_table,
@@ -369,222 +381,10 @@ fn perform_linking_checks(
             diagnostic_manager,
         )?;
 
-        // Check task ordering constraints in the problem
+        // Vérification des contraintes d'ordre et des requirements
         semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
-
-        // Check for any requirement violations
         semantic::checks::check_requirements(problem, diagnostic_manager)?;
     }
 
-    // Return whether all checks passed successfully
     Ok(check)
-}
-
-/// Resolves external references in the problem by injecting missing declarations from the domain.
-///
-/// This function updates the problem's symbol table by adding declarations found in the domain's
-/// symbol table for symbols that are used but not declared in the problem. It ensures that the
-/// problem's symbols have all necessary declarations available for subsequent semantic analysis.
-///
-/// The process involves:
-/// - Collecting declared and undeclared symbols in the problem relative to the domain.
-/// - For each declared symbol missing declarations, cloning and injecting the corresponding
-///   declarations from the domain symbol table into the problem's symbol table.
-///
-/// # Arguments
-///
-/// * `domain` - Reference to the domain's semantic context.
-/// * `problem` - Mutable reference to the problem's semantic context, to be updated.
-///
-/// # Returns
-///
-/// Returns `Ok(())` if external references are successfully resolved.
-/// Returns `Err(ParserInternalError)` if any internal semantic error occurs during resolution.
-///
-/// # Example
-///
-/// ```ignore
-/// resolve_external_references(&domain_context, &mut problem_context)?;
-/// ```
-fn resolve_external_references(
-    domain: &mut SemanticContext,
-    problem: &mut SemanticContext,
-) -> Result<(), LinkingError> {
-    let mut declared = Vec::new();
-    let mut undeclared = Vec::new();
-    let mut to_verify = Vec::new();
-
-    collect_declared_and_undeclared_symbols(
-        problem,
-        domain.symbol_table(),
-        &mut declared,
-        &mut undeclared,
-        &mut to_verify,
-    )?;
-
-    if !to_verify.is_empty() {
-        let hierarchy = domain.symbol_table().to_type_hierarchy();
-        let type_checker = TypeChecker::new(&hierarchy);
-        let interner = domain.interner();
-
-        let mut tasks = Vec::new();
-
-        for (dom_decl, prob_decl) in to_verify {
-            let symbol_id = prob_decl.symbol().id();
-            let kind = prob_decl.symbol().kind();
-            if let (Some(dom_type), Some(prob_type)) = (dom_decl.ty(), prob_decl.ty()) {
-                // Règle de sous-typage stricte
-                match type_checker.is_any_subtype_of(dom_type, prob_type) {
-                    Ok(true) => {
-                        tasks.push((symbol_id, kind, prob_type.clone()));
-
-                        // Succès : Le problème confirme ou spécialise le domaine.
-                        // On ne fait rien, on laisse la déclaration du problème telle quelle.
-                    }
-                    _ => {
-                        let symbol_name = interner
-                            .resolve_symbol(prob_decl.symbol().id())
-                            .unwrap_or("unknown");
-                        let dom_type_str = interner
-                            .resolve_symbol(dom_type.members()[0])
-                            .unwrap_or("?");
-                        let prob_type_str = interner
-                            .resolve_symbol(prob_type.members()[0])
-                            .unwrap_or("?");
-
-                        panic!(
-                            "\n[Linking Error] Incompatible redefinition for symbol '{}':\n\
-                             - Domain expects:  {}\n\
-                             - Problem defined: {}\n\
-                             => To fix this for UM-Translog, change the domain constant to a parent type (e.g., Truck).",
-                            symbol_name, dom_type_str, prob_type_str
-                        );
-                    }
-                }
-            }
-        }
-
-        let mut domain_changes = Vec::new();
-        // 2. Maintenant que 'to_verify' n'est plus utilisé, on peut modifier mutablement
-        for (symbol_id, kind, prob_type) in tasks {
-            // --- Mise à jour du DOMAINE ---
-            let dom_root = domain.symbol_table().root_scope();
-            let mut m_dom_decl = domain
-                .symbol_table_mut()
-                .try_resolve_declaration_mut(&symbol_id, &kind, &dom_root)?;
-
-            let alias_node_id = m_dom_decl.source();
-
-            // On enregistre le changement AVANT de muter pour l'AST du domaine
-            domain_changes.push(TypeSimplification::new(
-                symbol_id,
-                m_dom_decl.source(), // L'ID du nœud dans l'AST du Domaine
-                prob_type.clone(),   // Le type plus précis venant du Problème
-                vec![0],             // On garde l'index 0 car on a "aplati" vers le type du prob
-            ));
-            m_dom_decl.set_ty(prob_type.clone());
-
-            // --- Mise à jour du PROBLÈME ---
-            let prob_root = problem.symbol_table().root_scope();
-            let mut m_prob_decl = problem
-                .symbol_table_mut()
-                .try_resolve_declaration_mut(&symbol_id, &kind, &prob_root)?;
-
-            m_prob_decl.set_origin(Origin::Shared);
-            m_prob_decl.set_alias(alias_node_id);
-        }
-
-        // --- ÉTAPE DE SYNCHRONISATION AST ---
-        // On applique les changements aux deux arbres
-        if !domain_changes.is_empty() {
-            passes::ast::finalize(domain, &domain_changes)?;
-        }
-    }
-
-    // Injection des constantes du domaine dans le contexte du problème
-    let symbol_table = problem.symbol_table_mut();
-    for (symbol_name, declaration) in declared {
-        let symbol = symbol_table.try_get_symbol_mut(symbol_name)?;
-        symbol.add_declaration(declaration);
-    }
-
-    Ok(())
-}
-
-fn collect_declared_and_undeclared_symbols<'a>(
-    problem: &'a SemanticContext,
-    domain_symbol_table: &'a SymbolTable,
-    declared: &mut Vec<(SymbolId, Declaration)>,
-    undeclared: &mut Vec<(SymbolId, &'a Usage)>,
-    to_verify: &mut Vec<(&'a Declaration, &'a Declaration)>,
-) -> Result<bool, LinkingError> {
-    let problem_symbol_table = problem.symbol_table();
-    let mut all_resolved = true;
-
-    for symbol in problem_symbol_table.values() {
-        let symbol_ident = symbol.ident();
-
-        // --- MODIFICATION ICI : On exclut le nom du domaine et du problème ---
-        let problem_decls: Vec<&Declaration> = symbol
-            .declarations()
-            .values()
-            .filter(|d| {
-                let k = d.symbol().kind();
-                k != SymbolKind::DomainName && k != SymbolKind::ProblemName
-            })
-            .collect();
-
-        if problem_decls.is_empty() {
-            for usage in symbol.usages().values() {
-                let kind = usage.symbol_kind();
-
-                // On ignore aussi ces types dans les usages pour le linking
-                if kind == SymbolKind::DomainName || kind == SymbolKind::ProblemName {
-                    continue;
-                }
-
-                let dom_decl_opt = domain_symbol_table.resolve_declaration(
-                    &symbol_ident,
-                    &kind,
-                    &domain_symbol_table.root_scope(),
-                )?;
-
-                if let Some(dom_decl) = dom_decl_opt {
-                    if !declared
-                        .iter()
-                        .any(|(id, d)| *id == symbol_ident && d.symbol().kind() == kind)
-                    {
-                        let mut linked_decl = dom_decl.clone();
-                        linked_decl.set_origin(SymbolOrigin::Domain);
-                        linked_decl.set_imported_scope(Some(dom_decl.scope().clone()));
-                        linked_decl.set_scope(problem.symbol_table().root_scope().clone());
-                        declared.push((symbol_ident, linked_decl));
-                    }
-                } else {
-                    undeclared.push((symbol_ident, usage));
-                    all_resolved = false;
-                }
-            }
-        } else if problem_decls.len() == 1 {
-            let prob_decl = problem_decls[0];
-            let kind = prob_decl.symbol().kind();
-
-            let dom_decl_opt = domain_symbol_table.resolve_declaration(
-                &symbol_ident,
-                &kind,
-                &domain_symbol_table.root_scope(),
-            )?;
-
-            if let Some(dom_decl) = dom_decl_opt {
-                to_verify.push((dom_decl, prob_decl));
-            }
-        } else {
-            return Err(LinkingError::duplicate_symbol_declaration(Symbol::new(
-                symbol_ident,
-                problem_decls[0].symbol().kind(),
-            )));
-        }
-    }
-
-    Ok(all_resolved)
 }

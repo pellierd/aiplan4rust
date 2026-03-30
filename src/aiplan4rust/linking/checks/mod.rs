@@ -25,7 +25,11 @@ pub mod cross_declared_symbols;
 
 /// Module containing error types related to linking checks.
 pub mod error;
+mod link;
+mod unresolved_usage;
 
-pub use error::LinkingCheckError;
-pub use domain_name::check_domain_name;
 pub use cross_declared_symbols::check_cross_declared_symbols;
+pub use domain_name::check_domain_name;
+pub use error::LinkingCheckError;
+pub use link::perform_linking;
+pub use unresolved_usage::check_unresolved_usages;

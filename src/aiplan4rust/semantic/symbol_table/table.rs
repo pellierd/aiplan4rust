@@ -110,6 +110,10 @@ impl Table {
         Table::default()
     }
 
+    pub fn keys(&self) -> impl Iterator<Item = &SymbolId> {
+        self.symbols.keys()
+    }
+
     /// Returns the origin metadata of the symbol table.
     ///
     /// The origin describes the context from which the symbol table was built—

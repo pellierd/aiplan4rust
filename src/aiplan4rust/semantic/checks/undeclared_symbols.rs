@@ -135,7 +135,7 @@ pub fn check_undeclared_symbols(
 /// # Returns
 ///
 /// * `true` if the symbol should be skipped, otherwise `false`.
-fn should_skip_symbol(
+pub fn should_skip_symbol(
     symbol: &SymbolEntry,
     context: &CheckContext,
     usage_kind: SymbolKind,
@@ -202,7 +202,7 @@ fn should_skip_symbol(
 /// [`SymbolEntry`]: crate::semantics::SymbolEntry
 /// [`Usage`]: crate::semantics::Usage
 /// [`Declaration`]: crate::semantics::Declaration
-fn find_declaration<'a>(symbol: &'a SymbolEntry, usage: &Usage) -> Option<&'a Declaration> {
+pub fn find_declaration<'a>(symbol: &'a SymbolEntry, usage: &Usage) -> Option<&'a Declaration> {
     let usage_scope = usage.scope();
     let usage_kind = usage.symbol_kind();
 
@@ -259,7 +259,7 @@ fn find_declaration<'a>(symbol: &'a SymbolEntry, usage: &Usage) -> Option<&'a De
 /// - `number`, `total-time`, `total-cost`: Used for fluents and numeric fluents.
 /// - `?duration`: Implicit variable for durative actions.
 /// - `#t`: Continuous time variable for temporal domains.
-fn is_pddl_builtin_symbol(symbol: &SymbolEntry, _context: &CheckContext) -> bool {
+pub fn is_pddl_builtin_symbol(symbol: &SymbolEntry, _context: &CheckContext) -> bool {
     // We accept these symbols because they are reserved by the interner at initialization.
     // They are considered part of the language's core vocabulary, decoupling symbol
     // existence from requirement-based feature activation.
