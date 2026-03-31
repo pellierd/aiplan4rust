@@ -1,13 +1,13 @@
-use std::collections::{HashMap, HashSet};
-use std::collections::hash_map::Entry;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
-use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::tree::{NodeId, Tree};
+use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 
 /// Orchestrates the normalization of a specific definition block (e.g., :types, :functions).
 ///
@@ -51,9 +51,31 @@ pub fn normalize_def(
     // 3. Perform the in-place AST transformation to merge the duplicates.
     let modified = merge_duplicate_declarations(def_id, ast)?;
 
+    //verify_tree_integrity(ast.syntax_tree())?;
     Ok(modified)
 }
 
+#[cfg(debug_assertions)]
+fn verify_tree_integrity(syntax_tree: &Tree<AstNode>) -> Result<(), NormalizationPassError> {
+    // On itère sur les IDs des nœuds dans l'ordre de traversée
+    for (node_id, node) in syntax_tree.preorder().ids() {
+        for &child_id in node.children() {
+            let child = syntax_tree.try_node(child_id)?;
+
+            // On compare l'ID du parent stocké dans l'enfant
+            // avec l'ID du nœud actuel (node_id)
+            assert_eq!(
+                child.parent(),
+                Some(node_id),
+                "Incohérence détectée : l'enfant {:?} prétend avoir le parent {:?} au lieu de {:?}",
+                child_id,
+                child.parent(),
+                node_id
+            );
+        }
+    }
+    Ok(())
+}
 /// Validates that duplicated declarations have compatible return types or supertypes.
 ///
 /// In PDDL, the `number` type is primitive and incompatible with object types.
@@ -111,9 +133,9 @@ fn report_declaration_incompatibility(
             // 1. Type mismatch (one is 'number', the other is an object/type).
             // 2. The original declaration was an invalid '(either number ...)'.
             // 3. The current duplicate is an invalid '(either number ...)'.
-            let conflict = (first_has_number != dupe_has_number) ||
-                first_is_invalid_either ||
-                dupe_is_invalid_either;
+            let conflict = (first_has_number != dupe_has_number)
+                || first_is_invalid_either
+                || dupe_is_invalid_either;
 
             if conflict {
                 // Convert HashSets to sorted Vecs for deterministic error reporting.
@@ -126,16 +148,18 @@ fn report_declaration_incompatibility(
 
                 // Pass the collected type lists to the diagnostic.
                 // This allows the renderer to show: "Expected (either a b), found number".
-                diagnostic_manager.add_diagnostic(Diagnostic::error_incompatible_type_declarations(
-                    key.symbol,
-                    kind,
-                    expected,               // expected_types
-                    found,                  // found_types
-                    *dupe_span,             // offending_span (Copy trait used)
-                    occurrences.first_span, // original_span
-                    Provider::Normalizer,
-                    ast.source_id(),
-                ));
+                diagnostic_manager.add_diagnostic(
+                    Diagnostic::error_incompatible_type_declarations(
+                        key.symbol,
+                        kind,
+                        expected,               // expected_types
+                        found,                  // found_types
+                        *dupe_span,             // offending_span (Copy trait used)
+                        occurrences.first_span, // original_span
+                        Provider::Normalizer,
+                        ast.source_id(),
+                    ),
+                );
             }
         }
     }
@@ -176,9 +200,10 @@ fn report_duplicated_declaration_warning(
     for (key, occurrences) in seen {
         // Only trigger a warning if at least one duplicate exists
         if !occurrences.duplicates.is_empty() {
-
             // 2. Optimization: Pre-calculate capacity to avoid multiple re-allocations
-            let total_elements = occurrences.duplicates.iter()
+            let total_elements = occurrences
+                .duplicates
+                .iter()
                 .map(|(types, _)| types.len())
                 .sum();
 
@@ -336,69 +361,89 @@ pub fn merge_duplicate_declarations(
     def_id: NodeId,
     ast: &mut Ast,
 ) -> Result<bool, NormalizationPassError> {
-    // 1. Enter the definition block (e.g., :types) and get the underlying TypedList.
+    // 1. On accède au bloc de définition (ex: :types) et à sa TypedList sous-jacente.
     let typed_list_id = ast.syntax_tree().try_node(def_id)?.try_child(0)?;
     let child_count = ast.syntax_tree().try_node(typed_list_id)?.children().len();
 
     let mut modified = false;
-    // Track unique definitions by their signature (name + args) and map them to their first NodeId.
+    // Map pour suivre les définitions uniques (nom + arguments) -> NodeId de la première occurrence.
     let mut seen: HashMap<DefinitionKey, NodeId> = HashMap::new();
-    // Collect redundant NodeIds to be purged from the tree after the main loop.
+    // Set pour collecter les IDs à supprimer à la fin.
     let mut duplicates_to_remove = HashSet::new();
 
     for i in 0..child_count {
-        // Fetch the current item ID by index to avoid cloning the entire children vector.
+        // On récupère l'ID par index pour éviter de cloner tout le vecteur d'enfants à chaque tour.
         let item_id = ast.syntax_tree().try_node(typed_list_id)?.children()[i];
 
-        // Generate a unique identity key for the item (name and parameter types).
+        // Génération de la clé unique (signature de la déclaration).
         let key = {
             let item_node = ast.syntax_tree().try_node(item_id)?;
             DefinitionKey::from_node(item_node, ast)?
         };
 
-        // Check if this definition has already been encountered.
+        // Si on a déjà vu cette signature...
         if let Some(&existing_item_id) = seen.get(&key) {
-            // DUPLICATE DETECTED: We merge the current item into the first one.
+            // DOUBLON DÉTECTÉ : Fusion du doublon vers l'original existant.
 
-            // Get the IDs of the 'Type' blocks for both the duplicate and the original.
+            // Récupération des blocs 'Type' (index 1 dans un TypedItem).
             let current_super_id = ast.syntax_tree().try_node(item_id)?.try_child(1)?;
             let existing_super_id = ast.syntax_tree().try_node(existing_item_id)?.try_child(1)?;
 
-            // 2. Extract types from the duplicate.
-            // We use to_vec() here to own the IDs (simple integers), allowing us
-            // to drop the immutable borrow of the AST before performing mutations.
-            let types_from_duplicate: Vec<NodeId> = ast.syntax_tree()
+            // 2. Extraction des types du doublon.
+            let types_from_duplicate: Vec<NodeId> = ast
+                .syntax_tree()
                 .try_node(current_super_id)?
                 .children()
                 .to_vec();
 
-            // 3. Mutate the original node to include the new types.
+            // --- POINT 2 : TRANSPLANTATION DES ENFANTS ---
+            // On change le parent de chaque type déplacé vers le bloc de l'original.
+            for &type_node_id in &types_from_duplicate {
+                ast.syntax_tree_mut()
+                    .try_node_mut(type_node_id)?
+                    .set_parent(Some(existing_super_id));
+            }
+
+            // --- NETTOYAGE DU BLOC SOURCE (CURRENT_SUPER_ID) ---
+            // On vide l'ancien bloc de types et on le détache pour éviter les racines orphelines.
+            let current_super_node = ast.syntax_tree_mut().try_node_mut(current_super_id)?;
+            current_super_node.set_parent(None); // Plus de parent
+                                                 // ---------------------------------------------------
+
+            // 3. Mutation du nœud original pour inclure les nouveaux types fusionnés.
             let existing_node = ast.syntax_tree_mut().try_node_mut(existing_super_id)?;
             let existing_children = existing_node.children_mut();
             existing_children.extend(types_from_duplicate);
 
-            // 4. Clean up the merged type list.
-            // sort_unstable is faster for primitive-like IDs as it doesn't preserve
-            // the relative order of equal elements (irrelevant here).
+            // 4. Nettoyage de la liste fusionnée (tri et dédoublonnage).
             existing_children.sort_unstable();
-            // dedup() removes consecutive duplicates, completing the set-like merge.
             existing_children.dedup();
 
-            // Mark this redundant node for final removal.
+            // --- POINT SÉCURITÉ : DÉTACHEMENT DU DOUBLON ---
+            ast.syntax_tree_mut()
+                .try_node_mut(item_id)?
+                .set_parent(None);
+            // -----------------------------------------------
+
             duplicates_to_remove.insert(item_id);
             modified = true;
         } else {
-            // First time seeing this definition; register it as the primary instance.
+            // Première occurrence : on enregistre cet ID comme la référence.
             seen.insert(key, item_id);
         }
     }
 
-    // 5. Final cleanup phase: remove all redundant nodes from the TypedList.
+    // 5. Phase finale : suppression effective des nœuds redondants dans la TypedList.
     if modified {
+        // Sécurité supplémentaire : on s'assure que tout ce qui sort est orphelin.
+        for &dup_id in &duplicates_to_remove {
+            ast.syntax_tree_mut().try_node_mut(dup_id)?.set_parent(None);
+        }
+
         let list_node = ast.syntax_tree_mut().try_node_mut(typed_list_id)?;
-        // retain() modifies the vector in-place, which is O(n).
-        // Since duplicates_to_remove is a HashSet, lookups are O(1).
-        list_node.children_mut().retain(|id| !duplicates_to_remove.contains(id));
+        list_node
+            .children_mut()
+            .retain(|id| !duplicates_to_remove.contains(id));
     }
 
     Ok(modified)
@@ -458,7 +503,7 @@ impl DefinitionKey {
                 let symbol = syntax_tree.try_node(symbol_node_id)?.try_ident()?;
 
                 // 2. Extract argument types from the TypedList (index 1 of the skeleton).
-                let mut arg_types = Vec::with_capacity(4);;
+                let mut arg_types = Vec::with_capacity(4);
                 if let Some(typed_list_id) = first_child.get_child(1) {
                     let typed_list = syntax_tree.try_node(typed_list_id)?;
 

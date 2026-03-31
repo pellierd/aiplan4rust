@@ -56,14 +56,14 @@
 //!
 //! See individual function docs for detailed behavior and examples.
 
-use std::collections::HashSet;
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstContent};
-use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstNode};
 use crate::aiplan4rust::tree::Tree;
+use std::collections::HashSet;
 
 /// Normalizes all `Type` nodes in the AST by detecting and removing duplicate `PrimitiveType` children.
 ///
@@ -180,7 +180,6 @@ fn report_either_type_duplicate_warnings(
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationPassError> {
-
     // Traverse all nodes in the AST in preorder (parent before children)
     for node in syntax_tree.preorder().values() {
         // Skip nodes that are not of kind Type, since duplicates only matter there
@@ -280,55 +279,55 @@ fn remove_either_type_duplicates(
     syntax_tree: &mut Tree<AstNode>,
 ) -> Result<bool, NormalizationPassError> {
     let mut modified = false;
-    let mut stack = vec![syntax_tree.try_root_id()?];
+    let root_id = syntax_tree.try_root_id()?;
+    let mut stack = vec![root_id];
 
     while let Some(node_id) = stack.pop() {
-        // Obtain an immutable reference to the current syntax for reading
-        let node = syntax_tree.try_node(node_id)?;
-        // Clone the children IDs to avoid borrowing issues when mutating later
-        let children_ids = node.children().to_vec();
-        // Cache the syntax kind for quick checks
-        let node_kind = node.kind();
+        // 1. On récupère les enfants AVANT de modifier quoi que ce soit
+        let children_ids = syntax_tree.try_node(node_id)?.children().to_vec();
+        let node_kind = syntax_tree.try_node(node_id)?.kind();
 
-        // Process only nodes of kind 'Type' to remove duplicate PrimitiveType children
         if node_kind == AstKind::Type {
-            let mut seen = HashSet::new();  // Track seen identifiers to detect duplicates
-            // Pre-allocate vector to hold filtered children with capacity = current children count
+            let mut seen = HashSet::new();
             let mut retained = Vec::with_capacity(children_ids.len());
+            let mut node_modified = false;
 
-            // Iterate over all children to filter out duplicate PrimitiveType identifiers
             for &child_id in &children_ids {
                 let child = syntax_tree.try_node(child_id)?;
-                match child.kind() {
-                    AstKind::PrimitiveType => {
-                        if let AstContent::Ident(id) = child.content() {
-                            // Insert returns false if id was already present (duplicate)
-                            if seen.insert(*id) {
-                                retained.push(child_id); // Keep first occurrence
-                            } else {
-                                modified = true; // Mark that modification occurred by removing duplicate
-                            }
-                        } else {
-                            // If PrimitiveType without Ident content, just keep it
-                            retained.push(child_id);
-                        }
+
+                let is_duplicate = if child.kind() == AstKind::PrimitiveType {
+                    if let AstContent::Ident(id) = child.content() {
+                        !seen.insert(*id) // true si déjà vu
+                    } else {
+                        false
                     }
-                    // For other child kinds, keep them unchanged
-                    _ => retained.push(child_id),
+                } else {
+                    false
+                };
+
+                if is_duplicate {
+                    // --- POINT CRITIQUE : On détache l'enfant supprimé ---
+                    syntax_tree.try_node_mut(child_id)?.set_parent(None);
+                    node_modified = true;
+                    modified = true;
+                } else {
+                    retained.push(child_id);
                 }
             }
 
-            // After reading and processing children, obtain mutable reference to update syntax
-            let node_mut = syntax_tree.try_node_mut(node_id)?;
-            node_mut.set_children(retained);
+            if node_modified {
+                let node_mut = syntax_tree.try_node_mut(node_id)?;
+                node_mut.set_children(retained);
+            }
         }
 
-        // Push all children onto the stack to continue depth-first traversal
-        for child_id in children_ids {
+        // 2. IMPORTANT : On n'ajoute à la pile que les enfants qui sont RESTÉS
+        // (re-chercher les enfants actuels après modification)
+        let final_children = syntax_tree.try_node(node_id)?.children();
+        for &child_id in final_children {
             stack.push(child_id);
         }
     }
 
-    // Return whether the AST was modified by removing duplicates
     Ok(modified)
 }

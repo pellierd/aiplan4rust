@@ -198,7 +198,6 @@ fn report_duplicate_requirements_warnings(
     Ok(())
 }
 
-
 /// Creates a diagnostic warning for one or more duplicate requirement declarations.
 ///
 /// This function generates a diagnostic warning indicating that one or more
@@ -275,11 +274,21 @@ pub fn remove_requirement_duplicates(
 
     // Iterate over children and keep only unique requirements
     for &child_id in &old_children {
-        let child = syntax_tree.try_node_mut(child_id)?;
-        match child.try_requirement() {
-            Ok(req) if seen.insert(req) => new_children.push(child_id),
-            Ok(_) => modified = true, // duplicate found and skipped
-            Err(_) => new_children.push(child_id), // not a requirement, keep it
+        // On vérifie d'abord si c'est un requirement
+        let is_duplicate = {
+            let child = syntax_tree.try_node(child_id)?;
+            if let Ok(req) = child.try_requirement() {
+                !seen.insert(req) // true si déjà vu (donc doublon)
+            } else {
+                false // pas un requirement
+            }
+        };
+
+        if is_duplicate {
+            syntax_tree.try_node_mut(child_id)?.set_parent(None);
+            modified = true;
+        } else {
+            new_children.push(child_id);
         }
     }
 

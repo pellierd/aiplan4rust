@@ -60,10 +60,9 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
-use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
+use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::SymbolTable;
@@ -246,6 +245,14 @@ impl Analyzer {
         &mut self,
         context: &mut SemanticContext,
     ) -> Result<bool, SemanticError> {
+        println!("perform_domain_analysis");
+        println!(
+            "{}",
+            context
+                .syntax_tree()
+                .try_root()?
+                .to_string_with_interner(context.syntax_tree(), context.interner())
+        );
         // --- ÉTAPE 0 : PRÉPARATION ---
         // On extrait la hiérarchie une seule fois pour tout le processus.
         let type_hierarchy = context.symbol_table().to_type_hierarchy();
@@ -281,7 +288,7 @@ impl Analyzer {
 
         // --- ÉTAPE 2 : OPTIMISATION & FINALISATION (Mutation) ---
         // On transforme l'AST pour refléter les types simplifiés.
-        let changes = {
+        /*let changes = {
             let pass_ctx =
                 PassContext::new(context.interner(), context.source(), Provider::Analyzer);
             passes::symbol_table::finalize(
@@ -290,7 +297,7 @@ impl Analyzer {
                 &mut symbol_table,
                 &mut self.diagnostic_manager,
             )? // pass peut echoue et la table non remise
-        };
+        };*/
 
         // --- ÉTAPE 3 : VALIDATION AVANCÉE ---
         // Cette phase profite de la SymbolTable simplifiée et de l'AST patché.
@@ -307,9 +314,9 @@ impl Analyzer {
         context.set_symbol_table(symbol_table);
 
         // Patch chirurgical de l'AST basé sur les changements collectés.
-        if !changes.is_empty() {
-            passes::ast::finalize(context, &changes)?;
-        }
+        //if !changes.is_empty() {
+        //    passes::ast::finalize(context, &changes)?;
+        //}
 
         Ok(advanced_checked)
     }

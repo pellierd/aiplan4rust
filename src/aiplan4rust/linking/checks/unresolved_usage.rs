@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::semantic::checks::undeclared_symbols::is_pddl_builtin_symbol;
+use crate::aiplan4rust::semantic::checks::util::check_kind_compatibility;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::{DiagnosticManager, SymbolTable};
 
 pub fn check_unresolved_usages(
@@ -21,7 +21,7 @@ pub fn check_unresolved_usages(
         }
         for usage in entry.usages().values() {
             // On ne traite que ce qui n'a pas été lié par le perform_linking
-            if usage.resolved_declaration().is_none() {
+            if usage.declaration().is_none() {
                 no_error = false;
                 let symbol_id = usage.symbol_id();
 
@@ -30,7 +30,7 @@ pub fn check_unresolved_usages(
                     let potential_decl = dom_symbol
                         .declarations()
                         .values()
-                        .find(|d| is_kind_compatible(usage.symbol_kind(), d.symbol_kind()));
+                        .find(|d| check_kind_compatibility(usage.symbol_kind(), d.symbol_kind()));
 
                     if let Some(declaration) = potential_decl {
                         // CAS : SIGNATURE INVALIDE (Paramètres ou types incorrects)
@@ -66,11 +66,4 @@ pub fn check_unresolved_usages(
         }
     }
     no_error
-}
-
-/// Helper pour la compatibilité Task/Action (HTN)
-fn is_kind_compatible(usage_kind: SymbolKind, decl_kind: SymbolKind) -> bool {
-    usage_kind == decl_kind
-        || (usage_kind == SymbolKind::Task && decl_kind == SymbolKind::Action)
-        || (usage_kind == SymbolKind::Action && decl_kind == SymbolKind::Task)
 }

@@ -94,7 +94,7 @@ pub fn check_undeclared_symbols(
         let mut entry = symbol_table.try_get_symbol_mut(symbol_id)?;
         // A. Lien Usage -> Declaration
         if let Some(u) = entry.usages_mut().get_mut(&usage_node_id) {
-            u.set_resolved_declaration(decl_node_id);
+            u.set_declaration(decl_node_id);
         }
         // B. Lien Declaration -> Usage (Cross-reference)
         if let Some(d) = entry.declarations_mut().get_mut(&decl_node_id) {

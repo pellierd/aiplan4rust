@@ -95,13 +95,18 @@ pub enum SemanticError {
     },
 
     /// Occurs when a node has an incorrect number of children.
-    #[error("{node_type:?} node at {node_id:?} has an unexpected number of children: {child_count}. Expected one of {expected_arity:?}.")]
+    #[error("{node_type:?} node at {node_id:?} has an unexpected number of children: {child_count}. Expected one of {expected_arity:?}."
+    )]
     InvalidNodeArity {
         node_id: NodeId,
         node_type: AstKind,
         child_count: usize,
         expected_arity: Vec<usize>,
     },
+
+    /// Erreur de conversion : le nœud AST ne peut pas être transformé en symbole Kind.
+    #[error("AST node kind {kind:?} cannot be converted to a semantic Kind")]
+    AstKindConversion { kind: AstKind },
 }
 
 impl SemanticError {
@@ -160,6 +165,15 @@ impl SemanticError {
     #[track_caller]
     pub fn unexpected_syntax_tree_root() -> Self {
         SemanticError::UnexpectedSyntaxTreeRootError.trace()
+    }
+
+    /// Creates a [`SemanticError`] when an AST node kind cannot be converted to a semantic Kind.
+    ///
+    /// # Parameters
+    /// * `kind` - The actual [`AstKind`] found that failed the conversion.
+    #[track_caller]
+    pub fn ast_kind_conversion(kind: AstKind) -> Self {
+        Self::AstKindConversion { kind }.trace()
     }
 }
 

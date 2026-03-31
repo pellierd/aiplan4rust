@@ -66,7 +66,9 @@ pub struct Usage {
     /// The AST node identifier where the symbol usage occurs.
     node_id: NodeId,
 
-    resolved_declaration: Option<NodeId>,
+    argument_sources: Option<Vec<NodeId>>,
+
+    declaration: Option<NodeId>,
 }
 
 impl Usage {
@@ -89,6 +91,7 @@ impl Usage {
         source: SymbolOrigin,
         span: Span,
         ast: NodeId,
+        argument_sources: Option<Vec<NodeId>>,
     ) -> Self {
         Usage {
             symbol,
@@ -96,7 +99,8 @@ impl Usage {
             origin: source,
             span,
             node_id: ast,
-            resolved_declaration: None,
+            argument_sources,
+            declaration: None,
         }
     }
 
@@ -135,12 +139,29 @@ impl Usage {
         self.node_id
     }
 
-    pub fn set_resolved_declaration(&mut self, node_id: NodeId) {
-        self.resolved_declaration = Some(node_id);
+    pub fn set_declaration(&mut self, node_id: NodeId) {
+        self.declaration = Some(node_id);
+    }
+    pub fn declaration(&self) -> Option<NodeId> {
+        self.declaration
     }
 
-    pub fn resolved_declaration(&self) -> Option<NodeId> {
-        self.resolved_declaration
+    /// Récupère les sources des arguments s'ils existent.
+    /// Retourne une référence vers le Vecteur de NodeId.
+    pub fn argument_sources(&self) -> Option<&Vec<NodeId>> {
+        self.argument_sources.as_ref()
+    }
+
+    /// Définit les sources des arguments pour cet usage.
+    /// Utile lors de la construction de la table des symboles
+    /// quand on identifie une AtomicFormula ou une Task.
+    pub fn set_argument_sources(&mut self, sources: Vec<NodeId>) {
+        self.argument_sources = Some(sources);
+    }
+
+    /// Vérifie si l'usage possède des arguments.
+    pub fn has_arguments(&self) -> bool {
+        self.argument_sources.is_some()
     }
 }
 
@@ -169,7 +190,7 @@ impl fmt::Display for Usage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "[node: {}, kind: {}, ident: {}, scope: {}, origin: {}",
+            "Usage [node: {}, kind: {}, id: {}, scope: {}, origin: {}",
             self.node_id.as_usize(),
             self.symbol_kind(),
             self.symbol_id(),
@@ -177,10 +198,19 @@ impl fmt::Display for Usage {
             self.origin
         )?;
 
-        if let Some(decl_node_id) = self.resolved_declaration {
-            write!(f, ", resolved_decl: {}", decl_node_id.as_usize())?;
+        // Affichage des arguments (IDs bruts)
+        if let Some(args) = &self.argument_sources {
+            let args_ids: Vec<String> = args.iter().map(|id| id.as_usize().to_string()).collect();
+            write!(f, ", args: [{}]", args_ids.join(", "))?;
         } else {
-            write!(f, ", resolved_decl: None")?;
+            write!(f, ", args: None")?;
+        }
+
+        // Lien vers la déclaration résolue
+        if let Some(decl_node_id) = self.declaration {
+            write!(f, ", declaration: {}", decl_node_id.as_usize())?;
+        } else {
+            write!(f, ", declaration: None")?;
         }
 
         write!(f, "]")
@@ -199,7 +229,7 @@ impl InternerDisplay for Usage {
 
         write!(
             f,
-            "[node: {}, kind: {}, ident: {}, scope: {}, origin: {}",
+            "Usage [node: {}, kind: {}, ident: {}, scope: {}, origin: {}",
             self.node_id.as_usize(),
             self.symbol_kind(),
             symbol_str,
@@ -207,11 +237,19 @@ impl InternerDisplay for Usage {
             self.origin
         )?;
 
-        // Affichage du lien vers la déclaration (le vissage)
-        if let Some(decl_node_id) = self.resolved_declaration {
-            write!(f, ", resolved_decl: {}", decl_node_id.as_usize())?;
+        // Affichage des sources des arguments (le nouveau champ)
+        if let Some(args) = &self.argument_sources {
+            let args_str: Vec<String> = args.iter().map(|id| id.as_usize().to_string()).collect();
+            write!(f, ", args: [{}]", args_str.join(", "))?;
         } else {
-            write!(f, ", resolved_decl: None")?;
+            write!(f, ", args: None")?;
+        }
+
+        // Affichage du lien vers la déclaration (le "linking")
+        if let Some(decl_node_id) = self.declaration {
+            write!(f, ", declaration: {}", decl_node_id.as_usize())?;
+        } else {
+            write!(f, ", declaration: None")?;
         }
 
         write!(f, "]")

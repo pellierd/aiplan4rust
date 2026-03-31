@@ -5,6 +5,8 @@
 //! These classifications facilitate semantic analysis, symbol resolution,
 //! and other processing steps during syntax and compilation.
 
+use crate::aiplan4rust::semantic::SemanticError;
+use crate::aiplan4rust::syntax::ast::AstKind;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -149,6 +151,38 @@ impl Kind {
 
             // Default: Strict (Task, Method, etc.)
             _ => false,
+        }
+    }
+}
+
+impl TryFrom<AstKind> for Kind {
+    type Error = SemanticError;
+
+    fn try_from(ast_kind: AstKind) -> Result<Self, Self::Error> {
+        match ast_kind {
+            // --- SYMBOLS & VARIABLES ---
+            AstKind::Variable => Ok(Kind::Variable),
+            AstKind::Object => Ok(Kind::Constant),
+            AstKind::FunctionSymbol => Ok(Kind::Function),
+            AstKind::PredicateSymbol => Ok(Kind::Predicate),
+
+            // --- HIERARCHICAL & PROCEDURAL ---
+            AstKind::ActionSymbol => Ok(Kind::Action),
+            AstKind::MethodSymbol => Ok(Kind::Method),
+            AstKind::Task => Ok(Kind::Task),
+            AstKind::TaskLabel => Ok(Kind::TaskID),
+
+            // --- TEMPORAL & TYPES ---
+            AstKind::PrimitiveType => Ok(Kind::PrimitiveType),
+
+            // --- TOP-LEVEL STRUCTURES ---
+            AstKind::DomainName => Ok(Kind::DomainName),
+            AstKind::ProblemName => Ok(Kind::ProblemName),
+            AstKind::Requirement => Ok(Kind::Requirement),
+
+            // On utilise ta fonction helper pour transformer le AstKind inconnu
+            // en une SemanticError tracée.
+            found => Err(SemanticError::ast_kind_conversion(found)),
         }
     }
 }

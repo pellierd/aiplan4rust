@@ -1,13 +1,17 @@
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::semantic::checks::util::{
+    check_kind_compatibility, match_signature, resolve_declaration,
+};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::semantic::symbol::Declaration;
+use crate::aiplan4rust::semantic::signature_checker::match_result::MatchResult;
+use crate::aiplan4rust::semantic::signature_checker::signature_checker::SignatureChecker;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
-use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{Node, NodeId};
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::tree::Node;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax arena.
 ///
@@ -48,12 +52,15 @@ pub fn check_symbol_signatures(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {
     let mut no_error = true;
-
     let mut bindings = Vec::new();
 
-    // Loop over all symbols in the symbol table.
+    // 1. Initialisation du Checker.
+    // On passe None pour l'annex_table car ici on vérifie la cohérence interne d'un fichier.
+    let checker = SignatureChecker::new(symbol_table, context.syntax_tree(), type_checker, None);
+
+    // Parcourir tous les symboles de la table.
     for symbol in symbol_table.values() {
-        // Check all declarations of the symbol.
+        // Vérifier toutes les déclarations du symbole.
         for declaration in symbol.declarations().values() {
             if !matches!(
                 declaration.symbol_kind(),
@@ -65,53 +72,68 @@ pub fn check_symbol_signatures(
                 continue;
             }
 
-            // Check all usages of the symbol.
+            // Vérifier tous les usages du symbole.
             for usage in symbol.usages().values() {
-                let usage_kind = usage.symbol_kind();
                 let decl_kind = declaration.symbol_kind();
+                let usage_kind = usage.symbol_kind();
 
-                // --- STRATÉGIE DE FILTRAGE UNIFIÉE ---
-
-                // 1. Si les genres sont différents et NE PEUVENT PAS partager l'espace de noms,
-                //    alors cet usage ne concerne pas cette déclaration.
-                if usage_kind != decl_kind && !decl_kind.can_share_name_space_with(&usage_kind) {
+                // On ne garde que ce qui a une signature.
+                if !matches!(
+                    usage_kind,
+                    SymbolKind::Predicate
+                        | SymbolKind::Function
+                        | SymbolKind::Task
+                        | SymbolKind::Action
+                ) {
                     continue;
                 }
 
-                // 2. Cas spécifique des types (Singletons) :
-                //    Même si can_share(Type, Constant) est vrai, on ne compare pas leurs signatures.
-                //    Une constante n'a pas de paramètres, contrairement à un prédicat ou une tâche.
-                if (matches!(decl_kind, SymbolKind::PrimitiveType)
-                    || matches!(usage_kind, SymbolKind::PrimitiveType))
-                    && usage_kind != decl_kind
-                {
+                // Vérification de la compatibilité des "genres" (ex: Predicate vs Action).
+                if !check_kind_compatibility(decl_kind, usage_kind) {
                     continue;
                 }
 
-                // 3. Validation de la signature
-                if !match_declaration_with_usage(
-                    declaration,
-                    usage,
-                    symbol_table,
-                    context,
-                    type_checker,
-                    diagnostic_manager,
-                )? {
-                    no_error = false; // Utilisation de false directement (plus idiomatique que &=)
+                // 2. Validation de la signature via le MatchResult
+                match checker.match_declaration_with_usage(declaration, usage)? {
+                    MatchResult::Match => {
+                        // Succès parfait : on enregistre pour le "vissage" final.
+                        bindings.push((symbol.ident(), declaration.source(), usage.source()));
+                    }
+                    MatchResult::UpcastMatch {
+                        expected,
+                        provided,
+                        arg_decl,
+                        arg_node_id,
+                    } => {
+                        // Succès avec réserve : on lie le symbole car c'est un candidat valide...
+                        bindings.push((symbol.ident(), declaration.source(), usage.source()));
 
-                    let entry = context.syntax_tree().get_node(usage.source()).unwrap();
+                        // ... mais on remonte un Warning à l'utilisateur.
+                        let arg_node = context.syntax_tree().try_node(arg_node_id)?;
+                        let warning = Diagnostic::warning_task_argument_is_supertype_of_declaration(
+                            arg_decl,
+                            expected,
+                            provided,
+                            context.provider(),
+                            context.source(),
+                            arg_node.span(),
+                        );
+                        diagnostic_manager.add_diagnostic(warning);
+                    }
+                    MatchResult::NoMatch => {
+                        // Échec de signature : cette déclaration ne correspond pas à l'usage.
+                        no_error = false;
 
-                    let error = Diagnostic::error_invalid_symbol_signature(
-                        declaration.clone(),
-                        usage.clone(),
-                        context.provider(),
-                        context.source(),
-                        entry.span(),
-                    );
-
-                    diagnostic_manager.add_diagnostic(error);
-                } else {
-                    bindings.push((symbol.ident(), declaration.source(), usage.source()));
+                        let entry_node = context.syntax_tree().try_node(usage.source())?;
+                        let error = Diagnostic::error_invalid_symbol_signature(
+                            declaration.clone(),
+                            usage.clone(),
+                            context.provider(),
+                            context.source(),
+                            entry_node.span(),
+                        );
+                        diagnostic_manager.add_diagnostic(error);
+                    }
                 }
             }
         }
@@ -124,7 +146,7 @@ pub fn check_symbol_signatures(
         let mut entry = symbol_table.try_get_symbol_mut(symbol_id)?;
         // Lien Usage -> Declaration
         if let Some(u) = entry.usages_mut().get_mut(&usage_node_id) {
-            u.set_resolved_declaration(decl_node_id);
+            u.set_declaration(decl_node_id);
         }
         // Lien Declaration -> Usage
         if let Some(d) = entry.declarations_mut().get_mut(&decl_node_id) {
@@ -160,41 +182,85 @@ pub fn match_declaration_with_usage(
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {
-    let ast_usage = context.syntax_tree().try_node(usage.source())?;
+    // 1. Vérification de la signature (noms et arité)
+    let Some(arguments) = match_signature(declaration, usage) else {
+        // DEBUG: Si on entre ici, c'est que le nom ou le nombre d'arguments ne colle pas
+        println!(
+            "DEBUG [Match]: Rejeté par match_signature. Decl: {} (args attendus: {:?}), Usage: {} (args fournis: {:?})",
+            declaration.symbol().id(),
+            declaration.arguments().map(|a| a.len()).unwrap_or(0),
+            usage.symbol().id(),
+            usage.has_arguments()
+        );
+        return Ok(false);
+    };
 
-    for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
-        let argument = context.syntax_tree().get_node(*argument_index).unwrap();
+    // 2. Validation du contenu des arguments
+    for (index, &arg_id) in arguments.iter().enumerate() {
+        let arg_node = context.syntax_tree().try_node(arg_id)?;
 
-        let kind = match argument.kind() {
-            AstKind::Variable => SymbolKind::Variable,
-            AstKind::Object => SymbolKind::Constant,
-            AstKind::Function => SymbolKind::Function,
-            found => {
-                return Err(SemanticError::unexpected_node_kind(
-                    usage.source(),
-                    vec![AstKind::Variable, AstKind::Object, AstKind::Function], // tous les attendus
-                    found,
-                ));
-            }
-        };
+        // Utilisation du helper pour résoudre la déclaration de l'argument
 
-        if !match_argument(
+        let arg_decl_opt = resolve_argument_declaration(arg_node, usage.scope(), symbol_table)?;
+
+        if arg_decl_opt.is_none() {
+            // DEBUG: L'argument (ex: pc-bPlugType1) n'est pas trouvé dans la table
+            println!(
+                "DEBUG [Match]: Argument à l'index {} non résolu. Ident: '{}', Scope d'usage: {:?}",
+                index,
+                arg_node.try_ident()?,
+                usage.scope()
+            );
+            return Ok(false);
+        }
+
+        let arg_decl = arg_decl_opt.unwrap();
+
+        // 3. Vérification de la compatibilité des types
+        let is_match = match_argument(
             declaration,
             usage,
-            symbol_table,
+            &arg_decl,
             context,
-            argument,
-            argument_index.as_usize(),
-            kind,
+            arg_node,
             index,
             type_checker,
             diagnostic_manager,
-        )? {
+        )?;
+
+        if !is_match {
+            // DEBUG: Le type ne correspond pas (ex: attendu Port, reçu Device)
+            println!(
+                "DEBUG [Match]: Type mismatch à l'index {}. Argument '{}' (Type: {:?}) ne match pas la signature attendue.",
+                index,
+                arg_node.try_ident()?,
+                arg_decl.ty()
+            );
             return Ok(false);
         }
     }
 
+    // Si on arrive ici, tout est OK
+    println!(
+        "DEBUG [Match]: SUCCÈS pour {} à l'usage node {}",
+        declaration.symbol().id(),
+        usage.source()
+    );
     Ok(true)
+}
+
+/// Résout la déclaration d'un argument à partir de son nœud AST.
+fn resolve_argument_declaration<'a>(
+    argument_node: &AstNode,
+    scope: &Scope,
+    symbol_table: &'a SymbolTable, // On précise que la table vit au moins 'a
+) -> Result<Option<&'a Declaration>, SemanticError> {
+    // On renvoie une référence &'a
+    let name = argument_node.try_ident()?;
+    let kind = SymbolKind::try_from(argument_node.kind())?;
+
+    let entry = symbol_table.try_get_symbol(name)?;
+    Ok(resolve_declaration(entry, kind, scope))
 }
 
 /// Matches a specific argument in the declaration to its expected type_checker.
@@ -206,9 +272,9 @@ pub fn match_declaration_with_usage(
 ///
 /// * `declaration` - The declaration of the symbol.
 /// * `usage` - The usage of the symbol.
-/// * `symbol_table` - The table containing symbols.
-/// * `name` - The name of the argument being matched.
-/// * `kind` - The kind of the argument, such as `SymbolKind::Variable` or `SymbolKind::Function`.
+/// * `symbol_declaration` - The already resolved declaration of the argument.
+/// * `context` - The check context.
+/// * `argument` - The AST node of the argument.
 /// * `index` - The index of the argument in the argument list.
 /// * `type_checker` - A type_checker checker to validate type_checker consistency.
 ///
@@ -216,104 +282,70 @@ pub fn match_declaration_with_usage(
 ///
 /// `Result<bool, ParserInternalError>`: Returns `Ok(true)` if the argument matches the expected
 /// declaration, or `Err` with a `ParserInternalError` if any validation error occurs.
+
+fn match_argument_base(
+    atom_decl: &Declaration, // La définition (ex: l'Action "marcher")
+    arg_decl: &Declaration,  // L'argument réel (ex: la variable "V1")
+    usage_scope: &Scope,
+    index: usize,
+    type_checker: &TypeChecker,
+) -> Result<bool, SemanticCheckError> {
+    // 1. ty_expected (Type attendu)
+    // On va chercher dans la LISTE des arguments de l'atome à la POSITION index
+    let ty_expected = atom_decl
+        .arguments()
+        .and_then(|args| args.get(index))
+        .map(|arg| arg.ty())
+        .ok_or_else(|| {
+            SemanticCheckError::argument_index_out_of_bounds(index, atom_decl.scope().clone())
+        })?;
+
+    // 2. ty_provided (Type fourni)
+    // On prend le type DIRECT de l'argument (pas d'index ici !)
+    let ty_provided = arg_decl.ty().ok_or_else(|| {
+        SemanticCheckError::missing_symbol_types(arg_decl.symbol().id(), usage_scope.clone())
+    })?;
+
+    // 3. Vérification : est-ce que "V1" est bien du type attendu par "marcher" ?
+    Ok(type_checker.is_any_subtype_of(ty_expected, ty_provided)?)
+}
+
 fn match_argument(
-    declaration: &Declaration,
+    atom_decl: &Declaration,
     usage: &Usage,
-    symbol_table: &SymbolTable,
+    arg_decl: &Declaration,
     context: &CheckContext,
-    argument: &AstNode,
-    argument_index: usize,
-    kind: SymbolKind,
+    argument_node: &AstNode,
     index: usize,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
-    // Retrieve the symbol name associated with the argument from the annotated syntax arena
-    let name = context
-        .syntax_tree()
-        .try_node(NodeId::new(argument_index))?
-        .try_ident()?;
+    // 1. On tente le match standard
+    let is_subtype = match_argument_base(atom_decl, arg_decl, usage.scope(), index, type_checker)?;
 
-    // Look up the corresponding declaration in the symbol table,
-    // given the expected kind and usage scope
-    let symbol_declaration = match symbol_table.resolve_declaration(&name, &kind, usage.scope())? {
-        Some(decl) => decl,
-        None => {
-            return Err(SemanticCheckError::missing_declaration(
-                name,
-                usage.scope().clone(),
-            ));
-        }
-    };
-
-    // Get the declared arguments of the main declaration (the context declaration)
-    let declared_arguments = match declaration.arguments() {
-        Some(args) => args,
-        None => {
-            return Err(SemanticCheckError::missing_declaration_arguments(
-                declaration.scope().clone(),
-            ));
-        }
-    };
-
-    // Retrieve the type_checker of the i-th declared argument (the one we are matching)
-    let ty1 = match declared_arguments.get(index) {
-        Some(arg) => arg.ty(),
-        None => {
-            return Err(SemanticCheckError::argument_index_out_of_bounds(
-                index,
-                declaration.scope().clone(),
-            ));
-        }
-    };
-
-    // Retrieve the type_checker of the symbol from the declaration found in the symbol table
-    let ty2 = match symbol_declaration.ty() {
-        Some(types) => types,
-        None => {
-            return Err(SemanticCheckError::missing_symbol_types(
-                name,
-                usage.scope().clone(),
-            ));
-        }
-    };
-
-    // Special case: allow a primitive task `(t ?x)` declared in a method
-    // where `?x` has type_checker A to match an action `a` where `?x` has type_checker B,
-    // as long as B is a supertype of A. This permits upcasting at usage time.
-    //
-    // Semantically this is questionable and should be handled explicitly during grounding.
-    // This occurs, for example, in the `ultralight_cockpit` domain.
-    //
-    // Outside this exception, strict subtype checking is applied.
-
-    // Check if ty1 is a subtype of ty2 (ty1 <: ty2)
-    let is_subtype = type_checker.is_any_subtype_of(ty1, ty2)?;
-
-    // Special tolerated case: accept a primitive task matching an action/method with a supertype
-    // Special tolerated case: accept a primitive task matching an action/method/symbol with a supertype.
-    // We use the centralized 'can_share_name_space_with' to validate this HDDL-specific overlap.
+    // 2. Si échec, on vérifie l'exception d'upcasting (uniquement pour les Tasks)
     if !is_subtype
-        && usage.symbol_kind() == SymbolKind::Task
-        && declaration
-            .symbol_kind()
-            .can_share_name_space_with(&usage.symbol_kind())
+        && usage.symbol().kind() == SymbolKind::Task
+        && matches!(atom_decl.symbol().kind(), SymbolKind::Action)
     {
-        let warning = Diagnostic::warning_task_argument_is_supertype_of_declaration(
-            symbol_declaration.clone(),
-            ty1.clone(),
-            ty2.clone(),
-            context.provider(),
-            context.source(),
-            argument.span(),
-        );
-        diagnostic_manager.add_diagnostic(warning);
+        // On récupère les types (on sait qu'ils existent car match_argument_base a réussi avant)
+        let ty_expected = atom_decl.arguments().unwrap().get(index).unwrap().ty();
+        let ty_provided = arg_decl.ty().unwrap();
 
-        // Accept the match if ty1 is a supertype of ty2 (ty1 :> ty2)
-        // This allows "upcasting" which is sometimes required in complex HDDL domains.
-        return Ok(type_checker.is_any_supertype_of(ty1, ty2)?);
+        // Si l'attendu est un super-type du fourni (Upcasting : Expected :> Provided)
+        if type_checker.is_any_supertype_of(ty_expected, ty_provided)? {
+            let warning = Diagnostic::warning_task_argument_is_supertype_of_declaration(
+                arg_decl.clone(),
+                ty_expected.clone(),
+                ty_provided.clone(),
+                context.provider(),
+                context.source(),
+                argument_node.span(),
+            );
+            diagnostic_manager.add_diagnostic(warning);
+            return Ok(true);
+        }
     }
 
-    // Normal case: return the result of the subtype check
     Ok(is_subtype)
 }

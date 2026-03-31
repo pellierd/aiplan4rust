@@ -55,6 +55,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterne
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
+use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolOrigin};
@@ -265,6 +266,25 @@ impl Declaration {
     /// * `ty` - The semantic type definition to assign to this symbol.
     pub fn set_ty(&mut self, ty: Type<SymbolId>) {
         self.ty = Some(ty);
+    }
+
+    pub fn try_get_arg_type(&self, index: usize) -> Result<&Type<SymbolId>, SemanticCheckError> {
+        self.arguments()
+            .and_then(|args| args.get(index))
+            .map(|arg| arg.ty())
+            .ok_or_else(|| {
+                SemanticCheckError::argument_index_out_of_bounds(index, self.scope().clone())
+            })
+    }
+
+    /// Récupère le type de la déclaration elle-même (le type fourni) ou renvoie une erreur de type manquant.
+    pub fn try_get_type(
+        &self,
+        usage_scope: &Scope, // On passe le scope de l'usage pour l'erreur
+    ) -> Result<&Type<SymbolId>, SemanticCheckError> {
+        self.ty().ok_or_else(|| {
+            SemanticCheckError::missing_symbol_types(self.symbol().id(), usage_scope.clone())
+        })
     }
 
     /// Sets the AST node identifiers corresponding to the typing syntax.

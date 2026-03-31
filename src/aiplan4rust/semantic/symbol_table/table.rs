@@ -346,7 +346,7 @@ impl Table {
 
         // 2. Get the node ID of the declaration it points to (the "vissage")
         let decl_node_id = usage
-            .resolved_declaration()
+            .declaration()
             .ok_or_else(|| SymbolTableError::unresolved_usage(symbol, usage_node_id))?;
 
         // 3. Retrieve the final declaration from the table using its source NodeId

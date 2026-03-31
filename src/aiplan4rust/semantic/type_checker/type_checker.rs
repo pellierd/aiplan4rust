@@ -126,20 +126,28 @@ impl<'a> TypeChecker<'a> {
 
     /// Checks if any type in the second set (`ty2`) is a subtype of any type in the first set (`ty1`).
     ///
-    /// This method evaluates the subtyping relationship by traversing the type hierarchy
-    /// defined in the underlying Arena. It returns `true` if there is at least one pair (t2, t1)
-    /// such that t2 is a descendant of t1 or t2 == t1.
+    /// This method evaluates the subtyping relationship by traversing the type hierarchy.
+    /// It returns `true` if there exists at least one pair (t2, t1) such that t2 is a descendant
+    /// of t1 or t2 == t1 (reflexivity).
+    ///
+    /// # PDDL Semantics & Root Types
+    /// - **Unconstrained Types**: An empty type set (`is_root()`) represents the universal
+    ///   `object` type in PDDL/HDDL.
+    /// - **STRIPS Support**: In non-typed domains (like Mystery), both `ty1` and `ty2` will
+    ///   be root types. This method correctly identifies them as compatible.
+    /// - **Universal Parent**: If the expected type (`ty1`) is the root type, any provided
+    ///   type (`ty2`) is considered a valid subtype by definition.
     ///
     /// # Performance
-    /// - **Fast Path**: Performs an O(N*M) direct comparison to catch identical types without
-    ///   traversing the hierarchy or hitting the cache.
-    /// - **Slow Path**: Uses the memoized `ascending_type_closure` to check for ancestral
-    ///   relationships. Since closures are cached in the `TypeChecker`, repeated calls
-    ///   for the same `SymbolId` are highly efficient.
+    /// - **Ultra-Fast Path**: Immediate return if `ty1` is the root type (universal match).
+    /// - **Fast Path**: Performs an O(N*M) direct comparison to catch identical types
+    ///   without traversing the hierarchy or accessing the cache.
+    /// - **Slow Path**: Uses memoized transitive closures (`ascending_type_closure`)
+    ///   to check for ancestral relationships.
     ///
     /// # Arguments
-    /// * `ty1` - The set of potential supertypes (e.g., required types).
-    /// * `ty2` - The set of potential subtypes (e.g., provided object types).
+    /// * `ty1` - The set of potential supertypes (e.g., required types by a predicate signature).
+    /// * `ty2` - The set of potential subtypes (e.g., types of the provided argument/variable).
     ///
     /// # Errors
     /// Returns [`TypeCheckError`] if a `SymbolId` cannot be resolved within the hierarchy.
@@ -148,9 +156,19 @@ impl<'a> TypeChecker<'a> {
         ty1: &Type<SymbolId>,
         ty2: &Type<SymbolId>,
     ) -> Result<bool, TypeCheckError> {
-        // 1. Fast path: Direct overlap check.
-        // If ty2 contains an element present in ty1, it's an immediate match (reflexivity).
-        // For small unions (common in PDDL), this linear scan is faster than hashing.
+        // If the expected type (ty1) is the root (object/empty), any provided
+        // type is a valid subtype. This also handles the STRIPS case ([] <: []).
+        if ty1.is_root() {
+            return Ok(true);
+        }
+
+        // If ty1 is not the root but ty2 is, then ty2 cannot be a subtype.
+        // (One cannot provide a generic 'object' where a specific type is required).
+        if ty2.is_root() {
+            return Ok(false);
+        }
+
+        // 1. Fast path: Direct overlap check (identity/reflexivity).
         for t2 in ty2.iter() {
             if ty1.iter().any(|t1| t1 == t2) {
                 return Ok(true);
@@ -158,13 +176,10 @@ impl<'a> TypeChecker<'a> {
         }
 
         // 2. Slow path: Hierarchical traversal.
-        // We check if any ancestor of t2 (from the Arena) matches any type in ty1.
         for t2 in ty2.iter() {
             // Retrieve the transitive closure of supertypes (includes t2 itself).
-            // This is O(1) if the result is already in the RefCell cache.
             let closure = self.ascending_type_closure(*t2)?;
 
-            // Check if any required type t1 is an ancestor of the provided type t2.
             for t1 in ty1.iter() {
                 if closure.contains(t1) {
                     return Ok(true);

@@ -13,6 +13,7 @@ pub mod derived_predicate;
 pub mod error;
 mod symbol_types;
 pub mod unused_symbols;
+pub mod util;
 
 pub use context::Context as CheckContext;
 pub use derived_predicate::check_derived_predicates;

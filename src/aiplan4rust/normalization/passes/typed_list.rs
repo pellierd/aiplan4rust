@@ -250,8 +250,9 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError
 /// ```
 fn normalize_typed_list_node_children(
     syntax_tree: &mut Tree<AstNode>,
-    node_id: NodeId, // C'est le TypedList
+    node_id: NodeId,
 ) -> Result<(), NormalizationPassError> {
+    // 1. On récupère les anciens TypedItems (ex: "e1 e2 - t1")
     let old_typed_items = {
         let node = syntax_tree.try_node_mut(node_id)?;
         std::mem::take(node.children_mut())
@@ -260,21 +261,29 @@ fn normalize_typed_list_node_children(
     let mut new_typed_items = Vec::with_capacity(old_typed_items.len());
 
     for typed_item_id in old_typed_items {
+        // On récupère l'ID du nœud intermédiaire "Elements" avant de l'extraire
+        let elements_node_id = syntax_tree.try_node(typed_item_id)?.try_child(0)?;
+
         let (element_ids, type_id_opt, span) = extract_typed_item_data(syntax_tree, typed_item_id)?;
 
         for element_id in element_ids {
-            // 1. Création du nouveau TypedItem
-            let new_node =
-                create_typed_item_node(element_id, type_id_opt, span, node_id, syntax_tree)?;
+            let new_node = create_typed_item_node(
+                element_id,
+                type_id_opt,
+                span.clone(),
+                node_id,
+                syntax_tree,
+            )?;
             let new_id = syntax_tree.alloc(new_node);
 
-            // 2. MISE À JOUR DU PARENT DE L'ÉLÉMENT (Ton ajout, parfait)
+            // --- POINT 2 : RE-CABLAGE DES ENFANTS ---
+
+            // L'élément (e1, e2...) doit pointer vers son nouveau TypedItem
             syntax_tree
                 .try_node_mut(element_id)?
                 .set_parent(Some(new_id));
 
-            // 3. MISE À JOUR DU PARENT DU TYPE CLONÉ (L'étape manquante)
-            // On regarde si un type a été ajouté (c'est le 2ème enfant, index 1)
+            // Le Type cloné doit aussi pointer vers son nouveau TypedItem
             let children = syntax_tree.try_node(new_id)?.children().to_vec();
             if let Some(&type_node_id) = children.get(1) {
                 syntax_tree
@@ -284,8 +293,20 @@ fn normalize_typed_list_node_children(
 
             new_typed_items.push(new_id);
         }
+
+        // --- PHASE DE NETTOYAGE (Crucial pour l'affichage) ---
+
+        // A. On détache l'ancien nœud "Elements" (le conteneur intermédiaire)
+        let elements_node = syntax_tree.try_node_mut(elements_node_id)?;
+        elements_node.set_parent(None); // On l'isole
+
+        // B. On détache l'ancien TypedItem complet
+        let old_item = syntax_tree.try_node_mut(typed_item_id)?;
+        old_item.set_children(Vec::new());
+        old_item.set_parent(None);
     }
 
+    // On remplace la liste de la TypedList par les nouveaux items éclatés
     let node = syntax_tree.try_node_mut(node_id)?;
     *node.children_mut() = new_typed_items;
 

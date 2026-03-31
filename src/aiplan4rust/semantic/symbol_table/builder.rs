@@ -261,7 +261,7 @@ impl SymbolTableBuilder {
 
             // For primitive types, constants, and variables, record symbol usages
             AstKind::PrimitiveType | AstKind::Object | AstKind::Variable => {
-                self.add_symbol_usage(node_ref, ast, scope.clone())?;
+                self.add_symbol_usage(node_ref, ast, None, scope.clone())?;
             }
 
             // For action definitions, initialize action symbols and related info
@@ -468,6 +468,7 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
+        arguments: Option<Vec<NodeId>>,
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
         // 1. Détermination du nœud cible et extraction du symbole
@@ -497,13 +498,13 @@ impl SymbolTableBuilder {
             .clone();
 
         // 2. Préparation de l'usage
-        let usage = Usage::new(symbol_ref, scope, origin, span, target_id);
+        let usage = Usage::new(symbol_ref, scope, origin, span, target_id, arguments);
 
         // 3. Mise à jour de la Table (via méthodes publiques)
         let table = self.table_mut();
 
         // Ajout de l'usage dans l'entrée du symbole
-        // Comme on n'a pas accès à .entry(), on utilise tes méthodes get_mut / insert
+        // Comme on n'a pas accès à .entry(), on utilise les méthodes get_mut / insert
         if let Some(symbol_entry) = table.get_symbol_mut(ident) {
             symbol_entry.add_usage(usage);
         } else {
@@ -1134,12 +1135,26 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SemanticError> {
-        // Retrieve and register the first child (symbol)
-        self.add_symbol_usage(node_ref, ast, scope.clone())?; // should be removed
+        let children = node_ref.node().children();
 
-        // Process the remaining children (arguments)
-        for child in node_ref.node().children() {
-            self.init_from(&ast.syntax_tree().try_node_ref(*child)?, ast, scope.clone())?;
+        // 1. HEAD MANAGEMENT (The Caller)
+        // We treat the first child as the predicate/task head.
+        if let Some(&predicate_id) = children.first() {
+            let predicate_ref = ast.syntax_tree().try_node_ref(predicate_id)?;
+
+            // We clone the children IDs to provide the Usage with its full syntactic context.
+            // This 'flattens' the AST relationship into the Symbol Table for easier type checking.
+            let arguments = children[1..].to_vec();
+            self.add_symbol_usage(&predicate_ref, ast, Some(arguments), scope.clone())?;
+        }
+
+        // 2. ARGUMENTS MANAGEMENT (The Parameters)
+        // Iterate through the remaining children. We use skip(1) to avoid
+        // double-processing the head node, ensuring each argument is initialized
+        // according to its specific AstKind (Variable, Object, etc.).
+        for &child_id in children.iter().skip(1) {
+            let child_ref = ast.syntax_tree().try_node_ref(child_id)?;
+            self.init_from(&child_ref, ast, scope.clone())?;
         }
 
         Ok(())
@@ -1548,7 +1563,7 @@ impl SymbolTableBuilder {
         // 2. Enregistrement des usages (on utilise les IDs qu'on vient de récupérer)
         for &ty_id in &ty_node_ids {
             let ty_ref = ast.syntax_tree().try_node_ref(ty_id)?;
-            self.add_symbol_usage(&ty_ref, ast, scope.clone())?;
+            self.add_symbol_usage(&ty_ref, ast, None, scope.clone())?;
         }
 
         // 3. On renvoie le tuple complet
@@ -1641,12 +1656,12 @@ impl SymbolTableBuilder {
         // --- Extract the first child node (expected to be a TaskID) ---
         let t1_id = node_ref.node().try_child(0)?; // Error if no first child
         let t1 = syntax_tree.try_node_ref(t1_id)?; // Error if invalid node reference
-        self.add_symbol_usage(&t1, ast, scope.clone())?; // Registers t1 as a symbol usage
+        self.add_symbol_usage(&t1, ast, None, scope.clone())?; // Registers t1 as a symbol usage
 
         // --- Extract the second child node (also expected to be a TaskID) ---
         let t2_id = node_ref.node().try_child(1)?; // Error if no second child
         let t2 = syntax_tree.try_node_ref(t2_id)?; // Error if invalid node reference
-        self.add_symbol_usage(&t2, ast, scope.clone())?; // Registers t2 as a symbol usage
+        self.add_symbol_usage(&t2, ast, None, scope.clone())?; // Registers t2 as a symbol usage
 
         Ok(())
     }
