@@ -16,8 +16,9 @@ use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
+use crate::aiplan4rust::semantic::signature_matcher::SignatureMatcherError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
-use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
+use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
@@ -46,6 +47,10 @@ use thiserror::Error;
 pub enum SemanticError {
     /// Errors related to the ast.
     #[error(transparent)]
+    SignatureMatcher(#[from] SignatureMatcherError),
+
+    /// Errors related to the ast.
+    #[error(transparent)]
     Ast(#[from] AstError),
 
     /// Errors related to the arena.
@@ -62,7 +67,7 @@ pub enum SemanticError {
 
     /// Errors during typing checking.
     #[error(transparent)]
-    TypeChecker(#[from] TypeCheckError),
+    TypeChecker(#[from] TypeCheckerError),
 
     /// Errors raised by semantic checks.
     #[error(transparent)]

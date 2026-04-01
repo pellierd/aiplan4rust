@@ -8,12 +8,12 @@
 //!
 //! - [`type_checker`] — Contains the common ops of the [`TypeChecker`] struct, which traverses
 //!   the AST and performs typing validation.
-//! - [`error`] — Defines [`TypeCheckError`], the error typing used to report issues during typing checking.
+//! - [`error`] — Defines [`TypeCheckerError`], the error typing used to report issues during typing checking.
 //!
 //! # Re-exports
 //!
 //! - [`TypeChecker`] — The entry point for invoking typing checking on an AST.
-//! - [`TypeCheckError`] — The unified error typing for typing checking failures.
+//! - [`TypeCheckerError`] — The unified error typing for typing checking failures.
 //!
 //! # Example
 //!
@@ -40,6 +40,6 @@ pub mod error;
 pub mod type_checker;
 pub mod type_hierarchy;
 
-pub use error::TypeCheckError;
+pub use error::TypeCheckerError;
 pub use type_checker::TypeChecker;
 pub use type_hierarchy::TypeHierarchy;

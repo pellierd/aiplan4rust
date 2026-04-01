@@ -1,6 +1,6 @@
 //! Error types related to typing checking in the semantic analysis phase.
 //!
-//! This module defines the [`TypeCheckError`] enum, which captures all errors
+//! This module defines the [`TypeCheckerError`] enum, which captures all errors
 //! that can arise during the typing checking process of an abstract syntax tree (AST).
 //!
 //! Type checking is a crucial part of semantic analysis, responsible for ensuring
@@ -10,7 +10,7 @@
 //!
 //! # Contents
 //!
-//! - [`TypeCheckError`] — the main error typing for reporting issues during typing checking.
+//! - [`TypeCheckerError`] — the main error typing for reporting issues during typing checking.
 //! - Conversion support from [`SymbolTableError`] to integrate symbol resolution failures.
 //!
 //! # Design Notes
@@ -75,7 +75,7 @@ use thiserror::Error;
 /// [`SymbolTableError`]: crate::aiplan4rust::semantic::symbol_table::SymbolTableError
 /// [`thiserror`]: https://docs.rs/thiserror
 #[derive(Debug, Error)]
-pub enum TypeCheckError {
+pub enum TypeCheckerError {
     /// Error originating from the symbol table layer.
     ///
     /// Allows symbol table construction errors to be transparently surfaced during typing checking.
@@ -91,7 +91,7 @@ pub enum TypeCheckError {
     TypeUnionCapacityExceeded(usize),
 }
 
-impl TypeCheckError {
+impl TypeCheckerError {
     /// Creates a new `TypeUnionCapacityExceeded` error.
     ///
     /// This error is raised when a type union (e.g., an `either` declaration)
@@ -110,4 +110,4 @@ impl TypeCheckError {
     }
 }
 
-impl Traceable for TypeCheckError {}
+impl Traceable for TypeCheckerError {}

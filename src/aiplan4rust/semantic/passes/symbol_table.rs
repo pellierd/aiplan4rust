@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::passes::type_simplification::TypeSimplification;
 use crate::aiplan4rust::semantic::passes::PassContext;
-use crate::aiplan4rust::semantic::type_checker::{TypeCheckError, TypeHierarchy};
+use crate::aiplan4rust::semantic::type_checker::{TypeCheckerError, TypeHierarchy};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::tree::NodeId;
 use crate::{DiagnosticManager, SymbolTable};
@@ -37,7 +37,7 @@ const MAX_UNION_SIMPLIFICATION_CAPACITY: usize = 128;
 ///
 /// # Errors
 ///
-/// Returns a [`TypeCheckError`] if:
+/// Returns a [`TypeCheckerError`] if:
 /// - A type union exceeds the internal bitmask capacity ([`MAX_UNION_SIMPLIFICATION_CAPACITY`]).
 /// - A type in a union cannot be resolved within the current hierarchy.
 ///
@@ -51,7 +51,7 @@ pub fn finalize(
     type_checker: &TypeChecker,
     target_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<Vec<TypeSimplification>, TypeCheckError> {
+) -> Result<Vec<TypeSimplification>, TypeCheckerError> {
     // Étape 1 : Collecte (Phase Immuable)
     // On récupère une Box<[TypeSimplification]> (taille fixe, immuable)
     let changes =
@@ -100,7 +100,7 @@ fn collect_type_simplifications(
     type_checker: &TypeChecker,
     target_table: &SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<Vec<TypeSimplification>, TypeCheckError> {
+) -> Result<Vec<TypeSimplification>, TypeCheckerError> {
     let mut changes = Vec::new();
 
     for (&symbol_id, entry) in target_table.iter() {
@@ -147,7 +147,7 @@ fn collect_type_simplifications(
 fn simplify_type(
     type_checker: &TypeChecker,
     ty: &Type<SymbolId>,
-) -> Result<Option<(Type<SymbolId>, Vec<usize>)>, TypeCheckError> {
+) -> Result<Option<(Type<SymbolId>, Vec<usize>)>, TypeCheckerError> {
     let members = ty.members();
     let n = members.len();
     if n <= 1 {

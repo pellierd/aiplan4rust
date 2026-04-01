@@ -1,6 +1,6 @@
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::signature_checker::match_result::MatchResult;
-use crate::aiplan4rust::semantic::signature_checker::signature_checker::SignatureChecker;
+use crate::aiplan4rust::semantic::signature_matcher::matcher::SignatureMatcher;
+use crate::aiplan4rust::semantic::signature_matcher::result::MatchResult;
 use crate::aiplan4rust::semantic::symbol::{
     Declaration, Filterable, Scope, SymbolEntry, SymbolKind, SymbolOrigin, Usage,
 };
@@ -19,7 +19,7 @@ pub fn perform_linking(
 
     // 1. Initialisation du Checker en mode "Inter-fichiers"
     // local = problem, annex = domain
-    let checker = SignatureChecker::new(
+    let checker = SignatureMatcher::new(
         problem_table,
         context.syntax_tree(),
         type_checker,
@@ -48,7 +48,7 @@ pub fn perform_linking(
 
                 if let Some(dom_decl) = candidates.first() {
                     // UTILISATION DU CHECKER
-                    match checker.match_declaration_with_usage(dom_decl, usage)? {
+                    match checker.match_signature(dom_decl, usage)? {
                         MatchResult::Match => {
                             // On a un lien valide (parfait ou avec upcast)
                             let mut p = dom_decl.clone();

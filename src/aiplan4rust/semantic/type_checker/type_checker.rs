@@ -19,7 +19,7 @@
 //! # Key Components
 //!
 //! - [`TypeChecker`] — The main struct performing the actual typing hierarchy analysis.
-//! - [`TypeCheckError`] — Error typing used when typing resolution fails unexpectedly.
+//! - [`TypeCheckerError`] — Error typing used when typing resolution fails unexpectedly.
 //!
 //! # Features
 //!
@@ -57,7 +57,7 @@ use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic::type_checker::{TypeCheckError, TypeHierarchy};
+use crate::aiplan4rust::semantic::type_checker::{TypeCheckerError, TypeHierarchy};
 
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -150,12 +150,12 @@ impl<'a> TypeChecker<'a> {
     /// * `ty2` - The set of potential subtypes (e.g., types of the provided argument/variable).
     ///
     /// # Errors
-    /// Returns [`TypeCheckError`] if a `SymbolId` cannot be resolved within the hierarchy.
+    /// Returns [`TypeCheckerError`] if a `SymbolId` cannot be resolved within the hierarchy.
     pub fn is_any_subtype_of(
         &self,
         ty1: &Type<SymbolId>,
         ty2: &Type<SymbolId>,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, TypeCheckerError> {
         // If the expected type (ty1) is the root (object/empty), any provided
         // type is a valid subtype. This also handles the STRIPS case ([] <: []).
         if ty1.is_root() {
@@ -206,7 +206,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         ty1: &Type<SymbolId>,
         ty2: &Type<SymbolId>,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, TypeCheckerError> {
         self.is_any_subtype_of(ty2, ty1)
     }
 
@@ -223,7 +223,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         ty1: &Type<SymbolId>,
         ty2: &Type<SymbolId>,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, TypeCheckerError> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
 
@@ -255,7 +255,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         ty1: &Type<SymbolId>,
         ty2: &Type<SymbolId>,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, TypeCheckerError> {
         // 1. Fast path: Direct equality or unconstrained types.
         // In PDDL, an empty typing list represents the root 'object' typing,
         // which is the universal supertype for all other types.
@@ -307,7 +307,7 @@ impl<'a> TypeChecker<'a> {
     pub fn ascending_type_closure(
         &self,
         primitive_type: SymbolId,
-    ) -> Result<Ref<HashSet<SymbolId>>, TypeCheckError> {
+    ) -> Result<Ref<HashSet<SymbolId>>, TypeCheckerError> {
         {
             let cache_ref = self.type_closure_cache.borrow();
             if cache_ref.contains_key(&primitive_type) {

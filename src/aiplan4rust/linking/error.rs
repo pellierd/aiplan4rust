@@ -12,7 +12,7 @@ use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
-use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
+use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
 use crate::aiplan4rust::semantic::SemanticError;
 use thiserror::Error;
 
@@ -24,7 +24,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum LinkingError {
     #[error(transparent)]
-    TypeChecker(#[from] TypeCheckError),
+    TypeChecker(#[from] TypeCheckerError),
 
     /// Error arising from semantic analysis failures.
     #[error(transparent)]

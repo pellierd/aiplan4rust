@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::semantic::checks::undeclared_symbols::is_pddl_builtin_symbol;
-use crate::aiplan4rust::semantic::checks::util::check_kind_compatibility;
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::rules::check_kind_compatibility;
 use crate::{DiagnosticManager, SymbolTable};
 
 pub fn check_unresolved_usages(
