@@ -1,8 +1,9 @@
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::rules::resolve_declaration;
 use crate::aiplan4rust::semantic::signature_matcher::matcher::SignatureMatcher;
 use crate::aiplan4rust::semantic::signature_matcher::result::MatchResult;
 use crate::aiplan4rust::semantic::symbol::{
-    Declaration, Filterable, Scope, SymbolEntry, SymbolKind, SymbolOrigin, Usage,
+    Filterable, SymbolOrigin,
 };
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
 use crate::{DiagnosticManager, SymbolTable};
@@ -35,18 +36,19 @@ pub fn perform_linking(
 
             // A. Recherche d'une déclaration LOCALE (dans le Problème)
             // Note : Ici on pourrait aussi utiliser le checker si on voulait valider la signature locale
-            let local_decl = symbol_entry.declarations().values().find(|d| {
+            /*let local_decl = symbol_entry.declarations().values().find(|d| {
                 d.origin() == SymbolOrigin::Problem && d.symbol_kind() == usage.symbol_kind()
-            });
+            });*/
+
+            let local_decl = resolve_declaration(symbol_entry, usage.symbol_kind(), usage.scope());
 
             // B. Recherche dans le DOMAINE
             let mut domain_decl_proxy = None;
             if let Some(dom_symbol) = domain_table.get_symbol(symbol_id) {
                 // On récupère les candidats potentiels du domaine (souvent un seul en HDDL)
-                let candidates =
-                    find_domain_declaration(dom_symbol, usage, &domain_table.root_scope());
-
-                if let Some(dom_decl) = candidates.first() {
+                if let Some(dom_decl) =
+                    resolve_declaration(dom_symbol, usage.symbol_kind(), &domain_table.root_scope())
+                {
                     // UTILISATION DU CHECKER
                     match checker.match_signature(dom_decl, usage)? {
                         MatchResult::Match => {
@@ -100,42 +102,4 @@ pub fn perform_linking(
     }
 
     Ok(all_resolved)
-}
-
-pub fn find_domain_declaration<'a>(
-    dom_symbol: &'a SymbolEntry,
-    usage_in_prob: &Usage,
-    scope: &Scope,
-) -> Vec<Declaration> {
-    let usage_kind = usage_in_prob.symbol_kind();
-
-    dom_symbol
-        .declarations()
-        .values()
-        .filter(|declaration| {
-            let decl_kind = declaration.symbol_kind();
-
-            // 1. Filtrage des noms de structures
-            if !matches!(usage_kind, SymbolKind::DomainName | SymbolKind::ProblemName)
-                && matches!(decl_kind, SymbolKind::DomainName | SymbolKind::ProblemName)
-            {
-                return false;
-            }
-
-            // 2. Visibilité globale
-            let is_global = declaration.scope() == scope;
-
-            // 3. Compatibilité des genres (ASSOUPLIE)
-            let kind_match = if usage_kind == decl_kind {
-                true
-            } else {
-                // On autorise un usage marqué "Task" à être résolu par une "Action" du domaine
-                (usage_kind == SymbolKind::Task && decl_kind == SymbolKind::Action)
-                    || (usage_kind == SymbolKind::Action && decl_kind == SymbolKind::Task)
-            };
-
-            is_global && kind_match
-        })
-        .cloned()
-        .collect()
 }
