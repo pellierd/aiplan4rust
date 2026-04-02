@@ -1,11 +1,7 @@
 use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::semantic::rules::{
-    check_kind_compatibility, is_atomic_kind, is_structural_mismatch,
-};
+use crate::aiplan4rust::semantic::rules::{find_shadowing_candidate, is_atomic_kind};
 use crate::aiplan4rust::semantic::signature_matcher::{MatchResult, SignatureMatcher};
-use crate::aiplan4rust::semantic::symbol::{
-    Declaration, SymbolEntry, SymbolKind, SymbolOrigin, Usage,
-};
+use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolEntry, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_resolver::error::SymbolResolverError;
 use crate::aiplan4rust::semantic::symbol_resolver::resolution::Resolution;
 use crate::aiplan4rust::semantic::TypeChecker;
@@ -132,7 +128,8 @@ pub fn resolve_domain_match(
     let Some(dom_symbol) = table.get_symbol(symbol_id) else {
         return Ok(None);
     };
-    let Some(winner) = find_shadowing_candidate(dom_symbol, usage) else {
+    let Some(winner) = find_shadowing_candidate(dom_symbol, usage.symbol().kind(), usage.scope())
+    else {
         return Ok(None);
     };
 
@@ -172,7 +169,8 @@ pub fn resolve_local_match(
     checker: Option<&SignatureMatcher>,
 ) -> Result<Option<(Resolution, Option<Declaration>)>, SymbolResolverError> {
     // 1. On cherche le candidat. Si rien, on sort tout de suite.
-    let Some(winner) = find_shadowing_candidate(symbol_entry, usage) else {
+    let Some(winner) = find_shadowing_candidate(symbol_entry, usage.symbol().kind(), usage.scope())
+    else {
         return Ok(None);
     };
 
@@ -199,38 +197,4 @@ pub fn resolve_local_match(
     }
 
     Ok(None)
-}
-
-fn find_shadowing_candidate<'a>(
-    symbol_entry: &'a SymbolEntry,
-    usage: &Usage,
-) -> Option<&'a Declaration> {
-    let mut best_candidate: Option<&'a Declaration> = None;
-
-    for decl in symbol_entry.declarations().values() {
-        // --- MODIFICATION ICI ---
-        // Les Objets et Constantes sont visibles partout dans le fichier,
-        // peu importe le scope de déclaration.
-        let is_global_visibility = matches!(decl.symbol_kind(), SymbolKind::Constant);
-
-        // 1. Filtres structurels
-        if check_kind_compatibility(decl.symbol_kind(), usage.symbol_kind())
-            && !is_structural_mismatch(decl.symbol_kind(), usage.symbol_kind())
-            // On autorise si c'est global OU si le scope correspond (pour les variables ?x)
-            && (is_global_visibility || usage.scope().starts_with(decl.scope()))
-        {
-            // 2. Logique de Shadowing (Inchangée et correcte)
-            match best_candidate {
-                Some(current_best) if decl.scope().len() > current_best.scope().len() => {
-                    best_candidate = Some(decl);
-                }
-                None => {
-                    best_candidate = Some(decl);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    best_candidate
 }

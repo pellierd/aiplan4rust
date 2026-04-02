@@ -50,18 +50,16 @@
 //! - [`normalize_either_type`]
 //! - [`NormalizationPassError`]
 
-
-pub mod require_def;
-pub mod types_def;
-pub mod either_type;
-pub mod typed_list;
-pub mod error;
 mod def;
+pub mod either_type;
+pub mod error;
+pub mod require_def;
+pub mod typed_list;
 
-pub use require_def::normalize_require_def;
 //pub use types_def::normalize_types_def;
 pub use def::normalize_def;
 pub use either_type::normalize_either_type;
+pub use require_def::normalize_require_def;
 pub use typed_list::normalize_typed_list;
 
 pub use error::NormalizationPassError;

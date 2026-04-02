@@ -1,8 +1,10 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::rules::is_pddl_builtin_symbol;
+use crate::aiplan4rust::semantic::signature_matcher::MatchResult;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::SemanticError;
 use crate::{DiagnosticManager, SymbolTable};
 
 /// Checks for undeclared symbols within the syntax tree and reports missing declarations.
@@ -49,99 +51,91 @@ use crate::{DiagnosticManager, SymbolTable};
 ///
 ///
 
-/*pub fn check_undeclared_symbols(
-    context: &CheckContext,
-    symbol_table: &SymbolTable, // Peut être immutable maintenant !
-    skip_symbols: &[SymbolKind],
-    diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, SemanticCheckError> {
-    let mut no_errors = true;
-
-    for symbol_entry in symbol_table.values() {
-        for usage in symbol_entry.usages().values() {
-            let kind = usage.symbol_kind();
-
-            // 1. Filtres habituels (ex: ne pas râler pour 'object' ou 'number')
-            if should_skip_symbol(symbol_entry, context, kind, skip_symbols) {
-                continue;
-            }
-
-            // 2. Le verdict est simple : pas de résolution = erreur
-            if usage.resolution().is_none() {
-                no_errors = false;
-
-                let error = Diagnostic::error_undeclared_symbol(
-                    usage.clone(),
-                    context.provider(),
-                    context.source(),
-                    usage.span(),
-                );
-                diagnostic_manager.add_diagnostic(error);
-            }
-        }
-    }
-
-    Ok(no_errors)
-}*/
-
-pub fn check_undeclared_symbols(
+pub fn check(
     context: &CheckContext,
     symbol_table: &SymbolTable,
     skip_symbols: &[SymbolKind],
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, SemanticCheckError> {
+) -> Result<bool, SemanticError> {
     let mut no_errors = true;
 
     for symbol_entry in symbol_table.values() {
         for usage in symbol_entry.usages().values() {
-            // 1. Filtrage (On ignore les primitives, les built-ins, et ce qui est dans skip_symbols)
+            // --- 1. FILTRAGE ---
+            // On ignore les primitives, les built-ins, et les types structurels (DomainName, etc.)
             if should_skip_symbol(symbol_entry, context, usage.symbol_kind(), skip_symbols) {
                 continue;
             }
 
-            // 2. On s'appuie d'abord sur la présence physique d'une déclaration
+            // --- 2. VÉRIFICATION DE L'EXISTENCE (Undeclared) ---
             let declaration_id = usage.declaration();
-            let match_result = usage.resolution(); // Ton MatchResult (Some(Match) ou Some(NoMatch))
 
             match declaration_id {
-                // CAS 1 : Le symbole est bien "vissé" à une déclaration
-                Some(_decl_id) => {
-                    // Ici, le symbole EST déclaré.
-                    // On vérifie si l'utilisation est sémantiquement correcte.
-                    if let Some(res) = match_result {
-                        if !res.is_match() {
-                            // Le symbole existe, mais la signature est mauvaise.
-                            // Pour cette passe "undeclared", on pourrait ne rien faire
-                            // et laisser une autre passe gérer les erreurs de types,
-                            // OU lever une erreur spécifique ici.
-
-                            /* no_errors = false;
-                               let error = Diagnostic::error_signature_mismatch(...);
-                               diagnostic_manager.add_diagnostic(error);
-                            */
-                        }
-                    }
-                }
-
-                // CAS 2 : Aucune déclaration trouvée (Ni localement, ni dans le domaine)
+                // CAS A : Le symbole n'a aucune déclaration (Ni locale, ni domaine)
                 None => {
-                    // C'est ici la véritable erreur "Undeclared Symbol"
                     no_errors = false;
-
-                    println!(
-                        "DEBUG [Not Found]: Symbol '{}' (Kind: {:?}) at {:?}",
-                        symbol_entry.ident(),
-                        usage.symbol_kind(),
-                        usage.span()
-                    );
-
-                    let error = Diagnostic::error_undeclared_symbol(
+                    diagnostic_manager.add_diagnostic(Diagnostic::error_undeclared_symbol(
                         usage.clone(),
                         context.provider(),
                         context.source(),
                         usage.span(),
-                    );
-                    diagnostic_manager.add_diagnostic(error);
+                    ));
+                    // On s'arrête ici pour cet usage car on ne peut pas vérifier
+                    // la signature d'un symbole qui n'existe pas.
+                    continue;
+                }
+
+                // CAS B : Le symbole est déclaré, on vérifie sa signature
+                Some(decl_id) => {
+                    // On récupère la déclaration pointée
+                    let Some(declaration) = symbol_entry.declarations().get(&decl_id) else {
+                        continue;
+                    };
+
+                    // --- 3. VÉRIFICATION DE LA SIGNATURE (Signatures) ---
+                    // On récupère le MatchResult stocké par le Resolver
+                    if let Some(status) = usage.resolution() {
+                        match status {
+                            MatchResult::Match => {
+                                // Tout est parfait.
+                            }
+
+                            MatchResult::UpcastMatch {
+                                expected,
+                                provided,
+                                arg_decl,
+                                arg_node_id,
+                            } => {
+                                // Succès partiel (Type plus général) : Warning
+                                let arg_node = context.syntax_tree().try_node(*arg_node_id)?;
+                                diagnostic_manager.add_diagnostic(
+                                    Diagnostic::warning_task_argument_is_supertype_of_declaration(
+                                        arg_decl.clone(),
+                                        expected.clone(),
+                                        provided.clone(),
+                                        context.provider(),
+                                        context.source(),
+                                        arg_node.span(),
+                                    ),
+                                );
+                            }
+
+                            MatchResult::NoMatch(_failure) => {
+                                // Erreur de signature (Arguments invalides) : Error
+                                no_errors = false;
+                                let usage_node = context.syntax_tree().try_node(usage.source())?;
+                                diagnostic_manager.add_diagnostic(
+                                    Diagnostic::error_invalid_symbol_signature(
+                                        declaration.clone(),
+                                        usage.clone(),
+                                        context.provider(),
+                                        context.source(),
+                                        usage_node.span(),
+                                    ),
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }

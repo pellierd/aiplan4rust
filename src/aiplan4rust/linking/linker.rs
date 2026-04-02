@@ -34,7 +34,6 @@ use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
-use crate::aiplan4rust::linking::checks::perform_linking;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
@@ -323,17 +322,6 @@ pub fn perform_linking_checks(
     // On résout les symboles du problème par rapport au domaine
     resolver.resolve(problem_table)?;
 
-    // 2. PHASE UNIFIÉE : LE LINKER (Vissage)
-    // Cette seule fonction remplace désormais link_undeclared, link_signatures et link_types.
-    // Elle parcourt tous les usages et crée les proxies nécessaires.
-    check &= perform_linking(
-        problem_table,
-        domain_table,
-        problem, // Ton context pour match_declaration_with_usage
-        &type_checker,
-        diagnostic_manager,
-    )?;
-
     /*println!(
         "DOMAIN\n{}",
         domain_table.to_string_with_interner(domain.interner())
@@ -344,8 +332,6 @@ pub fn perform_linking_checks(
     );
 
     // 1. Vérification de base : Nom du domaine
-
-    // 1. Vérification de base : Nom du domaine
     linking::checks::check_domain_name(
         domain,
         problem,
@@ -353,6 +339,8 @@ pub fn perform_linking_checks(
         problem_table,
         diagnostic_manager,
     )?;
+
+    let mut check = semantic::checks::check(problem, problem_table, &[], diagnostic_manager)?;
 
     /*let mut check = linking::checks::check_unresolved_usages(
         problem_table,

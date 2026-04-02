@@ -1,8 +1,10 @@
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolKind};
+use crate::aiplan4rust::semantic::symbol::{
+    Declaration, Filterable, Scope, SymbolEntry, SymbolKind,
+};
 
-pub fn resolve_declaration<'a>(
+/*pub fn resolve_declaration<'a>(
     symbol: &'a SymbolEntry,
     kind: SymbolKind,
     scope: &Scope,
@@ -27,6 +29,49 @@ pub fn resolve_declaration<'a>(
 
         true
     })
+}*/
+
+pub fn find_shadowing_candidate<'a>(
+    symbol_entry: &'a SymbolEntry,
+    kind: SymbolKind,
+    scope: &Scope,
+) -> Option<&'a Declaration> {
+    let mut best_candidate: Option<&'a Declaration> = None;
+
+    for declaration in symbol_entry.declarations().values() {
+        // 1. Filtres structurels et de compatibilité
+        if check_kind_compatibility(declaration.symbol_kind(), kind)
+            && !is_structural_mismatch(declaration.symbol_kind(), kind)
+            // Visibilité : soit c'est global, soit le scope de l'usage descend du scope de déclaration
+            && (has_global_visibility(declaration.kind()) || scope.starts_with(declaration.scope()))
+        {
+            // 2. Logique de Shadowing : On cherche la déclaration la plus "proche"
+            // (celle qui a le scope le plus long/profond)
+            match best_candidate {
+                Some(current_best) if declaration.scope().len() > current_best.scope().len() => {
+                    best_candidate = Some(declaration);
+                }
+                None => {
+                    best_candidate = Some(declaration);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    best_candidate
+}
+
+/// Détermine si un type de symbole a une visibilité globale en PDDL/HDDL.
+/// En PDDL, presque tout est global (accessible depuis le Problem s'il est dans le Domaine),
+/// à l'exception des variables qui sont confinées à leur scope local (?x, ?y).
+pub fn has_global_visibility(kind: SymbolKind) -> bool {
+    match kind {
+        // Les variables sont les SEULS éléments strictement locaux au scope
+        SymbolKind::Variable | SymbolKind::DomainName | SymbolKind::ProblemName => false,
+        // Cas structurels (Noms de domaine/problème ne sont pas des objets de recherche)
+        _ => true,
+    }
 }
 
 /// Règle métier : Définit si un genre d'usage est compatible avec un genre de déclaration.

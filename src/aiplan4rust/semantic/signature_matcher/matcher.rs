@@ -27,7 +27,7 @@
 //! incomplete or malformed AST nodes during the resolution process.
 
 use crate::aiplan4rust::semantic::rules::{
-    allow_implicit_upcast_for_task_matching, check_kind_compatibility, resolve_declaration,
+    allow_implicit_upcast_for_task_matching, check_kind_compatibility, find_shadowing_candidate,
 };
 use crate::aiplan4rust::semantic::signature_matcher::error::SignatureMatcherError;
 use crate::aiplan4rust::semantic::signature_matcher::failure::MatchFailure;
@@ -190,20 +190,21 @@ impl<'a> SignatureMatcher<'a> {
         let kind = SymbolKind::try_from(argument_node.kind())
             .map_err(|_| SignatureMatcherError::invalid_symbol_kind())?;
 
-        // --- STEP 1: Search in the LOCAL table (The Problem file) ---
+        // --- STEP 1: Recherche dans la table LOCALE (Fichier Problem) ---
+        // On utilise la logique de shadowing pour prioriser les variables locales (?x)
+        // sur les constantes globales du même nom.
         if let Some(entry) = self.local_table.get_symbol(name) {
-            if let Some(decl) = resolve_declaration(entry, kind, usage_scope) {
+            if let Some(decl) = find_shadowing_candidate(entry, kind, usage_scope) {
                 return Ok(Some(decl));
             }
         }
 
-        // --- STEP 2: Search in the DOMAIN table (The Global/Annex file) ---
-        // Only performed if a domain table is available and the local search yielded no results.
+        // --- STEP 2: Recherche dans la table DOMAINE (Fichier Global) ---
+        // Si rien n'est trouvé en local, on regarde dans le domaine.
+        // On résout contre le root_scope car tout ce qui est dans le domaine est global.
         if let Some(domain) = self.domain_table {
             if let Some(entry) = domain.get_symbol(name) {
-                // IMPORTANT: In the domain, we resolve against the root_scope (global scope)
-                // because domain constants and types are global to the entire problem.
-                if let Some(decl) = resolve_declaration(entry, kind, &domain.root_scope()) {
+                if let Some(decl) = find_shadowing_candidate(entry, kind, &domain.root_scope()) {
                     return Ok(Some(decl));
                 }
             }

@@ -377,12 +377,7 @@ impl Analyzer {
         symbol_resolver.resolve(symbol_table)?;
 
         // Check undeclared symbols, skipping specified types
-        let mut checked = semantic::checks::check_undeclared_symbols(
-            context,
-            symbol_table,
-            &[],
-            diagnostic_manager,
-        )?;
+        let mut checked = semantic::checks::check(context, symbol_table, &[], diagnostic_manager)?;
 
         // Check for unused symbols, skipping specified symbols
         checked &= semantic::checks::check_unused_symbols(
@@ -449,12 +444,8 @@ impl Analyzer {
         )?;
 
         // 1. Verify that all calls to predicates/functions respect their type signatures.
-        checked &= semantic::checks::check_symbol_signatures(
-            context,
-            symbol_table,
-            type_checker,
-            diagnostic_manager,
-        )?;
+        //checked &=
+        //    semantic::checks::check_symbol_signatures(context, symbol_table, diagnostic_manager)?;
 
         // 2. Perform deep type checking on the expression Arena (AST).
         checked &= semantic::checks::check_typed_expressions(
@@ -529,7 +520,7 @@ impl Analyzer {
             SymbolKind::Task,
         ];
         // B. Vérification des symboles non déclarés (C'est ici que s#22 est validé !)
-        checked &= semantic::checks::check_undeclared_symbols(
+        checked &= semantic::checks::check(
             &check_context,
             &symbol_table,
             skip_types_undeclared,
@@ -592,7 +583,7 @@ impl Analyzer {
             semantic::checks::check_symbol_declarations(context, symbol_table, diagnostic_manager)?;
 
         // Check undeclared symbols, skipping specified types
-        checked &= semantic::checks::check_undeclared_symbols(
+        checked &= semantic::checks::check(
             context,
             symbol_table,
             skip_types_undeclared,
