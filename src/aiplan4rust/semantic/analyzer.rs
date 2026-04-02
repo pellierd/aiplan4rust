@@ -57,11 +57,13 @@
 //! typing errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
+use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::symbol_resolver::SymbolResolver;
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
@@ -199,6 +201,7 @@ impl Analyzer {
     fn perform_analysis(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, SemanticError> {
         // 1. Initialisation du contexte sémantique
         let mut context = SemanticContext::try_from(ast)?;
+
         let root_ref = context.syntax_tree().try_root_node_ref()?;
 
         match root_ref.node().kind() {
@@ -246,14 +249,14 @@ impl Analyzer {
         &mut self,
         context: &mut SemanticContext,
     ) -> Result<bool, SemanticError> {
-        println!("perform_domain_analysis");
+        /*println!("perform_domain_analysis");
         println!(
             "{}",
             context
                 .syntax_tree()
                 .try_root()?
                 .to_string_with_interner(context.syntax_tree(), context.interner())
-        );
+        );*/
         // --- ÉTAPE 0 : PRÉPARATION ---
         // On extrait la hiérarchie une seule fois pour tout le processus.
         let type_hierarchy = context.symbol_table().to_type_hierarchy();
@@ -355,11 +358,36 @@ impl Analyzer {
         type_hierarchy: &TypeHierarchy,
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
-        // 1. Validate basic symbol declarations (starting with Constants).
-        let mut checked = Self::check_symbols(
+        if !semantic::checks::check_type_hierarchy(context, symbol_table, diagnostic_manager)? {
+            // If the hierarchy is invalid, we cannot reliably check types, so we return early.
+            return Ok(false);
+        }
+
+        // Verify declared symbols correctness
+        if !semantic::checks::check_symbol_declarations(context, symbol_table, diagnostic_manager)?
+        {
+            return Ok(false);
+        }
+
+        let hierarchy = symbol_table.to_type_hierarchy();
+        let type_checker = TypeChecker::new(&hierarchy);
+        let ast = context.syntax_tree();
+        let symbol_resolver = SymbolResolver::new(ast, Some(&type_checker), None);
+
+        symbol_resolver.resolve(symbol_table)?;
+
+        // Check undeclared symbols, skipping specified types
+        let mut checked = semantic::checks::check_undeclared_symbols(
             context,
             symbol_table,
             &[],
+            diagnostic_manager,
+        )?;
+
+        // Check for unused symbols, skipping specified symbols
+        checked &= semantic::checks::check_unused_symbols(
+            context,
+            symbol_table,
             &[SymbolKind::Constant],
             diagnostic_manager,
         )?;
@@ -372,10 +400,6 @@ impl Analyzer {
             type_hierarchy,
             diagnostic_manager,
         )?;
-
-        // 3. Structural validation of the type tree/graph.
-        checked &=
-            semantic::checks::check_type_hierarchy(context, symbol_table, diagnostic_manager)?;
 
         Ok(checked)
     }
@@ -466,7 +490,37 @@ impl Analyzer {
         &mut self,
         context: &mut SemanticContext,
     ) -> Result<bool, SemanticError> {
-        // 1. On définit les filtres
+        // 1. Définition des filtres pour le problème
+        // On ignore ce qui appartient au Domaine car le Linker n'est pas encore passé.
+
+        // 2. Extraction de la table pour manipulation libre
+        let mut symbol_table = std::mem::take(context.symbol_table_mut());
+
+        // 3. Préparation du contexte de vérification immuable
+        let check_context = context.as_check_context(Provider::Analyzer);
+        let ast = check_context.syntax_tree();
+
+        // --- ÉTAPE 4 : RÉSOLUTION (LE VISSAGE) ---
+        // On lance le resolver sans TypeChecker et sans DomainTable.
+        // Cela va lier les Objects et les Variables locaux.
+        let symbol_resolver = SymbolResolver::new(ast, None, None);
+        symbol_resolver.resolve(&mut symbol_table)?;
+
+        println!(
+            "PROBLEM {}",
+            symbol_table.to_string_with_interner(context.interner())
+        );
+
+        // --- ÉTAPE 5 : VALIDATIONS SÉMANTIQUES ---
+        let mut checked = true;
+
+        // A. Vérification des déclarations (doublons, noms invalides)
+        checked &= semantic::checks::check_symbol_declarations(
+            &check_context,
+            &mut symbol_table,
+            &mut self.diagnostic_manager,
+        )?;
+
         let skip_types_undeclared = &[
             SymbolKind::PrimitiveType,
             SymbolKind::Constant,
@@ -474,28 +528,27 @@ impl Analyzer {
             SymbolKind::Function,
             SymbolKind::Task,
         ];
-
-        // 2. ON SORT LA TABLE (Take)
-        // Cela libère context de tout emprunt mutable.
-        let mut symbol_table = std::mem::take(context.symbol_table_mut());
-
-        // 3. ON CRÉE LE CONTEXTE DE CHECK
-        // Comme la table est sortie, context peut être emprunté en immuable sans conflit.
-        let check_context = context.as_check_context(Provider::Analyzer);
-
-        // 4. ANALYSE
-        let mut checked = Self::check_symbols(
+        // B. Vérification des symboles non déclarés (C'est ici que s#22 est validé !)
+        checked &= semantic::checks::check_undeclared_symbols(
             &check_context,
-            &mut symbol_table, // On utilise la table extraite
+            &symbol_table,
             skip_types_undeclared,
-            &[],
             &mut self.diagnostic_manager,
         )?;
 
+        // C. Vérification des symboles inutilisés
+        checked &= semantic::checks::check_unused_symbols(
+            &check_context,
+            &mut symbol_table,
+            &[], // On peut choisir de ne rien skipper ici ou d'ajouter des filtres
+            &mut self.diagnostic_manager,
+        )?;
+
+        // D. Vérification spécifique à l'ordonnancement des tâches (HTN)
         checked &=
             semantic::checks::check_task_ordering(&check_context, &mut self.diagnostic_manager)?;
 
-        // 5. ON REMET LA TABLE
+        // 6. Réinsertion de la table complétée dans le contexte
         context.set_symbol_table(symbol_table);
 
         Ok(checked)

@@ -8,13 +8,14 @@
 //! structural, identity, and type-based errors.
 
 use crate::aiplan4rust::lang::{SymbolId, Type};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Represents the specific cause of a failure during the signature matching process.
 ///
 /// Each variant provides the necessary context to generate detailed error messages,
 /// pinpointing exactly where the usage site deviates from the declaration.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum MatchFailure {
     /// The resolved symbol identifier does not match the expected one.
     Symbol {

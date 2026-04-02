@@ -1,10 +1,9 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::semantic::rules::{is_pddl_builtin_symbol, resolve_declaration};
+use crate::aiplan4rust::semantic::rules::is_pddl_builtin_symbol;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::SymbolTable;
+use crate::{DiagnosticManager, SymbolTable};
 
 /// Checks for undeclared symbols within the syntax tree and reports missing declarations.
 ///
@@ -47,35 +46,30 @@ use crate::SymbolTable;
 /// [`CheckContext`]: crate::semantics::CheckContext
 /// [`SymbolKind`]: crate::semantics::SymbolKind
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
-pub fn check_undeclared_symbols(
+///
+///
+
+/*pub fn check_undeclared_symbols(
     context: &CheckContext,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable, // Peut être immutable maintenant !
     skip_symbols: &[SymbolKind],
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
-    let mut checked = true;
-    let mut bindings_to_apply = Vec::new();
+    let mut no_errors = true;
 
-    for symbol in symbol_table.values() {
-        for usage in symbol.usages().values() {
-            let kind = usage.symbol().kind();
+    for symbol_entry in symbol_table.values() {
+        for usage in symbol_entry.usages().values() {
+            let kind = usage.symbol_kind();
 
-            // 1. On garde ton skip_symbol actuel (built-ins + liste d'exclusion)
-            if should_skip_symbol(symbol, context, kind, skip_symbols) {
+            // 1. Filtres habituels (ex: ne pas râler pour 'object' ou 'number')
+            if should_skip_symbol(symbol_entry, context, kind, skip_symbols) {
                 continue;
             }
 
-            // 3. On cherche la déclaration pour le reste (Action, Variable, Object, etc.)
-            if let Some(declaration) = resolve_declaration(symbol, kind, usage.scope()) {
-                // 3. VISSAGE SÉLECTIF : Uniquement pour les feuilles sans signature
-                // Utilise matches! pour être plus propre et éviter l'erreur de syntaxe
-                // Les symbol avec signatures sont binder par check symbol_signature
-                if matches!(kind, SymbolKind::Constant | SymbolKind::Variable) {
-                    bindings_to_apply.push((symbol.ident(), declaration.source(), usage.source()));
-                }
-            } else {
-                // Aucune déclaration trouvée : Erreur de symbole non déclaré
-                checked = false;
+            // 2. Le verdict est simple : pas de résolution = erreur
+            if usage.resolution().is_none() {
+                no_errors = false;
+
                 let error = Diagnostic::error_undeclared_symbol(
                     usage.clone(),
                     context.provider(),
@@ -87,21 +81,73 @@ pub fn check_undeclared_symbols(
         }
     }
 
-    // --- PHASE 2 : LE VISSAGE (Mutation) ---
-    for (symbol_id, decl_node_id, usage_node_id) in bindings_to_apply {
-        // On récupère l'entrée mutable pour ce symbole
-        let mut entry = symbol_table.try_get_symbol_mut(symbol_id)?;
-        // A. Lien Usage -> Declaration
-        if let Some(u) = entry.usages_mut().get_mut(&usage_node_id) {
-            u.set_declaration(decl_node_id);
-        }
-        // B. Lien Declaration -> Usage (Cross-reference)
-        if let Some(d) = entry.declarations_mut().get_mut(&decl_node_id) {
-            d.add_usage(usage_node_id);
+    Ok(no_errors)
+}*/
+
+pub fn check_undeclared_symbols(
+    context: &CheckContext,
+    symbol_table: &SymbolTable,
+    skip_symbols: &[SymbolKind],
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<bool, SemanticCheckError> {
+    let mut no_errors = true;
+
+    for symbol_entry in symbol_table.values() {
+        for usage in symbol_entry.usages().values() {
+            // 1. Filtrage (On ignore les primitives, les built-ins, et ce qui est dans skip_symbols)
+            if should_skip_symbol(symbol_entry, context, usage.symbol_kind(), skip_symbols) {
+                continue;
+            }
+
+            // 2. On s'appuie d'abord sur la présence physique d'une déclaration
+            let declaration_id = usage.declaration();
+            let match_result = usage.resolution(); // Ton MatchResult (Some(Match) ou Some(NoMatch))
+
+            match declaration_id {
+                // CAS 1 : Le symbole est bien "vissé" à une déclaration
+                Some(_decl_id) => {
+                    // Ici, le symbole EST déclaré.
+                    // On vérifie si l'utilisation est sémantiquement correcte.
+                    if let Some(res) = match_result {
+                        if !res.is_match() {
+                            // Le symbole existe, mais la signature est mauvaise.
+                            // Pour cette passe "undeclared", on pourrait ne rien faire
+                            // et laisser une autre passe gérer les erreurs de types,
+                            // OU lever une erreur spécifique ici.
+
+                            /* no_errors = false;
+                               let error = Diagnostic::error_signature_mismatch(...);
+                               diagnostic_manager.add_diagnostic(error);
+                            */
+                        }
+                    }
+                }
+
+                // CAS 2 : Aucune déclaration trouvée (Ni localement, ni dans le domaine)
+                None => {
+                    // C'est ici la véritable erreur "Undeclared Symbol"
+                    no_errors = false;
+
+                    println!(
+                        "DEBUG [Not Found]: Symbol '{}' (Kind: {:?}) at {:?}",
+                        symbol_entry.ident(),
+                        usage.symbol_kind(),
+                        usage.span()
+                    );
+
+                    let error = Diagnostic::error_undeclared_symbol(
+                        usage.clone(),
+                        context.provider(),
+                        context.source(),
+                        usage.span(),
+                    );
+                    diagnostic_manager.add_diagnostic(error);
+                }
+            }
         }
     }
 
-    Ok(checked)
+    Ok(no_errors)
 }
 
 /// Determines if a symbol should be skipped during the undeclared symbol check.

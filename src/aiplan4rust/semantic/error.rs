@@ -17,6 +17,7 @@ use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::signature_matcher::SignatureMatcherError;
+use crate::aiplan4rust::semantic::symbol_resolver::SymbolResolverError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
@@ -48,6 +49,9 @@ pub enum SemanticError {
     /// Errors related to the ast.
     #[error(transparent)]
     SignatureMatcher(#[from] SignatureMatcherError),
+
+    #[error(transparent)]
+    SymbolResolver(#[from] SymbolResolverError),
 
     /// Errors related to the ast.
     #[error(transparent)]

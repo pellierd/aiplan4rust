@@ -16,6 +16,7 @@
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
+use crate::aiplan4rust::semantic::signature_matcher::MatchResult;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolOrigin};
@@ -69,6 +70,8 @@ pub struct Usage {
     argument_sources: Option<Vec<NodeId>>,
 
     declaration: Option<NodeId>,
+
+    resolution: Option<MatchResult>,
 }
 
 impl Usage {
@@ -101,6 +104,7 @@ impl Usage {
             node_id: ast,
             argument_sources,
             declaration: None,
+            resolution: None,
         }
     }
 
@@ -163,6 +167,25 @@ impl Usage {
     pub fn has_arguments(&self) -> bool {
         self.argument_sources.is_some()
     }
+
+    /// Retourne la résolution si elle a été calculée.
+    pub fn resolution(&self) -> Option<&MatchResult> {
+        self.resolution.as_ref()
+    }
+
+    /// Tente de retourner la résolution ou panique si elle n'existe pas.
+    /// Utile dans les passes de check où l'on SAIT que le resolver est passé.
+    pub fn try_resolution(&self) -> &MatchResult {
+        self.resolution.as_ref().expect(
+            "Tentative d'accès à une résolution non calculée. Le SymbolResolver est-il passé ?",
+        )
+    }
+
+    /// Définit la résolution de cet usage.
+    /// C'est ici que le lien entre l'usage et sa déclaration est scellé.
+    pub fn set_resolution(&mut self, resolution: MatchResult) {
+        self.resolution = Some(resolution);
+    }
 }
 
 impl RemapSymbol for Usage {
@@ -190,27 +213,36 @@ impl fmt::Display for Usage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Usage [node: {}, kind: {}, id: {}, scope: {}, origin: {}",
+            "Usage [node: {}, kind: {:?}, sym_id: {}, scope: {}, origin: {}",
             self.node_id.as_usize(),
             self.symbol_kind(),
-            self.symbol_id(),
+            self.symbol_id(), // Affiche l'ID numérique brut
             self.scope,
             self.origin
         )?;
 
-        // Affichage des arguments (IDs bruts)
-        if let Some(args) = &self.argument_sources {
-            let args_ids: Vec<String> = args.iter().map(|id| id.as_usize().to_string()).collect();
-            write!(f, ", args: [{}]", args_ids.join(", "))?;
-        } else {
-            write!(f, ", args: None")?;
+        // 1. Affichage des sources des arguments (NodeIds)
+        match &self.argument_sources {
+            Some(args) if !args.is_empty() => {
+                let ids: Vec<String> = args.iter().map(|id| id.as_usize().to_string()).collect();
+                write!(f, ", args: [{}]", ids.join(", "))?;
+            }
+            Some(_) => write!(f, ", args: []")?,
+            None => write!(f, ", args: None")?,
         }
 
-        // Lien vers la déclaration résolue
+        // 2. Affichage du NodeId de la déclaration cible
         if let Some(decl_node_id) = self.declaration {
-            write!(f, ", declaration: {}", decl_node_id.as_usize())?;
+            write!(f, ", decl_node: {}", decl_node_id.as_usize())?;
         } else {
-            write!(f, ", declaration: None")?;
+            write!(f, ", decl_node: None")?;
+        }
+
+        // 3. Statut de résolution (si disponible)
+        if let Some(res) = &self.resolution {
+            write!(f, ", status: {:?}", res)?;
+        } else {
+            write!(f, ", status: Unresolved")?;
         }
 
         write!(f, "]")
@@ -229,7 +261,7 @@ impl InternerDisplay for Usage {
 
         write!(
             f,
-            "Usage [node: {}, kind: {}, ident: {}, scope: {}, origin: {}",
+            "Usage [node: {}, kind: {:?}, ident: '{}', scope: {}, origin: {}",
             self.node_id.as_usize(),
             self.symbol_kind(),
             symbol_str,
@@ -237,19 +269,30 @@ impl InternerDisplay for Usage {
             self.origin
         )?;
 
-        // Affichage des sources des arguments (le nouveau champ)
-        if let Some(args) = &self.argument_sources {
-            let args_str: Vec<String> = args.iter().map(|id| id.as_usize().to_string()).collect();
-            write!(f, ", args: [{}]", args_str.join(", "))?;
-        } else {
-            write!(f, ", args: None")?;
+        // 1. Affichage des sources des arguments
+        match &self.argument_sources {
+            Some(args) if !args.is_empty() => {
+                let ids: Vec<String> = args.iter().map(|id| id.as_usize().to_string()).collect();
+                write!(f, ", args: [{}]", ids.join(", "))?;
+            }
+            Some(_) => write!(f, ", args: []")?,
+            None => write!(f, ", args: None")?,
         }
 
-        // Affichage du lien vers la déclaration (le "linking")
+        // 2. Affichage du lien direct vers la déclaration (NodeId)
         if let Some(decl_node_id) = self.declaration {
-            write!(f, ", declaration: {}", decl_node_id.as_usize())?;
+            write!(f, ", decl_node: {}", decl_node_id.as_usize())?;
         } else {
-            write!(f, ", declaration: None")?;
+            write!(f, ", decl_node: None")?;
+        }
+
+        // 3. Affichage de la Résolution (le verdict du Resolver)
+        if let Some(res) = &self.resolution {
+            // Ici on suppose que Resolution implémente aussi InternerDisplay
+            // ou qu'on affiche juste son statut de base.
+            write!(f, ", status: {:?}", res)?;
+        } else {
+            write!(f, ", status: Unresolved")?;
         }
 
         write!(f, "]")

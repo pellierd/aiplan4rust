@@ -139,7 +139,7 @@ pub fn check_symbol_signatures(
     // --- PHASE 2 : LE VISSAGE (Mutation) ---
     // La boucle précédente est terminée, l'emprunt immuable sur symbol_table est libéré.
     // On peut maintenant demander l'accès mutable exclusif.
-    for (symbol_id, decl_node_id, usage_node_id) in bindings {
+    /*for (symbol_id, decl_node_id, usage_node_id) in bindings {
         let mut entry = symbol_table.try_get_symbol_mut(symbol_id)?;
         // Lien Usage -> Declaration
         if let Some(u) = entry.usages_mut().get_mut(&usage_node_id) {
@@ -149,7 +149,7 @@ pub fn check_symbol_signatures(
         if let Some(d) = entry.declarations_mut().get_mut(&decl_node_id) {
             d.add_usage(usage_node_id);
         }
-    }
+    }*/
 
     Ok(no_error)
 }

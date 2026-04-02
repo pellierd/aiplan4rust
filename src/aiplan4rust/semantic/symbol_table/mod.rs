@@ -34,7 +34,6 @@ pub mod builder;
 mod collection;
 pub mod entry;
 pub mod error;
-mod matching;
 pub mod origin;
 pub mod resolution;
 pub mod table;

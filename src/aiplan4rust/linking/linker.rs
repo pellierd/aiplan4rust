@@ -39,6 +39,7 @@ use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;
+use crate::aiplan4rust::semantic::symbol_resolver::SymbolResolver;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
@@ -313,6 +314,15 @@ pub fn perform_linking_checks(
     let type_checker = TypeChecker::new(&type_hierarchy);
     let mut check = true;
 
+    let resolver = SymbolResolver::new(
+        problem.syntax_tree(),
+        Some(&type_checker),
+        Some(domain_table),
+    );
+
+    // On résout les symboles du problème par rapport au domaine
+    resolver.resolve(problem_table)?;
+
     // 2. PHASE UNIFIÉE : LE LINKER (Vissage)
     // Cette seule fonction remplace désormais link_undeclared, link_signatures et link_types.
     // Elle parcourt tous les usages et crée les proxies nécessaires.
@@ -324,10 +334,10 @@ pub fn perform_linking_checks(
         diagnostic_manager,
     )?;
 
-    println!(
+    /*println!(
         "DOMAIN\n{}",
         domain_table.to_string_with_interner(domain.interner())
-    );
+    );*/
     println!(
         "PROBLEM:\n{}",
         problem_table.to_string_with_interner(problem.interner())
@@ -344,12 +354,12 @@ pub fn perform_linking_checks(
         diagnostic_manager,
     )?;
 
-    let mut check = linking::checks::check_unresolved_usages(
+    /*let mut check = linking::checks::check_unresolved_usages(
         problem_table,
         domain_table,
         problem,
         diagnostic_manager,
-    );
+    );*/
 
     // 2. On vérifie que les types utilisés dans le PROBLÈME existent dans le DOMAINE
     // On réutilise la fonction du domaine !

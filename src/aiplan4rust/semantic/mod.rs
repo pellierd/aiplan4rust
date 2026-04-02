@@ -71,7 +71,7 @@ pub mod passes;
 mod requirements;
 pub mod rules;
 pub mod signature_matcher;
-mod symbol_resolver;
+pub mod symbol_resolver;
 /// Type checking module (internal, not publicly exposed).
 pub mod type_checker;
 

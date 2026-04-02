@@ -24,12 +24,14 @@ use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::signature_matcher::failure::MatchFailure;
 use crate::aiplan4rust::semantic::symbol::Declaration;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Represents the outcome of a signature matching operation.
 ///
 /// This enum categorizes how a provided argument relates to its expected parameter,
 /// ranging from a perfect structural match to a semantic upcast or a complete mismatch.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum MatchResult {
     /// A perfect match where the provided type is a valid subtype of the expected type.
     Match,
@@ -54,6 +56,13 @@ pub enum MatchResult {
     /// Contains a [`MatchFailure`] describing the exact nature of the structural
     /// or semantic incompatibility.
     NoMatch(MatchFailure),
+}
+
+impl MatchResult {
+    /// Retourne vrai si la résolution est un succès (parfait ou par héritage)
+    pub fn is_match(&self) -> bool {
+        matches!(self, MatchResult::Match | MatchResult::UpcastMatch { .. })
+    }
 }
 
 impl fmt::Display for MatchResult {

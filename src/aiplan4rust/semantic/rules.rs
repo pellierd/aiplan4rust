@@ -107,3 +107,13 @@ pub fn is_pddl_builtin_symbol(symbol: &SymbolEntry, _context: &CheckContext) -> 
         _ => false,
     }
 }
+
+/// Détermine si un genre de symbole est "atomique".
+/// Un symbole atomique est une entité simple qui ne possède pas d'arguments
+/// et dont la validité repose uniquement sur son existence et son nom.
+pub fn is_atomic_kind(kind: SymbolKind) -> bool {
+    matches!(
+        kind,
+        SymbolKind::Constant | SymbolKind::Variable | SymbolKind::PrimitiveType
+    )
+}
