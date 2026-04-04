@@ -164,23 +164,17 @@ fn apply_resolutions(table: &mut SymbolTable, instructions: Vec<(SymbolId, NodeI
                 // Cas Local : On a déjà l'ID de la déclaration
                 Resolution::Local(decl_id, status) => (decl_id, status),
 
-                // Cas Domaine : On gère le Proxy
+                // Cas Domaine : On gère le Proxy (symbole venant d'un domaine parent)
                 Resolution::Domain(proxy, status) => {
                     let proxy_source = proxy.source();
 
-                    // STRATÉGIE DE FUSION : On évite de dupliquer le même symbole du domaine
-                    let existing_id = entry
-                        .declarations()
-                        .values()
-                        .find(|d| {
-                            d.origin() == SymbolOrigin::Domain && d.source() == proxy.source()
-                        })
-                        .map(|d| d.source());
-
-                    if let Some(id) = existing_id {
-                        (id, status)
+                    // STRATÉGIE DE FUSION : On cherche si ce symbole du domaine est déjà "importé"
+                    // via la fonction utilitaire pour éviter les doublons dans la table locale.
+                    if let Some(existing_id) = find_domain_proxy(entry, proxy_source) {
+                        // Déjà présent : on réutilise l'ID existant
+                        (existing_id, status)
                     } else {
-                        // Premier usage de ce symbole du domaine dans ce fichier : on l'ajoute
+                        // Premier usage : on enregistre la déclaration proxy dans la table
                         entry.add_declaration(proxy);
                         (proxy_source, status)
                     }
@@ -203,6 +197,33 @@ fn apply_resolutions(table: &mut SymbolTable, instructions: Vec<(SymbolId, NodeI
     }
 }
 
+/// Searches for an existing domain-originated symbol within the given entry.
+///
+/// This function is a key part of the "Proxy Pattern" used during the fusion
+/// of a Domain and a Problem. It ensures idempotency by preventing the
+/// creation of duplicate proxy declarations for the same external symbol.
+///
+/// # Arguments
+/// * `entry` - The specific symbol table entry to inspect.
+/// * `proxy_source` - The [`NodeId`] of the original declaration in the Domain's AST.
+///
+/// # Returns
+/// * `Some(NodeId)` - The ID of the existing proxy if a match is found.
+/// * `None` - If this domain symbol has not been imported into the local table yet.
+fn find_domain_proxy(entry: &SymbolEntry, proxy_source: NodeId) -> Option<NodeId> {
+    // Iterate through all existing declarations for this symbol name
+    for declaration in entry.declarations().values() {
+        // A duplicate is identified if:
+        // 1. The declaration's origin is the Domain (it's a Proxy).
+        // 2. The source NodeId matches the one we are trying to resolve.
+        if declaration.origin() == SymbolOrigin::Domain && declaration.source() == proxy_source {
+            return Some(declaration.source());
+        }
+    }
+
+    // No matching proxy found
+    None
+}
 /// Utility function for resolving symbols within the global Domain (external) context.
 ///
 /// If a matching declaration is found in the domain, it returns a `Resolution::Domain`
