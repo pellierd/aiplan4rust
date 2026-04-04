@@ -25,12 +25,12 @@
 //! the [`SignatureMatcher`].
 
 use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::semantic::passes::context::PassContext;
 use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::signature_matcher::{MatchResult, SignatureMatcher};
 use crate::aiplan4rust::semantic::symbol::Signature;
 use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::{NodeId, Tree};
+use crate::aiplan4rust::tree::NodeId;
 use crate::SymbolTable;
 
 /// Resolves relationships between derived predicates (axioms) and their base declarations.
@@ -40,15 +40,25 @@ use crate::SymbolTable;
 /// (names and argument types).
 ///
 /// # Workflow
-/// 1. **Validation**: Ensures a [`TypeChecker`] is available to perform semantic matching.
-/// 2. **Collection**: Performs an immutable pass over the [`SymbolTable`] to identify
-///    valid base-to-axiom pairs.
-/// 3. **Application**: Performs a mutable pass to store these links back into the table.
+/// 1. **Context Access**: Utilizes the [`PassContext`] to access the immutable AST and
+///    metadata without redundant parameter passing.
+/// 2. **Validation**: Ensures a [`TypeChecker`] is available to perform semantic matching.
+/// 3. **Collection Phase**: Performs an immutable pass over the [`SymbolTable`] to identify
+///    valid base-to-axiom pairs using a [`SignatureMatcher`].
+/// 4. **Application Phase**: Performs a mutable pass to "wire" these links back into
+///    the table, establishing bidirectional pointers.
+///
+/// # Arguments
+/// * `context` - The shared, immutable compilation context containing the AST and interner.
+/// * `table` - The mutable symbol table where resolutions are recorded.
+/// * `type_checker` - Optional hierarchy manager; required for signature matching.
+/// * `domain_table` - Optional parent domain table for requirements or external references.
 ///
 /// # Errors
-/// Returns [`SemanticPassError`] if signature matching logic encounters an inconsistency.
+/// Returns [`SemanticPassError`] if signature matching fails or encounters structural
+/// inconsistencies.
 pub fn resolve_derived_predicates(
-    ast: &Tree<AstNode>,
+    context: &PassContext,
     table: &mut SymbolTable,
     type_checker: Option<&TypeChecker>,
     domain_table: Option<&SymbolTable>,
@@ -62,15 +72,15 @@ pub fn resolve_derived_predicates(
     // We create the matcher and scan the table to find all valid links.
     // The scoped block ensures the immutable borrow of `table` is released
     // before the mutation phase begins.
-    let all_links = {
-        let matcher = SignatureMatcher::new(table, ast, tc, domain_table);
+    let derived_links = {
+        let matcher = SignatureMatcher::new(table, context.syntax_tree(), tc, domain_table);
         collect_derived_links(table, &matcher)?
     };
 
     // 3. APPLICATION PHASE (Mutable)
     // Only proceed to mutation if at least one valid link was discovered.
-    if !all_links.is_empty() {
-        apply_derived_links(table, all_links);
+    if !derived_links.is_empty() {
+        apply_derived_links(table, derived_links);
     }
 
     Ok(())

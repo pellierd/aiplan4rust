@@ -59,8 +59,9 @@ use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, Tree};
 
 use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::linking::finalization::FinalizationContext;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::finalization::PassContext;
+use crate::aiplan4rust::semantic::passes::PassContext;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -450,7 +451,7 @@ impl Context {
         std::mem::take(&mut self.interner)
     }
 
-    /// Creates a new [`PassContext`] by deriving it from the current semantic context.
+    /// Creates a new [`FinalizationContext`] by deriving it from the current semantic context.
     ///
     /// This is a lightweight operation that extracts the symbol interner and the
     /// source identifier to create a read-only environment for transformation finalization.
@@ -465,8 +466,12 @@ impl Context {
     /// ```
     /// let pass_ctx = semantic_ctx.as_pass_context(Provider::Analyzer);
     /// ```
+    pub fn as_finalization_context(&self, provider: Provider) -> FinalizationContext {
+        FinalizationContext::new(self.interner(), self.source(), provider)
+    }
+
     pub fn as_pass_context(&self, provider: Provider) -> PassContext {
-        PassContext::new(self.interner(), self.source(), provider)
+        PassContext::new(self.syntax_tree(), self.interner(), self.source(), provider)
     }
 
     /// Creates a new [`CheckContext`] by deriving it from the current unified context.

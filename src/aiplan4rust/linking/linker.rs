@@ -37,8 +37,8 @@ use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::finalization::PassContext;
-use crate::aiplan4rust::semantic::{finalization, passes, AnalyzerResult};
+use crate::aiplan4rust::semantic::passes::PassContext;
+use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 
@@ -150,7 +150,7 @@ impl Linker {
 
                 // 2. On simplifie la Table du Problème
                 // On change 'finalize' pour qu'elle retourne les 'changes' comme on l'a fait avant
-                let ctx =
+                /*let ctx =
                     PassContext::new(&global_interner, problem_ctx.source(), Provider::Linker);
 
                 let changes = finalization::symbol_table::finalize(
@@ -158,14 +158,14 @@ impl Linker {
                     &type_checker,
                     problem_ctx.symbol_table_mut(), // On modifie la table du problème
                     &mut self.diagnostic_manager,
-                )?;
+                )?;*/
 
                 // 3. NOUVEAU : On synchronise l'AST du Problème
                 // Si on a des changements, on les répercute sur l'AST pour que
                 // le r-affichage (pretty print) du problème soit aussi propre que celui du domaine.
-                if !changes.is_empty() {
-                    finalization::ast::finalize(&mut problem_ctx, &changes)?;
-                }
+                //if !changes.is_empty() {
+                //    finalization::ast::finalize(&mut problem_ctx)?;
+                //}
 
                 // Step 4: Create a check context for the problem using the global interner
                 // and perform semantic and structural linking checks on the problem
@@ -312,16 +312,22 @@ pub fn perform_linking_checks(
     let type_checker = TypeChecker::new(&type_hierarchy);
     let mut check = true;
 
+    let pass_context = PassContext::new(
+        problem.syntax_tree(),
+        problem.interner(),
+        problem.source(),
+        Provider::Linker,
+    );
     // Appel direct de la fonction pure
     passes::resolve_symbols(
-        problem.syntax_tree(),
+        &pass_context,
         problem_table,
         Some(&type_checker),
         Some(domain_table),
     )?;
 
     passes::resolve_derived_predicates(
-        problem.syntax_tree(),
+        &pass_context,
         problem_table,
         Some(&type_checker),
         Some(domain_table),

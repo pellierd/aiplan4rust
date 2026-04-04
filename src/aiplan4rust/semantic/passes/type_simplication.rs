@@ -1,11 +1,12 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::lang::{SymbolId, Type};
-use crate::aiplan4rust::semantic::finalization::type_simplification::TypeSimplification;
-use crate::aiplan4rust::semantic::finalization::PassContext;
+use crate::aiplan4rust::semantic::passes::context::PassContext;
 use crate::aiplan4rust::semantic::type_checker::{TypeCheckerError, TypeHierarchy};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::tree::NodeId;
 use crate::{DiagnosticManager, SymbolTable};
+use std::fmt;
 
 /// The maximum number of members allowed in a type union for optimized simplification.
 /// This limit is defined by the size of the bitmask (u128) used in the algorithm.
@@ -46,12 +47,12 @@ const MAX_UNION_SIMPLIFICATION_CAPACITY: usize = 128;
 /// This is an $O(N)$ operation where $N$ is the total number of declarations.
 /// The use of a stack-allocated bitmask and the `TypeChecker`'s internal
 /// transitive closure cache makes this highly efficient even for massive domains.
-pub fn finalize(
+pub fn simplify_types(
     context: &PassContext,
     type_checker: &TypeChecker,
     target_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<Vec<TypeSimplification>, TypeCheckerError> {
+) -> Result<Vec<Simplification>, TypeCheckerError> {
     // Étape 1 : Collecte (Phase Immuable)
     // On récupère une Box<[TypeSimplification]> (taille fixe, immuable)
     let changes =
@@ -77,7 +78,7 @@ pub fn finalize(
 /// # Process
 /// For every declaration in the table, it checks if the associated type is a union
 /// (e.g., `either`). If [`simplify_type`] returns a more concise version
-/// (by removing ancestors), a [`TypeSimplification`] instruction is recorded.
+/// (by removing ancestors), a [`Simplification`] instruction is recorded.
 ///
 /// # Performance
 /// This function is highly efficient because:
@@ -100,7 +101,7 @@ fn collect_type_simplifications(
     type_checker: &TypeChecker,
     target_table: &SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<Vec<TypeSimplification>, TypeCheckerError> {
+) -> Result<Vec<Simplification>, TypeCheckerError> {
     let mut changes = Vec::new();
 
     for (&symbol_id, entry) in target_table.iter() {
@@ -108,7 +109,7 @@ fn collect_type_simplifications(
             if let Some(raw_ty) = decl.ty() {
                 // Pass the type_checker to utilize its internal cache
                 if let Some((new_type, kept_indices)) = simplify_type(type_checker, raw_ty)? {
-                    changes.push(TypeSimplification::new(
+                    changes.push(Simplification::new(
                         symbol_id,
                         decl.source(),
                         new_type.clone(),
@@ -192,7 +193,7 @@ fn simplify_type(
 /// This is the second phase of the simplification process. It is designed as a
 /// standalone function that only requires mutable access to the target table,
 /// as all necessary transformation data is already contained within the
-/// [`TypeSimplification`] instructions.
+/// [`Simplification`] instructions.
 ///
 /// # Implementation Details: The `take` Pattern
 ///
@@ -210,11 +211,11 @@ fn simplify_type(
 /// # Arguments
 ///
 /// * `target_table` - The mutable symbol table where types and NodeIds will be updated.
-/// * `changes` - A vector of [`TypeSimplification`] instructions generated during
+/// * `changes` - A vector of [`Simplification`] instructions generated during
 ///   the collection phase.
 pub fn apply_type_simplifications(
     target_table: &mut SymbolTable,
-    changes: &[TypeSimplification], // Référence : on ne consomme plus le Vec
+    changes: &[Simplification], // Référence : on ne consomme plus le Vec
 ) {
     for change in changes {
         // On utilise les accesseurs car on n'a qu'une vue en lecture seule
@@ -239,5 +240,100 @@ pub fn apply_type_simplifications(
                 original.set_ty(change.new_type().clone());
             }
         }
+    }
+}
+
+/// Represents a planned modification to be applied to both the `SymbolTable` and the `AST`.
+///
+/// This structure acts as a "diff" or an instruction set generated during semantic analysis
+/// to specify how a type union should be simplified and which corresponding AST nodes
+/// should be synchronized.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Simplification {
+    /// The unique identifier of the symbol in the `SymbolTable`.
+    symbol_id: SymbolId,
+    /// The unique identifier of the declaration node in the `AST`.
+    node_id: NodeId,
+    /// The new optimized semantic definition of the type.
+    new_type: Type<SymbolId>,
+    /// The indices of the original type members that were kept after simplification.
+    kept_indices: Vec<usize>,
+}
+
+impl Simplification {
+    /// Creates a new type simplification instruction.
+    ///
+    /// # Arguments
+    /// * `symbol_id` - The ID of the symbol to update.
+    /// * `node_id` - The AST node ID where the declaration occurs.
+    /// * `new_type` - The simplified version of the type.
+    /// * `kept_indices` - The list of indices from the original union that remain valid.
+    pub fn new(
+        symbol_id: SymbolId,
+        node_id: NodeId,
+        new_type: Type<SymbolId>,
+        kept_indices: Vec<usize>,
+    ) -> Self {
+        Self {
+            symbol_id,
+            node_id,
+            new_type,
+            kept_indices,
+        }
+    }
+
+    // --- Accessors ---
+
+    /// Returns the ID of the symbol associated with this simplification.
+    pub fn symbol_id(&self) -> SymbolId {
+        self.symbol_id
+    }
+
+    /// Returns the ID of the AST node targeted by this simplification.
+    pub fn node_id(&self) -> NodeId {
+        self.node_id
+    }
+
+    /// Returns a reference to the new simplified type.
+    pub fn new_type(&self) -> &Type<SymbolId> {
+        &self.new_type
+    }
+
+    /// Returns a slice of the indices kept from the original type union.
+    pub fn kept_indices(&self) -> &[usize] {
+        &self.kept_indices
+    }
+}
+
+// --- Display Implementation ---
+
+impl fmt::Display for Simplification {
+    /// Formats the simplification for debugging purposes without name resolution.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "TypeSimplification(symbol: {}, node: {}, kept_indices: {:?})",
+            self.symbol_id, self.node_id, self.kept_indices
+        )
+    }
+}
+
+impl InternerDisplay for Simplification {
+    /// Formats the simplification using the provided `SymbolInterner` to resolve symbol names.
+    ///
+    /// This provides a much more readable output by showing actual type names instead of internal IDs.
+    fn fmt_with_interner(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &SymbolInterner,
+    ) -> fmt::Result {
+        let symbol_name = interner.resolve_symbol(self.symbol_id).unwrap_or("unknown");
+        write!(
+            f,
+            "TypeSimplification(symbol: '{}', node: {}, new_type: ",
+            symbol_name, self.node_id
+        )?;
+        self.new_type.fmt_with_interner(f, interner)?;
+        write!(f, ", kept_indices: {:?})", self.kept_indices)
     }
 }

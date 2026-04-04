@@ -1,17 +1,17 @@
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::rules::{find_shadowing_candidate, is_atomic_kind};
 use crate::aiplan4rust::semantic::signature_matcher::{MatchResult, SignatureMatcher};
 use crate::aiplan4rust::semantic::symbol::{
     Declaration, Signature, SymbolEntry, SymbolOrigin, Usage,
 };
 use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::{NodeId, Tree};
+use crate::aiplan4rust::tree::NodeId;
 use crate::SymbolTable;
 
 pub fn resolve_symbols(
-    ast: &Tree<AstNode>,
+    context: &PassContext,
     table: &mut SymbolTable,
     type_checker: Option<&TypeChecker>,
     domain_table: Option<&SymbolTable>,
@@ -36,7 +36,7 @@ pub fn resolve_symbols(
     let (complex_instructions, all_resolved) = {
         if let Some(tc) = type_checker {
             // Le matcher voit enfin les résolutions de la Phase 1 !
-            let matcher = SignatureMatcher::new(table, ast, tc, domain_table);
+            let matcher = SignatureMatcher::new(table, context.syntax_tree(), tc, domain_table);
             collect_complex_resolutions(table, &matcher, domain_table)?
         } else {
             // Si pas de type_checker, on ne peut pas résoudre de complexes
@@ -93,7 +93,6 @@ fn collect_complex_resolutions(
     for entry in table.values() {
         for usage in entry.usages().values() {
             let kind = usage.symbol().kind();
-            let node_id = usage.source();
             let is_atomic = is_atomic_kind(kind);
             let has_resolution = usage.resolution().is_some();
 
@@ -345,16 +344,32 @@ pub fn resolve_local_match(
     Ok(None)
 }
 
-/// Représente le résultat d'une décision de résolution avant application.
-/// Cet enum est interne au module car il sert uniquement de "tampon".
+/// Represents the intermediate result of a symbol resolution before it is applied to the table.
+///
+/// This enum acts as a temporary buffer during the "Collection Phase" of the
+/// resolve-apply pattern. It captures where a symbol was found and the semantic
+/// quality of the match.
+///
+/// # Variants
+/// * `Local`: The symbol was found in the current scope/table. We only need the
+///   [`NodeId`] of the declaration and the match status.
+/// * `Domain`: The symbol was found in a parent domain. This carries a full
+///   [`Declaration`] to allow for proxy generation during the application phase.
 enum Resolution {
-    /// Trouvé localement.
+    /// Found in the current [`SymbolTable`].
+    /// Holds the [`NodeId`] of the target declaration and the [`MatchResult`].
     Local(NodeId, MatchResult),
-    /// Trouvé dans le domaine (nécessite un Proxy).
+
+    /// Found in an external/parent [`SymbolTable`] (e.g., Domain for a Problem).
+    /// Holds a copy of the [`Declaration`] to facilitate cross-table linking (Proxy).
     Domain(Declaration, MatchResult),
 }
 
 impl Resolution {
+    /// Returns the semantic match status of this resolution.
+    ///
+    /// This is used to filter out incomplete matches or handle overloads
+    /// during the collection process.
     fn status(&self) -> &MatchResult {
         match self {
             Resolution::Local(_, s) | Resolution::Domain(_, s) => s,

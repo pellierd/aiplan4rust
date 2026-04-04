@@ -23,13 +23,14 @@
 //!
 //! This organization facilitates a clean API for linking domain and problem contexts
 //! with proper error and diagnostic handling.
+mod checks;
 pub mod context;
+pub mod error;
+pub mod finalization;
 pub mod linker;
 pub mod result;
-mod checks;
-pub mod error;
 
 pub use context::LinkedSemanticContext;
+pub use error::LinkingError;
 pub use linker::Linker;
 pub use result::Result as LinkerResult;
-pub use error::LinkingError;

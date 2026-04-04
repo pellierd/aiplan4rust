@@ -282,16 +282,12 @@ impl Analyzer {
         }
 
         // --- ÉTAPE 2 : RÉSOLUTION (LE VISSAGE) ---
+        let pass_context = context.as_pass_context(Provider::Analyzer);
         // On lie les usages des symboles aux déclarations trouvées à l'étape 1
-        passes::resolve_symbols(
-            context.syntax_tree(),
-            &mut symbol_table,
-            Some(&type_checker),
-            None,
-        )?;
+        passes::resolve_symbols(&pass_context, &mut symbol_table, Some(&type_checker), None)?;
 
         passes::resolve_derived_predicates(
-            context.syntax_tree(),
+            &pass_context,
             &mut symbol_table,
             Some(&type_checker),
             None,
@@ -430,7 +426,8 @@ impl Analyzer {
         // On lance le resolver sans TypeChecker et sans DomainTable.
         // Cela va lier les Objects et les Variables locaux.
 
-        passes::resolve_symbols(ast, &mut symbol_table, None, None)?;
+        let pass_context = context.as_pass_context(Provider::Analyzer);
+        passes::resolve_symbols(&pass_context, &mut symbol_table, None, None)?;
 
         /*println!(
             "PROBLEM {}",
