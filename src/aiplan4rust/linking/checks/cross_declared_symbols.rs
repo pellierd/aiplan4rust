@@ -33,6 +33,7 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::rules::can_share_namespace;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, SymbolOrigin};
 use crate::aiplan4rust::semantic::SymbolTable;
 
@@ -93,11 +94,10 @@ pub fn check_cross_declared_symbols(
 
                     // On cherche s'il existe une déclaration dans le domaine qui NE PEUT PAS
                     // partager l'espace de noms avec la déclaration du problème.
-                    let has_conflict = domain_declarations.iter().any(|d| {
-                        !declaration
-                            .symbol_kind()
-                            .can_share_name_space_with(&d.symbol_kind())
-                    });
+                    // On vérifie le conflit en passant les objets Declaration complets
+                    let has_conflict = domain_declarations
+                        .iter()
+                        .any(|domain_decl| !can_share_namespace(&declaration, domain_decl));
 
                     // If no domain declaration of the same kind exists, report a cross-conflict error
                     if has_conflict {

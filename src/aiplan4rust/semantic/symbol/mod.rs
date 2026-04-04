@@ -38,6 +38,7 @@ pub mod kind;
 pub mod origin;
 pub mod symbol;
 
+pub use crate::aiplan4rust::semantic::signature_matcher::signature::Signature;
 use crate::aiplan4rust::semantic::symbol_table::entry;
 pub use crate::aiplan4rust::semantic::symbol_table::entry::SymbolEntry;
 pub use declaration::Declaration;

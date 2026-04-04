@@ -1,17 +1,12 @@
-use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::semantic::signature_matcher::result::MatchResult;
-use serde::{Deserialize, Serialize};
-use std::fmt;
-
-/// La structure produite par le SymbolResolver.
+/*/// La structure produite par le SymbolResolver.
 /// Elle fait le pont entre la déclaration trouvée et le résultat du matching.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct Resolution {
+pub struct ResolutionC {
     declaration: NodeId,
     status: MatchResult,
 }
 
-impl Resolution {
+impl ResolutionC {
     /// Crée une nouvelle résolution liant une déclaration à son résultat de matching.
     pub fn new(declaration: NodeId, status: MatchResult) -> Self {
         Self {
@@ -36,7 +31,7 @@ impl Resolution {
     }
 }
 
-impl fmt::Display for Resolution {
+impl fmt::Display for ResolutionC {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -44,4 +39,4 @@ impl fmt::Display for Resolution {
             self.declaration, self.status
         )
     }
-}
+}*/

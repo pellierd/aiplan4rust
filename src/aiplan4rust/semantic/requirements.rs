@@ -114,6 +114,7 @@ pub fn extract_required_requirements(
     syntax_tree: &Tree<AstNode>,
     symbol_table: &SymbolTable,
     triggers: &mut HashMap<Requirement, Vec<NodeId>>,
+    interner: &SymbolInterner,
 ) -> Result<HashSet<Requirement>, SemanticError> {
     let mut required: HashSet<Requirement> = HashSet::new();
 
@@ -211,7 +212,7 @@ pub fn extract_required_requirements(
             // This block processes the (:functions ...) definition. PDDL distinguishes
             // between numeric functions and object-returning functions.
             AstKind::FunctionsDef => {
-                // Optimization: If both fluent types are already detected, skip the entire block.
+                // Si on a déjà les deux, on peut sauter l'analyse de ce bloc pour gagner du temps
                 if required.contains(&Requirement::NumericFluents)
                     && required.contains(&Requirement::ObjectFluents)
                 {
@@ -219,48 +220,72 @@ pub fn extract_required_requirements(
                 }
 
                 for child_id in node.children() {
-                    // Early exit from the child loop if both requirements are met.
-                    let has_numeric = required.contains(&Requirement::NumericFluents);
-                    let has_object = required.contains(&Requirement::ObjectFluents);
+                    let child_node = syntax_tree.try_node(*child_id)?;
 
-                    if has_numeric && has_object {
-                        break;
-                    }
+                    // On récupère la liste des TypedItem (on traverse la TypedList si elle existe)
+                    let typed_items = if child_node.kind() == AstKind::TypedList {
+                        child_node.children()
+                    } else {
+                        std::slice::from_ref(child_id)
+                    };
 
-                    // 1. On récupère l'identifiant du symbole (le nom de la fonction)
-                    // On utilise .ok() pour transformer les différents Result en Option et éviter le conflit de types d'erreurs
-                    if let Some(sym_id) = syntax_tree
-                        .try_node(*child_id)
-                        .ok()
-                        .and_then(|n| n.try_ident().ok())
-                    {
-                        // 2. On utilise le vissage direct O(1) établi précédemment.
-                        // resolve_primary_declaration garantit qu'on pointe vers la bonne déclaration.
-                        if let Ok(decl) =
-                            symbol_table.resolve_primary_declaration(sym_id, *child_id)
-                        {
-                            // 3. On extrait le type pour déterminer le requirement (Numeric vs Object)
-                            if let Some(ty) = decl.ty() {
-                                if ty.is_number() {
-                                    if !has_numeric {
-                                        add_req!(Requirement::NumericFluents, id);
+                    for typed_item_id in typed_items {
+                        // 1. On descend au Skeleton
+                        let item_node = syntax_tree.try_node(*typed_item_id).ok();
+                        let skel_id = item_node.and_then(|n| n.try_child(0).ok());
+
+                        // 2. On descend au Symbole (ex: 'slew_time', NodeId 118 dans tes logs)
+                        let sym_node_id = skel_id
+                            .and_then(|id| syntax_tree.try_node(id).ok())
+                            .and_then(|n| n.try_child(0).ok());
+
+                        if let Some(s_node_id) = sym_node_id {
+                            let sym_node = syntax_tree.try_node(s_node_id)?;
+
+                            if let Ok(sym_id) = sym_node.try_ident() {
+                                // --- CORRECTION ICI ---
+                                // On ne résout pas (recherche d'usage), on récupère la déclaration directe
+                                // car nous sommes au moment de la définition dans l'AST.
+                                if let Ok(decl) =
+                                    symbol_table.try_get_declaration_from(sym_id, s_node_id)
+                                {
+                                    if let Some(ty) = decl.ty() {
+                                        // Si le type est explicitement 'number'
+                                        if ty.is_number() {
+                                            if !required.contains(&Requirement::NumericFluents) {
+                                                add_req!(
+                                                    Requirement::NumericFluents,
+                                                    *typed_item_id
+                                                );
+                                            }
+                                        } else {
+                                            // Si c'est un autre type (Object Fluent)
+                                            if !required.contains(&Requirement::ObjectFluents) {
+                                                add_req!(
+                                                    Requirement::ObjectFluents,
+                                                    *typed_item_id
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        // En PDDL, une fonction sans type est Numeric par défaut
+                                        if !required.contains(&Requirement::NumericFluents) {
+                                            add_req!(Requirement::NumericFluents, *typed_item_id);
+                                        }
                                     }
                                 } else {
-                                    if !has_object {
-                                        add_req!(Requirement::ObjectFluents, id);
-                                    }
-                                }
-                            } else {
-                                // Par défaut en PDDL, une fonction non typée est considérée comme numérique
-                                if !has_numeric {
-                                    add_req!(Requirement::NumericFluents, id);
+                                    // Log de secours si la table n'a vraiment pas indexé ce nœud
+                                    let name = interner.resolve_symbol(sym_id).unwrap_or("unknown");
+                                    eprintln!(
+                                        "WARNING: Déclaration non indexée pour '{}' au nœud {:?}",
+                                        name, s_node_id
+                                    );
                                 }
                             }
                         }
                     }
                 }
             }
-
             AstKind::Metric => {
                 // A metric usually has one child representing the expression to be optimized.
                 let expr_id = node.try_child(0)?;
@@ -766,27 +791,29 @@ fn get_term_requirement(
 
     // 3. Functions (Fluent lookups)
     if node.kind() == AstKind::Function {
-        // Une seule extraction de l'identifiant pour tout le bloc
-        if let Some(sym_id) = tree.try_node(id).ok().and_then(|n| n.try_ident().ok()) {
-            // Cas particulier : total-cost (Action Costs)
-            if sym_id == SymbolInterner::TOTAL_COST_SYMBOL_ID {
-                // Return None to let the caller distinguish between action-costs and numeric-fluents.
-                return Ok(None);
-            }
+        // Extraction directe : on sait que l'arbre est valide à ce stade
+        let functor_node_id = node.try_child(0)?;
+        let functor_node = tree.try_node(functor_node_id)?;
+        let functor = functor_node.try_ident()?;
 
-            // Vissage direct O(1) pour tous les autres fluents
-            if let Ok(decl) = table.resolve_primary_declaration(sym_id, id) {
-                if let Some(ty) = decl.ty() {
-                    return Ok(Some(if ty.is_number() {
-                        Requirement::NumericFluents
-                    } else {
-                        Requirement::ObjectFluents
-                    }));
-                }
+        // Cas particulier : total-cost (Action Costs)
+        if functor == SymbolInterner::TOTAL_COST_SYMBOL_ID {
+            return Ok(None);
+        }
+
+        // Vissage direct O(1) pour tous les autres fluents
+        // On utilise functor_node_id pour la résolution précise dans la table
+        if let Ok(decl) = table.resolve_primary_declaration(functor, functor_node_id) {
+            if let Some(ty) = decl.ty() {
+                return Ok(Some(if ty.is_number() {
+                    Requirement::NumericFluents
+                } else {
+                    Requirement::ObjectFluents
+                }));
             }
         }
 
-        // Default fallback for functions if type info is missing.
+        // Fallback par défaut
         return Ok(Some(Requirement::NumericFluents));
     }
 

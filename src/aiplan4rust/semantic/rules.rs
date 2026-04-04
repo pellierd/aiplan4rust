@@ -4,32 +4,44 @@ use crate::aiplan4rust::semantic::symbol::{
     Declaration, Filterable, Scope, SymbolEntry, SymbolKind,
 };
 
-/*pub fn resolve_declaration<'a>(
-    symbol: &'a SymbolEntry,
-    kind: SymbolKind,
-    scope: &Scope,
-) -> Option<&'a Declaration> {
-    symbol.declarations().values().find(|declaration| {
-        let decl_kind = declaration.symbol_kind();
+pub fn can_share_namespace(existing: &Declaration, new: &Declaration) -> bool {
+    let kind_a = existing.symbol_kind();
+    let kind_b = new.symbol_kind();
 
-        // 1. Compatibilité (Le plus rapide : simple comparaison d'enums)
-        if !check_kind_compatibility(decl_kind, kind) {
-            return false;
+    // 1. CAS DES TYPES IDENTIQUES (ex: Predicate vs Predicate)
+    if kind_a == kind_b {
+        // Autorisé pour les constantes (redéclarations Domain/Problem)
+        if kind_a == SymbolKind::Constant {
+            return true;
         }
 
-        // 2. Filtrage des structures (Évite les collisions avec Domain/Problem)
-        if is_structural_mismatch(decl_kind, kind) {
-            return false;
+        // Autorisé pour les Prédicats SI l'un des deux est dérivé
+        if kind_a == SymbolKind::Predicate {
+            // Ici, on utilise ta nouvelle propriété 'is_derived'
+            return existing.is_derived() || new.is_derived();
         }
 
-        // 3. Visibilité (Le plus lent : itération sur les composants du Scope)
-        if !scope.starts_with(declaration.scope()) {
-            return false;
-        }
+        return false;
+    }
 
-        true
-    })
-}*/
+    // 2. CAS DES MÉLANGES AUTORISÉS (ton match original)
+    match (kind_a, kind_b) {
+        (SymbolKind::DomainName, _) | (_, SymbolKind::DomainName) => true,
+        (SymbolKind::ProblemName, _) | (_, SymbolKind::ProblemName) => true,
+
+        // PrimitiveType peut cohabiter avec Constant ou Predicate
+        (SymbolKind::PrimitiveType, SymbolKind::Constant)
+        | (SymbolKind::Constant, SymbolKind::PrimitiveType) => true,
+        (SymbolKind::PrimitiveType, SymbolKind::Predicate)
+        | (SymbolKind::Predicate, SymbolKind::PrimitiveType) => true,
+
+        // HDDL : Task et Action
+        (SymbolKind::Task, SymbolKind::Action) | (SymbolKind::Action, SymbolKind::Task) => true,
+
+        // Par défaut, on interdit le mélange (ex: Variable vs Action)
+        _ => false,
+    }
+}
 
 pub fn find_shadowing_candidate<'a>(
     symbol_entry: &'a SymbolEntry,
@@ -37,25 +49,50 @@ pub fn find_shadowing_candidate<'a>(
     scope: &Scope,
 ) -> Option<&'a Declaration> {
     let mut best_candidate: Option<&'a Declaration> = None;
-
+    if kind == SymbolKind::Task {
+        println!(
+            "🔍 [DEBUG SHADOW] Entrée ID: {:?} | Nom potentiel: ??? | Kind: {:?}",
+            symbol_entry.ident(),
+            kind
+        );
+        println!(
+            "   - Déclarations dans cette entrée: {}",
+            symbol_entry.declarations().len()
+        );
+    }
     for declaration in symbol_entry.declarations().values() {
-        // 1. Filtres structurels et de compatibilité
-        if check_kind_compatibility(declaration.symbol_kind(), kind)
-            && !is_structural_mismatch(declaration.symbol_kind(), kind)
-            // Visibilité : soit c'est global, soit le scope de l'usage descend du scope de déclaration
-            && (has_global_visibility(declaration.kind()) || scope.starts_with(declaration.scope()))
-        {
-            // 2. Logique de Shadowing : On cherche la déclaration la plus "proche"
-            // (celle qui a le scope le plus long/profond)
-            match best_candidate {
-                Some(current_best) if declaration.scope().len() > current_best.scope().len() => {
-                    best_candidate = Some(declaration);
-                }
-                None => {
-                    best_candidate = Some(declaration);
-                }
-                _ => {}
+        if kind == SymbolKind::Task {
+            println!(
+                "   - Comparaison avec Décl #{}: Kind={:?}, Compatible={}",
+                declaration.source(),
+                declaration.symbol_kind(),
+                check_kind_compatibility(declaration.symbol_kind(), kind)
+            );
+        }
+
+        let decl_kind = declaration.symbol_kind();
+
+        // 1. Gardes rapides sur la compatibilité et le genre
+        if !check_kind_compatibility(decl_kind, kind) {
+            continue;
+        }
+        if is_structural_mismatch(decl_kind, kind) {
+            continue;
+        }
+
+        // 2. Garde sur la visibilité (calcul un peu plus coûteux que le simple enum)
+        let decl_scope = declaration.scope();
+        if !has_global_visibility(declaration.kind()) && !scope.starts_with(decl_scope) {
+            continue;
+        }
+
+        // 3. Logique de sélection (Shadowing)
+        if let Some(current_best) = best_candidate {
+            if decl_scope.len() > current_best.scope().len() {
+                best_candidate = Some(declaration);
             }
+        } else {
+            best_candidate = Some(declaration);
         }
     }
 
@@ -68,7 +105,10 @@ pub fn find_shadowing_candidate<'a>(
 pub fn has_global_visibility(kind: SymbolKind) -> bool {
     match kind {
         // Les variables sont les SEULS éléments strictement locaux au scope
-        SymbolKind::Variable | SymbolKind::DomainName | SymbolKind::ProblemName => false,
+        SymbolKind::Variable
+        | SymbolKind::DomainName
+        | SymbolKind::ProblemName
+        | SymbolKind::TaskID => false,
         // Cas structurels (Noms de domaine/problème ne sont pas des objets de recherche)
         _ => true,
     }
@@ -159,6 +199,11 @@ pub fn is_pddl_builtin_symbol(symbol: &SymbolEntry, _context: &CheckContext) -> 
 pub fn is_atomic_kind(kind: SymbolKind) -> bool {
     matches!(
         kind,
-        SymbolKind::Constant | SymbolKind::Variable | SymbolKind::PrimitiveType
+        SymbolKind::Constant |
+        SymbolKind::Variable |
+        SymbolKind::PrimitiveType |
+        SymbolKind::TaskID |       // INDISPENSABLE pour task1, task2...
+        SymbolKind::DomainName |
+        SymbolKind::ProblemName
     )
 }

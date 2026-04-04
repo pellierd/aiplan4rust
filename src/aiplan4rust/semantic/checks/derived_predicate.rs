@@ -1,9 +1,4 @@
-use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind};
-use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
-use crate::{DiagnosticManager, SymbolTable};
-
-pub fn check_derived_predicates(
+/*pub fn check_derived_predicates(
     _context: &CheckContext,
     symbol_table: &mut SymbolTable,
     type_checker: &TypeChecker,
@@ -101,4 +96,4 @@ fn match_signatures(
     }
 
     Ok(true)
-}
+}*/

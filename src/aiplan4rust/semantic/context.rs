@@ -166,19 +166,19 @@ impl Context {
 
         // Collect declared and required requirements
         let declared_requirements = requirements::extract_declared_requirements(&syntax_tree)?;
-        let mut required_requirements_trigger = HashMap::new();
+        /*let mut required_requirements_trigger = HashMap::new();
         let required_requirements = requirements::extract_required_requirements(
             &syntax_tree,
             &symbol_table,
             &mut required_requirements_trigger,
-        )?;
+        )?;*/
 
         Ok(Self {
             syntax_tree,
             source: source_id,
             declared_requirements,
-            required_requirements,
-            required_requirements_trigger,
+            required_requirements: HashSet::new(),
+            required_requirements_trigger: HashMap::new(),
             symbol_table,
             interner,
             generated_at,
@@ -318,6 +318,15 @@ impl Context {
     /// detailed diagnostics and error reports.
     pub fn requirement_triggers(&self) -> &HashMap<Requirement, Vec<NodeId>> {
         &self.required_requirements_trigger
+    }
+    /// Sets the set of effective PDDL/HDDL requirements used in the AST.
+    pub fn set_required_requirements(&mut self, requirements: HashSet<Requirement>) {
+        self.required_requirements = requirements;
+    }
+
+    /// Sets the mapping of requirements to their triggering NodeIds.
+    pub fn set_requirement_triggers(&mut self, triggers: HashMap<Requirement, Vec<NodeId>>) {
+        self.required_requirements_trigger = triggers;
     }
 
     /// Takes ownership of the requirement triggers, leaving an empty map in its place.

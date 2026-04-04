@@ -317,6 +317,7 @@ pub fn perform_linking_checks(
         problem.syntax_tree(),
         Some(&type_checker),
         Some(domain_table),
+        domain.interner(),
     );
 
     // On résout les symboles du problème par rapport au domaine
@@ -340,7 +341,8 @@ pub fn perform_linking_checks(
         diagnostic_manager,
     )?;
 
-    let mut check = semantic::checks::check(problem, problem_table, &[], diagnostic_manager)?;
+    let mut check =
+        semantic::checks::check_symbol_usage(problem, problem_table, &[], diagnostic_manager)?;
 
     /*let mut check = linking::checks::check_unresolved_usages(
         problem_table,

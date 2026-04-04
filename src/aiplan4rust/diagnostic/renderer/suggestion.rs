@@ -613,10 +613,6 @@ fn format_undeclared_symbol_suggestion(
             "Variable '{}' is not declared. You likely need to add it to the ':parameters' list of the enclosing definition (e.g., '?x - typing').",
             name
         )),
-        SymbolKind::DerivedPredicate => Some(format!(
-            "Derived predicate '{}' is not declared. Define it using the '(:derived ...)' syntax.",
-            name
-        )),
     }
 }
 

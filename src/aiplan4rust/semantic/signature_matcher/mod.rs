@@ -14,6 +14,7 @@ mod error;
 mod failure;
 pub mod matcher;
 pub mod result;
+pub mod signature;
 
 // Re-exporting primary types for a cleaner public API
 pub use error::SignatureMatcherError;

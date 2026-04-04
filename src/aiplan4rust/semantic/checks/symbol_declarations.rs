@@ -3,7 +3,9 @@
 //! the diagnostic infrastructure to report errors or warnings as needed during analysis.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
+use crate::aiplan4rust::semantic::rules::can_share_namespace;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolEntry};
@@ -69,6 +71,10 @@ fn check_symbol_declarations_internal(
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
 
+    println!(
+        "Checking symbol declarations {}",
+        symbol_table.to_string_with_interner(context.interner())
+    );
     // Pre-allocate the map outside the loop to reuse its memory capacity across all symbols.
     // This avoids thousands of small heap allocations by using references (&Scope, &Declaration)
     // that point directly to data already owned by the symbol table.
@@ -176,14 +182,15 @@ fn handle_declaration_conflict(
 
     // --- CASE 1: Shared Namespaces (Silent or Warning) ---
     // We check if the language rules (via can_share_name_space_with) allow this overlap.
-    if current_kind.can_share_name_space_with(&previous_kind) {
+    if can_share_namespace(declaration, previous_declaration) {
         // Check if the naming conflict involves Derived Predicates.
         // If it does, we allow the overlap silently (return Ok(true)) as
         // PDDL allows multiple axioms to define the same predicate.
-        if is_derived_predicate_sharing(current_kind, previous_kind) {
+        if current_kind == SymbolKind::Predicate
+            && (declaration.is_derived() || previous_declaration.is_derived())
+        {
             return Ok(true);
         }
-
         // Specific check: Even if sharing is allowed, Type/Predicate is risky.
         // Why only this one? Because Constants and Types are easily distinguished by
         // position, whereas Predicates and Types can appear in similar parenthetical
@@ -253,28 +260,6 @@ fn handle_declaration_conflict(
     }
 
     Ok(is_valid)
-}
-
-/// Determines if a name sharing conflict involves Derived Predicates.
-///
-/// In PDDL, it is valid for a symbol to have multiple definitions if they are
-/// part of a derived predicate's logic. This includes:
-/// - Multiple `:derived` axioms defining the same predicate (logical OR).
-/// - A `:derived` definition for a predicate already declared in the `(:predicates)` block.
-///
-/// # Parameters
-/// - `k1`: The `SymbolKind` of the first declaration.
-/// - `k2`: The `SymbolKind` of the second declaration.
-///
-/// # Returns
-/// `true` if the combination of kinds represents a valid derived predicate overlap.
-fn is_derived_predicate_sharing(k1: SymbolKind, k2: SymbolKind) -> bool {
-    matches!(
-        (k1, k2),
-        (SymbolKind::DerivedPredicate, SymbolKind::DerivedPredicate)
-            | (SymbolKind::Predicate, SymbolKind::DerivedPredicate)
-            | (SymbolKind::DerivedPredicate, SymbolKind::Predicate)
-    )
 }
 
 /// Determines if the name conflict involves a `PrimitiveType` and a `Predicate`.

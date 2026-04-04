@@ -219,55 +219,52 @@ pub fn test_pddl_analyzer(domain_path: &str) {
 pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
     let mut success = true;
 
-    // 1. Nettoyage des fichiers de diagnostic et d'AST
+    // 1. Nettoyage
     delete_all_files_with_extension(domain_dir, "diag");
     delete_all_files_with_extension(domain_dir, "ast");
 
-    // 2. Collecte et tri pour le déterminisme
     let mut all_files = collect_domain_files(domain_dir);
     all_files.sort();
     let total_available = all_files.len();
-
-    // 3. Sélection du mode via l'utilitaire commun (Swallow par défaut)
     let files_to_process = filter_files_by_mode(all_files);
 
     for file_path in &files_to_process {
-        // --- ÉTAPE 1 : PARSING ---
-        let parser_result = match parse_and_check_ast(file_path) {
-            Some(result) => result,
-            None => {
-                success = false;
-                continue;
-            }
-        };
+        // On enveloppe toute l'exécution du fichier dans un catch_unwind
+        // pour intercepter les panics (backtraces)
+        let result = std::panic::catch_unwind(|| {
+            // --- ÉTAPE 1 : PARSING ---
+            let parser_result = parse_and_check_ast(file_path)?;
 
-        // --- ÉTAPE 2 : NORMALISATION ---
-        let normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
-            Some(result) => result,
-            None => {
+            // --- ÉTAPE 2 : NORMALISATION ---
+            let normalizer_result = normalize_and_check_ast(parser_result, file_path)?;
+
+            // --- ÉTAPE 3 : ANALYSE SÉMANTIQUE ---
+            analyze(normalizer_result, file_path)
+        });
+
+        match result {
+            // Cas où le code a renvoyé un résultat (Some ou None)
+            Ok(maybe_done) => {
+                if maybe_done.is_none() {
+                    eprintln!(
+                        "\x1b[1;31m[FAIL]\x1b[0m Analysis returned None for {}",
+                        file_path.display()
+                    );
+                    success = false;
+                }
+            }
+            // Cas où le code a CRASHÉ (Panic / Backtrace)
+            Err(_) => {
                 eprintln!(
-                    "\x1b[1;31mNormalization failed\x1b[0m for {}",
+                    "\x1b[1;41;37m[CRITICAL FAIL]\x1b[0m Panic detected for {}",
                     file_path.display()
                 );
                 success = false;
-                continue;
+                // Optionnel : on peut continuer ou s'arrêter là
             }
-        };
-
-        // --- ÉTAPE 3 : ANALYSE SÉMANTIQUE ---
-        // On suit la même logique : si l'analyse renvoie None, c'est un échec
-        if analyze(normalizer_result, file_path).is_none() {
-            eprintln!(
-                "\x1b[1;31mSemantic Analysis failed\x1b[0m for {}",
-                file_path.display()
-            );
-            success = false;
-            continue;
         }
     }
 
-    // 4. Affichage du statut (Cyan ou Vert selon FULL_TESTS)
     print_test_status(files_to_process.len(), total_available, domain_dir);
-
     success
 }

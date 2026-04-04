@@ -32,7 +32,7 @@ use crate::aiplan4rust::semantic::rules::{
 use crate::aiplan4rust::semantic::signature_matcher::error::SignatureMatcherError;
 use crate::aiplan4rust::semantic::signature_matcher::failure::MatchFailure;
 use crate::aiplan4rust::semantic::signature_matcher::result::MatchResult;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind, Usage};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Signature, SymbolKind};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::{NodeId, Tree};
@@ -96,120 +96,173 @@ impl<'a> SignatureMatcher<'a> {
 
     /// Orchestrates the full matching process between a symbol declaration and a usage site.
     ///
-    /// The process follows three main phases:
-    /// 1. **Structural Check**: Verifies identity, kind compatibility, and arity.
-    /// 2. **Argument Resolution**: Locates the declaration for each provided argument
-    ///    using the tiered lookup (Local then Domain).
-    /// 3. **Semantic Validation**: Validates each argument's type, choosing between
-    ///    standard matching or Holler upcasting task.
+    /// The validation follows three strategic phases:
+    /// 1. **Structural Check**: Verifies symbol identity, kind compatibility (e.g., Task vs Action), and arity.
+    /// 2. **Argument Resolution**: Locates the semantic declaration for each argument using
+    ///    a multi-stage lookup (supporting both direct declarations and bound usages).
+    /// 3. **Semantic Validation**: Performs type-checking for each argument, automatically
+    ///    switching between strict matching or Bercher-style upcasting based on the symbol kind.
     ///
     /// # Returns
-    /// * `Ok(MatchResult::Match)` - If all arguments match exactly.
-    /// * `Ok(MatchResult::UpcastMatch)` - If at least one argument required an upcast.
-    /// * `Ok(MatchResult::NoMatch)` - If any structural or semantic mismatch is found.
+    /// * `Ok(MatchResult::Match)` - All arguments match their expected types exactly.
+    /// * `Ok(MatchResult::UpcastMatch)` - At least one argument required a valid type upcast.
+    /// * `Ok(MatchResult::NoMatch)` - A structural or semantic mismatch was found (captured in `MatchFailure`).
     ///
     /// # Errors
-    /// * Returns [`SignatureMatcherError`] if an argument cannot be resolved or
-    ///   if the AST is malformed.
+    /// * Returns [`SignatureMatcherError`] if an argument node cannot be resolved or if the AST is inaccessible.
     pub fn match_signature(
         &self,
-        declaration: &'a Declaration,
-        usage: &'a Usage,
+        expected: Signature<'a>,
+        provided: Signature<'a>,
     ) -> Result<MatchResult, SignatureMatcherError> {
-        // 1. Structural Verification (Names, Kinds, and Arity)
-        let arguments = match Self::match_structure(declaration, usage) {
+        // Phase 1: Structural Verification (Identity, Kind, and Arity)
+        // We first ensure the call site matches the definition's basic signature shape.
+        let arguments = match Self::match_structure(expected, provided) {
             Ok(args) => args,
-            Err(failure) => return Ok(MatchResult::NoMatch(failure)),
+            Err(failure) => {
+                return Ok(MatchResult::NoMatch(failure));
+            }
         };
 
-        // Initialize the global result at the highest success level (Match)
         let mut current_global_result = MatchResult::Match;
 
-        // 2. Argument Content Validation
+        // Phase 2: Argument-level Semantic Validation
+        // Iterate through each provided argument to verify its specific type and declaration.
         for (index, &arg_id) in arguments.iter().enumerate() {
             let arg_node = self.ast.try_node(arg_id)?;
 
-            // Hierarchical Resolution (Local Problem -> Global Domain)
-            let arg_decl = self
-                .resolve_argument_declaration(arg_node, usage.scope())?
-                .ok_or_else(|| SignatureMatcherError::unresolved_argument(arg_id))?;
+            // Resolve the argument's declaration using the hybrid lookup strategy.
+            // This handles standard variable usages as well as parameter definitions (#163).
+            let arg_decl =
+                match self.resolve_argument_declaration(arg_node, arg_id, provided.scope())? {
+                    Some(decl) => decl,
+                    None => {
+                        return Err(SignatureMatcherError::unresolved_argument(arg_id));
+                    }
+                };
 
-            // 3. Binary Branching: Selection of matching logic based on task-matching rules
-            let match_res = if allow_implicit_upcast_for_task_matching(
-                declaration.symbol().kind(),
-                usage.symbol().kind(),
-            ) {
-                self.match_argument_with_upcasting(declaration, arg_decl, arg_id, index)?
+            // Wrap the resolved declaration into a Signature for uniform processing.
+            let arg_signature = Signature::from_declaration(arg_decl);
+
+            // Phase 3: Logic Selection (Standard vs. Upcasting)
+            // Determine if the current context allows implicit upcasting (e.g., matching a Task call
+            // against an Action definition).
+            let can_upcast =
+                allow_implicit_upcast_for_task_matching(expected.kind(), provided.kind());
+
+            let match_res = if can_upcast {
+                // Apply stupid Bercher/Holler upcasting logic for HTN task decomposition.
+                self.match_argument_with_upcasting(expected, arg_signature, arg_id, index)?
             } else {
-                self.match_argument(declaration, arg_decl, index)?
+                // Apply strict subtyping for standard predicates or action effects.
+                self.match_argument(expected, arg_signature, index)?
             };
 
+            // Consolidate the result of the current argument into the global match status.
             match match_res {
                 MatchResult::NoMatch(failure) => {
-                    // Early exit: propagate the specific failure to avoid losing diagnostic info
+                    // Short-circuit on the first mismatch found.
                     return Ok(MatchResult::NoMatch(failure));
                 }
                 MatchResult::UpcastMatch { .. } => {
-                    // If we were at Match level, downgrade to UpcastMatch
+                    // Upgrade the global result to UpcastMatch if it was previously an exact Match.
                     if matches!(current_global_result, MatchResult::Match) {
                         current_global_result = match_res;
                     }
                 }
                 MatchResult::Match => {
-                    // Standard match: continue to next argument
+                    // Exact matches do not change the global state.
                 }
             }
         }
 
+        // Final validation successful.
         Ok(current_global_result)
     }
 
-    /// Resolves an argument's declaration by searching first in the Local (Problem) table,
-    /// then falling back to the Domain (Global) table if necessary.
+    /// Resolves an argument's declaration using a multi-stage lookup strategy.
     ///
-    /// This implements a tiered lookup where local definitions (like problem objects or
-    /// action parameters) shadow global domain constants.
+    /// This method ensures that symbol references (usages) are correctly mapped to their
+    /// corresponding declarations. It handles both standard calls (where an ID points
+    /// to a usage site) and structural definitions (where an ID might point directly
+    /// to a declaration, such as in derived predicate headers).
+    ///
+    /// ### Resolution Strategy:
+    /// 1. **Fast-track (Indexed)**: Checks if the `arg_node_id` is already a known `Declaration`
+    ///    or a previously bound `Usage` in the local symbol entry.
+    /// 2. **Local Lookup (Problem)**: Searches the local table using shadowing rules
+    ///    (e.g., prioritizing action parameters over global constants) within the `usage_scope`.
+    /// 3. **Global Lookup (Domain)**: Falls back to the domain table for global constants,
+    ///    types, or functions.
     ///
     /// # Arguments
-    /// * `argument_node` - The AST node representing the argument usage.
-    /// * `usage_scope` - The current scope where the argument is being used.
+    /// * `argument_node` - The AST node representing the argument (variable, object, etc.).
+    /// * `arg_node_id` - The unique identifier of the node being resolved (e.g., node #163).
+    /// * `usage_scope` - The semantic scope context where the resolution is performed.
     ///
     /// # Returns
-    /// * `Ok(Some(&Declaration))` - If a matching declaration is found in either table.
-    /// * `Ok(None)` - If the symbol exists but no declaration matches the kind/scope.
+    /// * `Ok(Some(&Declaration))` - The resolved semantic declaration of the argument.
+    /// * `Ok(None)` - If the symbol is found but no candidate matches the required kind/scope.
     ///
     /// # Errors
-    /// * Returns [`SignatureMatcherError`] if the identifier cannot be retrieved
-    ///   or if the `SymbolKind` is incompatible with the context.
+    /// * Returns [`SignatureMatcherError::UnresolvedArgument`] if resolution fails.
+    /// * Returns [`SignatureMatcherError::InvalidSymbolKind`] if the AST node kind is unsupported.
     fn resolve_argument_declaration(
         &self,
         argument_node: &AstNode,
+        arg_node_id: NodeId,
         usage_scope: &Scope,
     ) -> Result<Option<&'a Declaration>, SignatureMatcherError> {
-        let name = argument_node.try_ident()?;
+        // Extract the symbol identifier (e.g., "?x" or "p") from the AST node.
+        let symbol = argument_node.try_ident()?;
+
+        // --- STEP 0: Fast-track resolution using already indexed data ---
+        // Check if the local symbol table already has an entry for this identifier.
+        if let Some(entry) = self.local_table.get_symbol(symbol) {
+            // --- STEP 0.1: Direct Declaration Check (Case: Derived Predicate Headers) ---
+            // If the provided NodeId is already a known Declaration within this symbol entry,
+            // return it immediately. This handles cases where parameters are passed as definitions.
+            if let Some(decl) = entry.declarations().get(&arg_node_id) {
+                return Ok(Some(decl));
+            }
+
+            // --- STEP 0.2: Linked Usage Check (Case: Standard Actions/Calls) ---
+            // If the NodeId is an Usage that was already bound to a Declaration during
+            // the initial resolution phase, retrieve the pinned declaration directly.
+            if let Some(usage) = entry.usages().get(&arg_node_id) {
+                if let Some(decl_id) = usage.declaration() {
+                    if let Some(decl) = entry.declarations().get(&decl_id) {
+                        return Ok(Some(decl));
+                    }
+                }
+            }
+        }
+
+        // Determine the expected symbol category (Variable, Object, etc.) from the AST node kind.
         let kind = SymbolKind::try_from(argument_node.kind())
             .map_err(|_| SignatureMatcherError::invalid_symbol_kind())?;
 
-        // --- STEP 1: Recherche dans la table LOCALE (Fichier Problem) ---
-        // On utilise la logique de shadowing pour prioriser les variables locales (?x)
-        // sur les constantes globales du même nom.
-        if let Some(entry) = self.local_table.get_symbol(name) {
+        // --- STEP 1: Local Scope Resolution (Problem File) ---
+        // Perform a tiered lookup in the local table using shadowing rules.
+        // This prioritizes local parameters (e.g., action variables) over global constants.
+        if let Some(entry) = self.local_table.get_symbol(symbol) {
             if let Some(decl) = find_shadowing_candidate(entry, kind, usage_scope) {
                 return Ok(Some(decl));
             }
         }
 
-        // --- STEP 2: Recherche dans la table DOMAINE (Fichier Global) ---
-        // Si rien n'est trouvé en local, on regarde dans le domaine.
-        // On résout contre le root_scope car tout ce qui est dans le domaine est global.
+        // --- STEP 2: Global Scope Resolution (Domain File) ---
+        // If not found locally, fallback to the Domain table.
+        // Global symbols are resolved against the root scope as they have universal visibility.
         if let Some(domain) = self.domain_table {
-            if let Some(entry) = domain.get_symbol(name) {
+            if let Some(entry) = domain.get_symbol(symbol) {
                 if let Some(decl) = find_shadowing_candidate(entry, kind, &domain.root_scope()) {
                     return Ok(Some(decl));
                 }
             }
         }
 
+        // Return None if the symbol cannot be resolved in any available context.
         Ok(None)
     }
 
@@ -232,8 +285,8 @@ impl<'a> SignatureMatcher<'a> {
     /// * Returns [`SignatureMatcherError`] if type extraction fails or internal errors occur.
     fn match_argument(
         &self,
-        expected_decl: &Declaration,
-        provided_decl: &Declaration,
+        expected_decl: Signature<'_>,
+        provided_decl: Signature<'_>,
         index: usize,
     ) -> Result<MatchResult, SignatureMatcherError> {
         // 1. ty_expected: What the definition (action/predicate) requires at this index
@@ -260,39 +313,45 @@ impl<'a> SignatureMatcher<'a> {
 
     /// Matches a provided argument against an expected declaration, supporting type upcasting.
     ///
-    /// This function implements the "Holler" upcasting logic: if a standard match fails,
-    /// it evaluates whether the provided type can be treated as a supertype of the expected type.
+    /// This function implements specialized HTN "Upcasting" logic (based on Bercher/Holler
+    /// research). If a standard subtype match fails, it evaluates whether the provided
+    /// type can be treated as a supertype of the expected type, which is a requirement
+    /// for certain task-to-action decompositions.
     ///
     /// # Arguments
-    /// * `expected_decl` - The reference declaration (signature).
-    /// * `provided_decl` - The declaration of the argument being passed.
+    /// * `expected` - The reference signature (the "contract" to fulfill).
+    /// * `provided` - The signature of the actual argument being passed.
     /// * `arg_node_id` - The AST node identifier for the argument at the usage site.
-    /// * `index` - The positional index of the argument.
+    /// * `index` - The positional index of the argument in the parameter list.
     ///
     /// # Returns
-    /// * `Ok(MatchResult::Match)` - On direct type compatibility.
-    /// * `Ok(MatchResult::UpcastMatch)` - If upcasting is valid and successful.
-    /// * `Ok(standard_res)` - Returns the original mismatch if upcasting fails.
+    /// * `Ok(MatchResult::Match)` - On direct type compatibility (subtype).
+    /// * `Ok(MatchResult::UpcastMatch)` - If upcasting is semantically valid.
+    /// * `Ok(standard_res)` - Returns the original `NoMatch` if upcasting also fails.
+    ///
+    /// # Errors
+    /// * Returns [`SignatureMatcherError`] if type metadata cannot be extracted from signatures.
     pub fn match_argument_with_upcasting(
         &self,
-        expected_decl: &Declaration,
-        provided_decl: &Declaration,
+        expected: Signature<'_>,
+        provided: Signature<'_>,
         arg_node_id: NodeId,
         index: usize,
     ) -> Result<MatchResult, SignatureMatcherError> {
-        // 1. REUSE: Call the base matching function
-        let standard_res = self.match_argument(expected_decl, provided_decl, index)?;
+        // 1. REUSE: Call the base matching function (standard subtyping check)
+        let standard_res = self.match_argument(expected, provided, index)?;
 
-        // If it is a direct Match, return immediately
+        // Short-circuit: if we have an exact match or valid subtype, no further check is needed.
         if matches!(standard_res, MatchResult::Match) {
             return Ok(standard_res);
         }
 
-        // 2. Upcasting (Holler stupidity)
-        // Safe because match_argument has already validated the existence of arguments and types
-        let ty_expected = expected_decl.arguments().unwrap().get(index).unwrap().ty();
-        let ty_provided = provided_decl.ty().unwrap();
+        // 2. Upcasting Logic (Bercher/Holler Covariance)
+        // Extract types using Signature helpers which safely encapsulate technical lookups.
+        let ty_expected = expected.try_get_arg_type(index)?;
+        let ty_provided = provided.try_type()?;
 
+        // Verify if the provided type is a supertype of the expected one.
         if self
             .type_checker
             .is_any_supertype_of(ty_expected, ty_provided)?
@@ -300,79 +359,78 @@ impl<'a> SignatureMatcher<'a> {
             return Ok(MatchResult::UpcastMatch {
                 expected: ty_expected.clone(),
                 provided: ty_provided.clone(),
-                arg_decl: provided_decl.clone(),
+                // Retrieve the actual declaration stored within the Signature.
+                arg_decl: provided.declaration().clone(),
                 arg_node_id,
             });
         }
 
-        // 3. If upcasting fails, return the original result (stored in standard_res)
-        // This is cleaner than manually reconstructing a MatchFailure
+        // 3. Fallback: If upcasting fails, return the original standard mismatch (NoMatch).
         Ok(standard_res)
     }
 
     /// Matches a symbol usage against a declaration based on identity, kind compatibility, and arity.
     ///
-    /// This is the "fast-path" of signature validation. It ensures that the basic structural
-    /// requirements are met before performing more expensive type-checking on individual arguments.
+    /// This acts as the structural "gatekeeper" of the signature validation process. It ensures
+    /// that the basic requirements are met before performing more expensive type-checking
+    /// on individual arguments.
     ///
-    /// # Business Rules
-    /// 1. **Identity**: The symbols must share the same [`SymbolId`].
-    /// 2. **Kind Compatibility**: Uses [`check_kind_compatibility`] to allow cross-kind
-    ///    matching (e.g., between a `Task` and an `Action`).
-    /// 3. **Arity**: The number of provided arguments must exactly match the number of
-    ///    parameters defined in the declaration.
+    /// ### Validation Rules:
+    /// 1. **Identity**: Ensures both signatures refer to the same logical symbol ([`SymbolId`]).
+    /// 2. **Kind Compatibility**: Validates if the call site kind is allowed to match the
+    ///    declaration kind (e.g., allowing a Task to be refined by an Action).
+    /// 3. **Arity**: Confirms the number of provided arguments exactly matches the
+    ///    declaration's parameter count.
     ///
     /// # Arguments
-    /// * `declaration` - The symbol declaration acting as the reference.
-    /// * `usage` - The specific occurrence or call site of the symbol.
+    /// * `expected` - The reference signature from the symbol declaration.
+    /// * `observed` - The signature extracted from the actual usage site.
     ///
     /// # Returns
-    /// * `Ok(&[NodeId])` - A slice containing the argument IDs from the usage site if
-    ///   the structure is compatible.
+    /// * `Ok(&[NodeId])` - A slice of argument IDs from the usage site if structurally compatible.
     ///
     /// # Errors
-    /// * Returns a [`MatchFailure`] if there is a mismatch in identity ([`MatchFailure::Symbol`]),
-    ///   kind ([`MatchFailure::KindMismatch`]), or argument count ([`MatchFailure::Arity`]).
+    /// * Returns [`MatchFailure`] detailing the specific structural mismatch found.
     pub fn match_structure(
-        declaration: &'a Declaration,
-        usage: &'a Usage,
+        expected: Signature<'a>,
+        observed: Signature<'a>,
     ) -> Result<&'a [NodeId], MatchFailure> {
-        // 1. IDENTITY CHECK (Symbol ID verification)
-        if declaration.symbol().id() != usage.symbol().id() {
+        // 1. IDENTITY CHECK (Symbol ID)
+        // Ensure both signatures refer to the same symbol identifier.
+        if expected.id() != observed.id() {
             return Err(MatchFailure::Symbol {
-                expected: declaration.symbol().id(),
-                observed: usage.symbol().id(),
+                expected: expected.id(),
+                observed: observed.id(),
             });
         }
 
-        // 2. KIND COMPATIBILITY (Business Rule validation: Task, Action, etc.)
-        if !check_kind_compatibility(declaration.symbol().kind(), usage.symbol().kind()) {
+        // 2. KIND COMPATIBILITY (e.g., Task vs Action)
+        // Check if the usage's symbol kind is semantically compatible with the declaration.
+        if !check_kind_compatibility(expected.kind(), observed.kind()) {
             return Err(MatchFailure::KindMismatch);
         }
 
-        // 3. STRUCTURAL VERIFICATION (Arity/Argument count check)
-        let decl_args = declaration.argument_sources();
-        let usage_args = usage.argument_sources();
+        // 3. STRUCTURAL VERIFICATION (Arity / Argument Count)
+        // Compare the argument lists provided by both signatures.
+        match (expected.arguments(), observed.arguments()) {
+            // Case: Arguments are present and lengths match exactly.
+            (Some(e), Some(o)) if e.len() == o.len() => Ok(o),
 
-        match (decl_args, usage_args) {
-            // Match found with arguments: both lists must have identical lengths.
-            (Some(d), Some(u)) if d.len() == u.len() => Ok(u),
-
-            // Match found without arguments: both are empty/null; returns an empty slice.
+            // Case: Neither side has arguments (valid empty signature).
             (None, None) => Ok(&[]),
 
-            // Arity mismatch handling: provides detailed length comparison for error reporting.
-            (Some(d), Some(u)) => Err(MatchFailure::Arity {
-                expected: d.len(),
-                observed: u.len(),
+            // Error Cases: Handle various arity mismatch scenarios.
+            (Some(e), Some(o)) => Err(MatchFailure::Arity {
+                expected: e.len(),
+                observed: o.len(),
             }),
-            (Some(d), None) => Err(MatchFailure::Arity {
-                expected: d.len(),
+            (Some(e), None) => Err(MatchFailure::Arity {
+                expected: e.len(),
                 observed: 0,
             }),
-            (None, Some(u)) => Err(MatchFailure::Arity {
+            (None, Some(o)) => Err(MatchFailure::Arity {
                 expected: 0,
-                observed: u.len(),
+                observed: o.len(),
             }),
         }
     }

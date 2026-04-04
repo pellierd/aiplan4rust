@@ -417,18 +417,6 @@ fn get_variable_type(
     context: &CheckContext,
     symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    // 1. Priority: Use the "vissage" (primary declaration)
-    // On essaie de résoudre la déclaration à laquelle l'usage est lié.
-    match symbol_table.resolve_primary_declaration(symbol, index) {
-        Ok(decl) => return Ok(decl.ty().cloned()),
-        // Si ce n'est pas résolu, on ne panique pas, on continue vers l'implicite
-        Err(_) => {}
-    }
-
-    //if let Some(decl) = symbol_table.resolve_declaration_by_usage(index, SymbolKind::Variable)? {
-    //    return Ok(decl.ty().cloned());
-    //}
-
     // 2. Implicit Case: If no explicit declaration exists, check for reserved symbols.
     // ?duration is implicitly a 'number' in durative actions.
     if symbol == SymbolInterner::DURATION_VARIABLE_SYMBOL_ID {

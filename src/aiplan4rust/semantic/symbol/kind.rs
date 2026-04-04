@@ -61,7 +61,7 @@ pub enum Kind {
     Predicate,
 
     /// Represents a derived predicate symbol.
-    DerivedPredicate,
+    //DerivedPredicate,
 
     /// Represents a primitive data typing (e.g., integer, boolean).
     PrimitiveType,
@@ -77,7 +77,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// Returns `true` if two symbols are allowed to share the same name (identifier)
+    /*//// Returns `true` if two symbols are allowed to share the same name (identifier)
     /// in a case-insensitive context.
     ///
     /// This logic is essential for PDDL/HDDL compatibility, allowing common
@@ -152,7 +152,7 @@ impl Kind {
             // Default: Strict (Task, Method, etc.)
             _ => false,
         }
-    }
+    }*/
 }
 
 impl TryFrom<AstKind> for Kind {
@@ -198,7 +198,6 @@ impl fmt::Display for Kind {
             Kind::DASymbol => write!(f, "Durative Action"),
             Kind::PrimitiveType => write!(f, "Primitive Type"),
             Kind::Predicate => write!(f, "Predicate"),
-            Kind::DerivedPredicate => write!(f, "Derived Predicate"),
             Kind::Variable => write!(f, "Variable"),
             Kind::Constant => write!(f, "Constant"),
             Kind::Function => write!(f, "Functor"),

@@ -54,33 +54,24 @@ impl fmt::Display for MatchFailure {
             Self::Symbol { expected, observed } => {
                 write!(
                     f,
-                    "Symbol Identity Mismatch:\n  Expected ID: {:?}\n  Observed ID: {:?}",
-                    expected, observed
+                    "symbol mismatch: expected {expected:?}, got {observed:?}"
                 )
             }
             Self::Arity { expected, observed } => {
                 write!(
                     f,
-                    "Arity Mismatch:\n  Expected: {} arguments\n  Observed: {} arguments",
-                    expected, observed
+                    "arity mismatch: expected {expected} args, got {observed}"
                 )
             }
             Self::KindMismatch => {
-                write!(
-                    f,
-                    "Symbol Kind Mismatch: The observed symbol category is incompatible with the expected declaration."
-                )
+                write!(f, "kind mismatch: incompatible symbol categories")
             }
             Self::Argument {
                 index,
                 expected,
                 provided,
             } => {
-                write!(
-                    f,
-                    "Type Mismatch (Argument Index {}):\n  Expected Type: {}\n  Observed Type: {}",
-                    index, expected, provided
-                )
+                write!(f, "type mismatch at arg[{index}]: {expected} vs {provided}")
             }
         }
     }

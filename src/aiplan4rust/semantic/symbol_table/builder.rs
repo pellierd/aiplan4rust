@@ -372,9 +372,6 @@ impl SymbolTableBuilder {
         // This retrieves symbol metadata such as the identifier name and kind.
         let node = ast.syntax_tree().try_node(node_ref.id())?;
         let mut symbol_ref = node.try_symbol()?;
-        if is_derived {
-            symbol_ref.set_kind(SymbolKind::DerivedPredicate);
-        }
 
         // Obtain the symbol's identifier (name) from the symbol reference.
         let ident = symbol_ref.id();
@@ -387,7 +384,7 @@ impl SymbolTableBuilder {
         // If it exists, add a new declaration to the existing symbol.
         if let Some(symbol) = self.table_mut().get_symbol_mut(ident) {
             // Create a new declaration instance for this symbol with provided metadata.
-            let declaration = Declaration::new(
+            let mut declaration = Declaration::new(
                 symbol_ref,
                 scope,
                 origin,
@@ -400,6 +397,7 @@ impl SymbolTableBuilder {
                 None,                           // Optional additional data (currently None).
                 None,
             );
+            declaration.set_derived(is_derived);
             // Append this declaration to the existing symbol's declarations list.
             symbol.add_declaration(declaration);
         } else {
@@ -407,7 +405,7 @@ impl SymbolTableBuilder {
             let mut symbol = SymbolEntry::new(ident);
 
             // Create a new declaration for the new symbol.
-            let declaration = Declaration::new(
+            let mut declaration = Declaration::new(
                 symbol_ref,
                 scope,
                 origin,
@@ -420,7 +418,7 @@ impl SymbolTableBuilder {
                 None,
                 None,
             );
-
+            declaration.set_derived(is_derived);
             // Add the declaration to the symbol.
             symbol.add_declaration(declaration);
 
@@ -690,7 +688,46 @@ impl SymbolTableBuilder {
     ) -> Result<(), SemanticError> {
         // Match on the AST node kind to determine processing ops
         match node_ref.node().kind() {
-            AstKind::PrimitiveType | AstKind::Object | AstKind::Variable => {
+            AstKind::PrimitiveType => {
+                let symbol_ref = node_ref.node().try_symbol()?;
+                let ident = symbol_ref.id();
+
+                // 1. Check if an implicit root (placeholder) already exists for this type.
+                // This happens when a type was used as a parent before being explicitly declared.
+                let mut merged = false;
+                if let Some(entry) = self.table_mut().get_symbol_mut(ident) {
+                    // Look for a PrimitiveType declaration that lacks parent types (the "empty shell").
+                    if let Some(decl) = entry.declarations_mut().values_mut().find(|d| {
+                        d.symbol().kind() == SymbolKind::PrimitiveType && d.ty().is_none()
+                    }) {
+                        // SYMBOL PROMOTION: Transform the implicit root into a full declaration.
+                        // We update it with actual parent types and link it to its official AST node.
+                        decl.set_ty(types.clone());
+                        decl.set_type_sources(ty_node_ids.clone());
+                        decl.set_source(node_ref.id());
+                        decl.set_span(node_ref.node().span().clone());
+
+                        merged = true;
+                    }
+                }
+
+                // 2. If no implicit root was found, create a new declaration normally.
+                // This handles types being declared for the first time or legitimate duplicates (E2011).
+                if !merged {
+                    self.add_declaration_symbol(
+                        node_ref,
+                        ast,
+                        scope.clone(),
+                        Some(types.clone()),
+                        Some(ty_node_ids),
+                        None,
+                        None,
+                        false,
+                    )?;
+                }
+            }
+
+            AstKind::Object | AstKind::Variable => {
                 // Add a declaration symbol with the provided types for simple typed elements
                 self.add_declaration_symbol(
                     node_ref,
@@ -1556,17 +1593,38 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(Type<SymbolId>, Vec<NodeId>), SemanticError> {
-        // 1. On extrait le couple (Sémantique, IDs) via extract_type
-        // Note: extract_type doit aussi être modifiée pour renvoyer le tuple !
+        // 1. On extrait les types (ex: [object]) et leurs IDs de nœuds
         let (super_types, ty_node_ids) = self.extract_type(type_ref, ast)?;
 
-        // 2. Enregistrement des usages (on utilise les IDs qu'on vient de récupérer)
+        // 2. Traitement de chaque type trouvé à droite du tiret '-'
         for &ty_id in &ty_node_ids {
             let ty_ref = ast.syntax_tree().try_node_ref(ty_id)?;
-            self.add_symbol_usage(&ty_ref, ast, None, scope.clone())?;
+            let symbol_ref = ty_ref.node().try_symbol()?;
+            let ident = symbol_ref.id();
+
+            // --- LA LOGIQUE CRITIQUE ---
+            // Si le type (ex: 'object') n'a aucune déclaration dans la table
+            if self.table().get_symbol(ident).is_none() {
+                // On le déclare comme une racine (PrimitiveType sans parent)
+                // Cela crée l'entrée manquante pour le SignatureMatcher
+                self.add_declaration_symbol(
+                    &ty_ref,
+                    ast,
+                    scope.clone(),
+                    None, // Pas de super-type (c'est une racine)
+                    None,
+                    None,
+                    None,
+                    false, // Non dérivé
+                )?;
+                // println!("TRACE: Racine implicite créée pour {:?}", ident);
+            } else {
+                // Si le symbole existe déjà, on enregistre simplement son usage
+                self.add_symbol_usage(&ty_ref, ast, None, scope.clone())?;
+            }
         }
 
-        // 3. On renvoie le tuple complet
+        // 3. On renvoie le tuple complet pour que le TypedItem puisse l'associer aux enfants
         Ok((super_types, ty_node_ids))
     }
 

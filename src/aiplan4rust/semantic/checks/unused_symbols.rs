@@ -1,16 +1,12 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::Requirement::DurativeActions;
-use crate::aiplan4rust::lang::Requirement::NumericFluents;
-use crate::aiplan4rust::lang::Requirement::Typing;
-use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
+use crate::aiplan4rust::lang::Requirement::{DurativeActions, Fluents, NumericFluents};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
+use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::Tree;
-use crate::SymbolTable;
+use crate::{DiagnosticManager, SymbolTable};
 
 /// Checks for symbol declarations that are never used within their valid scope.
 ///
@@ -54,7 +50,7 @@ use crate::SymbolTable;
 /// [`CheckContext`]: crate::semantics::CheckContext
 /// [`SymbolKind`]: crate::semantics::SymbolKind
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
-pub fn check_unused_symbols(
+/*pub fn check_unused_symbols(
     context: &CheckContext,
     symbol_table: &mut SymbolTable,
     skip_symbols: &[SymbolKind],
@@ -89,9 +85,58 @@ pub fn check_unused_symbols(
     }
 
     Ok(true)
+}*/
+
+pub fn check_unused_symbols(
+    context: &CheckContext,
+    symbol_table: &SymbolTable,
+    skip_symbols: &[SymbolKind],
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<bool, SemanticError> {
+    let mut unused_count = 0;
+    const MAX_REPORTS: usize = 100;
+
+    for symbol_entry in symbol_table.values() {
+        for declaration in symbol_entry.declarations().values() {
+            if !declaration.usages().is_empty()
+                || !declaration.derivations().is_empty()
+                || (declaration.is_derived() && declaration.derived_source().is_some())
+            {
+                continue;
+            }
+
+            // 2. Filtres
+            if skip_symbols.contains(&declaration.symbol_kind())
+                || skip_unused_symbol_declaration(declaration, context)?
+            {
+                continue;
+            }
+
+            unused_count += 1;
+
+            // 3. LA CASSE : Si on dépasse la limite, on s'arrête IMMÉDIATEMENT
+            if unused_count > MAX_REPORTS {
+                // Optionnel : ajouter un diagnostic spécial "Trop d'erreurs, j'arrête"
+                println!("\x1b[1;31m[!] Trop de symboles inutilisés dans ce fichier. Arrêt de l'analyse.\x1b[0m");
+                return Ok(true); // On retourne Ok(true) car l'analyse est finie (même si tronquée)
+            }
+
+            // 4. TRAVAIL LOURD (Seulement pour les 100 premiers)
+            check_pddl_builtin_symbol_declaration(declaration, context, diagnostic_manager);
+
+            diagnostic_manager.add_diagnostic(Diagnostic::warning_unused_symbol(
+                declaration.clone(),
+                context.provider(),
+                context.source(),
+                declaration.span(),
+            ));
+        }
+    }
+
+    Ok(true)
 }
 
-/// Determines if a specific symbol declaration has a valid usage or a logical binding.
+/*/// Determines if a specific symbol declaration has a valid usage or a logical binding.
 ///
 /// A declaration is considered "used" if:
 /// 1. It is explicitly referenced elsewhere in the PDDL (e.g., in an action precondition).
@@ -135,7 +180,7 @@ fn has_valid_usage(entry: &SymbolEntry, declaration: &Declaration) -> bool {
 
     // If no explicit usage or binding is found, the declaration is unused.
     false
-}
+}*/
 
 /// Determines whether a declaration should be skipped during unused symbol checking.
 ///
@@ -182,11 +227,6 @@ fn skip_unused_symbol_declaration(
 
     let requirements = context.declared_requirements();
     match declaration.symbol_ident() {
-        SymbolInterner::OBJECT_SYMBOL_ID
-            if requirements.contains(&Typing) || requirements.contains(&Adl) =>
-        {
-            return Ok(true)
-        }
         SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID
             if requirements.contains(&NumericFluents) =>
         {
@@ -273,11 +313,6 @@ fn check_pddl_builtin_symbol_declaration(
 
     // 1. On identifie si le nom est un mot-clé réservé selon les requirements
     let (expected_kind, reqs) = match declaration.symbol_ident() {
-        SymbolInterner::OBJECT_SYMBOL_ID
-            if requirements.contains(&Typing) || requirements.contains(&Adl) =>
-        {
-            (SymbolKind::PrimitiveType, vec![Typing, Adl])
-        }
         SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&NumericFluents) => {
             (SymbolKind::PrimitiveType, vec![NumericFluents, Fluents])
         }
@@ -306,10 +341,11 @@ fn check_pddl_builtin_symbol_declaration(
         return true; // On marque comme trouvé mais invalide
     }
 
+    true
     // 3. CAS B : Usage Ambigu (Genre différent)
     // L'utilisateur déclare "object" comme "Constant".
     // On vérifie si notre nouvelle stratégie autorise ce partage.
-    if current_kind.can_share_name_space_with(&expected_kind) {
+    /*if current_kind.can_share_name_space_with(&expected_kind) {
         // C'est autorisé (ex: Constant vs Type), mais c'est risqué.
         // -> WARNING (ton ancienne stratégie d'ambiguïté)
         let warning = Diagnostic::warning_symbol_declared_ambiguously_as_keyword(
@@ -327,7 +363,7 @@ fn check_pddl_builtin_symbol_declaration(
         // Ce n'est pas autorisé par can_share_name_space_with.
         // On pourrait ici mettre une erreur plus grave ou rester sur le warning.
         false
-    }
+    }*/
 }
 
 /// Checks if the given `scope` contains at least one AST node of the specified `kind`.

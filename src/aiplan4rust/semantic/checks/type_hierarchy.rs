@@ -508,35 +508,22 @@ fn build_type_adjacency_matrix(
     declarations: &Vec<&Declaration>,
 ) -> Result<Vec<Vec<bool>>, SemanticCheckError> {
     let n = type_bimap.len();
-
-    // Preallocate adjacency matrix n x n with false
     let mut matrix = vec![vec![false; n]; n];
 
-    // Get index of the special "object" typing once
-    let object_index = type_bimap
-        .get_by_left(&SymbolInterner::OBJECT_SYMBOL_ID)
-        .copied();
-
     for declaration in declarations {
-        let Some(&type_idx) = type_bimap.get_by_left(&declaration.symbol_ident()) else {
-            // If typing is not found in map, just skip (consistency assumption)
+        let ident = declaration.symbol_ident();
+        let Some(&type_idx) = type_bimap.get_by_left(&ident) else {
             continue;
         };
 
-        // Check typing index bounds
-        if type_idx >= n {
-            return Err(SemanticCheckError::type_index_out_of_bounds(
-                type_idx,
-                declaration.symbol_ident(),
-                n - 1,
-            ));
-        }
-
-        match declaration.ty() {
-            Some(parents) => {
-                for parent in parents.iter() {
-                    if let Some(&parent_idx) = type_bimap.get_by_left(parent) {
-                        // Check parent index bounds
+        // On ne gère QUE les parents explicites.
+        // Si c'est None (liste vide), on ne fait rien : le type est une racine.
+        if let Some(parents) = declaration.ty() {
+            for parent in parents.iter() {
+                if let Some(&parent_idx) = type_bimap.get_by_left(parent) {
+                    // RÈGLE GÉNÉRIQUE : Empêcher l'auto-boucle (A -> A)
+                    // Un type ne peut pas être son propre parent, même par erreur.
+                    if type_idx != parent_idx {
                         if parent_idx >= n {
                             return Err(SemanticCheckError::parent_index_out_of_bounds(
                                 parent_idx,
@@ -548,15 +535,9 @@ fn build_type_adjacency_matrix(
                     }
                 }
             }
-            None => {
-                if let Some(j) = object_index {
-                    if j >= n {
-                        return Err(SemanticCheckError::object_index_out_of_bounds(j, n - 1));
-                    }
-                    matrix[type_idx][j] = true;
-                }
-            }
         }
+        // Si declaration.ty() est None, la ligne matrix[type_idx] reste remplie de 'false'.
+        // C'est la définition exacte d'une racine dans le graphe.
     }
 
     Ok(matrix)

@@ -152,8 +152,8 @@ impl Usage {
 
     /// Récupère les sources des arguments s'ils existent.
     /// Retourne une référence vers le Vecteur de NodeId.
-    pub fn argument_sources(&self) -> Option<&Vec<NodeId>> {
-        self.argument_sources.as_ref()
+    pub fn argument_sources(&self) -> Option<&[NodeId]> {
+        self.argument_sources.as_deref()
     }
 
     /// Définit les sources des arguments pour cet usage.

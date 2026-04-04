@@ -123,6 +123,10 @@ pub struct Declaration {
     /// For `SymbolKind::DerivedPredicate`, contains the identifier of the base
     /// `Predicate` node (the signature) from which this implementation originates.
     derived_source: Option<NodeId>,
+
+    /// Indique si cette déclaration est une définition logique (axiome)
+    /// ou une signature de prédicat standard.
+    derived: bool,
 }
 
 impl Declaration {
@@ -193,6 +197,7 @@ impl Declaration {
             usages: vec![],
             derivations: vec![],
             derived_source: None,
+            derived: false,
         }
     }
 
@@ -510,6 +515,16 @@ impl Declaration {
         self.derived_source = Some(node_id);
     }
 
+    /// Retourne vrai si cette déclaration est un axiome dérivé.
+    pub fn is_derived(&self) -> bool {
+        self.derived
+    }
+
+    /// Définit si cette déclaration est un axiome dérivé.
+    pub fn set_derived(&mut self, derived: bool) {
+        self.derived = derived;
+    }
+
     /// Formats the types of the declaration for display.
     ///
     /// If the declaration has a list of types, this function formats them and writes them
@@ -728,17 +743,17 @@ impl RemapSymbol for Declaration {
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // 1. Core Identity
-        // Displays the node index, the category of symbol, and the raw SymbolId.
+        // On affiche l'ID du nœud, le genre, le flag de dérivation et l'ID du symbole.
         write!(
             f,
-            "[node: {}, kind: {}, ident: {}",
+            "[node: {}, kind: {}, derived: {}, ident: {}",
             self.source(),
             self.symbol_kind(),
+            self.is_derived(), // Ton nouveau flag booléen
             self.symbol_ident()
         )?;
 
         // 2. Context and Provenance
-        // Shows visibility (scope), file origin, and aliasing/import metadata.
         write!(
             f,
             ", scope: {}, origin: {}, alias: {}, imported: {}",
@@ -751,7 +766,6 @@ impl fmt::Display for Declaration {
         )?;
 
         // 3. Types and Source Mapping
-        // Renders type information and maps them back to their specific AST NodeIds.
         self.fmt_types(f)?;
         if let Some(nodes) = self.type_sources() {
             write!(f, " (sources: ")?;
@@ -765,7 +779,6 @@ impl fmt::Display for Declaration {
         }
 
         // 4. Arguments (Signatures) and Source Mapping
-        // Renders parameter lists and links names back to their syntactic origin.
         self.fmt_arguments(f)?;
         if let Some(nodes) = self.argument_sources() {
             write!(f, " (sources: ")?;
@@ -779,7 +792,6 @@ impl fmt::Display for Declaration {
         }
 
         // 5. Predicate Linkage (Base <-> Derived)
-        // Lists all axioms (derivations) defining this predicate's logic.
         if !self.derivations().is_empty() {
             write!(f, ", derivations: [")?;
             for (i, node) in self.derivations().iter().enumerate() {
@@ -791,13 +803,11 @@ impl fmt::Display for Declaration {
             write!(f, "]")?;
         }
 
-        // If this is a DerivedPredicate, point back to its original signature source.
         if let Some(source) = self.derived_source() {
             write!(f, ", derived_from: {}", source)?;
         }
 
         // 6. Usage Tracking
-        // Lists all AST nodes that have been formally resolved to this declaration.
         if !self.usages().is_empty() {
             write!(f, ", usages: [")?;
             for (i, node) in self.usages().iter().enumerate() {
@@ -824,17 +834,17 @@ impl InternerDisplay for Declaration {
             .unwrap_or("<uninterned>");
 
         // 1. Core Identity
-        // Displays the node index, the category of symbol, and its string representation.
+        // Ajout du flag 'derived' ici pour voir immédiatement si c'est un axiome.
         write!(
             f,
-            "[node: {}, kind: {}, ident: {}",
+            "[node: {}, kind: {}, derived: {}, ident: {}",
             self.source().as_usize(),
             self.symbol_kind(),
+            self.is_derived(), // Utilisation de ton nouveau booléen
             name_str
         )?;
 
         // 2. Context and Provenance
-        // Shows visibility (scope), file origin, and aliasing/import metadata.
         write!(
             f,
             ", scope: {}, origin: {}, alias: {}, imported: {}",
@@ -847,7 +857,6 @@ impl InternerDisplay for Declaration {
         )?;
 
         // 3. Semantic Types and Source Mapping
-        // Renders types and links them back to their specific AST NodeIds.
         self.fmt_types_with(f, interner)?;
         if let Some(nodes) = self.type_sources() {
             write!(f, " (sources: ")?;
@@ -861,7 +870,6 @@ impl InternerDisplay for Declaration {
         }
 
         // 4. Arguments (Signatures) and Source Mapping
-        // Renders parameter lists and links names back to their syntactic origin.
         self.fmt_arguments_with(f, interner)?;
         if let Some(nodes) = self.argument_sources() {
             write!(f, " (sources: ")?;
@@ -875,7 +883,7 @@ impl InternerDisplay for Declaration {
         }
 
         // 5. Predicate Linkage (Base <-> Derived)
-        // If this is a base predicate, list all axioms (derivations) defining its logic.
+        // Utile pour les Predicates standards qui ont des définitions logiques.
         if !self.derivations().is_empty() {
             write!(f, ", derivations: [")?;
             for (i, node) in self.derivations().iter().enumerate() {
@@ -887,13 +895,12 @@ impl InternerDisplay for Declaration {
             write!(f, "]")?;
         }
 
-        // If this is a DerivedPredicate, point back to its original signature source.
+        // Utile pour les Axiomes (derived: true) pour remonter à la signature.
         if let Some(source) = self.derived_source() {
             write!(f, ", derived_from: {}", source.as_usize())?;
         }
 
         // 6. Usage Tracking
-        // Lists all AST nodes that have been formally resolved to this declaration.
         if !self.usages().is_empty() {
             write!(f, ", usages: [")?;
             for (i, node) in self.usages().iter().enumerate() {

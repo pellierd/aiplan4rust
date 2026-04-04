@@ -51,7 +51,7 @@ use crate::{DiagnosticManager, SymbolTable};
 ///
 ///
 
-pub fn check(
+pub fn check_symbol_usage(
     context: &CheckContext,
     symbol_table: &SymbolTable,
     skip_symbols: &[SymbolKind],
