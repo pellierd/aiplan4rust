@@ -1,14 +1,16 @@
-use std::collections::HashMap;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
-use crate::aiplan4rust::lir::ActionDef;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lang::CompareOp;
+use crate::aiplan4rust::lang::{
+    AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
+};
+use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
+use std::collections::HashMap;
 
 ////// ATENTION JE NE GERE PAS les AXIOMS
 
@@ -20,7 +22,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 /// # Pre-conditions (Crucial)
 ///
 /// For this encoder to function correctly, the input [`Expr`] must have already passed
-/// through the following transformation passes (see `crate::passes`):
+/// through the following transformation finalization (see `crate::finalization`):
 ///
 /// 1. **Quantifier Expansion**: All `FORALL` and `EXISTS` nodes must be expanded into
 ///    their respective `AND`/`OR` equivalent grounded structures.
@@ -61,7 +63,6 @@ pub struct DatalogEncoder {
 }
 
 impl DatalogEncoder {
-
     /// Initializes a new Datalog Encoder.
     ///
     /// # Arguments
@@ -139,7 +140,7 @@ impl DatalogEncoder {
     pub fn encode_auxiliary_predicate(
         &mut self,
         arity: usize,
-        types: Option<TypedList<VariableId, TypeId>>
+        types: Option<TypedList<VariableId, TypeId>>,
     ) -> AtomSkeletonId {
         let id = self.next_aux_id;
         self.next_aux_id += 1;
@@ -161,7 +162,8 @@ impl DatalogEncoder {
         };
 
         // Enregistrement unique
-        self.aux_defs.push(AtomicFormulaSkeleton::new(predicate_id, final_parameters));
+        self.aux_defs
+            .push(AtomicFormulaSkeleton::new(predicate_id, final_parameters));
 
         sk_id
     }
@@ -197,10 +199,7 @@ impl DatalogEncoder {
     /// - **Complexity**: $O(P)$ where $P$ is the number of parameters (cloning overhead).
     /// - **Arithmetic**: Enables $O(1)$ decoding of reachable actions without hash lookups.
     #[inline]
-    pub fn encode_action_as_predicate(
-        &mut self,
-        action: &ActionDef,
-    ) -> AtomSkeletonId {
+    pub fn encode_action_as_predicate(&mut self, action: &ActionDef) -> AtomSkeletonId {
         let params = action.parameters().clone();
         self.encode_auxiliary_predicate(params.len(), Some(params))
     }
@@ -290,12 +289,16 @@ impl DatalogEncoder {
                     let condition_id = children[0];
                     let sub_effect_id = children[1];
 
-                    if let Some(cond_atom) = self.encode_expr(root_effect, condition_id, rules_sink, parameters)? {
+                    if let Some(cond_atom) =
+                        self.encode_expr(root_effect, condition_id, rules_sink, parameters)?
+                    {
                         // 1. Les variables qu'on A (Cause + Condition)
-                        let available_mask = self.collect_mask(&[current_cause.clone(), cond_atom.clone()]);
+                        let available_mask =
+                            self.collect_mask(&[current_cause.clone(), cond_atom.clone()]);
 
                         // 2. Les variables dont on a BESOIN (le futur de l'effet)
-                        let required_mask = self.scan_required_terms_mask(root_effect, sub_effect_id);
+                        let required_mask =
+                            self.scan_required_terms_mask(root_effect, sub_effect_id);
 
                         // 3. LA PROJECTION : Intersection bit à bit
                         let final_mask = available_mask & required_mask;
@@ -307,14 +310,15 @@ impl DatalogEncoder {
                         let mut combined_body = vec![current_cause.clone(), cond_atom];
                         combined_body.sort_by_key(|a| a.skeleton_id());
 
-                        let aux_when_atom = if let Some(existing_head) = self.cache.get(&combined_body) {
-                            existing_head.clone()
-                        } else {
-                            let head = self.create_aux_atom(filtered_vars, parameters);
-                            rules_sink.push(Rule::new(head.clone(), combined_body.clone()));
-                            self.cache.insert(combined_body, head.clone());
-                            head
-                        };
+                        let aux_when_atom =
+                            if let Some(existing_head) = self.cache.get(&combined_body) {
+                                existing_head.clone()
+                            } else {
+                                let head = self.create_aux_atom(filtered_vars, parameters);
+                                rules_sink.push(Rule::new(head.clone(), combined_body.clone()));
+                                self.cache.insert(combined_body, head.clone());
+                                head
+                            };
 
                         work_stack.push((sub_effect_id, aux_when_atom));
                     } else {
@@ -343,7 +347,7 @@ impl DatalogEncoder {
                 ExprKind::Forall | ExprKind::Exists | ExprKind::Imply => {
                     return Err(DatalogError::feature_not_supported(
                         format!("ADL construct {:?} in effects", kind),
-                        node_id
+                        node_id,
                     ));
                 }
 
@@ -425,7 +429,6 @@ impl DatalogEncoder {
         rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
     ) -> Result<Option<Atom>, DatalogError> {
-
         // ÉTAPE 1 : On nettoie et on collecte les alias pour cet arbre précis
         self.current_aliases = self.extract_variable_aliases(expr)?;
 
@@ -461,7 +464,10 @@ impl DatalogEncoder {
 
                         if !is_valid_comparison {
                             let feature_desc = format!("Negation of {:?}", child_kind);
-                            return Err(DatalogError::feature_not_supported(feature_desc, child_id));
+                            return Err(DatalogError::feature_not_supported(
+                                feature_desc,
+                                child_id,
+                            ));
                         }
 
                         // Si c'est bon, on continue la visite
@@ -469,7 +475,11 @@ impl DatalogEncoder {
                         work_stack.push((child_id, false));
                     }
 
-                    ExprKind::And | ExprKind::Or | ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
+                    ExprKind::And
+                    | ExprKind::Or
+                    | ExprKind::AtStart
+                    | ExprKind::AtEnd
+                    | ExprKind::Overall => {
                         work_stack.push((node_id, true));
                         for &child_id in node.children().iter().rev() {
                             work_stack.push((child_id, false));
@@ -498,7 +508,7 @@ impl DatalogEncoder {
                             }
                         }
                         Some(atom)
-                    },
+                    }
 
                     ExprKind::Not => {
                         // On sait que c'est une égalité positive grâce à la Phase 1
@@ -521,11 +531,12 @@ impl DatalogEncoder {
                                 Some(Atom::equality(Term::Variable(v), Term::Variable(v)))
                             }
                         }
-                    },
+                    }
 
                     ExprKind::And => {
                         let start_idx = results_stack.len() - num_children;
-                        let child_results: Vec<Option<Atom>> = results_stack.drain(start_idx..).collect();
+                        let child_results: Vec<Option<Atom>> =
+                            results_stack.drain(start_idx..).collect();
 
                         // 1. Propagation du None : si une branche est fausse, tout le AND est faux.
                         if child_results.iter().any(|r| r.is_none()) {
@@ -584,7 +595,8 @@ impl DatalogEncoder {
                     ExprKind::Or => {
                         let start_idx = results_stack.len() - num_children;
                         // Le OR ignore (flatten) les None, car ils représentent des branches impossibles.
-                        let mut atoms: Vec<Atom> = results_stack.drain(start_idx..).flatten().collect();
+                        let mut atoms: Vec<Atom> =
+                            results_stack.drain(start_idx..).flatten().collect();
 
                         if atoms.is_empty() {
                             // Si toutes les branches ont renvoyé None (échec), le OR est mort.
@@ -627,7 +639,9 @@ impl DatalogEncoder {
                             let terms = atom.terms();
                             if terms[0] == terms[1] {
                                 Some(atom) // Tautologie
-                            } else if let (Term::Constant(c1), Term::Constant(c2)) = (&terms[0], &terms[1]) {
+                            } else if let (Term::Constant(c1), Term::Constant(c2)) =
+                                (&terms[0], &terms[1])
+                            {
                                 None // Conflit de constantes
                             } else {
                                 Some(atom)
@@ -635,10 +649,14 @@ impl DatalogEncoder {
                         } else {
                             None
                         }
-                    },
+                    }
 
                     ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
-                        if num_children > 0 { results_stack.pop().flatten() } else { None }
+                        if num_children > 0 {
+                            results_stack.pop().flatten()
+                        } else {
+                            None
+                        }
                     }
                     _ => None,
                 };
@@ -647,7 +665,6 @@ impl DatalogEncoder {
         }
         Ok(results_stack.pop().flatten())
     }
-
 
     /// Extracts a logical [`Atom`] from a specific expression node.
     ///
@@ -784,7 +801,8 @@ impl DatalogEncoder {
         let predicate_id = PredicateSymbolId::from(id);
 
         // 3. Register the definition in the local auxiliary list
-        self.aux_defs.push(AtomicFormulaSkeleton::new(predicate_id, aux_params));
+        self.aux_defs
+            .push(AtomicFormulaSkeleton::new(predicate_id, aux_params));
 
         // 4. Create the Atom for the Datalog engine
         let skeleton_id = AtomSkeletonId::from(id);
@@ -857,7 +875,12 @@ impl DatalogEncoder {
                             }
                         }
                     }
-                    ExprKind::And | ExprKind::When | ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall | ExprKind::Not => {
+                    ExprKind::And
+                    | ExprKind::When
+                    | ExprKind::AtStart
+                    | ExprKind::AtEnd
+                    | ExprKind::Overall
+                    | ExprKind::Not => {
                         for &child_id in node.children() {
                             stack.push(child_id);
                         }
@@ -896,10 +919,16 @@ impl DatalogEncoder {
     fn resolve_var(&self, v: VariableId) -> Term {
         // Si la fermeture a bien aplati la map, un seul get suffit.
         // C'est beaucoup plus rapide que de boucler à chaque fois.
-        self.current_aliases.get(&v).cloned().unwrap_or(Term::Variable(v))
+        self.current_aliases
+            .get(&v)
+            .cloned()
+            .unwrap_or(Term::Variable(v))
     }
 
-    pub fn extract_variable_aliases(&self, expr: &Expr) -> Result<HashMap<VariableId, Term>, DatalogError> {
+    pub fn extract_variable_aliases(
+        &self,
+        expr: &Expr,
+    ) -> Result<HashMap<VariableId, Term>, DatalogError> {
         let mut aliases = HashMap::new();
 
         // On récupère l'ID racine. Si l'expression est vide, on sort.
@@ -930,11 +959,13 @@ impl DatalogEncoder {
                             let t2 = self.node_to_term(expr, children[1])?;
 
                             match (t1, t2) {
-                                (Some(Term::Variable(v1)), Some(Term::Variable(v2))) if v1 != v2 => {
+                                (Some(Term::Variable(v1)), Some(Term::Variable(v2)))
+                                    if v1 != v2 =>
+                                {
                                     aliases.insert(v1.max(v2), Term::Variable(v1.min(v2)));
                                 }
-                                (Some(Term::Variable(v)), Some(Term::Constant(c))) |
-                                (Some(Term::Constant(c)), Some(Term::Variable(v))) => {
+                                (Some(Term::Variable(v)), Some(Term::Constant(c)))
+                                | (Some(Term::Constant(c)), Some(Term::Variable(v))) => {
                                     aliases.insert(v, Term::Constant(c));
                                 }
                                 _ => {}
@@ -957,14 +988,12 @@ impl DatalogEncoder {
         Ok(aliases)
     }
 
-
-
     /// Helper pour transformer un Node en Term atomique
     fn node_to_term(&self, expr: &Expr, node_id: NodeId) -> Result<Option<Term>, DatalogError> {
         let n = expr.try_node(node_id)?;
         Ok(match n.kind() {
             ExprKind::Variable => Some(Term::Variable(n.content().try_variable()?)),
-            ExprKind::Object   => Some(Term::Constant(n.content().try_object()?)),
+            ExprKind::Object => Some(Term::Constant(n.content().try_object()?)),
             _ => None,
         })
     }

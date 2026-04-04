@@ -5,10 +5,10 @@
 //! (such as objects, constants, and types) into a more canonical or simplified form
 //! suitable for subsequent reasoning, compilation, or execution.
 //!
-//! This error type encapsulates failures originating from normalization passes, such as:
+//! This error type encapsulates failures originating from normalization finalization, such as:
 //!
 //! - [`SyntaxTreeError`]: Structural issues found while navigating the tree.
-//! - [`NormalizationPassError`]: Failures during specific transformation passes (e.g., merging duplicates).
+//! - [`NormalizationPassError`]: Failures during specific transformation finalization (e.g., merging duplicates).
 //! - [`WellNormalizedError`]: Violations of normalization invariants detected during final validation.
 //!
 //! All error variants support automatic conversion via `#[from]`, making
@@ -26,17 +26,17 @@
 //! }
 //! ```
 
-use thiserror::Error;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::validation::common::WellNormalizedError;
+use thiserror::Error;
 
 /// Represents errors that can occur during the normalization process.
 ///
 /// These errors cover various failure scenarios such as structural problems
-/// in the AST, errors during transformation passes, or failures during the
+/// in the AST, errors during transformation finalization, or failures during the
 /// final "well-normalized" verification.
 #[derive(Debug, Error)]
 pub enum NormalizationError {
@@ -54,7 +54,7 @@ pub enum NormalizationError {
 
     /// An error indicating that the AST failed the "well-normalized" validation check.
     ///
-    /// This check is performed after all normalization passes to ensure the
+    /// This check is performed after all normalization finalization to ensure the
     /// resulting AST is in a valid, canonical state.
     #[error(transparent)]
     WellNormalized(#[from] WellNormalizedError),

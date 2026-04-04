@@ -1,8 +1,8 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{SymbolId, Type};
-use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
-use crate::aiplan4rust::semantic::passes::type_simplification::TypeSimplification;
+use crate::aiplan4rust::semantic::finalization::error::SemanticPassError;
+use crate::aiplan4rust::semantic::finalization::type_simplification::TypeSimplification;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};

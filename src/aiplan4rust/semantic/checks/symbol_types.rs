@@ -50,7 +50,7 @@ use crate::SymbolTable;
 /// * `context` - A reference to the [`CheckContext`] providing access to the current
 ///   [`SymbolTable`] and source information.
 /// * `type_hierarchy` - A pre-computed [`TypeHierarchy`] used for $O(1)$ type validation.
-///   Injecting this hierarchy avoids redundant table scans across different check passes.
+///   Injecting this hierarchy avoids redundant table scans across different check finalization.
 /// * `diagnostic_manager` - A mutable reference to the [`DiagnosticManager`] where
 ///   any detected "Undeclared Type" errors will be recorded.
 ///

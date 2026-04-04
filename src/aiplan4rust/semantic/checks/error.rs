@@ -1,7 +1,7 @@
 //! Semantic analysis error definitions for PDDL/HDDL components.
 //!
 //! This module defines the [`SemanticCheckError`] enum, which serves as the unified error
-//! type for all semantic validation passes. It encapsulates errors originating from
+//! type for all semantic validation finalization. It encapsulates errors originating from
 //! lower-level components (AST, Syntax Tree, Symbol Table) while introducing
 //! specific variants for logical inconsistencies in the planning domain.
 

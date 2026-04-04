@@ -15,9 +15,9 @@ use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
-use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
+use crate::aiplan4rust::semantic::finalization::error::SemanticPassError;
+use crate::aiplan4rust::semantic::passes::SymbolResolverError;
 use crate::aiplan4rust::semantic::signature_matcher::SignatureMatcherError;
-use crate::aiplan4rust::semantic::symbol_resolver::SymbolResolverError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
@@ -38,7 +38,7 @@ use thiserror::Error;
 /// - `SyntaxTree`: Errors related to syntax tree construction or traversal.
 /// - `SymbolTable`: Errors originating from symbol table operations.
 /// - `TypeChecker`: Errors encountered during typing checking phases.
-/// - `SemanticCheck`: Errors raised by specialized semantic validation passes.
+/// - `SemanticCheck`: Errors raised by specialized semantic validation finalization.
 /// - `Interner`: Errors related to string interning and symbol ID retrieval.
 /// - `EmptySyntaxTree`: Error when a syntax tree is empty or missing nodes.
 /// - `UnexpectedSyntaxTreeRootError`: Error when the root node is not a Domain or Problem.

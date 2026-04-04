@@ -13,10 +13,10 @@
 //! point is perfectly aligned with the simplified type registry used by
 //! actions, methods, and the grounding engine.
 
-use crate::aiplan4rust::lir::InitialTaskNetwork;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::passes::typing::typed_list;
 use crate::aiplan4rust::lir::passes::typing::TypeRegistry;
+use crate::aiplan4rust::lir::InitialTaskNetwork;
 
 /// Normalizes all composite types within an `InitialTaskNetwork` in-place.
 ///
@@ -35,7 +35,7 @@ use crate::aiplan4rust::lir::passes::typing::TypeRegistry;
 /// # Logic
 /// The function focuses on the ITN's parameter list. By normalizing these
 /// problem-level variables, we ensure that any task call within the initial
-/// network passes valid, atomic type references to the rest of the hierarchy.
+/// network finalization valid, atomic type references to the rest of the hierarchy.
 /// This secures the "entry point" of the HTN decomposition.
 pub fn normalize(
     itn: &mut InitialTaskNetwork,

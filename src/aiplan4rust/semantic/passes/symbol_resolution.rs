@@ -1,87 +1,20 @@
-use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::semantic::passes::error::SymbolResolverError;
 use crate::aiplan4rust::semantic::rules::{find_shadowing_candidate, is_atomic_kind};
 use crate::aiplan4rust::semantic::signature_matcher::{MatchResult, SignatureMatcher};
 use crate::aiplan4rust::semantic::symbol::{
     Declaration, Signature, SymbolEntry, SymbolOrigin, Usage,
 };
-use crate::aiplan4rust::semantic::symbol_resolver::error::SymbolResolverError;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::SymbolTable;
-
-pub struct SymbolResolver<'a> {
-    ast: &'a Tree<AstNode>,
-    type_checker: Option<&'a TypeChecker<'a>>,
-    domain_table: Option<&'a SymbolTable>,
-    interner: &'a SymbolInterner,
-}
-
-impl<'a> SymbolResolver<'a> {
-    pub fn new(
-        ast: &'a Tree<AstNode>,
-        type_checker: Option<&'a TypeChecker<'a>>,
-        domain_table: Option<&'a SymbolTable>,
-        interner: &'a SymbolInterner,
-    ) -> Self {
-        Self {
-            domain_table,
-            ast,
-            type_checker,
-            interner,
-        }
-    }
-
-    pub fn resolve(mut self, table: &mut SymbolTable) -> Result<bool, SymbolResolverError> {
-        // Phase 1 & 2 : Symboles (Usages -> Déclarations)
-        let all_resolved = resolve_symbols(
-            self.ast,
-            table,
-            self.type_checker,
-            self.domain_table,
-            self.interner,
-        )?;
-
-        println!("{}", all_resolved);
-
-        // Phase 3 : Prédicats dérivés (Axiomes -> Signatures)
-        resolve_derived_predicates(self.ast, table, self.type_checker, self.domain_table)?;
-
-        Ok(all_resolved)
-    }
-}
-
-/*pub fn resolve_symbols(
-    ast: &Tree<AstNode>,
-    table: &mut SymbolTable,
-    type_checker: Option<&TypeChecker>,
-    domain_table: Option<&SymbolTable>,
-    _interner: &SymbolInterner,
-) -> Result<bool, SymbolResolverError> {
-    // On prépare le Matcher (si le TypeChecker est là)
-    // Note : Le matcher doit être capable de gérer des arguments non encore "vissés"
-    // en regardant dans les instructions temporaires si besoin.
-    let matcher = type_checker.map(|tc| SignatureMatcher::new(table, ast, tc, domain_table));
-
-    // 1. UNE SEULE COLLECTE
-    // On passe le matcher directement. La fonction doit gérer l'ordre interne.
-    let (instructions, all_resolved) = collect_resolutions(table, matcher.as_ref(), domain_table)?;
-
-    // 2. UN SEUL APPLY
-    if !instructions.is_empty() {
-        apply_resolutions(table, instructions);
-    }
-
-    Ok(all_resolved)
-}*/
 
 pub fn resolve_symbols(
     ast: &Tree<AstNode>,
     table: &mut SymbolTable,
     type_checker: Option<&TypeChecker>,
     domain_table: Option<&SymbolTable>,
-    interner: &SymbolInterner,
 ) -> Result<bool, SymbolResolverError> {
     /*println!(
         "{}",
@@ -98,7 +31,6 @@ pub fn resolve_symbols(
         apply_resolutions(table, atomic_instructions);
     }
 
-    print!("{}", table.to_string_with_interner(interner));
     // --- PHASE 2 : COMPLEXES (Prédicats, Actions) ---
     // Maintenant que les variables sont dans la table, on peut lancer le Matcher.
     let (complex_instructions, all_resolved) = {
@@ -160,13 +92,6 @@ fn collect_complex_resolutions(
 
     for entry in table.values() {
         for usage in entry.usages().values() {
-            if entry.ident().as_usize() == 1865 {
-                // L'ID de keep_engine_turning
-                println!(
-                    "👋 [BOUCLE] Je passe sur l'entrée keep_engine_turning ! Usages: {}",
-                    entry.usages().len()
-                );
-            }
             let kind = usage.symbol().kind();
             let node_id = usage.source();
             let is_atomic = is_atomic_kind(kind);
@@ -187,12 +112,6 @@ fn collect_complex_resolutions(
                 instructions.push((usage.symbol().id(), usage.source(), res));
             } else {
                 all_resolved = false;
-                // AJOUTE CECI :
-                println!(
-                    "❌ ÉCHEC FINAL : L'usage #{} ({}) n'a trouvé aucun match valide",
-                    usage.source(),
-                    entry.ident()
-                );
             }
         }
     }
@@ -280,111 +199,37 @@ fn apply_resolutions(table: &mut SymbolTable, instructions: Vec<(SymbolId, NodeI
             if let Some(u_mut) = entry.usages_mut().get_mut(&usage_id) {
                 u_mut.set_declaration(final_decl_id);
                 u_mut.set_resolution(status);
-                println!("✅ Usage {} lié à Décl {}", usage_id, final_decl_id);
             }
         }
     }
 }
 
-pub fn resolve_derived_predicates(
-    ast: &Tree<AstNode>,
-    table: &mut SymbolTable,
-    type_checker: Option<&TypeChecker>,
-    domain_table: Option<&SymbolTable>,
-) -> Result<(), SymbolResolverError> {
-    // 1. Sécurité : Si on n'a pas de TypeChecker, on ne peut pas matcher les signatures
-    let Some(tc) = type_checker else {
-        return Ok(());
-    };
-
-    // 2. ÉTAPE DE COLLECTE (Lecture seule / Immuable)
-    // On crée le matcher une seule fois pour toute la table.
-    // Le bloc { } assure que l'emprunt immuable de `table` est relâché à la fin.
-    let all_links = {
-        let matcher = SignatureMatcher::new(table, ast, tc, domain_table);
-        collect_all_derived_links(table, &matcher)?
-    };
-
-    // 3. ÉTAPE D'APPLICATION (Ecriture / Mutable)
-    // On n'exécute la mutation que si on a trouvé des liens à créer.
-    if !all_links.is_empty() {
-        apply_derived_links(table, all_links);
-    }
-
-    Ok(())
-}
-
-fn collect_all_derived_links(
-    table: &SymbolTable,
-    matcher: &SignatureMatcher,
-) -> Result<Vec<(SymbolId, NodeId, NodeId)>, SymbolResolverError> {
-    let mut global_links = Vec::new();
-
-    for entry in table.values() {
-        let mut bases = Vec::new();
-        let mut derived = Vec::new();
-
-        // On trie les déclarations de cette entrée spécifique
-        for (&node_id, decl) in entry.declarations() {
-            if decl.is_derived() {
-                derived.push((node_id, decl));
-            } else {
-                bases.push((node_id, decl));
-            }
-        }
-
-        if bases.is_empty() || derived.is_empty() {
-            continue;
-        }
-
-        // Pour chaque axiome de cette entrée, on cherche sa base correspondante
-        for (d_id, d_decl) in derived {
-            for &(b_id, b_decl) in &bases {
-                let expected = Signature::from_declaration(b_decl);
-                let provided = Signature::from_declaration(d_decl);
-
-                if let MatchResult::Match = matcher.match_signature(expected, provided)? {
-                    // On enregistre le lien complet
-                    global_links.push((entry.ident(), b_id, d_id));
-                    // On ne break pas ici si un axiome peut avoir plusieurs bases,
-                    // mais en PDDL on s'arrête généralement à la première valide.
-                    break;
-                }
-            }
-        }
-    }
-    Ok(global_links)
-}
-
-pub fn apply_derived_links(table: &mut SymbolTable, links: Vec<(SymbolId, NodeId, NodeId)>) {
-    for (symbol_id, base_id, axiom_id) in links {
-        // On récupère l'entrée correspondante au symbole (ex: "at")
-        if let Some(entry) = table.get_symbol_mut(symbol_id) {
-            // On verrouille l'accès aux déclarations de cette entrée
-            let decls = entry.declarations_mut();
-
-            // 1. On "visse" l'Axiome vers sa Signature parente
-            if let Some(axiom) = decls.get_mut(&axiom_id) {
-                axiom.set_derived_source(base_id);
-            }
-
-            // 2. On "visse" la Signature vers son Axiome enfant
-            if let Some(base) = decls.get_mut(&base_id) {
-                base.add_derivation(axiom_id);
-            }
-        }
-    }
-}
-
-/// Fonction utilitaire pour la résolution dans le domaine (externe).
-/// Retourne `Resolution::Domain` contenant le Proxy si un match est trouvé.
+/// Utility function for resolving symbols within the global Domain (external) context.
+///
+/// If a matching declaration is found in the domain, it returns a `Resolution::Domain`
+/// containing a "Proxy" declaration. This proxy acts as a local representative of
+/// the external symbol for the current problem context.
+///
+/// # Arguments
+/// * `symbol_id` - The identifier of the symbol to resolve.
+/// * `domain_table` - The global symbol table (Domain file).
+/// * `usage` - The usage site (call site) triggering the resolution.
+/// * `checker` - An optional [`SignatureMatcher`] for deep semantic validation.
+///
+/// # Returns
+/// * `Ok(Some(Resolution))` - A domain resolution containing the proxy and match status.
+/// * `Ok(None)` - If the symbol is missing from the domain or incompatible.
+///
+/// # Errors
+/// * Returns [`SymbolResolverError`] if signature matching or structural validation fails.
 fn resolve_domain_match(
     symbol_id: SymbolId,
     domain_table: Option<&SymbolTable>,
     usage: &Usage,
     checker: Option<&SignatureMatcher>,
 ) -> Result<Option<Resolution>, SymbolResolverError> {
-    // 1. Extraction et vérification de l'existence dans le domaine
+    // --- STEP 1: Domain Existence Check ---
+    // Ensure the domain table is provided and contains the requested symbol identifier.
     let Some(table) = domain_table else {
         return Ok(None);
     };
@@ -392,21 +237,25 @@ fn resolve_domain_match(
         return Ok(None);
     };
 
-    // Recherche du candidat (Shadowing rules)
+    // Apply shadowing and filtering rules to find the best candidate within the domain.
     let Some(winner) = find_shadowing_candidate(dom_symbol, usage.symbol().kind(), usage.scope())
     else {
         return Ok(None);
     };
 
-    // 2. Calcul du statut (Court-circuit si atomique ou Match complet)
+    // --- STEP 2: Match Status Calculation ---
+    // Determine if the usage site matches the domain declaration.
     let status = if is_atomic_kind(winner.symbol_kind()) {
+        // Atomic symbols (Types/Constants) are considered a match upon identification.
         MatchResult::Match
     } else {
         let expected = Signature::from_declaration(winner);
         let observed = Signature::from_usage(winner, usage);
 
         match checker {
+            // Full semantic check if a matcher is available.
             Some(m) => m.match_signature(expected, observed)?,
+            // Fallback to basic structural check (arity/kind) if no matcher is provided.
             None => match SignatureMatcher::match_structure(expected, observed) {
                 Ok(_) => MatchResult::Match,
                 Err(e) => MatchResult::NoMatch(e),
@@ -414,103 +263,85 @@ fn resolve_domain_match(
         }
     };
 
-    // 3. Si pas de match, on sort proprement
+    // --- STEP 3: Result Validation ---
+    // If the structural or semantic matching failed, we discard the candidate.
     if !status.is_match() {
         return Ok(None);
     }
 
-    // 4. Création du Proxy
-    // On clone la déclaration du domaine pour l'importer localement
+    // --- STEP 4: Proxy Creation & Import ---
+    // We create a "Proxy" by cloning the domain declaration and tagging it
+    // with metadata to track its external origin.
     let mut proxy = winner.clone();
     proxy.set_origin(SymbolOrigin::Domain);
-    proxy.set_alias(winner.source()); // L'ID original dans le domaine
-    proxy.set_source(usage.source()); // Le NodeId de l'usage qui a provoqué l'import
 
-    // On retourne la variante Domain qui encapsule le proxy et le statut
+    // Track the original Domain ID for cross-referencing.
+    proxy.set_alias(winner.source());
+
+    // Link the proxy to the local NodeId that triggered this import.
+    proxy.set_source(usage.source());
+
+    // Return the Domain resolution variant encapsulating the proxy and its match status.
     Ok(Some(Resolution::Domain(proxy, status)))
 }
 
-/// Fonction utilitaire pour la résolution locale (Zero-allocation)
-/// Fonction utilitaire pour la résolution locale (Zero-allocation).
-/// Supporte un mode dégradé si le SignatureMatcher est absent.
-/// Fonction utilitaire pour la résolution locale.
-/// Retourne `Resolution::Local` encapsulé dans un `Option`.
+/// Attempts to resolve a symbol usage within the local scope context.
+///
+/// This function performs a local lookup by evaluating shadowing rules and,
+/// if necessary, validating the structural and semantic compatibility of
+/// the symbol's signature (e.g., for actions or predicates).
+///
+/// # Arguments
+/// * `symbol_entry` - The entry in the symbol table containing all declarations for this identifier.
+/// * `usage` - The specific usage site (call site) being resolved.
+/// * `checker` - An optional [`SignatureMatcher`] to perform deep semantic validation.
+///
+/// # Returns
+/// * `Ok(Some(Resolution))` - If a valid local declaration is found and matches the usage.
+/// * `Ok(None)` - If no compatible local declaration exists.
+///
+/// # Errors
+/// * Returns [`SymbolResolverError`] if signature matching fails or AST access errors occur.
 pub fn resolve_local_match(
     symbol_entry: &SymbolEntry,
     usage: &Usage,
     checker: Option<&SignatureMatcher>,
 ) -> Result<Option<Resolution>, SymbolResolverError> {
-    // TRACE CIBLÉE SUR LE NŒUD 1865
-    let is_target = usage.source().as_usize() == 1865;
-
-    if is_target {
-        println!(
-            "🎯 [RESOLVE LOCAL] Tentative pour #1865 ('{}')",
-            symbol_entry.ident()
-        );
-        println!("   - Kind Usage: {:?}", usage.symbol().kind());
-        println!("   - Scope Usage: {:?}", usage.scope());
-        println!(
-            "   - Nb Décl dans l'entrée: {}",
-            symbol_entry.declarations().len()
-        );
-    }
-
-    // 1. Recherche du candidat (Shadowing)
+    // --- STEP 1: Shadowing Candidate Lookup ---
+    // We search for the best declaration candidate based on SymbolKind and Scope.
+    // This handles cases where a local variable shadows a more global one.
     let candidate = find_shadowing_candidate(symbol_entry, usage.symbol().kind(), usage.scope());
 
+    // If no candidate matches the basic scope/kind criteria, resolution fails.
     let Some(winner) = candidate else {
-        if is_target {
-            println!("   ❌ SHADOWING ÉCHOUÉ : find_shadowing_candidate a renvoyé None");
-            // On liste les décl pour voir pourquoi elles ont été rejetées
-            for d in symbol_entry.declarations().values() {
-                println!(
-                    "     -> Décl disponible #{} (Kind: {:?}, Scope: {:?})",
-                    d.source(),
-                    d.symbol_kind(),
-                    d.scope()
-                );
-            }
-        }
         return Ok(None);
     };
 
-    if is_target {
-        println!(
-            "   ✅ WINNER TROUVÉ : Décl #{} (Kind: {:?})",
-            winner.source(),
-            winner.symbol_kind()
-        );
-    }
-
-    // 2. Cas "Atomique"
+    // --- STEP 2: Atomic Symbol Handling ---
+    // For "atomic" kinds (like Types or Constants), we don't need signature matching.
+    // Finding the candidate is sufficient for a successful match.
     if is_atomic_kind(winner.symbol_kind()) {
-        if is_target {
-            println!("   ⚡ ATOMIQUE : Match direct");
-        }
         return Ok(Some(Resolution::Local(winner.source(), MatchResult::Match)));
     }
 
-    // 3. Signature Matching
+    // --- STEP 3: Deep Signature Validation ---
+    // For complex symbols (Actions, Tasks, Predicates), we must verify that
+    // the call site arguments align with the declaration's parameters.
     if let Some(matcher) = checker {
-        if is_target {
-            println!("   🧪 Lancement du SignatureMatcher...");
-        }
-
+        // Create contextual signatures for both the definition and the call site.
         let arg_signature = Signature::from_usage(winner, usage);
         let decl_signature = Signature::from_declaration(winner);
 
+        // Perform structural and semantic (type-checking) matching.
         let match_res = matcher.match_signature(decl_signature, arg_signature)?;
 
-        if is_target {
-            println!("   📊 Résultat Signature: {:?}", match_res);
-        }
-
+        // Only return a resolution if the signatures are compatible.
         if match_res.is_match() {
             return Ok(Some(Resolution::Local(winner.source(), match_res)));
         }
     }
 
+    // If a signature check was required but failed or wasn't provided, no match is found.
     Ok(None)
 }
 

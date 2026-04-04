@@ -60,7 +60,7 @@ use crate::aiplan4rust::tree::{NodeId, Tree};
 
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::passes::PassContext;
+use crate::aiplan4rust::semantic::finalization::PassContext;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -453,7 +453,7 @@ impl Context {
     /// Creates a new [`PassContext`] by deriving it from the current semantic context.
     ///
     /// This is a lightweight operation that extracts the symbol interner and the
-    /// source identifier to create a read-only environment for transformation passes.
+    /// source identifier to create a read-only environment for transformation finalization.
     ///
     /// # Arguments
     ///

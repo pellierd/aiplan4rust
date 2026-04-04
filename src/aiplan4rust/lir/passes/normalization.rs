@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::passes::{typing, logic};
+use crate::aiplan4rust::lir::passes::{logic, typing};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::LirError;
 
@@ -46,11 +46,11 @@ use crate::aiplan4rust::lir::LirError;
 /// # }
 /// ```
 pub fn normalize(problem: &mut LiftedProblem) -> Result<(), LirError> {
-    // 1. Logical Normalization (passes/logic)
+    // 1. Logical Normalization (finalization/logic)
     // Clean up semantics, simplify trees, and apply standard rewriting rules.
     logic::normalize(problem)?;
 
-    // 2. Structural Normalization (passes/either-type)
+    // 2. Structural Normalization (finalization/either-type)
     // Resolve ad-hoc types and flatten the type hierarchy into the global registry.
     typing::normalize(problem)?;
 

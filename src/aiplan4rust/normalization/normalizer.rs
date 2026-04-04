@@ -87,18 +87,22 @@ impl Normalizer {
     /// * `Ok(NormalizerResult)` if logic succeeds.
     /// * `Err(NormalizationError)` if the parsing result contains no AST or
     ///   if any logic pass fails irrecoverably.
-    pub fn normalize(&mut self, mut parser_result: ParserResult) -> Result<NormalizerResult, NormalizationError> {
+    pub fn normalize(
+        &mut self,
+        mut parser_result: ParserResult,
+    ) -> Result<NormalizerResult, NormalizationError> {
         match parser_result.take_ast() {
             Some(raw_ast) => {
                 // Add diagnostics collected during parsing to the current diagnostic manager
-                self.diagnostic_manager.add_diagnostic_from(parser_result.take_diagnostic_manager());
+                self.diagnostic_manager
+                    .add_diagnostic_from(parser_result.take_diagnostic_manager());
 
                 // Perform logic on the extracted raw AST
                 let normalizer_result = self.perform_normalization(raw_ast)?;
 
                 // --- Validation Step (Debug Only) ---
                 // We verify that the normalization process produced a logically sound AST.
-                // This catches internal bugs in normalization passes before they reach
+                // This catches internal bugs in normalization finalization before they reach
                 // the code generation or grounding stages.
                 #[cfg(debug_assertions)]
                 {
@@ -133,25 +137,34 @@ impl Normalizer {
         &mut self,
         mut ast: Ast,
     ) -> Result<NormalizerResult, NormalizationError> {
-        // --- 1. Common passes (Independent of file type) ---
+        // --- 1. Common finalization (Independent of file type) ---
         // These work on the general structure (e.g., converting (either a b)
         // or ensuring :typing requirements are consistent).
         passes::normalize_typed_list(&mut ast)?;
         passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
         passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
 
-        // --- 2. Content-specific passes ---
+        // --- 2. Content-specific finalization ---
         // We extract the root node. If it's missing, it's a structural failure.
-        let root = ast.syntax_tree()
+        let root = ast
+            .syntax_tree()
             .root_node()
             .ok_or_else(NormalizationError::missing_root)?;
 
-        // We dispatch normalization passes based on the root kind (Domain vs Problem).
+        // We dispatch normalization finalization based on the root kind (Domain vs Problem).
         match root.kind() {
             AstKind::Domain => {
                 passes::normalize_def(&mut ast, &mut self.diagnostic_manager, AstKind::TypesDef)?;
-                passes::normalize_def(&mut ast, &mut self.diagnostic_manager, AstKind::ConstantsDef)?;
-                passes::normalize_def(&mut ast, &mut self.diagnostic_manager, AstKind::FunctionsDef)?;
+                passes::normalize_def(
+                    &mut ast,
+                    &mut self.diagnostic_manager,
+                    AstKind::ConstantsDef,
+                )?;
+                passes::normalize_def(
+                    &mut ast,
+                    &mut self.diagnostic_manager,
+                    AstKind::FunctionsDef,
+                )?;
             }
             AstKind::Problem => {
                 passes::normalize_def(&mut ast, &mut self.diagnostic_manager, AstKind::ObjectsDef)?;
@@ -162,7 +175,7 @@ impl Normalizer {
 
         Ok(NormalizerResult::success(
             ast,
-            std::mem::take(&mut self.diagnostic_manager)
+            std::mem::take(&mut self.diagnostic_manager),
         ))
     }
 

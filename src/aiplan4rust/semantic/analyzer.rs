@@ -57,13 +57,11 @@
 //! typing errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::symbol_resolver::SymbolResolver;
-use crate::aiplan4rust::semantic::AnalyzerResult;
+use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 
@@ -285,30 +283,27 @@ impl Analyzer {
 
         // --- ÉTAPE 2 : RÉSOLUTION (LE VISSAGE) ---
         // On lie les usages des symboles aux déclarations trouvées à l'étape 1
-        let now = std::time::Instant::now();
-        let symbol_resolver = SymbolResolver::new(
+        passes::resolve_symbols(
             context.syntax_tree(),
+            &mut symbol_table,
             Some(&type_checker),
             None,
-            context.interner(),
-        );
-        symbol_resolver.resolve(&mut symbol_table)?;
-        println!("DEBUG: Resolution took {:?}", now.elapsed());
+        )?;
 
-        println!(
-            "DOMAIN {}",
-            symbol_table.to_string_with_interner(context.interner())
-        );
+        passes::resolve_derived_predicates(
+            context.syntax_tree(),
+            &mut symbol_table,
+            Some(&type_checker),
+            None,
+        )?;
 
         // --- ÉTAPE 3 : VÉRIFICATIONS DE COHÉRENCE DE BASE ---
-        let now = std::time::Instant::now();
         let mut checked = semantic::checks::check_symbol_usage(
             &check_ctx,
             &symbol_table,
             &[],
             &mut self.diagnostic_manager,
         )?;
-        println!("DEBUG: Type checking sybol usgae took {:?}", now.elapsed());
 
         checked &= semantic::checks::check_unused_symbols(
             &check_ctx,
@@ -358,7 +353,7 @@ impl Analyzer {
         /*let changes = {
             let pass_ctx =
                 PassContext::new(context.interner(), context.source(), Provider::Analyzer);
-            passes::symbol_table::finalize(
+            finalization::symbol_table::finalize(
                 &pass_ctx,
                 &type_checker,
                 &mut symbol_table,
@@ -379,14 +374,12 @@ impl Analyzer {
         )?;*/
 
         // B. Vérification profonde des expressions (Arena-based AST)
-        let now = std::time::Instant::now();
         advanced_checked &= semantic::checks::check_typed_expressions(
             &check_ctx,
             &mut symbol_table,
             &type_checker,
             &mut self.diagnostic_manager,
         )?;
-        println!("DEBUG: Type checking expressions took {:?}", now.elapsed());
 
         // C. Contraintes d'ordonnancement (HTN / Temporel)
         advanced_checked &=
@@ -399,9 +392,9 @@ impl Analyzer {
         // --- ÉTAPE 7 : FINALISATION ---
         context.set_symbol_table(symbol_table);
 
-        // Si des mutations AST ont été générées par les passes, on les applique
+        // Si des mutations AST ont été générées par les finalization, on les applique
         /*if !changes.is_empty() {
-            passes::ast::finalize(context, &changes)?;
+            finalization::ast::finalize(context, &changes)?;
         }*/
 
         Ok(advanced_checked)
@@ -436,8 +429,8 @@ impl Analyzer {
         // --- ÉTAPE 4 : RÉSOLUTION (LE VISSAGE) ---
         // On lance le resolver sans TypeChecker et sans DomainTable.
         // Cela va lier les Objects et les Variables locaux.
-        let symbol_resolver = SymbolResolver::new(ast, None, None, context.interner());
-        symbol_resolver.resolve(&mut symbol_table)?;
+
+        passes::resolve_symbols(ast, &mut symbol_table, None, None)?;
 
         /*println!(
             "PROBLEM {}",

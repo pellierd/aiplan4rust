@@ -19,9 +19,9 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
+use crate::aiplan4rust::validation::common::checks::METRIC_EXPRESSION;
 use crate::aiplan4rust::validation::common::{checks, WellFormedError};
 use crate::aiplan4rust::validation::{common, syntax};
-use crate::aiplan4rust::validation::common::checks::METRIC_EXPRESSION;
 
 /// Checks whether the AST is structurally well-formed.
 ///
@@ -50,7 +50,7 @@ pub fn is_well_formed(ast: &Ast) -> bool {
 /// 3. Starts with either a `Domain` or a `Problem` kind, as required by PDDL.
 ///
 /// This is a structural sanity check typically run in debug mode to ensure
-/// subsequent compiler passes (like normalization) can safely use direct access
+/// subsequent compiler finalization (like normalization) can safely use direct access
 /// methods (e.g., `.unwrap()`) on expected nodes.
 ///
 /// # Arguments
@@ -166,7 +166,6 @@ fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellFormedErr
 /// }
 /// ```
 pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellFormedError> {
-
     match node.kind() {
         AstKind::Object
         | AstKind::Variable
@@ -180,84 +179,38 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         | AstKind::MethodSymbol
         | AstKind::TaskSymbol
         | AstKind::PrefName
-        | AstKind::TaskLabel => {
-            syntax::checks::check_symbol(node)
-        }
-        AstKind::Number => {
-            syntax::checks::check_number(node)
-        }
-        AstKind::Requirement => {
-            syntax::checks::check_requirement(node)
-        }
-        AstKind::Error => {
-            common::checks::throw_invalid(node)
-        }
-        AstKind::RequireDef => {
-            syntax::checks::check_require_def(ast, node)
-        }
-        AstKind::Type => {
-            syntax::checks::check_type(ast, node)
-        }
-        AstKind::TypesDef => {
-            syntax::checks::check_types_def(ast, node)
-        }
-        AstKind::TypedList => {
-            syntax::checks::check_typed_list(ast, node)
-        }
-        AstKind::TypedItem => {
-            syntax::checks::check_typed_item(ast, node)
-        }
-        AstKind::TypedItemElements => {
-            syntax::checks::check_typed_item_elements(ast, node)
-        }
+        | AstKind::TaskLabel => syntax::checks::check_symbol(node),
+        AstKind::Number => syntax::checks::check_number(node),
+        AstKind::Requirement => syntax::checks::check_requirement(node),
+        AstKind::Error => common::checks::throw_invalid(node),
+        AstKind::RequireDef => syntax::checks::check_require_def(ast, node),
+        AstKind::Type => syntax::checks::check_type(ast, node),
+        AstKind::TypesDef => syntax::checks::check_types_def(ast, node),
+        AstKind::TypedList => syntax::checks::check_typed_list(ast, node),
+        AstKind::TypedItem => syntax::checks::check_typed_item(ast, node),
+        AstKind::TypedItemElements => syntax::checks::check_typed_item_elements(ast, node),
         AstKind::ConstantsDef | AstKind::ObjectsDef => {
             syntax::checks::check_constants_def(ast, node)
         }
-        AstKind::PredicatesDef => {
-            syntax::checks::check_predicates_def(ast, node)
-        }
-        AstKind::AtomicFormulaSkeleton => {
-            syntax::checks::check_atomic_formula_skeleton(ast, node)
-        }
-        AstKind::FunctionsDef => {
-            syntax::checks::check_functions_def(ast, node)
-        }
+        AstKind::PredicatesDef => syntax::checks::check_predicates_def(ast, node),
+        AstKind::AtomicFormulaSkeleton => syntax::checks::check_atomic_formula_skeleton(ast, node),
+        AstKind::FunctionsDef => syntax::checks::check_functions_def(ast, node),
         AstKind::AtomicFunctionSkeleton => {
             syntax::checks::check_atomic_function_skeleton(ast, node)
         }
-        AstKind::ActionDef => {
-            syntax::checks::check_action_def(ast, node)
-        }
-        AstKind::ActionDefBody => {
-            syntax::checks::check_action_def_body(ast, node)
-        }
-        AstKind::MethodDef => {
-            syntax::checks::check_method_def(ast, node)
-        }
-        AstKind::ParametersDef => {
-            syntax::checks::check_parameters_def(ast, node)
-        }
-        AstKind::MethodDefBody => {
-            syntax::checks::check_method_def_body(ast, node)
-        }
-        AstKind::Task => {
-            syntax::checks::check_task(ast, node)
-        }
+        AstKind::ActionDef => syntax::checks::check_action_def(ast, node),
+        AstKind::ActionDefBody => syntax::checks::check_action_def_body(ast, node),
+        AstKind::MethodDef => syntax::checks::check_method_def(ast, node),
+        AstKind::ParametersDef => syntax::checks::check_parameters_def(ast, node),
+        AstKind::MethodDefBody => syntax::checks::check_method_def_body(ast, node),
+        AstKind::Task => syntax::checks::check_task(ast, node),
         AstKind::PreconditionDef | AstKind::MethodPreconditionDef => {
             syntax::checks::check_precondition_def(ast, node)
         }
-        AstKind::EffectDef => {
-            syntax::checks::check_effect_def(ast, node)
-        }
-        AstKind::Function => {
-            syntax::checks::check_function_term(ast, node)
-        }
-        AstKind::AtomicFormula => {
-            syntax::checks::check_atomic_formula(ast, node)
-        }
-        AstKind::Or | AstKind::And => {
-            syntax::checks::check_all_children_expression(ast, node)
-        }
+        AstKind::EffectDef => syntax::checks::check_effect_def(ast, node),
+        AstKind::Function => syntax::checks::check_function_term(ast, node),
+        AstKind::AtomicFormula => syntax::checks::check_atomic_formula(ast, node),
+        AstKind::Or | AstKind::And => syntax::checks::check_all_children_expression(ast, node),
         AstKind::Not
         | AstKind::AtStart
         | AstKind::AtEnd
@@ -270,85 +223,45 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         | AstKind::TaskLogicalConstraintDef => {
             syntax::checks::check_unary_child_expression(ast, node)
         }
-        | AstKind::Metric => {
+        AstKind::Metric => {
             common::checks::check_children_count(node.arity(), 1, node)?;
             common::checks::check_child_kind(ast, node, 0, METRIC_EXPRESSION)
         }
         AstKind::Imply | AstKind::When | AstKind::SometimeAfter | AstKind::SometimeBefore => {
             syntax::checks::check_binary_child_expression(ast, node)
         }
-        AstKind::Forall | AstKind::Exists => {
-            syntax::checks::check_quantified_expression(ast, node)
-        }
-        AstKind::Preference => {
-            syntax::checks::check_preference_expression(ast, node)
-        }
-        AstKind::Comparison => {
-            syntax::checks::check_fcomp_expression(ast, node)
-        }
-        AstKind::Assignment => {
-            syntax::checks::check_assign_expression(ast, node)
-        }
-        AstKind::Arithmetic => {
-            syntax::checks::check_arithmetic_expression(ast, node)
-        }
+        AstKind::Forall | AstKind::Exists => syntax::checks::check_quantified_expression(ast, node),
+        AstKind::Preference => syntax::checks::check_preference_expression(ast, node),
+        AstKind::Comparison => syntax::checks::check_fcomp_expression(ast, node),
+        AstKind::Assignment => syntax::checks::check_assign_expression(ast, node),
+        AstKind::Arithmetic => syntax::checks::check_arithmetic_expression(ast, node),
         AstKind::Within | AstKind::HoldAfter => {
             syntax::checks::check_within_hold_after_expression(ast, node)
         }
-        AstKind::AlwaysWithin => {
-            syntax::checks::check_always_within_expression(ast, node)
-        }
-        AstKind::HoldDuring => {
-            syntax::checks::check_hold_during_expression(ast, node)
-        }
-        AstKind::Init => {
-            syntax::checks::check_init_expression(ast, node)
-        }
-        AstKind::TimedInitialLiteral => {
-            syntax::checks::check_timed_initial_literal(ast, node)
-        }
-        AstKind::DerivedDef => {
-            syntax::checks::check_derived_def(ast, node)
-        }
+        AstKind::AlwaysWithin => syntax::checks::check_always_within_expression(ast, node),
+        AstKind::HoldDuring => syntax::checks::check_hold_during_expression(ast, node),
+        AstKind::Init => syntax::checks::check_init_expression(ast, node),
+        AstKind::TimedInitialLiteral => syntax::checks::check_timed_initial_literal(ast, node),
+        AstKind::DerivedDef => syntax::checks::check_derived_def(ast, node),
         AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
             syntax::checks::check_ordered_subtask_def(ast, node)
         }
-        AstKind::LabeledTask => {
-            syntax::checks::check_tagged_task(ast, node)
-        }
-        AstKind::TaskOrderingConstraintDef => {
-            syntax::checks::check_task_ordering_def(ast, node)
-        }
+        AstKind::LabeledTask => syntax::checks::check_tagged_task(ast, node),
+        AstKind::TaskOrderingConstraintDef => syntax::checks::check_task_ordering_def(ast, node),
         AstKind::TaskOrderingConstraint => {
             syntax::checks::check_task_ordering_constraint(ast, node)
         }
-        AstKind::TaskNetworkDef => {
-            syntax::checks::check_task_network_def(ast, node)
-        }
-        AstKind::InitialTaskNetwork => {
-            syntax::checks::check_initial_task_network(ast, node)
-        }
-        AstKind::TaskDef => {
-            syntax::checks::check_task_def(ast, node)
-        }
-        AstKind::TotalTime => {
-            syntax::checks::check_total_time(node)
-        }
-        AstKind::IsViolated => {
-            syntax::checks::check_is_violated(ast, node)
-        }
-        AstKind::Length => {
-            syntax::checks::check_length_spec(ast, node)
-        }
+        AstKind::TaskNetworkDef => syntax::checks::check_task_network_def(ast, node),
+        AstKind::InitialTaskNetwork => syntax::checks::check_initial_task_network(ast, node),
+        AstKind::TaskDef => syntax::checks::check_task_def(ast, node),
+        AstKind::TotalTime => syntax::checks::check_total_time(node),
+        AstKind::IsViolated => syntax::checks::check_is_violated(ast, node),
+        AstKind::Length => syntax::checks::check_length_spec(ast, node),
         AstKind::Serial | AstKind::Parallel => {
             syntax::checks::check_serial_parallel_expression(ast, node)
         }
-        AstKind::DurativeActionDef => {
-            syntax::checks::check_durative_action_def(ast, node)
-        }
-        AstKind::DADefBody => {
-            syntax::checks::check_duartive_action_def_body(ast, node)
-        }
+        AstKind::DurativeActionDef => syntax::checks::check_durative_action_def(ast, node),
+        AstKind::DADefBody => syntax::checks::check_duartive_action_def_body(ast, node),
         AstKind::Domain => {
             //eprintln!("TODO: handling AstKind::Domain is not implemented yet");
             Ok(())
@@ -358,6 +271,5 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
             //eprintln!("TODO: handling AstKind::Problem is not implemented yet");
             Ok(())
         }
-
     }
 }

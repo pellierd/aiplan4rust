@@ -1,8 +1,7 @@
-pub mod ast;
-pub mod context;
-pub mod error;
-pub mod symbol_table;
-pub mod type_simplification;
+mod derived_resolution;
+mod error;
+mod symbol_resolution;
 
-pub use context::PassContext;
-pub use type_simplification::TypeSimplification;
+pub use derived_resolution::resolve_derived_predicates;
+pub use error::SymbolResolverError;
+pub use symbol_resolution::resolve_symbols;

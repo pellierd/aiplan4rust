@@ -174,7 +174,7 @@ impl Usage {
     }
 
     /// Tente de retourner la résolution ou panique si elle n'existe pas.
-    /// Utile dans les passes de check où l'on SAIT que le resolver est passé.
+    /// Utile dans les finalization de check où l'on SAIT que le resolver est passé.
     pub fn try_resolution(&self) -> &MatchResult {
         self.resolution.as_ref().expect(
             "Tentative d'accès à une résolution non calculée. Le SymbolResolver est-il passé ?",

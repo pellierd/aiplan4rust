@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::lang::{SymbolId, Type};
-use crate::aiplan4rust::semantic::passes::type_simplification::TypeSimplification;
-use crate::aiplan4rust::semantic::passes::PassContext;
+use crate::aiplan4rust::semantic::finalization::type_simplification::TypeSimplification;
+use crate::aiplan4rust::semantic::finalization::PassContext;
 use crate::aiplan4rust::semantic::type_checker::{TypeCheckerError, TypeHierarchy};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::tree::NodeId;

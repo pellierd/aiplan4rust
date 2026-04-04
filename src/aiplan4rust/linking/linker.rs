@@ -33,13 +33,12 @@
 use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
+use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::passes::PassContext;
-use crate::aiplan4rust::semantic::symbol_resolver::SymbolResolver;
-use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
+use crate::aiplan4rust::semantic::finalization::PassContext;
+use crate::aiplan4rust::semantic::{finalization, passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 
@@ -154,7 +153,7 @@ impl Linker {
                 let ctx =
                     PassContext::new(&global_interner, problem_ctx.source(), Provider::Linker);
 
-                let changes = passes::symbol_table::finalize(
+                let changes = finalization::symbol_table::finalize(
                     &ctx,
                     &type_checker,
                     problem_ctx.symbol_table_mut(), // On modifie la table du problème
@@ -165,7 +164,7 @@ impl Linker {
                 // Si on a des changements, on les répercute sur l'AST pour que
                 // le r-affichage (pretty print) du problème soit aussi propre que celui du domaine.
                 if !changes.is_empty() {
-                    passes::ast::finalize(&mut problem_ctx, &changes)?;
+                    finalization::ast::finalize(&mut problem_ctx, &changes)?;
                 }
 
                 // Step 4: Create a check context for the problem using the global interner
@@ -313,24 +312,29 @@ pub fn perform_linking_checks(
     let type_checker = TypeChecker::new(&type_hierarchy);
     let mut check = true;
 
-    let resolver = SymbolResolver::new(
+    // Appel direct de la fonction pure
+    passes::resolve_symbols(
         problem.syntax_tree(),
+        problem_table,
         Some(&type_checker),
         Some(domain_table),
-        domain.interner(),
-    );
+    )?;
 
-    // On résout les symboles du problème par rapport au domaine
-    resolver.resolve(problem_table)?;
+    passes::resolve_derived_predicates(
+        problem.syntax_tree(),
+        problem_table,
+        Some(&type_checker),
+        Some(domain_table),
+    )?;
 
     /*println!(
         "DOMAIN\n{}",
         domain_table.to_string_with_interner(domain.interner())
     );*/
-    println!(
+    /*println!(
         "PROBLEM:\n{}",
         problem_table.to_string_with_interner(problem.interner())
-    );
+    );*/
 
     // 1. Vérification de base : Nom du domaine
     linking::checks::check_domain_name(
