@@ -17,7 +17,7 @@ use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::linking::finalization::error::SemanticFinalizationError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::passes::SemanticPassError;
-use crate::aiplan4rust::semantic::signature_matcher::SignatureMatcherError;
+use crate::aiplan4rust::semantic::signature_checker::SignatureMatcherError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};

@@ -6,7 +6,7 @@
 //!
 //! # Modules
 //!
-//! - [`type_checker`] — Contains the common ops of the [`TypeChecker`] struct, which traverses
+//! - [`checker`] — Contains the common ops of the [`TypeChecker`] struct, which traverses
 //!   the AST and performs typing validation.
 //! - [`error`] — Defines [`TypeCheckerError`], the error typing used to report issues during typing checking.
 //!
@@ -36,10 +36,10 @@
 //!
 //! This module is part of the semantic layer and assumes a correctly constructed symbol table.
 
+pub mod checker;
 pub mod error;
-pub mod type_checker;
 pub mod type_hierarchy;
 
+pub use checker::TypeChecker;
 pub use error::TypeCheckerError;
-pub use type_checker::TypeChecker;
 pub use type_hierarchy::TypeHierarchy;

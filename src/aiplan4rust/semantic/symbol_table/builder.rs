@@ -1606,7 +1606,7 @@ impl SymbolTableBuilder {
             // Si le type (ex: 'object') n'a aucune déclaration dans la table
             if self.table().get_symbol(ident).is_none() {
                 // On le déclare comme une racine (PrimitiveType sans parent)
-                // Cela crée l'entrée manquante pour le SignatureMatcher
+                // Cela crée l'entrée manquante pour le SignatureChecker
                 self.add_declaration_symbol(
                     &ty_ref,
                     ast,

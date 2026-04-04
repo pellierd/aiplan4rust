@@ -18,7 +18,7 @@
 //! * Use [`Signature::from_declaration`] to represent the **Expected** contract.
 //! * Use [`Signature::from_usage`] to represent the **Observed** call site.
 //!
-//! This duality allows the `SignatureMatcher` to perform structural and semantic
+//! This duality allows the `SignatureChecker` to perform structural and semantic
 //! validation using a single, consistent interface.
 
 use crate::aiplan4rust::lang::{SymbolId, Type};

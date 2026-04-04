@@ -40,7 +40,7 @@
 //! [`AnalyzerResult`]: result::Result
 //! [`Analyzer`]: analyzer::Analyzer
 //! [`SymbolTable`]: symbol_table::SymbolTable
-//! [`TypeChecker`]: type_checker::type_checker::TypeChecker
+//! [`TypeChecker`]: type_checker::checker::TypeChecker
 //! [`SemanticError`]: error::SemanticError
 //! [`UnexpectedNodeKindError`]: error::UnexpectedNodeKindError
 //! [`InvalidNodeArityError`]: error::InvalidNodeArityError
@@ -70,7 +70,7 @@ pub mod error;
 pub mod passes;
 mod requirements;
 pub mod rules;
-pub mod signature_matcher;
+pub mod signature_checker;
 /// Type checking module (internal, not publicly exposed).
 pub mod type_checker;
 
@@ -79,4 +79,4 @@ pub use context::Context as SemanticContext;
 pub use error::SemanticError;
 pub use result::Result as AnalyzerResult;
 pub use symbol_table::SymbolTable;
-pub use type_checker::type_checker::TypeChecker;
+pub use type_checker::checker::TypeChecker;

@@ -15,7 +15,7 @@
 //!    standard subtyping and Bercher-style upcasting.
 //!
 //! ## Key Components
-//! * [`SignatureMatcher`]: The primary orchestrator that holds references to symbol
+//! * [`SignatureChecker`]: The primary orchestrator that holds references to symbol
 //!   tables and the type engine.
 //! * [`MatchResult`]: An enum capturing the outcome of a match (Exact, Upcast, or Mismatch).
 //! * [`MatchFailure`]: Detailed diagnostic information used when a signature
@@ -29,9 +29,9 @@
 use crate::aiplan4rust::semantic::rules::{
     allow_implicit_upcast_for_task_matching, check_kind_compatibility, find_shadowing_candidate,
 };
-use crate::aiplan4rust::semantic::signature_matcher::error::SignatureMatcherError;
-use crate::aiplan4rust::semantic::signature_matcher::failure::MatchFailure;
-use crate::aiplan4rust::semantic::signature_matcher::result::MatchResult;
+use crate::aiplan4rust::semantic::signature_checker::error::SignatureMatcherError;
+use crate::aiplan4rust::semantic::signature_checker::failure::MatchFailure;
+use crate::aiplan4rust::semantic::signature_checker::result::MatchResult;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Signature, SymbolKind};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -41,13 +41,13 @@ use crate::SymbolTable;
 /// A high-level semantic analyzer responsible for validating symbol signatures
 /// against their declarations and call sites.
 ///
-/// The `SignatureMatcher` acts as the primary gateway for ensuring that symbol
+/// The `SignatureChecker` acts as the primary gateway for ensuring that symbol
 /// usages (e.g., action calls, predicate applications) conform to their defined
 /// structural and semantic constraints.
 ///
 /// It supports a two-tier symbol resolution strategy, looking up identifiers
 /// in both local (Problem) and global (Domain) contexts.
-pub struct SignatureMatcher<'a> {
+pub struct SignatureChecker<'a> {
     /// Reference to the local symbol table, typically containing objects,
     /// variables, and parameters specific to the current problem or scope.
     local_table: &'a SymbolTable,
@@ -65,8 +65,8 @@ pub struct SignatureMatcher<'a> {
     domain_table: Option<&'a SymbolTable>,
 }
 
-impl<'a> SignatureMatcher<'a> {
-    /// Creates a new `SignatureMatcher` instance with the required semantic context.
+impl<'a> SignatureChecker<'a> {
+    /// Creates a new `SignatureChecker` instance with the required semantic context.
     ///
     /// This constructor initializes the matcher by anchoring it to the problem's
     /// local symbols and the mandatory technical components (AST and TypeChecker).

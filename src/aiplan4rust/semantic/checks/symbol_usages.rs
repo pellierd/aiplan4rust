@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::rules::is_pddl_builtin_symbol;
-use crate::aiplan4rust::semantic::signature_matcher::MatchResult;
+use crate::aiplan4rust::semantic::signature_checker::MatchResult;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticError;

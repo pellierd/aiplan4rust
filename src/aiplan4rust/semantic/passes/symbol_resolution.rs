@@ -2,7 +2,7 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::rules::{find_shadowing_candidate, is_atomic_kind};
-use crate::aiplan4rust::semantic::signature_matcher::{MatchResult, SignatureMatcher};
+use crate::aiplan4rust::semantic::signature_checker::{MatchResult, SignatureChecker};
 use crate::aiplan4rust::semantic::symbol::{
     Declaration, Signature, SymbolEntry, SymbolOrigin, Usage,
 };
@@ -36,7 +36,7 @@ pub fn resolve_symbols(
     let (complex_instructions, all_resolved) = {
         if let Some(tc) = type_checker {
             // Le matcher voit enfin les résolutions de la Phase 1 !
-            let matcher = SignatureMatcher::new(table, context.syntax_tree(), tc, domain_table);
+            let matcher = SignatureChecker::new(table, context.syntax_tree(), tc, domain_table);
             collect_complex_resolutions(table, &matcher, domain_table)?
         } else {
             // Si pas de type_checker, on ne peut pas résoudre de complexes
@@ -84,7 +84,7 @@ fn collect_atomic_resolutions(
 }
 fn collect_complex_resolutions(
     table: &SymbolTable,
-    matcher: &SignatureMatcher,
+    matcher: &SignatureChecker,
     domain_table: Option<&SymbolTable>,
 ) -> Result<(Vec<(SymbolId, NodeId, Resolution)>, bool), SemanticPassError> {
     let mut instructions = Vec::new();
@@ -119,7 +119,7 @@ fn collect_complex_resolutions(
 }
 fn collect_resolutions(
     table: &SymbolTable,
-    matcher: Option<&SignatureMatcher>,
+    matcher: Option<&SignatureChecker>,
     domain_table: Option<&SymbolTable>,
 ) -> Result<(Vec<(SymbolId, NodeId, Resolution)>, bool), SemanticPassError> {
     let mut instructions = Vec::new();
@@ -213,7 +213,7 @@ fn apply_resolutions(table: &mut SymbolTable, instructions: Vec<(SymbolId, NodeI
 /// * `symbol_id` - The identifier of the symbol to resolve.
 /// * `domain_table` - The global symbol table (Domain file).
 /// * `usage` - The usage site (call site) triggering the resolution.
-/// * `checker` - An optional [`SignatureMatcher`] for deep semantic validation.
+/// * `checker` - An optional [`SignatureChecker`] for deep semantic validation.
 ///
 /// # Returns
 /// * `Ok(Some(Resolution))` - A domain resolution containing the proxy and match status.
@@ -225,7 +225,7 @@ fn resolve_domain_match(
     symbol_id: SymbolId,
     domain_table: Option<&SymbolTable>,
     usage: &Usage,
-    checker: Option<&SignatureMatcher>,
+    checker: Option<&SignatureChecker>,
 ) -> Result<Option<Resolution>, SemanticPassError> {
     // --- STEP 1: Domain Existence Check ---
     // Ensure the domain table is provided and contains the requested symbol identifier.
@@ -255,7 +255,7 @@ fn resolve_domain_match(
             // Full semantic check if a matcher is available.
             Some(m) => m.match_signature(expected, observed)?,
             // Fallback to basic structural check (arity/kind) if no matcher is provided.
-            None => match SignatureMatcher::match_structure(expected, observed) {
+            None => match SignatureChecker::match_structure(expected, observed) {
                 Ok(_) => MatchResult::Match,
                 Err(e) => MatchResult::NoMatch(e),
             },
@@ -293,7 +293,7 @@ fn resolve_domain_match(
 /// # Arguments
 /// * `symbol_entry` - The entry in the symbol table containing all declarations for this identifier.
 /// * `usage` - The specific usage site (call site) being resolved.
-/// * `checker` - An optional [`SignatureMatcher`] to perform deep semantic validation.
+/// * `checker` - An optional [`SignatureChecker`] to perform deep semantic validation.
 ///
 /// # Returns
 /// * `Ok(Some(Resolution))` - If a valid local declaration is found and matches the usage.
@@ -304,7 +304,7 @@ fn resolve_domain_match(
 pub fn resolve_local_match(
     symbol_entry: &SymbolEntry,
     usage: &Usage,
-    checker: Option<&SignatureMatcher>,
+    checker: Option<&SignatureChecker>,
 ) -> Result<Option<Resolution>, SemanticPassError> {
     // --- STEP 1: Shadowing Candidate Lookup ---
     // We search for the best declaration candidate based on SymbolKind and Scope.

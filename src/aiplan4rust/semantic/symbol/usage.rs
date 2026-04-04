@@ -16,7 +16,7 @@
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
-use crate::aiplan4rust::semantic::signature_matcher::MatchResult;
+use crate::aiplan4rust::semantic::signature_checker::MatchResult;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolOrigin};

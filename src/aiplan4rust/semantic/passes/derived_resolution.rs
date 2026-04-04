@@ -22,12 +22,12 @@
 //! ## Technical Details
 //! An axiom is considered a match if it shares the same symbol name and its
 //! argument types are compatible with the base declaration, as determined by
-//! the [`SignatureMatcher`].
+//! the [`SignatureChecker`].
 
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::passes::context::PassContext;
 use crate::aiplan4rust::semantic::passes::SemanticPassError;
-use crate::aiplan4rust::semantic::signature_matcher::{MatchResult, SignatureMatcher};
+use crate::aiplan4rust::semantic::signature_checker::{MatchResult, SignatureChecker};
 use crate::aiplan4rust::semantic::symbol::Signature;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::tree::NodeId;
@@ -44,7 +44,7 @@ use crate::SymbolTable;
 ///    metadata without redundant parameter passing.
 /// 2. **Validation**: Ensures a [`TypeChecker`] is available to perform semantic matching.
 /// 3. **Collection Phase**: Performs an immutable pass over the [`SymbolTable`] to identify
-///    valid base-to-axiom pairs using a [`SignatureMatcher`].
+///    valid base-to-axiom pairs using a [`SignatureChecker`].
 /// 4. **Application Phase**: Performs a mutable pass to "wire" these links back into
 ///    the table, establishing bidirectional pointers.
 ///
@@ -73,7 +73,7 @@ pub fn resolve_derived_predicates(
     // The scoped block ensures the immutable borrow of `table` is released
     // before the mutation phase begins.
     let derived_links = {
-        let matcher = SignatureMatcher::new(table, context.syntax_tree(), tc, domain_table);
+        let matcher = SignatureChecker::new(table, context.syntax_tree(), tc, domain_table);
         collect_derived_links(table, &matcher)?
     };
 
@@ -98,7 +98,7 @@ pub fn resolve_derived_predicates(
 /// Returns [`SemanticPassError`] if signature matching fails during the process.
 fn collect_derived_links(
     table: &SymbolTable,
-    matcher: &SignatureMatcher,
+    matcher: &SignatureChecker,
 ) -> Result<Vec<DerivedLink>, SemanticPassError> {
     let mut global_links = Vec::new();
 

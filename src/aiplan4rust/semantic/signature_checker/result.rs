@@ -22,7 +22,7 @@
 
 use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::lang::{SymbolId, Type};
-use crate::aiplan4rust::semantic::signature_matcher::failure::MatchFailure;
+use crate::aiplan4rust::semantic::signature_checker::failure::MatchFailure;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use serde::{Deserialize, Serialize};
 use std::fmt;
