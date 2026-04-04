@@ -3,7 +3,7 @@ use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum SymbolResolverError {
+pub enum SemanticPassError {
     #[error(transparent)]
     SignatureMatcher(#[from] SignatureMatcherError),
 

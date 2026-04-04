@@ -1,5 +1,31 @@
+//! Derived Predicate Resolution Pass
+//!
+//! This module implements the analysis pass responsible for linking PDDL axioms
+//! (derived predicates) to their corresponding base predicate declarations.
+//!
+//! ## Overview
+//! In PDDL, a derived predicate provides a logic-based definition for a predicate
+//! declared in the `:predicates` section. While standard symbols are resolved by
+//! name, derived predicates require a secondary pass to:
+//! 1. Verify that the axiom's signature matches a formal declaration.
+//! 2. Establish bidirectional pointers for efficient state evaluation.
+//!
+//! ## The Two-Phase Approach
+//! To satisfy Rust's strict borrowing rules (Ownership/Borrowing), the resolution
+//! is split into two distinct phases:
+//!
+//! 1. **Collection Phase**: The [`SymbolTable`] is scanned immutably to identify
+//!    valid matches. These matches are stored as [`DerivedLink`] objects.
+//! 2. **Application Phase**: The identified links are applied mutably to the
+//!    [`SymbolTable`], "wiring" the declarations together.
+//!
+//! ## Technical Details
+//! An axiom is considered a match if it shares the same symbol name and its
+//! argument types are compatible with the base declaration, as determined by
+//! the [`SignatureMatcher`].
+
 use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::semantic::passes::SymbolResolverError;
+use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::signature_matcher::{MatchResult, SignatureMatcher};
 use crate::aiplan4rust::semantic::symbol::Signature;
 use crate::aiplan4rust::semantic::TypeChecker;
@@ -7,27 +33,42 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::SymbolTable;
 
+/// Resolves relationships between derived predicates (axioms) and their base declarations.
+///
+/// This function orchestrates the third phase of symbol resolution. It identifies which
+/// `:derived` axioms correspond to which `:predicates` by matching their signatures
+/// (names and argument types).
+///
+/// # Workflow
+/// 1. **Validation**: Ensures a [`TypeChecker`] is available to perform semantic matching.
+/// 2. **Collection**: Performs an immutable pass over the [`SymbolTable`] to identify
+///    valid base-to-axiom pairs.
+/// 3. **Application**: Performs a mutable pass to store these links back into the table.
+///
+/// # Errors
+/// Returns [`SemanticPassError`] if signature matching logic encounters an inconsistency.
 pub fn resolve_derived_predicates(
     ast: &Tree<AstNode>,
     table: &mut SymbolTable,
     type_checker: Option<&TypeChecker>,
     domain_table: Option<&SymbolTable>,
-) -> Result<(), SymbolResolverError> {
-    // 1. Sécurité : Si on n'a pas de TypeChecker, on ne peut pas matcher les signatures
+) -> Result<(), SemanticPassError> {
+    // 1. Safety: Signature matching requires a TypeChecker for type-compatible resolution.
     let Some(tc) = type_checker else {
         return Ok(());
     };
 
-    // 2. ÉTAPE DE COLLECTE (Lecture seule / Immuable)
-    // On crée le matcher une seule fois pour toute la table.
-    // Le bloc { } assure que l'emprunt immuable de `table` est relâché à la fin.
+    // 2. COLLECTION PHASE (Immutable)
+    // We create the matcher and scan the table to find all valid links.
+    // The scoped block ensures the immutable borrow of `table` is released
+    // before the mutation phase begins.
     let all_links = {
         let matcher = SignatureMatcher::new(table, ast, tc, domain_table);
-        collect_all_derived_links(table, &matcher)?
+        collect_derived_links(table, &matcher)?
     };
 
-    // 3. ÉTAPE D'APPLICATION (Ecriture / Mutable)
-    // On n'exécute la mutation que si on a trouvé des liens à créer.
+    // 3. APPLICATION PHASE (Mutable)
+    // Only proceed to mutation if at least one valid link was discovered.
     if !all_links.is_empty() {
         apply_derived_links(table, all_links);
     }
@@ -35,64 +76,150 @@ pub fn resolve_derived_predicates(
     Ok(())
 }
 
-fn collect_all_derived_links(
+/// Collects all valid links between derived axioms and their base predicate declarations.
+///
+/// This function iterates through the symbol table to find matching signatures
+/// between formal predicate definitions ("Bases") and axiom implementations ("Derived").
+///
+/// # Returns
+/// A vector of [`DerivedLink`] objects representing validated connections.
+///
+/// # Errors
+/// Returns [`SemanticPassError`] if signature matching fails during the process.
+fn collect_derived_links(
     table: &SymbolTable,
     matcher: &SignatureMatcher,
-) -> Result<Vec<(SymbolId, NodeId, NodeId)>, SymbolResolverError> {
+) -> Result<Vec<DerivedLink>, SemanticPassError> {
     let mut global_links = Vec::new();
 
-    for entry in table.values() {
-        let mut bases = Vec::new();
-        let mut derived = Vec::new();
+    // OPTIMIZATION: Pre-allocate worklists outside the loop to reuse memory buffers.
+    // This prevents frequent heap allocations/deallocations during table iteration.
+    let mut bases_worklist = Vec::with_capacity(8);
+    let mut derived_worklist = Vec::with_capacity(8);
 
-        // On trie les déclarations de cette entrée spécifique
+    for entry in table.values() {
+        // Clear lists for the new symbol while keeping the allocated capacity.
+        bases_worklist.clear();
+        derived_worklist.clear();
+
+        // --- STEP 1: Categorize and Pre-compute ---
+        // We separate declarations and compute base signatures only once.
         for (&node_id, decl) in entry.declarations() {
             if decl.is_derived() {
-                derived.push((node_id, decl));
+                derived_worklist.push((node_id, decl));
             } else {
-                bases.push((node_id, decl));
+                // OPTIMIZATION: Extract and store the signature once for each base predicate.
+                let sig = Signature::from_declaration(decl);
+                bases_worklist.push((node_id, sig));
             }
         }
 
-        if bases.is_empty() || derived.is_empty() {
+        // Skip if either side is missing, as no link can be established.
+        if bases_worklist.is_empty() || derived_worklist.is_empty() {
             continue;
         }
 
-        // Pour chaque axiome de cette entrée, on cherche sa base correspondante
-        for (d_id, d_decl) in derived {
-            for &(b_id, b_decl) in &bases {
-                let expected = Signature::from_declaration(b_decl);
-                let provided = Signature::from_declaration(d_decl);
+        // --- STEP 2: Signature Matching (Cross-product) ---
+        for (d_id, d_decl) in &derived_worklist {
+            // Compute the axiom signature once per axiom implementation.
+            let provided = Signature::from_declaration(d_decl);
 
-                if let MatchResult::Match = matcher.match_signature(expected, provided)? {
-                    // On enregistre le lien complet
-                    global_links.push((entry.ident(), b_id, d_id));
-                    // On ne break pas ici si un axiome peut avoir plusieurs bases,
-                    // mais en PDDL on s'arrête généralement à la première valide.
+            for (b_id, expected_sig) in &bases_worklist {
+                // Compare pre-computed signatures using the semantic matcher.
+                // Note: Ensure matcher.match_signature handles clones or takes references.
+                let match_result = matcher.match_signature(*expected_sig, provided)?;
+
+                if let MatchResult::Match = match_result {
+                    // Record the validated resolution link.
+                    global_links.push(DerivedLink::new(entry.ident(), *b_id, *d_id));
+
+                    // In PDDL, an axiom typically resolves to a single formal signature.
                     break;
                 }
             }
         }
     }
+
     Ok(global_links)
 }
 
-pub fn apply_derived_links(table: &mut SymbolTable, links: Vec<(SymbolId, NodeId, NodeId)>) {
-    for (symbol_id, base_id, axiom_id) in links {
-        // On récupère l'entrée correspondante au symbole (ex: "at")
-        if let Some(entry) = table.get_symbol_mut(symbol_id) {
-            // On verrouille l'accès aux déclarations de cette entrée
+/// Materializes the links between derived axioms and their base predicate declarations.
+///
+/// This function performs the final "wiring" in the symbol table by establishing
+/// bidirectional relationships between axioms (derived definitions) and the
+/// original predicates they implement.
+///
+/// # Arguments
+/// * `table` - The mutable [`SymbolTable`] where the links will be applied.
+/// * `links` - A vector of [`DerivedLink`] objects representing validated connections.
+///
+/// # Implementation Details
+/// For each link, the function:
+/// 1. Locates the [`SymbolEntry`] corresponding to the `symbol_id`.
+/// 2. Updates the **Axiom** declaration to point to its parent (base) declaration.
+/// 3. Updates the **Base** declaration to include the axiom in its list of derivations.
+pub fn apply_derived_links(table: &mut SymbolTable, links: Vec<DerivedLink>) {
+    for link in links {
+        // Retrieve the entry for the specific symbol (e.g., "at", "on-table")
+        if let Some(entry) = table.get_symbol_mut(link.symbol_id()) {
+            // Gain mutable access to all declarations registered for this symbol
             let decls = entry.declarations_mut();
 
-            // 1. On "visse" l'Axiome vers sa Signature parente
-            if let Some(axiom) = decls.get_mut(&axiom_id) {
-                axiom.set_derived_source(base_id);
+            // 1. Link the Axiom to its parent Signature (Upward link)
+            // This allows the axiom to know which formal signature it must satisfy.
+            if let Some(axiom) = decls.get_mut(&link.axiom_id()) {
+                axiom.set_derived_source(link.base_id());
             }
 
-            // 2. On "visse" la Signature vers son Axiome enfant
-            if let Some(base) = decls.get_mut(&base_id) {
-                base.add_derivation(axiom_id);
+            // 2. Link the Base Signature to its child Axiom (Downward link)
+            // This allows the base predicate to track all its various derived implementations.
+            if let Some(base) = decls.get_mut(&link.base_id()) {
+                base.add_derivation(link.axiom_id());
             }
         }
+    }
+}
+
+/// Represents the result of resolving a derived predicate.
+///
+/// It stores the connection between an axiom implementation and its
+/// corresponding base predicate declaration.
+#[derive(Debug, Clone, Copy)]
+struct DerivedLink {
+    /// The unique identifier of the symbol (e.g., 'at').
+    symbol_id: SymbolId,
+    /// The NodeId of the formal predicate declaration (The 'Base').
+    base_id: NodeId,
+    /// The NodeId of the derived axiom implementation (The 'Axiom').
+    axiom_id: NodeId,
+}
+
+impl DerivedLink {
+    /// Creates a new resolution link between a base predicate and its axiom.
+    ///
+    /// # Arguments
+    /// * `symbol_id` - The identifier of the symbol (e.g., the interner ID for "at").
+    /// * `base_id` - The `NodeId` of the predicate's formal declaration.
+    /// * `axiom_id` - The `NodeId` of the derived axiom's implementation.
+    pub fn new(symbol_id: SymbolId, base_id: NodeId, axiom_id: NodeId) -> Self {
+        Self {
+            symbol_id,
+            base_id,
+            axiom_id,
+        }
+    }
+    /// Returns the unique identifier of the symbol.
+    pub fn symbol_id(&self) -> SymbolId {
+        self.symbol_id
+    }
+
+    /// Returns the NodeId of the formal predicate declaration (the "Base").
+    pub fn base_id(&self) -> NodeId {
+        self.base_id
+    }
+
+    /// Returns the NodeId of the derived axiom implementation (the "Axiom").
+    pub fn axiom_id(&self) -> NodeId {
+        self.axiom_id
     }
 }

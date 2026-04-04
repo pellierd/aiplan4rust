@@ -9,8 +9,8 @@ use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
-use crate::aiplan4rust::semantic::finalization::error::SemanticPassError;
-use crate::aiplan4rust::semantic::passes::SymbolResolverError;
+use crate::aiplan4rust::semantic::finalization::error::SemanticFinalizationError;
+use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
@@ -25,7 +25,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum LinkingError {
     #[error(transparent)]
-    SymbolResolver(#[from] SymbolResolverError),
+    SymbolResolver(#[from] SemanticPassError),
 
     #[error(transparent)]
     TypeChecker(#[from] TypeCheckerError),
@@ -44,7 +44,7 @@ pub enum LinkingError {
 
     /// Error encountered during semantic finalization.
     #[error(transparent)]
-    SemanticPass(#[from] SemanticPassError),
+    SemanticPass(#[from] SemanticFinalizationError),
 
     /// Error from symbol table operations such as lookup or insertion.
     #[error(transparent)]

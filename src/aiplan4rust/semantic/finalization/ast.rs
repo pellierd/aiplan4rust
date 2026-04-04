@@ -1,7 +1,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{SymbolId, Type};
-use crate::aiplan4rust::semantic::finalization::error::SemanticPassError;
+use crate::aiplan4rust::semantic::finalization::error::SemanticFinalizationError;
 use crate::aiplan4rust::semantic::finalization::type_simplification::TypeSimplification;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::SemanticContext;
@@ -14,7 +14,7 @@ use crate::SymbolTable;
 pub fn finalize(
     context: &mut SemanticContext,
     type_changes: &[TypeSimplification], // Utilise une slice pour accepter Vec ou Box
-) -> Result<(), SemanticPassError> {
+) -> Result<(), SemanticFinalizationError> {
     let (symbol_table, ast, interner) = context.split_all_mut();
 
     // On passe la slice de changements
@@ -31,7 +31,7 @@ fn finalize_types(
     symbol_table: &SymbolTable,
     changes: &[TypeSimplification],
     _interner: &SymbolInterner,
-) -> Result<(), SemanticPassError> {
+) -> Result<(), SemanticFinalizationError> {
     for change in changes {
         // 1. On récupère la déclaration directement depuis le changement
         let entry = symbol_table.try_get_symbol(change.symbol_id())?;
@@ -118,18 +118,18 @@ fn finalize_types(
 /// This function replaces previous panics/asserts with a recoverable Result.
 ///
 /// # Errors
-/// * [`SemanticPassError::IncompleteDeclaration`] - If type data or node IDs are missing.
-/// * [`SemanticPassError::TypeInconsistency`] - If there is a count mismatch between types and nodes.
+/// * [`SemanticFinalizationError::IncompleteDeclaration`] - If type data or node IDs are missing.
+/// * [`SemanticFinalizationError::TypeInconsistency`] - If there is a count mismatch between types and nodes.
 pub fn try_get_type_and_nodes(
     declaration: &Declaration,
-) -> Result<(&Type<SymbolId>, &[NodeId]), SemanticPassError> {
+) -> Result<(&Type<SymbolId>, &[NodeId]), SemanticFinalizationError> {
     let ty_opt = declaration.ty();
     let ids_opt = declaration.type_sources();
     let symbol_id = declaration.symbol().id();
 
     // 1. Check if both data sets are present
     if ty_opt.is_none() || ids_opt.is_none() {
-        return Err(SemanticPassError::incomplete_declaration(
+        return Err(SemanticFinalizationError::incomplete_declaration(
             symbol_id,
             ty_opt.is_some(),
             ids_opt.is_some(),
@@ -141,7 +141,7 @@ pub fn try_get_type_and_nodes(
 
     // 2. Check for structural length consistency
     if ty.len() != ids.len() {
-        return Err(SemanticPassError::type_inconsistency(
+        return Err(SemanticFinalizationError::type_inconsistency(
             symbol_id,
             ty.len(),
             ids.len(),

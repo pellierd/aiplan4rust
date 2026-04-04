@@ -6,7 +6,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum SemanticPassError {
+pub enum SemanticFinalizationError {
     /// Errors related to the symbol table.
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
@@ -36,8 +36,8 @@ pub enum SemanticPassError {
     },
 }
 
-impl SemanticPassError {
-    /// Creates a [`SemanticPassError`] for a declaration missing critical data.
+impl SemanticFinalizationError {
+    /// Creates a [`SemanticFinalizationError`] for a declaration missing critical data.
     #[track_caller]
     pub fn incomplete_declaration(symbol: SymbolId, has_ty: bool, has_ids: bool) -> Self {
         Self::IncompleteDeclaration {
@@ -48,7 +48,7 @@ impl SemanticPassError {
         .trace()
     }
 
-    /// Creates a [`SemanticPassError`] for a mismatch between semantic types and AST nodes.
+    /// Creates a [`SemanticFinalizationError`] for a mismatch between semantic types and AST nodes.
     #[track_caller]
     pub fn type_inconsistency(symbol: SymbolId, ty_len: usize, ids_len: usize) -> Self {
         Self::TypeInconsistency {
@@ -60,4 +60,4 @@ impl SemanticPassError {
     }
 }
 
-impl Traceable for SemanticPassError {}
+impl Traceable for SemanticFinalizationError {}

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::semantic::passes::error::SymbolResolverError;
+use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::rules::{find_shadowing_candidate, is_atomic_kind};
 use crate::aiplan4rust::semantic::signature_matcher::{MatchResult, SignatureMatcher};
 use crate::aiplan4rust::semantic::symbol::{
@@ -15,7 +15,7 @@ pub fn resolve_symbols(
     table: &mut SymbolTable,
     type_checker: Option<&TypeChecker>,
     domain_table: Option<&SymbolTable>,
-) -> Result<bool, SymbolResolverError> {
+) -> Result<bool, SemanticPassError> {
     /*println!(
         "{}",
         ast.try_root()
@@ -55,7 +55,7 @@ pub fn resolve_symbols(
 fn collect_atomic_resolutions(
     table: &SymbolTable,
     domain_table: Option<&SymbolTable>,
-) -> Result<(Vec<(SymbolId, NodeId, Resolution)>, bool), SymbolResolverError> {
+) -> Result<(Vec<(SymbolId, NodeId, Resolution)>, bool), SemanticPassError> {
     let mut instructions = Vec::new();
     let mut all_resolved = true;
 
@@ -86,7 +86,7 @@ fn collect_complex_resolutions(
     table: &SymbolTable,
     matcher: &SignatureMatcher,
     domain_table: Option<&SymbolTable>,
-) -> Result<(Vec<(SymbolId, NodeId, Resolution)>, bool), SymbolResolverError> {
+) -> Result<(Vec<(SymbolId, NodeId, Resolution)>, bool), SemanticPassError> {
     let mut instructions = Vec::new();
     let mut all_resolved = true;
 
@@ -122,7 +122,7 @@ fn collect_resolutions(
     table: &SymbolTable,
     matcher: Option<&SignatureMatcher>,
     domain_table: Option<&SymbolTable>,
-) -> Result<(Vec<(SymbolId, NodeId, Resolution)>, bool), SymbolResolverError> {
+) -> Result<(Vec<(SymbolId, NodeId, Resolution)>, bool), SemanticPassError> {
     let mut instructions = Vec::new();
     let mut all_resolved = true;
 
@@ -221,13 +221,13 @@ fn apply_resolutions(table: &mut SymbolTable, instructions: Vec<(SymbolId, NodeI
 /// * `Ok(None)` - If the symbol is missing from the domain or incompatible.
 ///
 /// # Errors
-/// * Returns [`SymbolResolverError`] if signature matching or structural validation fails.
+/// * Returns [`SemanticPassError`] if signature matching or structural validation fails.
 fn resolve_domain_match(
     symbol_id: SymbolId,
     domain_table: Option<&SymbolTable>,
     usage: &Usage,
     checker: Option<&SignatureMatcher>,
-) -> Result<Option<Resolution>, SymbolResolverError> {
+) -> Result<Option<Resolution>, SemanticPassError> {
     // --- STEP 1: Domain Existence Check ---
     // Ensure the domain table is provided and contains the requested symbol identifier.
     let Some(table) = domain_table else {
@@ -301,12 +301,12 @@ fn resolve_domain_match(
 /// * `Ok(None)` - If no compatible local declaration exists.
 ///
 /// # Errors
-/// * Returns [`SymbolResolverError`] if signature matching fails or AST access errors occur.
+/// * Returns [`SemanticPassError`] if signature matching fails or AST access errors occur.
 pub fn resolve_local_match(
     symbol_entry: &SymbolEntry,
     usage: &Usage,
     checker: Option<&SignatureMatcher>,
-) -> Result<Option<Resolution>, SymbolResolverError> {
+) -> Result<Option<Resolution>, SemanticPassError> {
     // --- STEP 1: Shadowing Candidate Lookup ---
     // We search for the best declaration candidate based on SymbolKind and Scope.
     // This handles cases where a local variable shadows a more global one.

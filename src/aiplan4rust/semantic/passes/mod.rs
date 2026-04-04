@@ -3,5 +3,5 @@ mod error;
 mod symbol_resolution;
 
 pub use derived_resolution::resolve_derived_predicates;
-pub use error::SymbolResolverError;
+pub use error::SemanticPassError;
 pub use symbol_resolution::resolve_symbols;
