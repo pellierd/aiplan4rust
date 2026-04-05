@@ -233,7 +233,7 @@ fn handle_declaration_conflict(
         if is_skeleton_exception(current_kind, scope_node.kind()) {
             diagnostic_manager.add_diagnostic(
                 Diagnostic::warning_duplicate_variable_skeleton_declaration(
-                    Symbol::new(symbol.ident(), current_kind),
+                    Symbol::new(symbol.id(), current_kind),
                     previous_declaration.clone(),
                     declaration.clone(),
                     scope_node.kind(),
@@ -247,7 +247,7 @@ fn handle_declaration_conflict(
             is_valid = false;
             diagnostic_manager.add_diagnostic(
                 Diagnostic::error_duplicated_symbol_declaration_in_scope(
-                    Symbol::new(symbol.ident(), current_kind),
+                    Symbol::new(symbol.id(), current_kind),
                     previous_declaration.clone(),
                     declaration.clone(),
                     scope_node.kind(),

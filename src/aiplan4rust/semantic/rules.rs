@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::{
     Declaration, Filterable, Scope, SymbolEntry, SymbolKind,
 };
@@ -52,7 +52,7 @@ pub fn find_shadowing_candidate<'a>(
     if kind == SymbolKind::Task {
         println!(
             "🔍 [DEBUG SHADOW] Entrée ID: {:?} | Nom potentiel: ??? | Kind: {:?}",
-            symbol_entry.ident(),
+            symbol_entry.id(),
             kind
         );
         println!(
@@ -178,11 +178,23 @@ pub fn allow_implicit_upcast_for_task_matching(
 /// - `number`, `total-time`, `total-cost`: Used for fluents and numeric fluents.
 /// - `?duration`: Implicit variable for durative actions.
 /// - `#t`: Continuous time variable for temporal domains.
-pub fn is_pddl_builtin_symbol(symbol: &SymbolEntry, _context: &CheckContext) -> bool {
+pub fn is_pddl_builtin_symbol(symbol: &SymbolEntry) -> bool {
     // We accept these symbols because they are reserved by the interner at initialization.
     // They are considered part of the language's core vocabulary, decoupling symbol
     // existence from requirement-based feature activation.
-    match symbol.ident() {
+    match symbol.id() {
+        SymbolInterner::NUMBER_SYMBOL_ID
+        | SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
+        | SymbolInterner::TOTAL_TIME_SYMBOL_ID
+        | SymbolInterner::TOTAL_COST_SYMBOL_ID
+        | SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID => true,
+
+        _ => false,
+    }
+}
+
+pub fn is_pddl_builtin_symbol_id(id: SymbolId) -> bool {
+    match id {
         SymbolInterner::NUMBER_SYMBOL_ID
         | SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
         | SymbolInterner::TOTAL_TIME_SYMBOL_ID
@@ -196,7 +208,7 @@ pub fn is_pddl_builtin_symbol(symbol: &SymbolEntry, _context: &CheckContext) -> 
 /// Détermine si un genre de symbole est "atomique".
 /// Un symbole atomique est une entité simple qui ne possède pas d'arguments
 /// et dont la validité repose uniquement sur son existence et son nom.
-pub fn is_atomic_kind(kind: SymbolKind) -> bool {
+pub fn is_nominal_kind(kind: SymbolKind) -> bool {
     matches!(
         kind,
         SymbolKind::Constant |

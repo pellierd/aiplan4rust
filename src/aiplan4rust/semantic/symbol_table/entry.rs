@@ -90,7 +90,7 @@ impl SymbolEntry {
     /// # Returns
     ///
     /// The unique identifier of the symbol.
-    pub fn ident(&self) -> SymbolId {
+    pub fn id(&self) -> SymbolId {
         self.ident
     }
 

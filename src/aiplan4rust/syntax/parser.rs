@@ -4,22 +4,20 @@
 //! for PDDL or HDDL source code. It integrates with the underlying lexer, parser (via LALRPOP), and
 //! diagnostic system to provide detailed parsing results and error reporting.
 
-use lalrpop_util::ErrorRecovery;
-use std::mem;
-use std::time::SystemTime;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
-use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::artefact::language::Language;
+use crate::aiplan4rust::artefact::source::Source;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
 use crate::aiplan4rust::lang::LiteralId;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::CustomParseError;
-use crate::aiplan4rust::syntax::{
-    FastLineTable, ParseContext, ParserResult, SyntaxError,
-};
+use crate::aiplan4rust::syntax::{FastLineTable, ParseContext, ParserResult, SyntaxError};
 use crate::aiplan4rust::validation::syntax;
+use lalrpop_util::ErrorRecovery;
+use std::mem;
+use std::time::SystemTime;
 
 /// Parses PDDL or HDDL source code into an abstract syntax tree (AST),
 /// while managing and reporting diagnostics (errors, warnings, notes).
@@ -108,16 +106,12 @@ impl Parser {
     /// - `SyntaxError::UnexpectedSerializedSource` if the source is serialized.
     /// - `SyntaxError::UnknownSource` if the source format could not be determined.
     /// - Lexical and syntactic errors from parsing are captured in the `ParserResult` diagnostics.
-    pub fn parse(
-        &mut self,
-        source: &Source,
-    ) -> Result<ParserResult, SyntaxError> {
-
+    pub fn parse(&mut self, source: &Source) -> Result<ParserResult, SyntaxError> {
         // Run the parser for the specified language variant (PDDL or HDDL)
         let content = source.try_raw_content()?; // Get raw info, or return error if source is Serialized/Unknown
         let inner = content.inner();
 
-        let mut context = ParseContext::new(); // Initialize a new parsing context
+        let mut context = ParseContext::new()?; // Initialize a new parsing context
         let lexer = Lexer::new(inner); // Create a lexer for tokenizing the source content
 
         // Parse the source according to its detected language (PDDL or HDDL)
@@ -168,8 +162,7 @@ impl Parser {
                     // Take ownership of the arena holding parsed nodes
                     let arena = context.take_syntax_tree();
                     // Create an AST instance from the arena, interner, source name, and timestamp
-                    let mut ast =
-                        Ast::new(arena, interner, source_id, SystemTime::now());
+                    let mut ast = Ast::new(arena, interner, source_id, SystemTime::now());
                     // Initialize line/column span info for AST nodes using the line table
                     ast.init_span(&fast_line_table)?;
 
@@ -190,8 +183,7 @@ impl Parser {
             Err(e) => match e.as_parse_error() {
                 Some(parse_err) => {
                     let source = interner.intern_literal(source.path().to_string_lossy());
-                    let diagnostic =
-                        Diagnostic::from((parse_err, source, &fast_line_table));
+                    let diagnostic = Diagnostic::from((parse_err, source, &fast_line_table));
                     self.diagnostic_manager.add_diagnostic(diagnostic);
                     Ok(ParserResult::failure(
                         mem::take(&mut self.diagnostic_manager),
@@ -238,11 +230,8 @@ impl Parser {
         fast_line_table: &FastLineTable,
     ) {
         for error_recovery in lalrpop_errors {
-            let diagnostic =
-                Diagnostic::from((&error_recovery.error, source_id, fast_line_table));
+            let diagnostic = Diagnostic::from((&error_recovery.error, source_id, fast_line_table));
             self.diagnostic_manager.add_diagnostic(diagnostic);
         }
     }
-
-
 }

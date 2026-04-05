@@ -37,8 +37,8 @@
 //!
 //! This module is intended for internal use by the parser.
 
-use std::cell::RefCell;
 use lalrpop_util::{ErrorRecovery, ParseError};
+use std::cell::RefCell;
 
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::SymbolId;
@@ -46,8 +46,8 @@ use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::syntax::context::error::ParseContextError;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::CustomParseError;
-use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::tree::{NodeId, Tree};
 
 /// Parsing context used throughout the LALRPOP parsing process.
 ///
@@ -66,26 +66,122 @@ pub struct ParseContext {
 }
 
 impl ParseContext {
-    /// Creates a new, empty `ParseContext`.
+    /// Reserved AST node index for the PDDL 'object' root type.
+    /// Matches [`SymbolInterner::OBJECT_SYMBOL_ID`].
+    pub const NODE_ID_OBJECT: NodeId = NodeId::new(0);
+
+    /// Reserved AST node index for the PDDL 'number' primitive type.
+    /// Matches [`SymbolInterner::NUMBER_SYMBOL_ID`].
+    pub const NODE_ID_NUMBER: NodeId = NodeId::new(1);
+
+    /// Reserved AST node index for the implicit '?duration' variable.
+    /// This node is automatically available within the scope of durative actions.
+    /// Matches [`SymbolInterner::DURATION_VARIABLE_SYMBOL_ID`].
+    pub const NODE_ID_DURATION: NodeId = NodeId::new(2);
+
+    /// Reserved AST node index for the 'total-time' system function.
+    /// Typically used in problem metrics for temporal planning.
+    /// Matches [`SymbolInterner::TOTAL_TIME_SYMBOL_ID`].
+    pub const NODE_ID_TOTAL_TIME: NodeId = NodeId::new(3);
+
+    /// Reserved AST node index for the 'total-cost' system function.
+    /// Used when the `:action-costs` requirement is active.
+    /// Matches [`SymbolInterner::TOTAL_COST_SYMBOL_ID`].
+    pub const NODE_ID_TOTAL_COST: NodeId = NodeId::new(4);
+
+    /// Reserved AST node index for the '#t' continuous time variable.
+    /// Used in PDDL+ for continuous effects and processes.
+    /// Matches [`SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID`].
+    pub const NODE_ID_CONTINUOUS_TIME: NodeId = NodeId::new(5);
+
+    /// The total number of built-in nodes reserved at the start of the AST arena.
+    pub const BUILTIN_NODES_COUNT: usize = 6;
+
+    /// Creates a new `ParseContext` and attempts to initialize the PDDL built-in nodes.
     ///
-    /// Initializes an empty `StringInterner`, an empty `SyntaxTree`, and an empty error buffer.
+    /// This constructor ensures that the AST arena is pre-populated with reserved
+    /// language symbols (NodeIds 0 to 5) before any parsing occurs.
     ///
-    /// # Returns
+    /// # Errors
     ///
-    /// A fresh `ParseContext` instance.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let ctx = ParseContext::new();
-    /// assert!(ctx.root_id().is_none());
-    /// ```
-    pub fn new() -> Self {
-        Self {
+    /// Returns a [`ParseContextError`] if the initial allocation of built-in nodes fails.
+    /// This usually indicates an issue with the AST tree or arena allocation.
+    pub fn new() -> Result<Self, ParseContextError> {
+        let ctx = Self {
             interner: RefCell::new(SymbolInterner::new()),
             syntax_tree: RefCell::new(Tree::new()),
             errors: RefCell::new(Vec::new()),
+        };
+
+        // Initialize built-in nodes. If this fails, we propagate the error
+        // instead of panicking, allowing for graceful error handling.
+        ctx.init_builtins()?;
+
+        Ok(ctx)
+    }
+
+    /// Initializes the language's intrinsic (built-in) nodes within the AST arena.
+    ///
+    /// This method populates the first slots of the [`Tree`] with reserved PDDL symbols.
+    /// The order of calls is **critical** as it ensures a 1:1 mapping between the [`NodeId`]
+    /// in the AST and the [`SymbolId`] in the interner:
+    ///
+    /// | NodeId | Symbol | AST Kind | Usage |
+    /// | :--- | :--- | :--- | :--- |
+    /// | `0` | `object` | `PrimitiveType` | Root type of the hierarchy. |
+    /// | `1` | `number` | `PrimitiveType` | Numerical type for fluents. |
+    /// | `2` | `?duration` | `Variable` | Special variable for durative actions. |
+    /// | `3` | `total-time` | `FunctionSymbol` | Elapsed time metric. |
+    /// | `4` | `total-cost` | `FunctionSymbol` | Action cost metric. |
+    /// | `5` | `#t` | `Variable` | Continuous time variable (PDDL+). |
+    ///
+    /// # Technical Details
+    /// - **Virtual Spans**: All these nodes use `usize::MAX` for their start and end
+    ///   coordinates. This allows diagnostic engines to identify them as system-defined
+    ///   nodes with no physical presence in the source code.
+    /// - **Immutability**: This function must be called exactly once during the
+    ///   [`ParseContext`] creation to ensure indexing integrity.
+    ///
+    /// # Errors
+    /// Returns a [`ParseContextError`] if the allocation in the arena fails or if the
+    /// tree structure is corrupted during initialization.
+    pub fn init_builtins(&self) -> Result<(), ParseContextError> {
+        let virtual_pos = usize::MAX;
+
+        // Explicit definition of the built-ins structure.
+        // The index in this array determines the final NodeId.
+        let builtins = [
+            (AstKind::PrimitiveType, SymbolInterner::OBJECT_SYMBOL_ID), // ID 0
+            (AstKind::PrimitiveType, SymbolInterner::NUMBER_SYMBOL_ID), // ID 1
+            (
+                AstKind::Variable,
+                SymbolInterner::DURATION_VARIABLE_SYMBOL_ID,
+            ), // ID 2
+            (
+                AstKind::FunctionSymbol,
+                SymbolInterner::TOTAL_TIME_SYMBOL_ID,
+            ), // ID 3
+            (
+                AstKind::FunctionSymbol,
+                SymbolInterner::TOTAL_COST_SYMBOL_ID,
+            ), // ID 4
+            (
+                AstKind::Variable,
+                SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID,
+            ), // ID 5
+        ];
+
+        for (kind, symbol_id) in builtins {
+            self.alloc_node(
+                kind,
+                AstContent::Ident(symbol_id),
+                vec![],
+                virtual_pos,
+                virtual_pos,
+            )?;
         }
+
+        Ok(())
     }
 
     /// Provides read-only access to the underlying syntax tree arena.
@@ -293,7 +389,6 @@ impl ParseContext {
         std::mem::take(&mut *self.interner.borrow_mut())
     }
 
-
     // Error collection
 
     /// Returns all accumulated recoverable errors (lexical or syntactic).
@@ -308,7 +403,9 @@ impl ParseContext {
     ///
     /// This function does not return errors directly but may panic if the internal
     /// borrow rules of `RefCell` are violated (which should not happen under normal use).
-    pub fn borrow_errors(&self) -> std::cell::Ref<'_, Vec<ErrorRecovery<usize, Token, CustomParseError>>> {
+    pub fn borrow_errors(
+        &self,
+    ) -> std::cell::Ref<'_, Vec<ErrorRecovery<usize, Token, CustomParseError>>> {
         self.errors.borrow()
     }
 
@@ -322,7 +419,9 @@ impl ParseContext {
     /// # Errors
     ///
     /// This function may panic if a mutable borrow conflict occurs on the internal `RefCell`.
-    pub fn borrow_errors_mut(&self) -> std::cell::RefMut<'_, Vec<ErrorRecovery<usize, Token, CustomParseError>>> {
+    pub fn borrow_errors_mut(
+        &self,
+    ) -> std::cell::RefMut<'_, Vec<ErrorRecovery<usize, Token, CustomParseError>>> {
         self.errors.borrow_mut()
     }
 

@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::rules::is_pddl_builtin_symbol;
+use crate::aiplan4rust::semantic::rules::is_pddl_builtin_symbol_id;
 use crate::aiplan4rust::semantic::signature_checker::MatchResult;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -176,7 +176,7 @@ pub fn check_symbol_usage(
 /// * `true` if the symbol should be skipped, otherwise `false`.
 pub fn should_skip_symbol(
     symbol: &SymbolEntry,
-    context: &CheckContext,
+    _context: &CheckContext,
     usage_kind: SymbolKind,
     skip_symbols: &[SymbolKind],
 ) -> bool {
@@ -194,7 +194,7 @@ pub fn should_skip_symbol(
 
     // 2. Skip if it's a predefined PDDL built-in (e.g., 'number', 'total-cost').
     // These are reserved by the interner and do not require explicit declaration in the files.
-    if is_pddl_builtin_symbol(symbol, context) {
+    if is_pddl_builtin_symbol_id(symbol.id()) {
         return true;
     }
 

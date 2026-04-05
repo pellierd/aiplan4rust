@@ -50,43 +50,6 @@ use crate::{DiagnosticManager, SymbolTable};
 /// [`CheckContext`]: crate::semantics::CheckContext
 /// [`SymbolKind`]: crate::semantics::SymbolKind
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
-/*pub fn check_unused_symbols(
-    context: &CheckContext,
-    symbol_table: &mut SymbolTable,
-    skip_symbols: &[SymbolKind],
-    diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, SemanticCheckError> {
-    for symbol_entry in symbol_table.values() {
-        for declaration in symbol_entry.declarations().values() {
-            let declaration_kind = declaration.symbol_kind();
-
-            // 1. Filter out declarations that should be ignored (built-ins, specific kinds, etc.)
-            if skip_unused_symbol_declaration(declaration, context)?
-                || skip_symbols.iter().any(|kind| *kind == declaration_kind)
-            {
-                continue;
-            }
-
-            // 2. Validate against PDDL built-in keywords (e.g., 'object', 'number')
-            check_pddl_builtin_symbol_declaration(declaration, context, diagnostic_manager);
-
-            // 3. Verify if the declaration is actually used or logically bound
-            // We pass the entry and current declaration to the helper for clarity.
-            if !has_valid_usage(symbol_entry, declaration) {
-                let warning = Diagnostic::warning_unused_symbol(
-                    declaration.clone(),
-                    context.provider(),
-                    context.source(),
-                    declaration.span(),
-                );
-                diagnostic_manager.add_diagnostic(warning);
-            }
-        }
-    }
-
-    Ok(true)
-}*/
-
 pub fn check_unused_symbols(
     context: &CheckContext,
     symbol_table: &SymbolTable,
@@ -135,52 +98,6 @@ pub fn check_unused_symbols(
 
     Ok(true)
 }
-
-/*/// Determines if a specific symbol declaration has a valid usage or a logical binding.
-///
-/// A declaration is considered "used" if:
-/// 1. It is explicitly referenced elsewhere in the PDDL (e.g., in an action precondition).
-/// 2. It is a `Predicate` that is logically completed by a `DerivedPredicate` definition.
-///
-/// # Parameters
-/// - `entry`: The symbol table entry containing all declarations and usages for this identifier.
-/// - `declaration`: The specific declaration being checked for usage.
-fn has_valid_usage(entry: &SymbolEntry, declaration: &Declaration) -> bool {
-    let decl_kind = declaration.symbol_kind();
-    let decl_scope = declaration.scope();
-
-    // --- PART 1: EXPLICIT USAGE SEARCH ---
-    // Check if the symbol is consumed in the domain (e.g., in actions or effects).
-    for usage in entry.usages().values() {
-        let usage_kind = usage.symbol_kind();
-
-        // A usage matches if it occurs within a compatible (descendant) scope.
-        let scope_match = usage.scope().starts_with(decl_scope);
-
-        // And if the kind is identical or semantically compatible.
-        let kind_match =
-            usage_kind == decl_kind || decl_kind.can_share_name_space_with(&usage_kind);
-
-        if scope_match && kind_match {
-            return true;
-        }
-    }
-
-    // --- PART 2: SYMBOLIC BINDING LOGIC ---
-    // If no explicit usage was found, check if this is a Predicate "saved"
-    // by the existence of a matching Derived Predicate definition.
-    if decl_kind == SymbolKind::Predicate {
-        for other_decl in entry.declarations().values() {
-            if other_decl.symbol_kind() == SymbolKind::DerivedPredicate {
-                // The predicate is bound to a derived definition, so it is valid.
-                return true;
-            }
-        }
-    }
-
-    // If no explicit usage or binding is found, the declaration is unused.
-    false
-}*/
 
 /// Determines whether a declaration should be skipped during unused symbol checking.
 ///
@@ -309,26 +226,29 @@ fn check_pddl_builtin_symbol_declaration(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
     let requirements = context.declared_requirements();
-    let current_kind = declaration.symbol_kind();
 
-    // 1. On identifie si le nom est un mot-clé réservé selon les requirements
     let (expected_kind, reqs) = match declaration.symbol_ident() {
+        // "number" -> PrimitiveType
         SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&NumericFluents) => {
             (SymbolKind::PrimitiveType, vec![NumericFluents, Fluents])
         }
+        // "total-time" -> Function
         SymbolInterner::TOTAL_TIME_SYMBOL_ID if requirements.contains(&NumericFluents) => {
             (SymbolKind::Function, vec![NumericFluents, Fluents])
         }
+        // "total-cost" -> Function (Ajouté ici pour la protection)
+        SymbolInterner::TOTAL_COST_SYMBOL_ID if requirements.contains(&NumericFluents) => {
+            (SymbolKind::Function, vec![NumericFluents, Fluents])
+        }
+        // "?duration" -> Variable
         SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if requirements.contains(&DurativeActions) => {
             (SymbolKind::Variable, vec![DurativeActions])
         }
-        _ => return true, // Pas un mot-clé, on valide la déclaration
+        _ => return true, // Nom non réservé
     };
-
-    // 2. CAS A : Collision Directe (Genre identique)
-    // L'utilisateur essaie de déclarer "object" comme un "PrimitiveType".
-    // C'est ta stratégie : ERREUR car ça entre en conflit avec ta racine interne.
-    if current_kind == expected_kind {
+    // 3. SANCTION : Si l'utilisateur a déclaré le bon nom avec le bon genre (Collision)
+    // On l'interdit pour protéger la priorité de ton resolve_type_id / resolve_function_id.
+    if declaration.symbol_kind() == expected_kind {
         let error = Diagnostic::error_symbol_conflicts_with_keyword(
             declaration.clone(),
             expected_kind,
@@ -338,9 +258,8 @@ fn check_pddl_builtin_symbol_declaration(
             declaration.span().clone(),
         );
         diagnostic_manager.add_diagnostic(error);
-        return true; // On marque comme trouvé mais invalide
+        return true;
     }
-
     true
     // 3. CAS B : Usage Ambigu (Genre différent)
     // L'utilisateur déclare "object" comme "Constant".

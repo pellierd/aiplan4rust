@@ -87,10 +87,10 @@ pub fn check_cross_declared_symbols(
                 && declaration.origin() == SymbolOrigin::Problem
             {
                 // Check if there are any relevant domain declarations for this symbol
-                if has_relevant_domain_declarations(domain_symbol_table, symbol.ident()) {
+                if has_relevant_domain_declarations(domain_symbol_table, symbol.id()) {
                     // Retrieve all relevant domain declarations for this symbol
                     let domain_declarations =
-                        get_relevant_domain_declarations(domain_symbol_table, symbol.ident());
+                        get_relevant_domain_declarations(domain_symbol_table, symbol.id());
 
                     // On cherche s'il existe une déclaration dans le domaine qui NE PEUT PAS
                     // partager l'espace de noms avec la déclaration du problème.

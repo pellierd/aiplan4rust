@@ -141,7 +141,7 @@ fn collect_derived_links(
 
                 if let MatchResult::Match = match_result {
                     // Record the validated resolution link.
-                    global_links.push(DerivedLink::new(entry.ident(), *b_id, *d_id));
+                    global_links.push(DerivedLink::new(entry.id(), *b_id, *d_id));
 
                     // In PDDL, an axiom typically resolves to a single formal signature.
                     break;

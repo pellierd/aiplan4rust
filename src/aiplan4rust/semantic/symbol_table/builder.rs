@@ -28,6 +28,7 @@ use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOr
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
+use crate::aiplan4rust::syntax::ParseContext;
 use crate::aiplan4rust::tree::NodeRef;
 
 /// A builder for constructing a [`SymbolTable`] from an abstract syntax arena (AST).
@@ -369,7 +370,8 @@ impl SymbolTableBuilder {
         is_derived: bool,
     ) -> Result<(), SymbolTableError> {
         // Extract the symbol reference from the AST node ID.
-        // This retrieves symbol metadata such as the identifier name and kind.
+        // This retrieves s
+        // ymbol metadata such as the identifier name and kind.
         let node = ast.syntax_tree().try_node(node_ref.id())?;
         let mut symbol_ref = node.try_symbol()?;
 
@@ -915,7 +917,8 @@ impl SymbolTableBuilder {
     ) -> Result<(), SemanticError> {
         self.init_from_def(
             node_ref, ast, scope, true, // The definition includes a body
-        )
+        )?;
+        Ok(())
     }
 
     /// Initializes the symbol table for a method definition.
@@ -958,50 +961,40 @@ impl SymbolTableBuilder {
     ) -> Result<(), SemanticError> {
         self.init_from_def(
             node_ref, ast, scope, true, // Method definitions have a body
-        )
+        )?;
+        Ok(())
     }
 
-    /// Initializes the symbol table for a durative action definition.
+    /// Initializes a durative action definition and safely injects the implicit `?duration` variable.
     ///
-    /// This function verifies that the given AST node is of kind `DurativeActionDef`
-    /// and contains exactly three children representing the action's name, parameters, and body.
-    /// It processes these components to update the symbol table accordingly.
+    /// This method follows a prioritized initialization strategy:
+    /// 1. **Standard Initialization**: Calls `init_from_def` to process the action name,
+    ///    parameters, and requirements, returning the internal `action_scope`.
+    /// 2. **Shadowing Check**: Verifies if the user has already defined a parameter named
+    ///    `?duration`. If found, the injection is skipped to respect user-defined shadowing.
+    /// 3. **Type Resolution**: Resolves the `number` type ID. It prioritizes a user-defined
+    ///    `number` type from the domain but falls back to the internal [`ParseContext::NODE_ID_NUMBER`]
+    ///    if none exists.
+    /// 4. **Implicit Injection**: Registers the built-in `?duration` ([`ParseContext::NODE_ID_DURATION`])
+    ///    into the action's local scope with the resolved type information.
     ///
-    /// # Parameters
+    /// # Arguments
+    /// * `node_ref` - Reference to the AST node defining the durative action.
+    /// * `ast` - The full Abstract Syntax Tree.
+    /// * `scope` - The parent scope in which this action is defined (usually the global domain scope).
     ///
-    /// * `node_ref` — Reference to the AST node representing the durative action definition.
-    /// * `ast` — Reference to the AST arena containing all nodes.
-    /// * `scope` — The current scope in which the durative action is defined.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if the initialization completes successfully.
-    /// * `Err(SymbolTableError)` if the AST node kind or structure is invalid.
-    ///
-    /// # AST Structure
-    ///
-    /// The node is expected to have exactly three children:
-    /// 1. **Name** — The durative action's identifier, added as a declaration symbol.
-    /// 2. **Parameters** — The action parameters, recursively processed.
-    /// 3. **Body** — The action body, recursively processed.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// // Given `node_ref`, `ast`, and `scope`
-    /// symbol_table.init_from_durative_action_def(node_ref, &ast, scope)?;
-    /// ```
-    ///
-    /// This function delegates the main processing to `init_from_def`.
+    /// # Errors
+    /// Returns a [`SemanticError`] if the action name is already defined or if symbol
+    /// registration fails due to an unexpected structural error in the AST.
     fn init_from_durative_action_def(
         &mut self,
-        node_ref: &NodeRef<AstNode>,
+        node_ref: &NodeRef<AstNode>, // L'ID de l'action (ex: 479)
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SemanticError> {
-        self.init_from_def(
-            node_ref, ast, scope, true, // Durative actions have a body
-        )
+        // 1. Initialise l'action et récupère son scope interne
+        self.init_from_def(node_ref, ast, scope, true)?;
+        Ok(())
     }
 
     /// Initializes the symbol table for a task definition.
@@ -1044,7 +1037,8 @@ impl SymbolTableBuilder {
     ) -> Result<(), SemanticError> {
         self.init_from_def(
             node_ref, ast, scope, false, // Tasks do not have a body
-        )
+        )?;
+        Ok(())
     }
 
     /// Initializes a definition syntax node (e.g., `ActionDef`, `DurativeActionDef`, `MethodDef`, or `TaskDef`)
@@ -1093,7 +1087,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         has_body: bool,
-    ) -> Result<(), SemanticError> {
+    ) -> Result<Scope, SemanticError> {
         let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
@@ -1138,7 +1132,7 @@ impl SymbolTableBuilder {
             self.init_from(&body, ast, Scope::new(node_ref.id(), Some(&scope)))?;
         }
 
-        Ok(())
+        Ok(Scope::new(node_ref.id(), Some(&scope)))
     }
 
     /// Initializes the syntax state from an `AtomicFormula`, `FunctionTerm`, or `Task` AST syntax.
