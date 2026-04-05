@@ -68,7 +68,6 @@ pub mod context;
 pub mod error;
 
 pub mod passes;
-mod requirements;
 pub mod rules;
 pub mod signature_checker;
 /// Type checking module (internal, not publicly exposed).

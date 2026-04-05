@@ -33,12 +33,9 @@ use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::semantic::symbol_table::{
-    SymbolTableBuilder, SymbolTableError, SymbolTableOrigin,
-};
+use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
-use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::tree::NodeId;
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
@@ -429,37 +426,6 @@ impl RemapSymbol for SymbolTable {
 
         self.symbols = new_symbols;
         Ok(())
-    }
-}
-
-impl TryFrom<&Ast> for SymbolTable {
-    type Error = SemanticError;
-
-    /// Attempts to construct a `SymbolTable` from a reference to an abstract syntax tree (`Ast`).
-    ///
-    /// This method performs semantic analysis by building the symbol table from the given AST.
-    /// It leverages the `SymbolTableBuilder` internally to perform the construction.
-    ///
-    /// # Arguments
-    ///
-    /// * `ast` - A reference to the abstract syntax tree from which the symbol table is derived.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(SymbolTable)` if the symbol table is successfully built.
-    /// * `Err(SymbolTableError)` if any semantic or construction error occurs during the build process.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use std::convert::TryFrom;
-    ///
-    /// let ast = ...; // Assume you have an `Ast` instance
-    /// let symbol_table = SymbolTable::try_from(&ast)?;
-    /// ```
-    fn try_from(ast: &Ast) -> Result<Self, Self::Error> {
-        let mut builder = SymbolTableBuilder::new();
-        builder.build(ast)
     }
 }
 

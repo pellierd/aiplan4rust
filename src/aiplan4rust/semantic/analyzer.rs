@@ -60,10 +60,12 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
+use ahash::HashSetExt;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -192,21 +194,15 @@ impl Analyzer {
     /// # Errors
     ///
     /// Returns a `SemanticError` if the root node kind is not supported.
-    fn perform_analysis(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, SemanticError> {
-        // 1. Initialisation du contexte sémantique
-        let mut context = SemanticContext::try_from(ast)?;
+    pub fn perform_analysis(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, SemanticError> {
+        // 1. On récupère la racine pour l'aiguillage
+        let root_ref = ast.syntax_tree().try_root_node_ref()?;
 
-        let root_ref = context.syntax_tree().try_root_node_ref()?;
-
-        match root_ref.node().kind() {
-            AstKind::Domain => {
-                self.perform_domain_analysis(&mut context)?;
-            }
-
-            AstKind::Problem => {
-                self.perform_problem_analysis(&mut context)?;
-            }
-
+        // 2. Dispatch vers l'analyse spécifique qui créera le SemanticContext
+        // Note : On ajoute le ";" à la fin du match pour l'assignation
+        let context = match root_ref.node().kind() {
+            AstKind::Domain => self.perform_domain_analysis(ast)?,
+            AstKind::Problem => self.perform_problem_analysis(ast)?,
             found => {
                 return Err(SemanticError::unexpected_node_kind(
                     root_ref.id(),
@@ -214,21 +210,24 @@ impl Analyzer {
                     found,
                 ));
             }
-        }
+        };
 
-        // --- ÉTAPE 4 : CONSTRUCTION DU RÉSULTAT FINAL ---
-        if !self
+        // 3. Détermination du succès/échec via les diagnostics accumulés
+        let has_errors = self
             .diagnostic_manager
-            .has_diagnostics_of_severity(Severity::Error)
-        {
+            .has_diagnostics_of_severity(Severity::Error);
+
+        // 4. Construction du résultat final
+        if !has_errors {
             Ok(AnalyzerResult::success(
                 context,
                 std::mem::take(&mut self.diagnostic_manager),
             ))
         } else {
+            // En cas d'échec, on extrait l'interner du contexte pour le rendre au moteur
             Ok(AnalyzerResult::failure(
                 std::mem::take(&mut self.diagnostic_manager),
-                context.take_interner(),
+                ast.take_interner(),
             ))
         }
     }
@@ -248,152 +247,103 @@ impl Analyzer {
     /// 4. Validation avancée (expressions typées, signatures).
     pub fn perform_domain_analysis(
         &mut self,
-        context: &mut SemanticContext,
-    ) -> Result<bool, SemanticError> {
-        // --- ÉTAPE 0 : PRÉPARATION DU SYSTÈME DE TYPES ---
-        let type_hierarchy = context.symbol_table().to_type_hierarchy();
-        let type_checker = TypeChecker::new(&type_hierarchy);
-        let mut symbol_table = std::mem::take(context.symbol_table_mut());
+        ast: &mut Ast,
+    ) -> Result<SemanticContext, SemanticError> {
+        // --- ÉTAPE 0 : INITIALISATION DES VARIABLES LOCALES ---
+        // On garde tout en local pour pouvoir prêter (&mut) librement avant l'emballage final
+        let mut symbol_table = passes::symbol_table_extraction(ast)?;
+        let mut required = std::collections::HashSet::new();
+        let mut triggers = std::collections::HashMap::new();
 
-        // Contexte initial pour les vérifications de structure de base
-        let mut check_ctx = CheckContext::new(
-            context.syntax_tree(),
-            context.interner(),
-            context.source(),
+        let type_hierarchy = symbol_table.to_type_hierarchy();
+        let type_checker = TypeChecker::new(&type_hierarchy);
+        let declared_requirements = passes::extract_declared_requirements(ast.syntax_tree())?;
+
+        // Contexte de vérification temporaire (utilise les refs de l'AST encore plein)
+        let mut required1 = std::collections::HashSet::new();
+        let mut triggers1 = std::collections::HashMap::new();
+        let check_ctx = CheckContext::new(
+            ast.syntax_tree(),
+            ast.interner(),
+            ast.source_id(),
             Provider::Analyzer,
-            context.declared_requirements(),
-            context.required_requirements(),
-            context.requirement_triggers(),
+            &declared_requirements,
+            &required1,
+            &triggers1,
         );
 
-        // --- ÉTAPE 1 : VALIDATION DE LA HIÉRARCHIE & DÉCLARATIONS ---
-        // On vérifie que les types et les symboles sont déclarés sans doublons/conflits
-        if !semantic::checks::check_type_hierarchy(
+        // --- ÉTAPE 1 : VALIDATIONS INITIALES ---
+        // Si ces étapes échouent, on s'arrête mais on passera quand même par le "Final Packing"
+        let mut can_continue = semantic::checks::check_type_hierarchy(
             &check_ctx,
             &mut symbol_table,
             &mut self.diagnostic_manager,
-        )? || !semantic::checks::check_symbol_declarations(
+        )? && semantic::checks::check_symbol_declarations(
             &check_ctx,
             &mut symbol_table,
             &mut self.diagnostic_manager,
-        )? {
-            context.set_symbol_table(symbol_table);
-            return Ok(false);
+        )?;
+
+        if can_continue {
+            // --- ÉTAPE 2 : RÉSOLUTION & LIAISON ---
+            let pass_context = PassContext::new(
+                ast.syntax_tree(),
+                ast.interner(),
+                ast.source_id(),
+                Provider::Analyzer,
+            );
+
+            passes::resolve_symbols(&pass_context, &mut symbol_table, Some(&type_checker), None)?;
+            passes::resolve_derived_predicates(
+                &pass_context,
+                &mut symbol_table,
+                Some(&type_checker),
+                None,
+            )?;
+
+            // --- ÉTAPE 3 : ANALYSES POST-RÉSOLUTION ---
+            let _ = semantic::checks::check_symbol_usage(
+                &check_ctx,
+                &symbol_table,
+                &[],
+                &mut self.diagnostic_manager,
+            )?;
+
+            // Extraction des requirements (besoin de la table résolue)
+            required = passes::extract_required_requirements(
+                ast.syntax_tree(),
+                &symbol_table,
+                &mut triggers,
+                ast.interner(),
+            )?;
+
+            // --- ÉTAPE 4 : VÉRIFICATIONS AVANCÉES ---
+            semantic::checks::check_typed_expressions(
+                &check_ctx,
+                &mut symbol_table,
+                &type_checker,
+                &mut self.diagnostic_manager,
+            )?;
+            semantic::checks::check_task_ordering(&check_ctx, &mut self.diagnostic_manager)?;
+            semantic::checks::check_requirements(&check_ctx, &mut self.diagnostic_manager)?;
         }
 
-        // --- ÉTAPE 2 : RÉSOLUTION (LE VISSAGE) ---
-        let pass_context = context.as_pass_context(Provider::Analyzer);
-        // On lie les usages des symboles aux déclarations trouvées à l'étape 1
-        passes::resolve_symbols(&pass_context, &mut symbol_table, Some(&type_checker), None)?;
-
-        passes::resolve_derived_predicates(
-            &pass_context,
-            &mut symbol_table,
-            Some(&type_checker),
-            None,
+        // --- ÉTAPE FINALE : LE "PACKING" (EMBALLAGE) ---
+        // On arrive ICI quoi qu'il arrive (sauf erreur fatale 'Err').
+        // On vide l'AST (take) pour remplir le contexte.
+        let mut context = SemanticContext::new(
+            ast.take_syntax_tree(),
+            ast.source_id(),
+            symbol_table,
+            ast.take_interner(), // L'interner est transféré ici
+            std::time::SystemTime::now(),
         )?;
 
-        // --- ÉTAPE 3 : VÉRIFICATIONS DE COHÉRENCE DE BASE ---
-        let mut checked = semantic::checks::check_symbol_usage(
-            &check_ctx,
-            &symbol_table,
-            &[],
-            &mut self.diagnostic_manager,
-        )?;
-
-        checked &= semantic::checks::check_unused_symbols(
-            &check_ctx,
-            &mut symbol_table, // Utilise maintenant la version immuable optimisée
-            &[SymbolKind::Constant],
-            &mut self.diagnostic_manager,
-        )?;
-
-        checked &= semantic::checks::check_symbol_types(
-            &check_ctx,
-            &mut symbol_table,
-            &type_hierarchy,
-            &mut self.diagnostic_manager,
-        )?;
-
-        if !checked {
-            context.set_symbol_table(symbol_table);
-            return Ok(false);
-        }
-
-        // --- ÉTAPE 4 : INFÉRENCE DES REQUIREMENTS ---
-        // La table est résolue, on peut extraire précisément ce que le domaine utilise
-        let mut triggers = std::collections::HashMap::new();
-        let required = semantic::requirements::extract_required_requirements(
-            context.syntax_tree(),
-            &symbol_table,
-            &mut triggers,
-            context.interner(),
-        )?;
-
-        // Mise à jour du contexte sémantique global
+        // On injecte les métadonnées récoltées
         context.set_required_requirements(required);
         context.set_requirement_triggers(triggers);
 
-        // Mise à jour de check_ctx pour les étapes suivantes (indispensable pour check_requirements)
-        check_ctx = CheckContext::new(
-            context.syntax_tree(),
-            context.interner(),
-            context.source(),
-            Provider::Analyzer,
-            context.declared_requirements(),
-            context.required_requirements(),
-            context.requirement_triggers(),
-        );
-
-        // --- ÉTAPE 5 : OPTIMISATION DE LA TABLE DES SYMBOLES ---
-        /*let changes = {
-            let pass_ctx =
-                PassContext::new(context.interner(), context.source(), Provider::Analyzer);
-            finalization::symbol_table::finalize(
-                &pass_ctx,
-                &type_checker,
-                &mut symbol_table,
-                &mut self.diagnostic_manager,
-            )?
-        };*/
-
-        // --- ÉTAPE 6 : VALIDATIONS AVANCÉES (LOGIQUE & EXPRESSIONS) ---
-        // On effectue ici les tests qui nécessitent une table consolidée et résolue
-        let mut advanced_checked = true;
-
-        // A. Prédicats dérivés (axiomes)
-        /*advanced_checked &= semantic::checks::check_derived_predicates(
-            &check_ctx,
-            &mut symbol_table,
-            &type_checker,
-            &mut self.diagnostic_manager,
-        )?;*/
-
-        // B. Vérification profonde des expressions (Arena-based AST)
-        advanced_checked &= semantic::checks::check_typed_expressions(
-            &check_ctx,
-            &mut symbol_table,
-            &type_checker,
-            &mut self.diagnostic_manager,
-        )?;
-
-        // C. Contraintes d'ordonnancement (HTN / Temporel)
-        advanced_checked &=
-            semantic::checks::check_task_ordering(&check_ctx, &mut self.diagnostic_manager)?;
-
-        // D. Vérification finale des violations de requirements
-        // (Ex: utilisation de fluents sans les avoir déclarés dans :requirements)
-        semantic::checks::check_requirements(&check_ctx, &mut self.diagnostic_manager)?;
-
-        // --- ÉTAPE 7 : FINALISATION ---
-        context.set_symbol_table(symbol_table);
-
-        // Si des mutations AST ont été générées par les finalization, on les applique
-        /*if !changes.is_empty() {
-            finalization::ast::finalize(context, &changes)?;
-        }*/
-
-        Ok(advanced_checked)
+        Ok(context)
     }
 
     /// Checks the problem part of the syntax arena with problem-specific semantic validations.
@@ -408,38 +358,44 @@ impl Analyzer {
     ///
     /// `Ok(true)` if checks pass, `Ok(false)` if errors are found,
     /// or `Err(SemanticError)` if internal errors occur.
-    fn perform_problem_analysis(
+    pub fn perform_problem_analysis(
         &mut self,
-        context: &mut SemanticContext,
-    ) -> Result<bool, SemanticError> {
-        // 1. Définition des filtres pour le problème
-        // On ignore ce qui appartient au Domaine car le Linker n'est pas encore passé.
+        ast: &mut Ast,
+    ) -> Result<SemanticContext, SemanticError> {
+        // --- ÉTAPE 0 : INITIALISATION DES VARIABLES LOCALES ---
+        // On garde tout en local pour pouvoir prêter (&mut) librement
+        let mut symbol_table = passes::symbol_table_extraction(ast)?;
+        let mut declared = std::collections::HashSet::new();
+        let mut required = std::collections::HashSet::new();
+        let mut triggers = std::collections::HashMap::new();
 
-        // 2. Extraction de la table pour manipulation libre
-        let mut symbol_table = std::mem::take(context.symbol_table_mut());
+        // Contexte de vérification temporaire (tant que l'AST est encore dans 'ast')
+        let check_ctx = CheckContext::new(
+            ast.syntax_tree(),
+            ast.interner(),
+            ast.source_id(),
+            Provider::Analyzer,
+            &declared,
+            &required,
+            &triggers,
+        );
 
-        // 3. Préparation du contexte de vérification immuable
-        let check_context = context.as_check_context(Provider::Analyzer);
-        let ast = check_context.syntax_tree();
+        // --- ÉTAPE 1 : RÉSOLUTION & LIAISON ---
+        let pass_context = PassContext::new(
+            ast.syntax_tree(),
+            ast.interner(),
+            ast.source_id(),
+            Provider::Analyzer,
+        );
 
-        // --- ÉTAPE 4 : RÉSOLUTION (LE VISSAGE) ---
-        // On lance le resolver sans TypeChecker et sans DomainTable.
-        // Cela va lier les Objects et les Variables locaux.
-
-        let pass_context = context.as_pass_context(Provider::Analyzer);
+        // Résolution locale (Objets, Variables du problème)
         passes::resolve_symbols(&pass_context, &mut symbol_table, None, None)?;
 
-        /*println!(
-            "PROBLEM {}",
-            symbol_table.to_string_with_interner(context.interner())
-        );*/
-
-        // --- ÉTAPE 5 : VALIDATIONS SÉMANTIQUES ---
-        let mut checked = true;
-
-        // A. Vérification des déclarations (doublons, noms invalides)
-        checked &= semantic::checks::check_symbol_declarations(
-            &check_context,
+        // --- ÉTAPE 2 : VALIDATIONS SÉMANTIQUES ---
+        // Note: on utilise des variables pour suivre l'état si besoin,
+        // mais les diagnostics sont poussés dans self.diagnostic_manager
+        let mut _checked = semantic::checks::check_symbol_declarations(
+            &check_ctx,
             &mut symbol_table,
             &mut self.diagnostic_manager,
         )?;
@@ -451,29 +407,38 @@ impl Analyzer {
             SymbolKind::Function,
             SymbolKind::Task,
         ];
-        // B. Vérification des symboles non déclarés (C'est ici que s#22 est validé !)
-        checked &= semantic::checks::check_symbol_usage(
-            &check_context,
+
+        _checked &= semantic::checks::check_symbol_usage(
+            &check_ctx,
             &symbol_table,
             skip_types_undeclared,
             &mut self.diagnostic_manager,
         )?;
 
-        // C. Vérification des symboles inutilisés
-        checked &= semantic::checks::check_unused_symbols(
-            &check_context,
+        _checked &= semantic::checks::check_unused_symbols(
+            &check_ctx,
             &mut symbol_table,
-            &[], // On peut choisir de ne rien skipper ici ou d'ajouter des filtres
+            &[],
             &mut self.diagnostic_manager,
         )?;
 
-        // D. Vérification spécifique à l'ordonnancement des tâches (HTN)
-        checked &=
-            semantic::checks::check_task_ordering(&check_context, &mut self.diagnostic_manager)?;
+        _checked &=
+            semantic::checks::check_task_ordering(&check_ctx, &mut self.diagnostic_manager)?;
 
-        // 6. Réinsertion de la table complétée dans le contexte
-        context.set_symbol_table(symbol_table);
+        // --- ÉTAPE FINALE : LE "PACKING" ---
+        // C'est ici qu'on transfère l'ownership de l'AST et de l'Interner
+        let mut context = SemanticContext::new(
+            ast.take_syntax_tree(),
+            ast.source_id(),
+            symbol_table,
+            ast.take_interner(),
+            std::time::SystemTime::now(),
+        )?;
 
-        Ok(checked)
+        // On injecte les métadonnées (même si vides pour un problème au début)
+        context.set_required_requirements(required);
+        context.set_requirement_triggers(triggers);
+
+        Ok(context)
     }
 }

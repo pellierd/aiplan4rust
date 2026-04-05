@@ -53,9 +53,9 @@
 
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, Requirement, SymbolId};
-use crate::aiplan4rust::semantic::{requirements, SemanticError, SymbolTable};
+use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, Tree};
 
 use crate::aiplan4rust::diagnostic::Provider;
@@ -154,7 +154,7 @@ impl Context {
     /// # Note
     /// In debug builds, this function calls `check_invariant` to ensure the tree root
     /// is a valid PDDL domain or problem. This check is omitted in release builds for performance.
-    fn new(
+    pub(crate) fn new(
         syntax_tree: Tree<AstNode>,
         source_id: LiteralId,
         symbol_table: SymbolTable,
@@ -165,19 +165,10 @@ impl Context {
         #[cfg(debug_assertions)]
         Self::check_invariant(&syntax_tree)?;
 
-        // Collect declared and required requirements
-        let declared_requirements = requirements::extract_declared_requirements(&syntax_tree)?;
-        /*let mut required_requirements_trigger = HashMap::new();
-        let required_requirements = requirements::extract_required_requirements(
-            &syntax_tree,
-            &symbol_table,
-            &mut required_requirements_trigger,
-        )?;*/
-
         Ok(Self {
             syntax_tree,
             source: source_id,
-            declared_requirements,
+            declared_requirements: HashSet::new(),
             required_requirements: HashSet::new(),
             required_requirements_trigger: HashMap::new(),
             symbol_table,
@@ -602,46 +593,6 @@ impl fmt::Display for Context {
         writeln!(f, "\nSymbol Table:\n{}", self.symbol_table)?;
 
         Ok(())
-    }
-}
-
-impl TryFrom<&mut Ast> for Context {
-    type Error = SemanticError;
-
-    /// Attempts to create a semantic context by annotating a mutable AST reference.
-    ///
-    /// This process builds the symbol table, extracts semantic requirements,
-    /// takes ownership of the AST arena and string interner, and sets the
-    /// current time as the generation timestamp.
-    ///
-    /// # Arguments
-    /// - `ast`: A mutable reference to the AST to annotate.
-    ///
-    /// # Returns
-    /// - `Ok(Context)` if successful.
-    /// - `Err(SemanticError)` if any semantic error occurs during annotation.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::convert::TryFrom;
-    /// use aiplan4rust::semantic::Context;
-    ///
-    /// let mut ast = ...; // Previously parsed AST
-    /// let context = Context::try_from(&mut ast)?;
-    /// ```
-    fn try_from(ast: &mut Ast) -> Result<Self, Self::Error> {
-        let symbol_table = SymbolTable::try_from(&*ast)?;
-        let syntax_tree = ast.take_syntax_tree();
-        let interner = ast.take_interner();
-
-        Ok(Context::new(
-            syntax_tree,
-            ast.source_id(),
-            symbol_table,
-            interner,
-            SystemTime::now(),
-        )?)
     }
 }
 

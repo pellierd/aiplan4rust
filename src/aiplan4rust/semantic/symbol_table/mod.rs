@@ -7,7 +7,7 @@
 //!
 //! # Structure
 //!
-//! - [`builder`] — Facilities to construct symbol tables from an AST.
+//! - [`symbol_table_extraction`] — Facilities to construct symbol tables from an AST.
 //! - [`table`] — Core definition of the [`SymbolTable`] structure, which stores and resolves symbols.
 //! - [`origin`] — Tracks the provenance of a symbol table, e.g., domain/problem/merged.
 //! - [`error`] — Custom error types used throughout symbol table ops.
@@ -30,7 +30,6 @@
 //! Internal usage (not public API):
 //! - `SymbolTableBuilder` is exposed internally for constructing symbol tables.
 
-pub mod builder;
 mod collection;
 pub mod entry;
 pub mod error;
@@ -46,10 +45,7 @@ pub use table::Table as SymbolTable;
 pub use error::SymbolTableError;
 
 
+use crate::aiplan4rust::semantic::passes::symbol_table_extraction;
+
 /// Describes the origin of the symbol table (domain/problem/merged).
 pub use origin::Origin as SymbolTableOrigin;
-
-
-/// Internal builder used to construct symbol tables from AST.
-/// Not part of the public API.
-pub(crate) use builder::SymbolTableBuilder;
