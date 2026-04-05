@@ -330,15 +330,6 @@ pub fn perform_linking_checks(
         Some(domain_table),
     )?;
 
-    /*println!(
-        "DOMAIN\n{}",
-        domain_table.to_string_with_interner(domain.interner())
-    );*/
-    /*println!(
-        "PROBLEM:\n{}",
-        problem_table.to_string_with_interner(problem.interner())
-    );*/
-
     // 1. Vérification de base : Nom du domaine
     linking::checks::check_domain_name(
         domain,
@@ -393,12 +384,8 @@ pub fn perform_linking_checks(
 
         // Extraction des requirements (besoin de la table résolue)
         let mut triggers = HashMap::new();
-        let required = passes::extract_required_requirements(
-            problem.syntax_tree(),
-            problem_table,
-            &mut triggers,
-            problem.interner(),
-        )?;
+        let required =
+            passes::extract_required_requirements(&pass_context, problem_table, &mut triggers)?;
         semantic::checks::check_requirements(&problem, &triggers, diagnostic_manager)?;
     }
 

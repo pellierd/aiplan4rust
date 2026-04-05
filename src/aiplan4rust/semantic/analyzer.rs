@@ -249,12 +249,19 @@ impl Analyzer {
         &mut self,
         ast: &mut Ast,
     ) -> Result<SemanticContext, SemanticError> {
+        let pass_ctx = PassContext::new(
+            ast.syntax_tree(),
+            ast.interner(),
+            ast.source_id(),
+            Provider::Analyzer,
+        );
+
         // =========================================================================
         // 1. INITIAL EXTRACTION & CONTEXT SETUP
         // =========================================================================
         // Build the initial symbol table and identify declared requirements.
         let mut symbol_table = passes::extract_symbol_table(ast)?;
-        let declared_reqs = passes::extract_declared_requirements(ast.syntax_tree())?;
+        let declared_reqs = passes::extract_declared_requirements(&pass_ctx)?;
 
         // Setup the specialized contexts for checking and transformation.
         let check_ctx = CheckContext::new(
@@ -263,13 +270,6 @@ impl Analyzer {
             ast.source_id(),
             Provider::Analyzer,
             &declared_reqs,
-        );
-
-        let pass_ctx = PassContext::new(
-            ast.syntax_tree(),
-            ast.interner(),
-            ast.source_id(),
-            Provider::Analyzer,
         );
 
         // =========================================================================
@@ -324,10 +324,9 @@ impl Analyzer {
             // --- Requirement Inference ---
             // Determine which requirements are actually used in the domain logic.
             inferred_required = passes::extract_required_requirements(
-                ast.syntax_tree(),
+                &pass_ctx,
                 &symbol_table,
                 &mut requirement_triggers,
-                ast.interner(),
             )?;
 
             // Final consistency check (declared vs. detected requirements).

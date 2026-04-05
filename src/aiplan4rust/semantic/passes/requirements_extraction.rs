@@ -21,6 +21,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{AssignOp, CompareOp, Requirement, SymbolId};
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent, Tree};
@@ -44,9 +45,10 @@ use std::collections::{HashMap, HashSet};
 /// # Errors
 /// Returns a [`SemanticError`] if tree traversal fails or nodes are unreachable.
 pub fn extract_declared_requirements(
-    syntax_tree: &Tree<AstNode>,
+    context: &PassContext,
 ) -> Result<HashSet<Requirement>, SemanticError> {
     let mut requirements = HashSet::new();
+    let syntax_tree = context.syntax_tree();
 
     // Find the first RequireDef node (the :requirements section)
     let mut requirement_def_node = None;
@@ -111,12 +113,12 @@ pub fn extract_declared_requirements(
 /// If no specialized features are detected, the function returns a set containing
 /// only `Requirement::Strips` as the baseline capability.
 pub fn extract_required_requirements(
-    syntax_tree: &Tree<AstNode>,
+    context: &PassContext,
     symbol_table: &SymbolTable,
     triggers: &mut HashMap<Requirement, Vec<NodeId>>,
-    interner: &SymbolInterner,
 ) -> Result<HashSet<Requirement>, SemanticError> {
     let mut required: HashSet<Requirement> = HashSet::new();
+    let syntax_tree = context.syntax_tree();
 
     // INTERNAL MACRO: Tracks feature usage by simultaneously updating the set of
     // required capabilities and mapping the specific NodeId that triggered the need.
@@ -273,13 +275,6 @@ pub fn extract_required_requirements(
                                             add_req!(Requirement::NumericFluents, *typed_item_id);
                                         }
                                     }
-                                } else {
-                                    // Log de secours si la table n'a vraiment pas indexé ce nœud
-                                    let name = interner.resolve_symbol(sym_id).unwrap_or("unknown");
-                                    eprintln!(
-                                        "WARNING: Déclaration non indexée pour '{}' au nœud {:?}",
-                                        name, s_node_id
-                                    );
                                 }
                             }
                         }
