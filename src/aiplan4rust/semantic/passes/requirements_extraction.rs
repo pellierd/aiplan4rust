@@ -141,7 +141,9 @@ pub fn extract_required_requirements(
     // - 'depth': Vertical position in the tree hierarchy.
     // - 'is_last': Boolean flag indicating if this is the final child of its parent.
     // - 'node': The AST node data currently being visited.
-    for (id, depth, is_last, node) in syntax_tree.preorder() {
+    let mut iter = syntax_tree.preorder();
+
+    while let Some((id, depth, is_last, node)) = iter.next() {
         // --- 1. EXIT GOAL DESCRIPTION (GD) CONTEXT ---
         // If the current traversal depth is less than or equal to the recorded depth
         // of the GD start, we have moved out of the logical scope and must reset the flag.
@@ -378,16 +380,6 @@ pub fn extract_required_requirements(
                 // Record the need for durative action support based on the detected
                 // temporal syntax or keyword.
                 add_req!(Requirement::DurativeActions, id);
-            }
-
-            // --- :timed-initial-literals ---
-            // This requirement is triggered by the presence of facts that become true
-            // at specific time points in the initial state (e.g., (at 10 (sun-rises))).
-            AstKind::TimedInitialLiteral => {
-                // Record the requirement for Timed Initial Literals.
-                // Note: While this often appears in domains with Durative Actions,
-                // it is technically a distinct requirement for the problem file.
-                add_req!(Requirement::TimedInitialLiterals, id);
             }
 
             // --- :hierarchy / :htn ---
@@ -672,9 +664,26 @@ pub fn extract_required_requirements(
                 }
             }
 
+            AstKind::Init => {
+                continue;
+            }
+
+            // --- :timed-initial-literals ---
+            // This requirement is triggered by the presence of facts that become true
+            // at specific time points in the initial state (e.g., (at 10 (sun-rises))).
+            AstKind::TimedInitialLiteral => {
+                // Record the requirement for Timed Initial Literals.
+                // Note: While this often appears in domains with Durative Actions,
+                // it is technically a distinct requirement for the problem file.
+                add_req!(Requirement::TimedInitialLiterals, id);
+            }
+
+            AstKind::AtomicFormula | AstKind::AtomicFormulaSkeleton | AstKind::ObjectsDef => {
+                iter.skip_subtree();
+            }
+
             // These nodes do not imply a requirement
-            AstKind::ObjectsDef
-            | AstKind::Domain
+            AstKind::Domain
             | AstKind::DomainName
             | AstKind::ProblemName
             | AstKind::PredicateSymbol
@@ -686,17 +695,14 @@ pub fn extract_required_requirements(
             | AstKind::TypedItemElements
             | AstKind::Problem
             | AstKind::PredicatesDef
-            | AstKind::AtomicFormulaSkeleton
             | AstKind::ActionDef
             | AstKind::ParametersDef
             | AstKind::ActionDefBody
             | AstKind::PreconditionDef
             | AstKind::EffectDef
-            | AstKind::AtomicFormula
             | AstKind::And
             | AstKind::Object
             | AstKind::Variable
-            | AstKind::Init
             | AstKind::Goal
             | AstKind::Length
             | AstKind::Serial
@@ -707,6 +713,7 @@ pub fn extract_required_requirements(
             | AstKind::Function
             | AstKind::FunctionSymbol
             | AstKind::AtomicFunctionSkeleton => {
+
                 // No requirement associated
             }
         }

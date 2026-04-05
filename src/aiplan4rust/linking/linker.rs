@@ -30,7 +30,6 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
 use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
@@ -317,13 +316,6 @@ pub fn perform_linking_checks(
     let mut check =
         semantic::checks::check_symbol_usage(problem, problem_table, &[], diagnostic_manager)?;
 
-    /*let mut check = linking::checks::check_unresolved_usages(
-        problem_table,
-        domain_table,
-        problem,
-        diagnostic_manager,
-    );*/
-
     // 2. On vérifie que les types utilisés dans le PROBLÈME existent dans le DOMAINE
     // On réutilise la fonction du domaine !
     check = semantic::checks::check_symbol_types(
@@ -358,10 +350,10 @@ pub fn perform_linking_checks(
         semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
 
         // Extraction des requirements (besoin de la table résolue)
-        let mut triggers = HashMap::new();
+        /* let mut triggers = HashMap::new();
         let required =
             passes::extract_required_requirements(&pass_context, problem_table, &mut triggers)?;
-        semantic::checks::check_requirements(&problem, &triggers, diagnostic_manager)?;
+        semantic::checks::check_requirements(&problem, &triggers, diagnostic_manager)?;*/
     }
 
     Ok(check)

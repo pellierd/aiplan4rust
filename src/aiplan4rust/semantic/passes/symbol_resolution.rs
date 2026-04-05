@@ -345,6 +345,7 @@ fn find_domain_proxy(entry: &SymbolEntry, proxy_source: NodeId) -> Option<NodeId
     // No matching proxy found
     None
 }
+
 /// Utility function for resolving symbols within the global Domain (external) context.
 ///
 /// If a matching declaration is found in the domain, it returns a `Resolution::Domain`
