@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::Requirement::{DurativeActions, Fluents, NumericFluents};
+use crate::aiplan4rust::lang::Requirement::{DurativeActions, NumericFluents};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
 use crate::aiplan4rust::semantic::SemanticError;
@@ -83,9 +83,6 @@ pub fn check_unused_symbols(
                 println!("\x1b[1;31m[!] Trop de symboles inutilisés dans ce fichier. Arrêt de l'analyse.\x1b[0m");
                 return Ok(true); // On retourne Ok(true) car l'analyse est finie (même si tronquée)
             }
-
-            // 4. TRAVAIL LOURD (Seulement pour les 100 premiers)
-            check_pddl_builtin_symbol_declaration(declaration, context, diagnostic_manager);
 
             diagnostic_manager.add_diagnostic(Diagnostic::warning_unused_symbol(
                 declaration.clone(),
@@ -179,110 +176,6 @@ fn skip_unused_symbol_declaration(
     }
 
     Ok(false)
-}
-
-/// Validates whether a symbol declaration conflicts with PDDL reserved built-in symbols.
-///
-/// This function identifies if a declaration uses a reserved identifier (such as `object`,
-/// `number`, or `total-time`) based on the domain's active requirements. It then
-/// determines the severity of the overlap:
-///
-/// 1. **Direct Collision**: The declaration uses the same name and the same [`SymbolKind`]
-///    as the built-in (e.g., declaring `object` as a `PrimitiveType`). This is treated as
-///    an **Error**.
-/// 2. **Ambiguous Usage**: The declaration uses a reserved name but with a different,
-///    yet compatible [`SymbolKind`] (e.g., declaring `object` as a `Constant`).
-///    This is treated as a **Warning**.
-/// 3. **Namespace Conflict**: The declaration uses a reserved name with an incompatible
-///    kind. This is treated as a validation failure.
-///
-/// # Parameters
-///
-/// - `declaration`: A reference to the [`Declaration`] being validated.
-/// - `context`: The [`CheckContext`] providing access to PDDL requirements,
-///   the symbol interner, and diagnostic metadata.
-/// - `diagnostic_manager`: A mutable reference to the [`DiagnosticManager`] for
-///   recording errors and warnings.
-///
-/// # Returns
-///
-/// - `true`: If a conflict was identified and handled (even if it resulted in an error/warning).
-///   This signal typically stops further standard validation for this specific symbol.
-/// - `false`: If no recognized built-in keyword was matched, or if the conflict is
-///   not considered a "keyword collision" requiring special diagnostics.
-///
-/// # Diagnostics
-///
-/// - **Error**: Emitted when a reserved keyword is re-declared with its native kind.
-/// - **Warning**: Emitted when a reserved keyword is used for a different but compatible
-///   namespace (as defined by `can_share_name_space_with`).
-///
-/// [`CheckContext`]: crate::semantics::CheckContext
-/// [`Declaration`]: crate::semantics::Declaration
-/// [`SymbolKind`]: crate::semantics::SymbolKind
-fn check_pddl_builtin_symbol_declaration(
-    declaration: &Declaration,
-    context: &CheckContext,
-    diagnostic_manager: &mut DiagnosticManager,
-) -> bool {
-    let requirements = context.declared_requirements();
-
-    let (expected_kind, reqs) = match declaration.symbol_ident() {
-        // "number" -> PrimitiveType
-        SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&NumericFluents) => {
-            (SymbolKind::PrimitiveType, vec![NumericFluents, Fluents])
-        }
-        // "total-time" -> Function
-        SymbolInterner::TOTAL_TIME_SYMBOL_ID if requirements.contains(&NumericFluents) => {
-            (SymbolKind::Function, vec![NumericFluents, Fluents])
-        }
-        // "total-cost" -> Function (Ajouté ici pour la protection)
-        SymbolInterner::TOTAL_COST_SYMBOL_ID if requirements.contains(&NumericFluents) => {
-            (SymbolKind::Function, vec![NumericFluents, Fluents])
-        }
-        // "?duration" -> Variable
-        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if requirements.contains(&DurativeActions) => {
-            (SymbolKind::Variable, vec![DurativeActions])
-        }
-        _ => return true, // Nom non réservé
-    };
-    // 3. SANCTION : Si l'utilisateur a déclaré le bon nom avec le bon genre (Collision)
-    // On l'interdit pour protéger la priorité de ton resolve_type_id / resolve_function_id.
-    if declaration.symbol_kind() == expected_kind {
-        let error = Diagnostic::error_symbol_conflicts_with_keyword(
-            declaration.clone(),
-            expected_kind,
-            reqs,
-            context.provider(),
-            context.source(),
-            declaration.span().clone(),
-        );
-        diagnostic_manager.add_diagnostic(error);
-        return true;
-    }
-    true
-    // 3. CAS B : Usage Ambigu (Genre différent)
-    // L'utilisateur déclare "object" comme "Constant".
-    // On vérifie si notre nouvelle stratégie autorise ce partage.
-    /*if current_kind.can_share_name_space_with(&expected_kind) {
-        // C'est autorisé (ex: Constant vs Type), mais c'est risqué.
-        // -> WARNING (ton ancienne stratégie d'ambiguïté)
-        let warning = Diagnostic::warning_symbol_declared_ambiguously_as_keyword(
-            declaration.clone(),
-            expected_kind,
-            reqs,
-            context.provider(),
-            context.source(),
-            declaration.span(),
-        );
-        diagnostic_manager.add_diagnostic(warning);
-        false
-    } else {
-        // CAS C : Conflit Radical (ex: Variable nommée "object")
-        // Ce n'est pas autorisé par can_share_name_space_with.
-        // On pourrait ici mettre une erreur plus grave ou rester sur le warning.
-        false
-    }*/
 }
 
 /// Checks if the given `scope` contains at least one AST node of the specified `kind`.

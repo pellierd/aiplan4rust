@@ -4,41 +4,57 @@ use crate::aiplan4rust::semantic::symbol::{
     Declaration, Filterable, Scope, SymbolEntry, SymbolKind,
 };
 
+/// Version 1 : Comparaison de deux déclarations existantes
 pub fn can_share_namespace(existing: &Declaration, new: &Declaration) -> bool {
-    let kind_a = existing.symbol_kind();
-    let kind_b = new.symbol_kind();
+    check_namespace_compatibility(
+        existing.symbol_kind(),
+        existing.is_derived(),
+        new.symbol_kind(),
+        new.is_derived(),
+    )
+}
 
-    // 1. CAS DES TYPES IDENTIQUES (ex: Predicate vs Predicate)
+/// Version 2 : Vérification d'une déclaration par rapport à un genre attendu
+/// (Utile pour ton besoin actuel)
+pub fn can_kind_share_namespace(
+    existing_kind: SymbolKind,
+    existing_is_derived: bool,
+    expected_kind: SymbolKind,
+) -> bool {
+    // On part du principe que le 'expected_kind' n'est pas encore
+    // une déclaration dérivée (is_derived = false par défaut)
+    check_namespace_compatibility(existing_kind, existing_is_derived, expected_kind, false)
+}
+
+fn check_namespace_compatibility(
+    kind_a: SymbolKind,
+    is_derived_a: bool,
+    kind_b: SymbolKind,
+    is_derived_b: bool,
+) -> bool {
+    // 1. CAS DES TYPES IDENTIQUES
     if kind_a == kind_b {
-        // Autorisé pour les constantes (redéclarations Domain/Problem)
         if kind_a == SymbolKind::Constant {
             return true;
         }
-
-        // Autorisé pour les Prédicats SI l'un des deux est dérivé
         if kind_a == SymbolKind::Predicate {
-            // Ici, on utilise ta nouvelle propriété 'is_derived'
-            return existing.is_derived() || new.is_derived();
+            return is_derived_a || is_derived_b;
         }
-
         return false;
     }
 
-    // 2. CAS DES MÉLANGES AUTORISÉS (ton match original)
+    // 2. CAS DES MÉLANGES AUTORISÉS
     match (kind_a, kind_b) {
         (SymbolKind::DomainName, _) | (_, SymbolKind::DomainName) => true,
         (SymbolKind::ProblemName, _) | (_, SymbolKind::ProblemName) => true,
 
-        // PrimitiveType peut cohabiter avec Constant ou Predicate
         (SymbolKind::PrimitiveType, SymbolKind::Constant)
         | (SymbolKind::Constant, SymbolKind::PrimitiveType) => true,
         (SymbolKind::PrimitiveType, SymbolKind::Predicate)
         | (SymbolKind::Predicate, SymbolKind::PrimitiveType) => true,
 
-        // HDDL : Task et Action
         (SymbolKind::Task, SymbolKind::Action) | (SymbolKind::Action, SymbolKind::Task) => true,
 
-        // Par défaut, on interdit le mélange (ex: Variable vs Action)
         _ => false,
     }
 }
@@ -151,58 +167,34 @@ pub fn allow_implicit_upcast_for_task_matching(
     decl_kind == SymbolKind::Action && usage_kind == SymbolKind::Task
 }
 
-/// Checks if a symbol is a predefined PDDL built-in symbol.
+/// Returns true if the given symbol ID represents a reserved PDDL built-in symbol.
 ///
-/// This function identifies symbols that are reserved by the PDDL standard (e.g., `object`,
-/// `number`, `?duration`).
+/// This is the single source of truth for identifying identifiers reserved by the
+/// PDDL standard (e.g., `number`, `total-time`, `?duration`).
 ///
 /// ### Permissive Design
 /// To ensure robustness across various PDDL benchmarks (such as IPC04), this check is
 /// intentionally permissive: it validates reserved symbols regardless of whether
-/// the corresponding `:requirements` are explicitly declared in the domain.
-///
-/// This prevents blocking semantic errors (like E2013) during the initial symbol
-/// resolution phase. Strict compliance with requirements is enforced by a
-/// dedicated validation module later in the analysis pipeline.
-///
-/// # Arguments
-/// - `symbol`: The symbol entry from the symbol table to check.
-/// - `_context`: The semantic context (currently unused, kept for API consistency).
-///
-/// # Returns
-/// - `true` if the symbol ID matches one of the pre-allocated PDDL built-in constants.
-/// - `false` otherwise.
+/// the corresponding `:requirements` are explicitly declared. This prevents
+/// blocking symbols during early resolution; requirement compliance is
+/// validated in a later dedicated pass.
 ///
 /// # Predefined Symbols Handled
-/// - `object`: Core type for typing/adl.
 /// - `number`, `total-time`, `total-cost`: Used for fluents and numeric fluents.
 /// - `?duration`: Implicit variable for durative actions.
 /// - `#t`: Continuous time variable for temporal domains.
-pub fn is_pddl_builtin_symbol(symbol: &SymbolEntry) -> bool {
-    // We accept these symbols because they are reserved by the interner at initialization.
-    // They are considered part of the language's core vocabulary, decoupling symbol
-    // existence from requirement-based feature activation.
-    match symbol.id() {
-        SymbolInterner::NUMBER_SYMBOL_ID
-        | SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
-        | SymbolInterner::TOTAL_TIME_SYMBOL_ID
-        | SymbolInterner::TOTAL_COST_SYMBOL_ID
-        | SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID => true,
-
-        _ => false,
-    }
-}
-
+///
+/// # Returns
+/// - `true` if the `SymbolId` matches a pre-allocated PDDL built-in constant.
 pub fn is_pddl_builtin_symbol_id(id: SymbolId) -> bool {
-    match id {
+    matches!(
+        id,
         SymbolInterner::NUMBER_SYMBOL_ID
-        | SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
-        | SymbolInterner::TOTAL_TIME_SYMBOL_ID
-        | SymbolInterner::TOTAL_COST_SYMBOL_ID
-        | SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID => true,
-
-        _ => false,
-    }
+            | SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
+            | SymbolInterner::TOTAL_TIME_SYMBOL_ID
+            | SymbolInterner::TOTAL_COST_SYMBOL_ID
+            | SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID
+    )
 }
 
 /// Détermine si un genre de symbole est "atomique".
