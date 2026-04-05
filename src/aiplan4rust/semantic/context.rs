@@ -97,9 +97,6 @@ pub struct Context {
     /// Requirements that are logically necessary based on the syntax used in the file.
     required_requirements: HashSet<Requirement>,
 
-    /// Mapping of each necessary requirement to the specific AST nodes that invoke it.
-    required_requirements_trigger: HashMap<Requirement, Vec<NodeId>>,
-
     /// The symbol table built during semantic analysis.
     symbol_table: SymbolTable,
 
@@ -123,7 +120,6 @@ impl Default for Context {
             syntax_tree: Default::default(),
             declared_requirements: Default::default(),
             required_requirements: Default::default(),
-            required_requirements_trigger: Default::default(),
             symbol_table: Default::default(),
             interner: Default::default(),
             source: Default::default(),
@@ -133,33 +129,36 @@ impl Default for Context {
 }
 
 impl Context {
-    /// Creates a new semantic context from its components, performs requirements extraction,
-    /// and validates the syntax tree invariants.
+    /// Creates a new semantic context from its pre-analyzed components and validates
+    /// syntax tree invariants.
     ///
-    /// This constructor performs a one-pass extraction of both declared and needed requirements.
-    /// The `required_requirements` are derived from the syntax tree content, and their
-    /// originating nodes are stored for future diagnostic purposes.
+    /// Unlike previous versions, this constructor does not perform extraction itself;
+    /// it receives the already processed symbol table and requirement sets from the
+    /// analysis pipeline.
     ///
     /// # Parameters
     /// - `syntax_tree`: The syntax tree representing the domain or problem AST.
     /// - `source_id`: Identifier of the source file or input from which this context is derived.
-    /// - `symbol_table`: The symbol table constructed for this context.
-    /// - `interner`: The string interner used to optimize string storage and comparisons.
-    /// - `generated_at`: The timestamp indicating when the analysis was performed.
+    /// - `symbol_table`: The fully resolved symbol table.
+    /// - `interner`: The string interner used for symbol storage.
+    /// - `declared_requirements`: Requirements explicitly stated in the `:requirements` section.
+    /// - `required_requirements`: Requirements effectively used and inferred during semantic analysis.
     ///
     /// # Returns
-    /// A `Result` containing the new `Context` instance, or a `SemanticError` if the initial
-    /// requirements extraction fails or if invariants are violated.
+    /// A `Result` containing the new `SemanticContext` instance, or a `SemanticError`
+    /// if invariants are violated.
     ///
     /// # Note
-    /// In debug builds, this function calls `check_invariant` to ensure the tree root
-    /// is a valid PDDL domain or problem. This check is omitted in release builds for performance.
+    /// - The `generated_at` timestamp is automatically set to the current system time.
+    /// - In debug builds, this function calls `check_invariant` to ensure the tree root
+    ///   is a valid PDDL domain or problem.
     pub(crate) fn new(
         syntax_tree: Tree<AstNode>,
         source_id: LiteralId,
         symbol_table: SymbolTable,
         interner: SymbolInterner,
-        generated_at: SystemTime,
+        declared_requirements: HashSet<Requirement>,
+        required_requirements: HashSet<Requirement>,
     ) -> Result<Self, SemanticError> {
         // Validate that the syntax tree is not empty and the root is domain/problem
         #[cfg(debug_assertions)]
@@ -168,12 +167,11 @@ impl Context {
         Ok(Self {
             syntax_tree,
             source: source_id,
-            declared_requirements: HashSet::new(),
-            required_requirements: HashSet::new(),
-            required_requirements_trigger: HashMap::new(),
             symbol_table,
             interner,
-            generated_at,
+            declared_requirements,
+            required_requirements,
+            generated_at: SystemTime::now(),
         })
     }
 
@@ -308,26 +306,10 @@ impl Context {
     /// The triggers map associates each necessary `Requirement` with the `NodeId`s
     /// in the AST that invoked it. This is primarily used for generating
     /// detailed diagnostics and error reports.
-    pub fn requirement_triggers(&self) -> &HashMap<Requirement, Vec<NodeId>> {
-        &self.required_requirements_trigger
-    }
+
     /// Sets the set of effective PDDL/HDDL requirements used in the AST.
     pub fn set_required_requirements(&mut self, requirements: HashSet<Requirement>) {
         self.required_requirements = requirements;
-    }
-
-    /// Sets the mapping of requirements to their triggering NodeIds.
-    pub fn set_requirement_triggers(&mut self, triggers: HashMap<Requirement, Vec<NodeId>>) {
-        self.required_requirements_trigger = triggers;
-    }
-
-    /// Takes ownership of the requirement triggers, leaving an empty map in its place.
-    ///
-    /// This method uses `std::mem::take` to move the trigger data out of the context.
-    /// It is typically called by the Linker to transfer ownership of diagnostic
-    /// metadata from individual source contexts to a unified `LinkedSemanticContext`.
-    pub fn take_requirement_triggers(&mut self) -> HashMap<Requirement, Vec<NodeId>> {
-        std::mem::take(&mut self.required_requirements_trigger)
     }
 
     /// Returns a reference to the symbol table.

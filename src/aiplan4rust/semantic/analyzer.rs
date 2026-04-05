@@ -291,7 +291,7 @@ impl Analyzer {
         )?;
 
         // Containers for data discovered during deep analysis.
-        let mut inferred_required = HashSet::new();
+        let mut inferred_reqs = HashSet::new();
         let mut requirement_triggers = HashMap::new();
 
         // =========================================================================
@@ -329,7 +329,7 @@ impl Analyzer {
 
             // --- REQUIREMENT INFERENCE ---
             // Detect which PDDL features are actually used in the domain.
-            inferred_required = passes::extract_required_requirements(
+            inferred_reqs = passes::extract_required_requirements(
                 &pass_ctx,
                 &symbol_table,
                 &mut requirement_triggers,
@@ -353,11 +353,9 @@ impl Analyzer {
             ast.source_id(),
             symbol_table,
             ast.take_interner(),
-            std::time::SystemTime::now(),
+            declared_reqs,
+            inferred_reqs,
         )?;
-
-        context.set_required_requirements(inferred_required);
-        context.set_requirement_triggers(requirement_triggers);
 
         Ok(context)
     }
@@ -458,8 +456,7 @@ impl Analyzer {
         // 4. FINAL PACKING
         // =========================================================================
         // Metadata containers, usually populated during the Domain-Problem linking.
-        let inferred_required = HashSet::new();
-        let requirement_triggers = HashMap::new();
+        let inferred_reqs = HashSet::new();
 
         // Finalize by moving the AST and Interner into the SemanticContext.
         let mut context = SemanticContext::new(
@@ -467,11 +464,9 @@ impl Analyzer {
             ast.source_id(),
             symbol_table,
             ast.take_interner(),
-            std::time::SystemTime::now(),
+            declared_reqs,
+            inferred_reqs,
         )?;
-
-        context.set_required_requirements(inferred_required);
-        context.set_requirement_triggers(requirement_triggers);
 
         Ok(context)
     }
