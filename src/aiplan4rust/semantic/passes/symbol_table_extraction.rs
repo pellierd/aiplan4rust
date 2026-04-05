@@ -29,6 +29,7 @@ use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOr
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
+use crate::aiplan4rust::syntax::ParseContext;
 use crate::aiplan4rust::tree::NodeRef;
 
 /// Builds a complete [`SymbolTable`] from the given abstract syntax tree.
@@ -559,6 +560,11 @@ fn init_from_typed_item(
     let syntax_tree = context.syntax_tree();
     let node = node_ref.node();
 
+    // 2. On traite les éléments
+    let elt_id = node.try_child(0)?;
+    let elt_ref = syntax_tree.try_node_ref(elt_id)?;
+    let is_type_definition = elt_ref.node().kind() == AstKind::PrimitiveType;
+
     // 1. Initialisation par défaut (vide)
     let mut ty_node_ids = Vec::new();
     let mut types = Type::new();
@@ -570,8 +576,13 @@ fn init_from_typed_item(
         // PROPRE : On utilise le retour de init_from_type qui contient déjà tout.
         // On n'a plus besoin de manipuler les enfants manuellement ici,
         // c'est extract_type qui s'en occupe.
-        let (extracted_types, extracted_ids) =
-            init_from_type(context, table, &ty_node_ref, scope.clone())?;
+        let (extracted_types, extracted_ids) = init_from_type(
+            context,
+            table,
+            &ty_node_ref,
+            scope.clone(),
+            is_type_definition,
+        )?;
 
         types = extracted_types;
         ty_node_ids = extracted_ids;
@@ -582,10 +593,6 @@ fn init_from_typed_item(
             ty_node_ids = vec![ty_id];
         }
     }
-
-    // 2. On traite les éléments (ex: Phenomenon7)
-    let elt_id = node.try_child(0)?;
-    let elt_ref = syntax_tree.try_node_ref(elt_id)?;
 
     init_from_typed_item_elements(context, table, &elt_ref, scope, types, ty_node_ids)
 }
@@ -778,7 +785,7 @@ fn init_from_atomic_function_skeleton(
         // PROPRE : Si on injecte un type par défaut, on associe l'ID du nœud
         // de la fonction pour que le Finalizer sache où "pointer" ce type.
         if ty_node_ids.is_empty() {
-            ty_node_ids.push(node_ref.id());
+            ty_node_ids.push(ParseContext::NODE_ID_NUMBER);
         }
     }
     // ------------------------------------------------
@@ -1538,6 +1545,7 @@ fn init_from_type(
     table: &mut SymbolTable,
     type_ref: &NodeRef<AstNode>,
     scope: Scope,
+    is_type_def: bool,
 ) -> Result<(Type<SymbolId>, Vec<NodeId>), SemanticError> {
     // 1. On extrait les types (ex: [object]) et leurs IDs de nœuds
     let (super_types, ty_node_ids) = extract_type(context, type_ref)?;
@@ -1550,7 +1558,7 @@ fn init_from_type(
 
         // --- LA LOGIQUE CRITIQUE ---
         // Si le type (ex: 'object') n'a aucune déclaration dans la table
-        if table.get_symbol(ident).is_none() {
+        if is_type_def && table.get_symbol(ident).is_none() {
             // On le déclare comme une racine (PrimitiveType sans parent)
             // Cela crée l'entrée manquante pour le SignatureChecker
             add_declaration_symbol(

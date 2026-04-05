@@ -456,7 +456,16 @@ impl Analyzer {
         // 4. FINAL PACKING
         // =========================================================================
         // Metadata containers, usually populated during the Domain-Problem linking.
-        let inferred_reqs = HashSet::new();
+
+        let mut requirement_triggers = HashMap::new();
+
+        // --- REQUIREMENT INFERENCE ---
+        // Detect which PDDL features are actually used in the domain.
+        let inferred_reqs = passes::extract_required_requirements(
+            &pass_ctx,
+            &symbol_table,
+            &mut requirement_triggers,
+        )?;
 
         // Finalize by moving the AST and Interner into the SemanticContext.
         let mut context = SemanticContext::new(

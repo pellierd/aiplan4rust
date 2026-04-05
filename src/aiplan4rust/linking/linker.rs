@@ -143,31 +143,6 @@ impl Linker {
                 // Step 3: Resolve external references in the problem with respect to the domain
                 //resolve_external_references(&mut domain_ctx, &mut problem_ctx)?;
 
-                // --- ÉTAPE : SIMPLIFICATION DU PROBLÈME ---
-
-                // 1. On prépare la hiérarchie de référence (le Domaine)
-                let type_hierarchy = domain_ctx.symbol_table().to_type_hierarchy();
-                let type_checker = TypeChecker::new(&type_hierarchy);
-
-                // 2. On simplifie la Table du Problème
-                // On change 'finalize' pour qu'elle retourne les 'changes' comme on l'a fait avant
-                /*let ctx =
-                    PassContext::new(&global_interner, problem_ctx.source(), Provider::Linker);
-
-                let changes = finalization::symbol_table::finalize(
-                    &ctx,
-                    &type_checker,
-                    problem_ctx.symbol_table_mut(), // On modifie la table du problème
-                    &mut self.diagnostic_manager,
-                )?;*/
-
-                // 3. NOUVEAU : On synchronise l'AST du Problème
-                // Si on a des changements, on les répercute sur l'AST pour que
-                // le r-affichage (pretty print) du problème soit aussi propre que celui du domaine.
-                //if !changes.is_empty() {
-                //    finalization::ast::finalize(&mut problem_ctx)?;
-                //}
-
                 // Step 4: Create a check context for the problem using the global interner
                 // and perform semantic and structural linking checks on the problem
                 let mut total_declared = domain_ctx.declared_requirements().clone();

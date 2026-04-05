@@ -8,7 +8,6 @@ pub mod symbol_usages;
 pub mod type_hierarchy;
 
 pub mod context;
-pub mod derived_predicate;
 pub mod error;
 mod symbol_types;
 pub mod unused_symbols;

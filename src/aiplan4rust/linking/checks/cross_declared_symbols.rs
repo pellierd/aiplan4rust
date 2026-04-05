@@ -80,26 +80,19 @@ pub fn check_cross_declared_symbols(
 
     // Iterate over all symbols declared in the problem context
     for symbol in problem_symbol_table.values() {
-        // Iterate over all declarations of the current symbol
         for declaration in symbol.declarations().values() {
-            // Skip declarations exempt from conflict checks or not originating from the problem context
+            // On ne vérifie que ce qui vient du Problème et n'est pas exempté
             if !is_declaration_exempt_from_conflict_check(declaration)
                 && declaration.origin() == SymbolOrigin::Problem
             {
-                // Check if there are any relevant domain declarations for this symbol
                 if has_relevant_domain_declarations(domain_symbol_table, symbol.id()) {
-                    // Retrieve all relevant domain declarations for this symbol
                     let domain_declarations =
                         get_relevant_domain_declarations(domain_symbol_table, symbol.id());
 
-                    // On cherche s'il existe une déclaration dans le domaine qui NE PEUT PAS
-                    // partager l'espace de noms avec la déclaration du problème.
-                    // On vérifie le conflit en passant les objets Declaration complets
                     let has_conflict = domain_declarations
                         .iter()
                         .any(|domain_decl| !can_share_namespace(&declaration, domain_decl));
 
-                    // If no domain declaration of the same kind exists, report a cross-conflict error
                     if has_conflict {
                         let error = Diagnostic::error_cross_conflict_symbol_declaration(
                             declaration.clone(),

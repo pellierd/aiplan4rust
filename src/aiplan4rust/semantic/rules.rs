@@ -65,27 +65,7 @@ pub fn find_shadowing_candidate<'a>(
     scope: &Scope,
 ) -> Option<&'a Declaration> {
     let mut best_candidate: Option<&'a Declaration> = None;
-    if kind == SymbolKind::Task {
-        println!(
-            "🔍 [DEBUG SHADOW] Entrée ID: {:?} | Nom potentiel: ??? | Kind: {:?}",
-            symbol_entry.id(),
-            kind
-        );
-        println!(
-            "   - Déclarations dans cette entrée: {}",
-            symbol_entry.declarations().len()
-        );
-    }
     for declaration in symbol_entry.declarations().values() {
-        if kind == SymbolKind::Task {
-            println!(
-                "   - Comparaison avec Décl #{}: Kind={:?}, Compatible={}",
-                declaration.source(),
-                declaration.symbol_kind(),
-                check_kind_compatibility(declaration.symbol_kind(), kind)
-            );
-        }
-
         let decl_kind = declaration.symbol_kind();
 
         // 1. Gardes rapides sur la compatibilité et le genre
