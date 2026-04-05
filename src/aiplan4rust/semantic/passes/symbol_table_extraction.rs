@@ -53,7 +53,7 @@ use crate::aiplan4rust::tree::NodeRef;
 /// # Returns
 ///
 /// A fully initialized [`SymbolTable`] on success.
-pub fn symbol_table_extraction(ast: &Ast) -> Result<SymbolTable, SemanticError> {
+pub fn extract_symbol_table(ast: &Ast) -> Result<SymbolTable, SemanticError> {
     // Attempt to retrieve the root node of the AST, returning error if none exists
     let root_ref = ast.syntax_tree().try_root_node_ref()?;
     let root_node = root_ref.node();

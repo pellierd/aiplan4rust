@@ -14,8 +14,8 @@ use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::{NodeId, Tree};
-use std::collections::{HashMap, HashSet};
+use crate::aiplan4rust::tree::Tree;
+use std::collections::HashSet;
 
 /// A lightweight wrapper that provides semantic context components to verification functions.
 ///
@@ -66,8 +66,6 @@ pub struct Context<'a> {
     source_id: LiteralId,
     provider: Provider,
     declared_requirements: &'a HashSet<Requirement>,
-    required_requirements: &'a HashSet<Requirement>,
-    requirement_triggers: &'a HashMap<Requirement, Vec<NodeId>>,
 }
 
 impl<'a> Context<'a> {
@@ -115,8 +113,6 @@ impl<'a> Context<'a> {
         source_id: LiteralId,
         provider: Provider,
         declared_requirements: &'a HashSet<Requirement>,
-        required_requirements: &'a HashSet<Requirement>,
-        requirement_triggers: &'a HashMap<Requirement, Vec<NodeId>>,
     ) -> Self {
         Self {
             syntax_tree,
@@ -124,8 +120,6 @@ impl<'a> Context<'a> {
             source_id,
             provider,
             declared_requirements,
-            required_requirements,
-            requirement_triggers,
         }
     }
 
@@ -161,20 +155,5 @@ impl<'a> Context<'a> {
     /// Retourne les requirements déclarés (ex: bloc :requirements).
     pub fn declared_requirements(&self) -> &'a HashSet<Requirement> {
         self.declared_requirements
-    }
-
-    /// Retourne les requirements logiquement nécessaires.
-    pub fn required_requirements(&self) -> &'a HashSet<Requirement> {
-        self.required_requirements
-    }
-
-    /// Retourne les triggers pour les messages d'erreur.
-    pub fn requirement_triggers(&self) -> &'a HashMap<Requirement, Vec<NodeId>> {
-        self.requirement_triggers
-    }
-
-    /// Helper rapide pour savoir si un besoin est présent.
-    pub fn is_required(&self, req: Requirement) -> bool {
-        self.required_requirements.contains(&req)
     }
 }

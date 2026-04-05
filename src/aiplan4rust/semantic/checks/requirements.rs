@@ -9,8 +9,8 @@ use crate::aiplan4rust::lang::LiteralId;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::Node;
-use std::collections::HashSet;
+use crate::aiplan4rust::tree::{Node, NodeId};
+use std::collections::{HashMap, HashSet};
 
 /// Validates that all requirements triggered by the AST are covered by the declared ones.
 ///
@@ -35,6 +35,7 @@ use std::collections::HashSet;
 /// - `Err(SemanticCheckError)` if an AST node cannot be resolved.
 pub fn check_requirements(
     context: &CheckContext,
+    requirements: &HashMap<Requirement, Vec<NodeId>>,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
@@ -42,11 +43,10 @@ pub fn check_requirements(
     // 1. Resolve total coverage (Explicit + Implicit requirements)
     let effective_capabilities = Requirement::closure(context.declared_requirements());
 
-    let triggers = context.requirement_triggers();
     let mut reported_in_this_pass = HashSet::new();
 
     // 2. Cross-reference atomic triggers against effective capabilities
-    for (req, nodes) in triggers {
+    for (req, nodes) in requirements {
         // If the atomic usage (e.g., :typing) is not covered by effective declarations
         if !effective_capabilities.contains(req) {
             checked = false;

@@ -485,8 +485,6 @@ impl Context {
             self.source(),
             provider,
             self.declared_requirements(),
-            self.required_requirements(),
-            self.requirement_triggers(),
         )
     }
 

@@ -7,7 +7,7 @@
 //!
 //! # Structure
 //!
-//! - [`symbol_table_extraction`] — Facilities to construct symbol tables from an AST.
+//! - [`extract_symbol_table`] — Facilities to construct symbol tables from an AST.
 //! - [`table`] — Core definition of the [`SymbolTable`] structure, which stores and resolves symbols.
 //! - [`origin`] — Tracks the provenance of a symbol table, e.g., domain/problem/merged.
 //! - [`error`] — Custom error types used throughout symbol table ops.
@@ -45,7 +45,7 @@ pub use table::Table as SymbolTable;
 pub use error::SymbolTableError;
 
 
-use crate::aiplan4rust::semantic::passes::symbol_table_extraction;
+use crate::aiplan4rust::semantic::passes::extract_symbol_table;
 
 /// Describes the origin of the symbol table (domain/problem/merged).
 pub use origin::Origin as SymbolTableOrigin;

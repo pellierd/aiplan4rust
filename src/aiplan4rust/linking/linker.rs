@@ -30,6 +30,7 @@
 //! }
 //! ```
 
+use std::collections::HashMap;
 use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
@@ -186,8 +187,6 @@ impl Linker {
                     domain_ctx.source(),
                     Provider::Linker,
                     domain_ctx.declared_requirements(),
-                    domain_ctx.required_requirements(),
-                    domain_ctx.requirement_triggers(),
                 );
 
                 let problem_check_ctx = CheckContext::new(
@@ -196,8 +195,6 @@ impl Linker {
                     problem_ctx.source(),
                     Provider::Linker,
                     &total_declared,
-                    problem_ctx.required_requirements(),
-                    problem_ctx.requirement_triggers(),
                 );
 
                 // 3. On fait l'analyse avec les tables "volées" (et mutables !)
@@ -393,7 +390,16 @@ pub fn perform_linking_checks(
 
         // Vérification des contraintes d'ordre et des requirements
         semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
-        semantic::checks::check_requirements(problem, diagnostic_manager)?;
+
+        // Extraction des requirements (besoin de la table résolue)
+        let mut triggers = HashMap::new();
+        let required = passes::extract_required_requirements(
+            problem.syntax_tree(),
+            problem_table,
+            &mut triggers,
+            problem.interner(),
+        )?;
+        semantic::checks::check_requirements(&problem, &triggers, diagnostic_manager)?;
     }
 
     Ok(check)
