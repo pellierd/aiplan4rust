@@ -249,6 +249,10 @@ impl Analyzer {
         &mut self,
         ast: &mut Ast,
     ) -> Result<SemanticContext, SemanticError> {
+        // =========================================================================
+        // 0. CONTEXT INITIALIZATION
+        // =========================================================================
+        // We create the PassContext early as a unified tool provider for all passes.
         let pass_ctx = PassContext::new(
             ast.syntax_tree(),
             ast.interner(),
@@ -257,13 +261,13 @@ impl Analyzer {
         );
 
         // =========================================================================
-        // 1. INITIAL EXTRACTION & CONTEXT SETUP
+        // 1. INITIAL EXTRACTION
         // =========================================================================
-        // Build the initial symbol table and identify declared requirements.
-        let mut symbol_table = passes::extract_symbol_table(ast)?;
+        // Extract the base symbol table and identify requirements declared by the user.
+        let mut symbol_table = passes::extract_symbol_table(&pass_ctx)?;
         let declared_reqs = passes::extract_declared_requirements(&pass_ctx)?;
 
-        // Setup the specialized contexts for checking and transformation.
+        // CheckContext is initialized with declared requirements to validate permissions.
         let check_ctx = CheckContext::new(
             ast.syntax_tree(),
             ast.interner(),
@@ -275,7 +279,7 @@ impl Analyzer {
         // =========================================================================
         // 2. STRUCTURAL VALIDATION (Fail-Fast)
         // =========================================================================
-        // Verify type hierarchy and basic declarations before attempting resolution.
+        // Validate the type hierarchy and symbol declarations before complex resolution.
         let can_continue = semantic::checks::check_type_hierarchy(
             &check_ctx,
             &mut symbol_table,
@@ -286,7 +290,7 @@ impl Analyzer {
             &mut self.diagnostic_manager,
         )?;
 
-        // Initialize containers for inferred data.
+        // Containers for data discovered during deep analysis.
         let mut inferred_required = HashSet::new();
         let mut requirement_triggers = HashMap::new();
 
@@ -297,7 +301,8 @@ impl Analyzer {
             let type_hierarchy = symbol_table.to_type_hierarchy();
             let type_checker = TypeChecker::new(&type_hierarchy);
 
-            // --- Symbol Resolution Passes ---
+            // --- BINDING PASSES ---
+            // Resolve symbols and derived predicates using the unified PassContext.
             passes::resolve_symbols(&pass_ctx, &mut symbol_table, Some(&type_checker), None)?;
             passes::resolve_derived_predicates(
                 &pass_ctx,
@@ -306,7 +311,8 @@ impl Analyzer {
                 None,
             )?;
 
-            // --- Post-Resolution Checks ---
+            // --- POST-RESOLUTION CHECKS ---
+            // Verify usage, types, and ordering constraints on resolved symbols.
             semantic::checks::check_symbol_usage(
                 &check_ctx,
                 &symbol_table,
@@ -321,15 +327,15 @@ impl Analyzer {
             )?;
             semantic::checks::check_task_ordering(&check_ctx, &mut self.diagnostic_manager)?;
 
-            // --- Requirement Inference ---
-            // Determine which requirements are actually used in the domain logic.
+            // --- REQUIREMENT INFERENCE ---
+            // Detect which PDDL features are actually used in the domain.
             inferred_required = passes::extract_required_requirements(
                 &pass_ctx,
                 &symbol_table,
                 &mut requirement_triggers,
             )?;
 
-            // Final consistency check (declared vs. detected requirements).
+            // Validate that used features match the declared requirements.
             semantic::checks::check_requirements(
                 &check_ctx,
                 &requirement_triggers,
@@ -340,8 +346,8 @@ impl Analyzer {
         // =========================================================================
         // 4. FINAL CONTEXT PACKING
         // =========================================================================
-        // Move the SyntaxTree and Interner into the final SemanticContext.
-        // If can_continue was false, we return a partial context for IDE feedback.
+        // Transfer ownership of the SyntaxTree and Interner to the SemanticContext.
+        // We return a context even if can_continue was false to provide IDE feedback.
         let mut context = SemanticContext::new(
             ast.take_syntax_tree(),
             ast.source_id(),
@@ -373,24 +379,9 @@ impl Analyzer {
         ast: &mut Ast,
     ) -> Result<SemanticContext, SemanticError> {
         // =========================================================================
-        // 1. INITIAL EXTRACTION & CONTEXT SETUP
+        // 0. CONTEXT INITIALIZATION
         // =========================================================================
-        // Extract the initial symbol table (objects, initial state, goal).
-        let mut symbol_table = passes::extract_symbol_table(ast)?;
-
-        // Problems usually don't have a :requirements block (they inherit from domain),
-        // but we keep an empty set for consistency with the CheckContext.
-        let declared_reqs = HashSet::new();
-
-        // Setup specialized contexts.
-        let check_ctx = CheckContext::new(
-            ast.syntax_tree(),
-            ast.interner(),
-            ast.source_id(),
-            Provider::Analyzer,
-            &declared_reqs,
-        );
-
+        // Create the PassContext as the unified tool provider for the problem file.
         let pass_ctx = PassContext::new(
             ast.syntax_tree(),
             ast.interner(),
@@ -399,24 +390,42 @@ impl Analyzer {
         );
 
         // =========================================================================
+        // 1. INITIAL EXTRACTION & CONTEXT SETUP
+        // =========================================================================
+        // Extract the initial symbol table (objects, initial state, goal, etc.).
+        let mut symbol_table = passes::extract_symbol_table(&pass_ctx)?;
+
+        // Problems inherit requirements from the Domain, so we use an empty set here
+        // to maintain CheckContext consistency without forcing local declarations.
+        let declared_reqs = HashSet::new();
+
+        let check_ctx = CheckContext::new(
+            ast.syntax_tree(),
+            ast.interner(),
+            ast.source_id(),
+            Provider::Analyzer,
+            &declared_reqs,
+        );
+
+        // =========================================================================
         // 2. RESOLUTION & BINDING
         // =========================================================================
-        // Resolve local symbols such as objects and problem-specific variables.
-        // Note: Cross-file resolution (Domain constants/types) happens later.
+        // Resolve local symbols (objects and problem-specific variables).
+        // Note: Linking with Domain types/constants is a separate later phase.
         passes::resolve_symbols(&pass_ctx, &mut symbol_table, None, None)?;
 
         // =========================================================================
         // 3. SEMANTIC VALIDATIONS
         // =========================================================================
-        // Initial structural checks on declarations.
+        // Initial structural checks on problem-level declarations.
         let mut can_continue = semantic::checks::check_symbol_declarations(
             &check_ctx,
             &mut symbol_table,
             &mut self.diagnostic_manager,
         )?;
 
-        // Define symbols that should be ignored if they are missing in the problem file,
-        // as they are expected to be defined in the associated domain.
+        // Symbols expected to be in the Domain; we skip "undefined" errors for these
+        // during the standalone problem analysis phase.
         let external_symbols = &[
             SymbolKind::PrimitiveType,
             SymbolKind::Constant,
@@ -425,7 +434,7 @@ impl Analyzer {
             SymbolKind::Task,
         ];
 
-        // Check if symbols are used correctly (ignoring those that belong to the domain).
+        // Check symbol usage, ignoring those defined externally in the Domain.
         can_continue &= semantic::checks::check_symbol_usage(
             &check_ctx,
             &symbol_table,
@@ -433,7 +442,7 @@ impl Analyzer {
             &mut self.diagnostic_manager,
         )?;
 
-        // Check for objects declared but never used in init or goal.
+        // Detect objects that are declared but never referenced in Init or Goal.
         can_continue &= semantic::checks::check_unused_symbols(
             &check_ctx,
             &mut symbol_table,
@@ -441,18 +450,18 @@ impl Analyzer {
             &mut self.diagnostic_manager,
         )?;
 
-        // Specific ordering checks (e.g., in HTN problems).
+        // Perform specific task ordering validations (e.g., for HTN problems).
         can_continue &=
             semantic::checks::check_task_ordering(&check_ctx, &mut self.diagnostic_manager)?;
 
         // =========================================================================
         // 4. FINAL PACKING
         // =========================================================================
-        // Prepare metadata containers (usually populated during domain-problem linking).
-        let inferred_required = std::collections::HashSet::new();
-        let requirement_triggers = std::collections::HashMap::new();
+        // Metadata containers, usually populated during the Domain-Problem linking.
+        let inferred_required = HashSet::new();
+        let requirement_triggers = HashMap::new();
 
-        // Transfer ownership of the SyntaxTree and Interner to the SemanticContext.
+        // Finalize by moving the AST and Interner into the SemanticContext.
         let mut context = SemanticContext::new(
             ast.take_syntax_tree(),
             ast.source_id(),

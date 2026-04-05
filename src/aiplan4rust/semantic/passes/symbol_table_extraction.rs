@@ -21,6 +21,7 @@
 
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::lang::{SymbolId, Type, TypedList, TypedSymbol};
+use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::{
     Declaration, Scope, SymbolEntry, SymbolKind, SymbolOrigin, Usage,
 };
@@ -28,7 +29,6 @@ use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOr
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
-use crate::aiplan4rust::syntax::ParseContext;
 use crate::aiplan4rust::tree::NodeRef;
 
 /// Builds a complete [`SymbolTable`] from the given abstract syntax tree.
@@ -53,9 +53,9 @@ use crate::aiplan4rust::tree::NodeRef;
 /// # Returns
 ///
 /// A fully initialized [`SymbolTable`] on success.
-pub fn extract_symbol_table(ast: &Ast) -> Result<SymbolTable, SemanticError> {
+pub fn extract_symbol_table(context: &PassContext) -> Result<SymbolTable, SemanticError> {
     // Attempt to retrieve the root node of the AST, returning error if none exists
-    let root_ref = ast.syntax_tree().try_root_node_ref()?;
+    let root_ref = context.syntax_tree().try_root_node_ref()?;
     let root_node = root_ref.node();
 
     let mut table = SymbolTable::new();
@@ -80,7 +80,7 @@ pub fn extract_symbol_table(ast: &Ast) -> Result<SymbolTable, SemanticError> {
     }
 
     // Initialize the symbol table by recursively processing the AST starting from the root
-    initialize_from_ast(&mut table, &root_ref, ast)?;
+    initialize_from_ast(context, &mut table, &root_ref)?;
 
     // Return the fully constructed symbol table, replacing the internal table with an empty one
     Ok(std::mem::take(&mut table))
@@ -112,12 +112,12 @@ pub fn extract_symbol_table(ast: &Ast) -> Result<SymbolTable, SemanticError> {
 /// builder.initialize_from_ast(root_node_ref, &ast)?;
 /// ```
 fn initialize_from_ast(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
 ) -> Result<(), SemanticError> {
     let scope = Scope::new(node_ref.id(), None);
-    init_from(table, node_ref, ast, scope)?;
+    init_from(context, table, node_ref, scope)?;
     Ok(())
 }
 
@@ -165,9 +165,9 @@ fn initialize_from_ast(
 /// builder.init_from(root_node_ref, &ast, initial_scope)?;
 /// ```
 fn init_from(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
     // Match on the AST node kind to determine the appropriate processing ops
@@ -175,9 +175,9 @@ fn init_from(
         // For domain and problem names, add declaration symbols directly without recursion
         AstKind::DomainName | AstKind::ProblemName => {
             add_declaration_symbol(
+                context,
                 table,
                 node_ref,
-                ast,
                 scope.clone(),
                 None,
                 None,
@@ -189,74 +189,74 @@ fn init_from(
 
         // For typed lists, use specialized initialization for typed symbols
         AstKind::TypedList => {
-            init_from_typed_list(table, node_ref, ast, scope.clone())?;
+            init_from_typed_list(context, table, node_ref, scope.clone())?;
         }
 
         // For primitive types, constants, and variables, record symbol usages
         AstKind::PrimitiveType | AstKind::Object | AstKind::Variable => {
-            add_symbol_usage(table, node_ref, ast, None, scope.clone())?;
+            add_symbol_usage(context, table, node_ref, None, scope.clone())?;
         }
 
         // For action definitions, initialize action symbols and related info
         AstKind::ActionDef => {
-            init_from_action_def(table, node_ref, ast, scope.clone())?;
+            init_from_action_def(context, table, node_ref, scope.clone())?;
         }
 
         // For durative action definitions, handle timing-related action data
         AstKind::DurativeActionDef => {
-            init_from_durative_action_def(table, node_ref, ast, scope.clone())?;
+            init_from_durative_action_def(context, table, node_ref, scope.clone())?;
         }
 
         // For atomic formula skeletons, apply custom handling for partial formulas
         AstKind::AtomicFormulaSkeleton => {
-            init_from_atomic_formula_skeleton(table, node_ref, ast, scope.clone())?;
+            init_from_atomic_formula_skeleton(context, table, node_ref, scope.clone())?;
         }
 
         // For atomic formulas and function terms, recurse into their structure
         AstKind::AtomicFormula | AstKind::Function => {
-            init_from_atomic_formula(table, node_ref, ast, scope.clone())?;
+            init_from_atomic_formula(context, table, node_ref, scope.clone())?;
         }
 
         // For quantifiers (forall, exists), handle logical scoping and variable declarations
         AstKind::Forall | AstKind::Exists => {
-            init_from_quantified_expression(table, node_ref, ast, scope.clone())?;
+            init_from_quantified_expression(context, table, node_ref, scope.clone())?;
         }
 
         // For HTN method definitions, initialize method-specific symbols and scopes
         AstKind::MethodDef => {
-            init_from_method_def(table, node_ref, ast, scope.clone())?;
+            init_from_method_def(context, table, node_ref, scope.clone())?;
         }
 
         // For HTN task definitions, initialize task-specific symbols and scopes
         AstKind::TaskDef => {
-            init_from_task_def(table, node_ref, ast, scope.clone())?;
+            init_from_task_def(context, table, node_ref, scope.clone())?;
         }
 
         // For HTN task instances, handle as atomic formulas
         AstKind::Task => {
-            init_from_atomic_formula(table, node_ref, ast, scope.clone())?;
+            init_from_atomic_formula(context, table, node_ref, scope.clone())?;
         }
 
         // For tagged HTN tasks, handle extended metadata
         AstKind::LabeledTask => {
-            init_from_tagged_task(table, node_ref, ast, scope.clone())?;
+            init_from_tagged_task(context, table, node_ref, scope.clone())?;
         }
 
         // For HTN task ordering constraints, initialize constraint symbols
         AstKind::TaskOrderingConstraint => {
-            init_from_task_ordering_constraint(table, node_ref, ast, scope.clone())?;
+            init_from_task_ordering_constraint(context, table, node_ref, scope.clone())?;
         }
         // For axioms
         AstKind::DerivedDef => {
-            init_from_derived_predicate_def(table, node_ref, ast, scope.clone())?;
+            init_from_derived_predicate_def(context, table, node_ref, scope.clone())?;
         }
         // For any other kinds, recursively process all child nodes to cover nested syntax
         _ => {
             for child in node_ref.node().children() {
                 init_from(
+                    context,
                     table,
-                    &ast.syntax_tree().try_node_ref(*child)?,
-                    ast,
+                    &context.syntax_tree().try_node_ref(*child)?,
                     scope.clone(),
                 )?;
             }
@@ -296,9 +296,9 @@ fn init_from(
 /// builder.add_declaration_symbol(node_ref, &ast, current_scope, None, None)?;
 /// ```
 fn add_declaration_symbol(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
     types: Option<Type<SymbolId>>,
     ty_node_ids: Option<Vec<NodeId>>,
@@ -309,7 +309,7 @@ fn add_declaration_symbol(
     // Extract the symbol reference from the AST node ID.
     // This retrieves s
     // ymbol metadata such as the identifier name and kind.
-    let node = ast.syntax_tree().try_node(node_ref.id())?;
+    let node = context.syntax_tree().try_node(node_ref.id())?;
     let mut symbol_ref = node.try_symbol()?;
 
     // Obtain the symbol's identifier (name) from the symbol reference.
@@ -402,9 +402,9 @@ fn add_declaration_symbol(
 /// builder.add_symbol_usage(node_ref, &ast, current_scope)?;
 /// ```
 fn add_symbol_usage(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     arguments: Option<Vec<NodeId>>,
     scope: Scope,
 ) -> Result<(), SymbolTableError> {
@@ -417,7 +417,10 @@ fn add_symbol_usage(
         let first_child_id = node_ref.node().children()[0];
         (
             first_child_id,
-            ast.syntax_tree().try_node(first_child_id)?.try_symbol()?,
+            context
+                .syntax_tree()
+                .try_node(first_child_id)?
+                .try_symbol()?,
         )
     } else {
         (node_ref.id(), node_ref.node().try_symbol()?)
@@ -427,7 +430,7 @@ fn add_symbol_usage(
     let origin = SymbolOrigin::from(table.origin());
 
     // On récupère le span directement depuis l'AST via le target_id
-    let span = ast
+    let span = context
         .syntax_tree()
         .try_node_ref(target_id)?
         .node()
@@ -481,9 +484,9 @@ fn add_symbol_usage(
 /// symbol_table.init_from_typed_list(typed_list_node, &ast, current_scope)?;
 /// ```
 fn init_from_typed_list(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
     let children = node_ref.node().children();
@@ -493,8 +496,8 @@ fn init_from_typed_list(
     }
 
     for &child_id in children {
-        let child_ref = ast.syntax_tree().try_node_ref(child_id)?;
-        init_from_typed_item(table, &child_ref, ast, scope.clone())?;
+        let child_ref = context.syntax_tree().try_node_ref(child_id)?;
+        init_from_typed_item(context, table, &child_ref, scope.clone())?;
     }
 
     Ok(())
@@ -548,12 +551,12 @@ fn init_from_typed_list(
 /// ```
 ///
 fn init_from_typed_item(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    let syntax_tree = ast.syntax_tree();
+    let syntax_tree = context.syntax_tree();
     let node = node_ref.node();
 
     // 1. Initialisation par défaut (vide)
@@ -568,7 +571,7 @@ fn init_from_typed_item(
         // On n'a plus besoin de manipuler les enfants manuellement ici,
         // c'est extract_type qui s'en occupe.
         let (extracted_types, extracted_ids) =
-            init_from_type(table, &ty_node_ref, ast, scope.clone())?;
+            init_from_type(context, table, &ty_node_ref, scope.clone())?;
 
         types = extracted_types;
         ty_node_ids = extracted_ids;
@@ -584,7 +587,7 @@ fn init_from_typed_item(
     let elt_id = node.try_child(0)?;
     let elt_ref = syntax_tree.try_node_ref(elt_id)?;
 
-    init_from_typed_item_elements(table, &elt_ref, ast, scope, types, ty_node_ids)
+    init_from_typed_item_elements(context, table, &elt_ref, scope, types, ty_node_ids)
 }
 
 /// Helper function to process an individual element of a `TypedList`.
@@ -616,9 +619,9 @@ fn init_from_typed_item(
 /// * `Ok(())` if the element is processed successfully.
 /// * `Err(SymbolTableError)` if the AST kind is invalid or any symbol table operation fails.
 fn init_from_typed_item_elements(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
     types: Type<SymbolId>,
     ty_node_ids: Vec<NodeId>,
@@ -654,9 +657,9 @@ fn init_from_typed_item_elements(
             // This handles types being declared for the first time or legitimate duplicates (E2011).
             if !merged {
                 add_declaration_symbol(
+                    context,
                     table,
                     node_ref,
-                    ast,
                     scope.clone(),
                     Some(types.clone()),
                     Some(ty_node_ids),
@@ -670,9 +673,9 @@ fn init_from_typed_item_elements(
         AstKind::Object | AstKind::Variable => {
             // Add a declaration symbol with the provided types for simple typed elements
             add_declaration_symbol(
+                context,
                 table,
                 node_ref,
-                ast,
                 scope.clone(),
                 Some(types.clone()),
                 Some(ty_node_ids),
@@ -685,9 +688,9 @@ fn init_from_typed_item_elements(
         AstKind::AtomicFunctionSkeleton => {
             // Recursively initialize symbols for atomic function skeleton elements
             init_from_atomic_function_skeleton(
+                context,
                 table,
                 node_ref,
-                ast,
                 scope.clone(),
                 types.clone(),
                 ty_node_ids,
@@ -760,9 +763,9 @@ fn init_from_typed_item_elements(
 /// - Relies on `init_from_typed_list` to initialize and validate argument symbols.
 /// - Critical for managing function declarations and scoping within the symbol table.
 fn init_from_atomic_function_skeleton(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
     mut types: Type<SymbolId>,
     mut ty_node_ids: Vec<NodeId>, // On le rend mutable pour la cohérence
@@ -771,7 +774,7 @@ fn init_from_atomic_function_skeleton(
 
     // --- Default Type Injection & AST Consistency ---
     if types.is_empty() {
-        types.add_type(ast.interner().try_lookup_symbol(NUMBER_TYPE)?);
+        types.add_type(context.interner().try_lookup_symbol(NUMBER_TYPE)?);
         // PROPRE : Si on injecte un type par défaut, on associe l'ID du nœud
         // de la fonction pour que le Finalizer sache où "pointer" ce type.
         if ty_node_ids.is_empty() {
@@ -781,7 +784,7 @@ fn init_from_atomic_function_skeleton(
     // ------------------------------------------------
 
     let functor_id = node.try_child(0)?;
-    let functor_ref = ast.syntax_tree().try_node_ref(functor_id)?;
+    let functor_ref = context.syntax_tree().try_node_ref(functor_id)?;
     if functor_ref.node().kind() != AstKind::FunctionSymbol {
         return Err(SemanticError::unexpected_node_kind(
             functor_ref.id(),
@@ -791,23 +794,23 @@ fn init_from_atomic_function_skeleton(
     }
 
     let arguments_id = node.try_child(1)?;
-    let arguments = ast.syntax_tree().try_node_ref(arguments_id)?;
+    let arguments = context.syntax_tree().try_node_ref(arguments_id)?;
 
     init_from_typed_list(
+        context,
         table,
         &arguments,
-        ast,
         Scope::new(node_ref.id(), Some(&scope)),
     )?;
 
     // Step 4: Extraction du triplet complet (Args, IDs symboles, IDs types)
-    let (args, ids, arg_ty_ids) = extract_arguments_from_typed_list(&arguments, ast)?;
+    let (args, ids, arg_ty_ids) = extract_arguments_from_typed_list(context, &arguments)?;
 
     // Step 5: Enregistrement
     add_declaration_symbol(
+        context,
         table,
         &functor_ref,
-        ast,
         scope.clone(),
         Some(types),
         Some(ty_node_ids),
@@ -856,15 +859,12 @@ fn init_from_atomic_function_skeleton(
 /// This function delegates the common work to `init_from_def`, indicating that the
 /// definition includes a body.
 fn init_from_action_def(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    init_from_def(
-        table, node_ref, ast, scope, true, // The definition includes a body
-    )?;
-    Ok(())
+    Ok(init_from_def(context, table, node_ref, scope, true)?)
 }
 
 /// Initializes the symbol table for a method definition.
@@ -900,15 +900,12 @@ fn init_from_action_def(
 ///
 /// This function delegates the main processing to `init_from_def`.
 fn init_from_method_def(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    init_from_def(
-        table, node_ref, ast, scope, true, // Method definitions have a body
-    )?;
-    Ok(())
+    Ok(init_from_def(context, table, node_ref, scope, true)?)
 }
 
 /// Initializes a durative action definition and safely injects the implicit `?duration` variable.
@@ -933,13 +930,12 @@ fn init_from_method_def(
 /// Returns a [`SemanticError`] if the action name is already defined or if symbol
 /// registration fails due to an unexpected structural error in the AST.
 fn init_from_durative_action_def(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>, // L'ID de l'action (ex: 479)
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    init_from_def(table, node_ref, ast, scope, true)?;
-    Ok(())
+    Ok(init_from_def(context, table, node_ref, scope, true)?)
 }
 
 /// Initializes the symbol table for a task definition.
@@ -975,15 +971,12 @@ fn init_from_durative_action_def(
 ///
 /// This function delegates the main processing to `init_from_def`.
 fn init_from_task_def(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    init_from_def(
-        table, node_ref, ast, scope, false, // Tasks do not have a body
-    )?;
-    Ok(())
+    Ok(init_from_def(context, table, node_ref, scope, false)?)
 }
 
 /// Initializes a definition syntax node (e.g., `ActionDef`, `DurativeActionDef`, `MethodDef`, or `TaskDef`)
@@ -1027,13 +1020,13 @@ fn init_from_task_def(
 /// )?;
 /// ```
 fn init_from_def(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
     has_body: bool,
-) -> Result<Scope, SemanticError> {
-    let syntax_tree = ast.syntax_tree();
+) -> Result<(), SemanticError> {
+    let syntax_tree = context.syntax_tree();
     let node = node_ref.node();
 
     // 1. On récupère le nom de la définition (ex: le nom de l'action)
@@ -1048,31 +1041,26 @@ fn init_from_def(
 
     // 3. Initialisation sémantique des paramètres dans un scope imbriqué
     init_from_typed_list(
+        context,
         table,
         &parameters,
-        ast,
         Scope::new(node_ref.id(), Some(&scope)),
     )?;
 
     // 4. Extraction complète (Triplet : Args, IDs des symboles, IDs des types)
     // C'est ici qu'on récupère 'ty_ids' pour s#22 et les autres.
-    let (params, ids, ty_ids) = extract_arguments_from_typed_list(&parameters, ast)?;
+    let (params, ids, ty_ids) = extract_arguments_from_typed_list(context, &parameters)?;
 
     // 5. Enregistrement de la déclaration avec TOUTES les informations AST
     add_declaration_symbol(
+        context,
         table,
         &name,
-        ast,
         scope.clone(),
         None,         // Le symbole de l'action lui-même n'a pas de type
         None,         // Donc pas d'ID de type pour le nom de l'action
         Some(params), // Les arguments typés
         Some(ids),    // Les IDs des variables/paramètres
-        // Ici, on ajoute ty_ids pour que la table connaisse les nœuds de types des params
-        // Attention : vérifie si ta fonction add_declaration_symbol accepte un
-        // argument supplémentaire ou si elle doit stocker ty_ids dans la structure 'params'.
-        // Si ta fonction n'a pas de paramètre pour ty_ids des arguments,
-        // il faut s'assurer qu'ils sont bien gérés.
         false,
     )?;
 
@@ -1080,10 +1068,15 @@ fn init_from_def(
     if has_body {
         let body_id = node.try_child(2)?;
         let body = syntax_tree.try_node_ref(body_id)?;
-        init_from(table, &body, ast, Scope::new(node_ref.id(), Some(&scope)))?;
+        init_from(
+            context,
+            table,
+            &body,
+            Scope::new(node_ref.id(), Some(&scope)),
+        )?;
     }
 
-    Ok(Scope::new(node_ref.id(), Some(&scope)))
+    Ok(())
 }
 
 /// Initializes the syntax state from an `AtomicFormula`, `FunctionTerm`, or `Task` AST syntax.
@@ -1112,9 +1105,9 @@ fn init_from_def(
 /// symbol_table.init_from_atomic_formula(node_ref, &ast, scope)?;
 /// ```
 fn init_from_atomic_formula(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
     let children = node_ref.node().children();
@@ -1122,12 +1115,18 @@ fn init_from_atomic_formula(
     // 1. HEAD MANAGEMENT (The Caller)
     // We treat the first child as the predicate/task head.
     if let Some(&predicate_id) = children.first() {
-        let predicate_ref = ast.syntax_tree().try_node_ref(predicate_id)?;
+        let predicate_ref = context.syntax_tree().try_node_ref(predicate_id)?;
 
         // We clone the children IDs to provide the Usage with its full syntactic context.
         // This 'flattens' the AST relationship into the Symbol Table for easier type checking.
         let arguments = children[1..].to_vec();
-        add_symbol_usage(table, &predicate_ref, ast, Some(arguments), scope.clone())?;
+        add_symbol_usage(
+            context,
+            table,
+            &predicate_ref,
+            Some(arguments),
+            scope.clone(),
+        )?;
     }
 
     // 2. ARGUMENTS MANAGEMENT (The Parameters)
@@ -1135,8 +1134,8 @@ fn init_from_atomic_formula(
     // double-processing the head node, ensuring each argument is initialized
     // according to its specific AstKind (Variable, Object, etc.).
     for &child_id in children.iter().skip(1) {
-        let child_ref = ast.syntax_tree().try_node_ref(child_id)?;
-        init_from(table, &child_ref, ast, scope.clone())?;
+        let child_ref = context.syntax_tree().try_node_ref(child_id)?;
+        init_from(context, table, &child_ref, scope.clone())?;
     }
 
     Ok(())
@@ -1179,12 +1178,12 @@ fn init_from_atomic_formula(
 /// symbol_table.init_from_quantified_expression(&quant_node, &ast, current_scope)?;
 /// ```
 fn init_from_quantified_expression(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    let syntax_tree = ast.syntax_tree();
+    let syntax_tree = context.syntax_tree();
     let node = node_ref.node();
 
     // Ensure the node is a quantified expression: `Exists` or `Forall`
@@ -1210,10 +1209,10 @@ fn init_from_quantified_expression(
     let nested_scope = Scope::new(node_ref.id(), Some(&scope));
 
     // Step 3: Initialize symbol table entries for the quantified variables
-    init_from_typed_list(table, variables, ast, nested_scope.clone())?;
+    init_from_typed_list(context, table, variables, nested_scope.clone())?;
 
     // Step 4: Recursively initialize the inner expression within the same nested scope
-    init_from(table, expression, ast, nested_scope)?;
+    init_from(context, table, expression, nested_scope)?;
 
     Ok(())
 }
@@ -1258,12 +1257,12 @@ fn init_from_quantified_expression(
 /// builder.init_from_atomic_formula_skeleton(&node, &ast, scope, true)?;
 /// ```
 fn init_from_atomic_formula_skeleton(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    let syntax_tree = ast.syntax_tree();
+    let syntax_tree = context.syntax_tree();
     let node = node_ref.node();
 
     // Step 1: Get and validate the predicate node (first child)
@@ -1285,24 +1284,24 @@ fn init_from_atomic_formula_skeleton(
     // Step 3: Initialize symbols from the argument list (typed variables/constants)
     // On crée le scope local pour les arguments (ex: les variables d'un prédicat)
     init_from_typed_list(
+        context,
         table,
         &arguments,
-        ast,
         Scope::new(node_ref.id(), Some(&scope)),
     )?;
 
     // Step 4: Extract everything from the list (Sémantique, IDs symboles, IDs types)
     // C'est ici que le triplet (args, ids, ty_ids) devient vital
-    let (args, ids, ty_ids) = extract_arguments_from_typed_list(&arguments, ast)?;
+    let (args, ids, ty_ids) = extract_arguments_from_typed_list(context, &arguments)?;
 
     // Step 5: Register the predicate symbol declaration
     // On passe enfin 'ty_ids' à add_declaration_symbol.
     // Même si le prédicat lui-même n'a pas de type (None),
     // ses arguments, eux, en ont un (ty_ids).
     add_declaration_symbol(
+        context,
         table,
         &predicate,
-        ast,
         scope,
         None,       // Le prédicat n'a pas de type de retour (c'est un booléen)
         None,       // Donc pas d'ID de type de retour
@@ -1343,18 +1342,18 @@ fn init_from_atomic_formula_skeleton(
 /// }
 /// ```
 fn extract_arguments_from_typed_list(
+    context: &PassContext,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
 ) -> Result<(TypedList<SymbolId, SymbolId>, Vec<NodeId>, Vec<NodeId>), SemanticError> {
     let mut typed_arguments = TypedList::new();
     let mut argument_node_ids = Vec::new();
     let mut all_ty_node_ids = Vec::new(); // <-- Le nouveau vecteur pour les IDs de types
 
     for typed_item_id in node_ref.node().children() {
-        let typed_item_ref = ast.syntax_tree().try_node_ref(*typed_item_id)?;
+        let typed_item_ref = context.syntax_tree().try_node_ref(*typed_item_id)?;
 
         // 1. On récupère le couple (Arguments, IDs de types) de l'item
-        let (args, ty_node_ids) = extract_arguments_from_typed_item(&typed_item_ref, ast)?;
+        let (args, ty_node_ids) = extract_arguments_from_typed_item(context, &typed_item_ref)?;
 
         // 2. On collecte l'ID de chaque argument (ex: le nœud de la variable)
         // Note: Si un TypedItem contient plusieurs variables (ex: ?x ?y - type),
@@ -1407,11 +1406,11 @@ fn extract_arguments_from_typed_list(
 /// }
 /// ```
 fn extract_arguments_from_typed_item(
+    context: &PassContext,
     typed_item_ref: &NodeRef<AstNode>,
-    ast: &Ast,
 ) -> Result<(TypedList<SymbolId, SymbolId>, Vec<NodeId>), SemanticError> {
     // Retourne le couple (Sémantique, AST)
-    let syntax_tree = ast.syntax_tree();
+    let syntax_tree = context.syntax_tree();
     let node = typed_item_ref.node();
 
     // Étape 1 : Extraction du couple (Sémantique, IDs de nœuds)
@@ -1422,7 +1421,7 @@ fn extract_arguments_from_typed_item(
             let ty_id = node.try_child(1)?;
             let ty_node_ref = syntax_tree.try_node_ref(ty_id)?;
             // On suppose ici que extract_type a été modifiée pour renvoyer le tuple
-            extract_type(&ty_node_ref, ast)?
+            extract_type(context, &ty_node_ref)?
         }
         n => {
             return Err(SemanticError::invalid_node_arity(
@@ -1486,11 +1485,11 @@ fn extract_arguments_from_typed_item(
 /// - Any child node is not of kind `PrimitiveType`.
 /// - A referenced node or symbol is invalid in the arena.
 fn extract_type(
+    context: &PassContext,
     type_ref: &NodeRef<AstNode>,
-    ast: &Ast,
 ) -> Result<(Type<SymbolId>, Vec<NodeId>), SemanticError> {
     // On renvoie un tuple
-    let arena = ast.syntax_tree();
+    let arena = context.syntax_tree();
     let mut super_types = Type::new();
     let mut node_ids = Vec::new();
 
@@ -1535,17 +1534,17 @@ fn extract_type(
 /// - The `type_ref` node is invalid or has children that are not of kind `PrimitiveType`.
 /// - A child node reference is invalid or symbol usage registration fails.
 fn init_from_type(
+    context: &PassContext,
     table: &mut SymbolTable,
     type_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(Type<SymbolId>, Vec<NodeId>), SemanticError> {
     // 1. On extrait les types (ex: [object]) et leurs IDs de nœuds
-    let (super_types, ty_node_ids) = extract_type(type_ref, ast)?;
+    let (super_types, ty_node_ids) = extract_type(context, type_ref)?;
 
     // 2. Traitement de chaque type trouvé à droite du tiret '-'
     for &ty_id in &ty_node_ids {
-        let ty_ref = ast.syntax_tree().try_node_ref(ty_id)?;
+        let ty_ref = context.syntax_tree().try_node_ref(ty_id)?;
         let symbol_ref = ty_ref.node().try_symbol()?;
         let ident = symbol_ref.id();
 
@@ -1555,9 +1554,9 @@ fn init_from_type(
             // On le déclare comme une racine (PrimitiveType sans parent)
             // Cela crée l'entrée manquante pour le SignatureChecker
             add_declaration_symbol(
+                context,
                 table,
                 &ty_ref,
-                ast,
                 scope.clone(),
                 None, // Pas de super-type (c'est une racine)
                 None,
@@ -1567,7 +1566,7 @@ fn init_from_type(
             )?;
         } else {
             // Si le symbole existe déjà, on enregistre simplement son usage
-            add_symbol_usage(table, &ty_ref, ast, None, scope.clone())?;
+            add_symbol_usage(context, table, &ty_ref, None, scope.clone())?;
         }
     }
 
@@ -1600,12 +1599,12 @@ fn init_from_type(
 /// - A child node is not valid or cannot be referenced.
 /// - Adding the declaration or initializing the task fails.
 fn init_from_tagged_task(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    let syntax_tree = ast.syntax_tree();
+    let syntax_tree = context.syntax_tree();
     let node = node_ref.node();
 
     // --- Extract the tag identifier child (expected to be a TaskID) ---
@@ -1614,9 +1613,9 @@ fn init_from_tagged_task(
 
     // --- Register the tag as a declaration symbol in the current scope ---
     add_declaration_symbol(
+        context,
         table,
         &tag,
-        ast,
         scope.clone(),
         None,
         None,
@@ -1630,7 +1629,7 @@ fn init_from_tagged_task(
     let task = syntax_tree.try_node_ref(task_id)?; // Error if invalid reference
 
     // --- Initialize symbols for the task formula (likely a predicate or action expression) ---
-    init_from_atomic_formula(table, &task, ast, scope.clone())?; // Recursively builds symbol table for inner task
+    init_from_atomic_formula(context, table, &task, scope.clone())?; // Recursively builds symbol table for inner task
 
     Ok(())
 }
@@ -1661,22 +1660,22 @@ fn init_from_tagged_task(
 /// - The referenced child nodes are of an unexpected kind.
 /// - Registering the symbol usage fails.
 fn init_from_task_ordering_constraint(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SymbolTableError> {
-    let syntax_tree = ast.syntax_tree();
+    let syntax_tree = context.syntax_tree();
 
     // --- Extract the first child node (expected to be a TaskID) ---
     let t1_id = node_ref.node().try_child(0)?; // Error if no first child
     let t1 = syntax_tree.try_node_ref(t1_id)?; // Error if invalid node reference
-    add_symbol_usage(table, &t1, ast, None, scope.clone())?; // Registers t1 as a symbol usage
+    add_symbol_usage(context, table, &t1, None, scope.clone())?; // Registers t1 as a symbol usage
 
     // --- Extract the second child node (also expected to be a TaskID) ---
     let t2_id = node_ref.node().try_child(1)?; // Error if no second child
     let t2 = syntax_tree.try_node_ref(t2_id)?; // Error if invalid node reference
-    add_symbol_usage(table, &t2, ast, None, scope.clone())?; // Registers t2 as a symbol usage
+    add_symbol_usage(context, table, &t2, None, scope.clone())?; // Registers t2 as a symbol usage
 
     Ok(())
 }
@@ -1695,12 +1694,12 @@ fn init_from_task_ordering_constraint(
 /// * `ast` - The AST arena.
 /// * `scope` - The parent scope (usually the global Domain).
 fn init_from_derived_predicate_def(
+    context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
-    ast: &Ast,
     scope: Scope,
 ) -> Result<(), SemanticError> {
-    let syntax_tree = ast.syntax_tree();
+    let syntax_tree = context.syntax_tree();
     let node = node_ref.node();
 
     // 1. Scope unique pour la définition (pour que le body voie les paramètres)
@@ -1717,17 +1716,17 @@ fn init_from_derived_predicate_def(
     let args_ref = syntax_tree.try_node_ref(args_id)?;
 
     // Initialisation sémantique dans le scope dérivé
-    init_from_typed_list(table, &args_ref, ast, derived_scope.clone())?;
+    init_from_typed_list(context, table, &args_ref, derived_scope.clone())?;
 
     // --- CORRECTION : Extraction du triplet complet ---
     // On récupère 'ty_ids' (les IDs de types des arguments)
-    let (args, ids, ty_ids) = extract_arguments_from_typed_list(&args_ref, ast)?;
+    let (args, ids, ty_ids) = extract_arguments_from_typed_list(context, &args_ref)?;
 
     // Enregistrement du prédicat dérivé
     add_declaration_symbol(
+        context,
         table,
         &predicate_ref,
-        ast,
         scope, // Le prédicat appartient au scope global (domain)
         None,  // Pas de type de retour pour un prédicat
         None,  // Pas d'ID de type de retour
@@ -1742,7 +1741,7 @@ fn init_from_derived_predicate_def(
     let body_id = node.try_child(1)?;
     let body_ref = syntax_tree.try_node_ref(body_id)?;
 
-    init_from(table, &body_ref, ast, derived_scope)?;
+    init_from(context, table, &body_ref, derived_scope)?;
 
     Ok(())
 }
