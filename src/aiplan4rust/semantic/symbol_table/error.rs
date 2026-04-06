@@ -109,6 +109,9 @@ pub enum SymbolTableError {
         node_id: NodeId,
     },
 
+    #[error("Usage not found for node ID '{node_id}'")]
+    UsageNotFoundForNode { node_id: NodeId },
+
     /// The usage was found, but it has not been resolved to any declaration.
     /// This indicates a failure in the semantic analysis or "vissage" phase.
     #[error(
@@ -256,6 +259,12 @@ impl SymbolTableError {
     #[track_caller]
     pub fn declaration_not_found_for_node(node_id: NodeId) -> Self {
         SymbolTableError::DeclarationNotFoundForNode { node_id }.trace()
+    }
+
+    /// Construit une erreur `UsageNotFoundForNode`.
+    #[track_caller]
+    pub fn uage_not_found_for_node(node_id: NodeId) -> Self {
+        SymbolTableError::UsageNotFoundForNode { node_id }.trace()
     }
 
     /// Constructs an `UnresolvedUsage` error.

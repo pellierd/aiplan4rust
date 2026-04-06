@@ -2,6 +2,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::passes::context::PassContext;
+use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::type_checker::{TypeCheckerError, TypeHierarchy};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::tree::NodeId;
@@ -214,33 +215,31 @@ fn simplify_type(
 /// * `changes` - A vector of [`Simplification`] instructions generated during
 ///   the collection phase.
 pub fn apply_type_simplifications(
-    target_table: &mut SymbolTable,
-    changes: &[Simplification], // Référence : on ne consomme plus le Vec
-) {
+    target_table: &mut SymbolTable, // Utilise ton type Table mis à jour
+    changes: &[Simplification],
+) -> Result<(), SemanticPassError> {
     for change in changes {
-        // On utilise les accesseurs car on n'a qu'une vue en lecture seule
-        if let Some(entry) = target_table.get_symbol_mut(change.symbol_id()) {
-            if let Some(original) = entry.declarations_mut().get_mut(&change.node_id()) {
-                // 1. Synchronisation des NodeIds
-                if let Some(old_ids) = original.type_sources() {
-                    // On itère sur les indices (copie d'entiers, donc pas de clone lourd)
-                    let new_ids: Vec<NodeId> = change
-                        .kept_indices()
-                        .iter()
-                        .filter_map(|&i| old_ids.get(i))
-                        .copied()
-                        .collect();
+        // Accès direct à la déclaration mutable via le cache O(1)
+        // On utilise le NodeId de la simplification pour retrouver la déclaration originale
+        if let Ok(original) = target_table.try_get_declaration_mut(change.node_id()) {
+            // 1. Synchronisation des NodeIds des parents (sources)
+            if let Some(old_ids) = original.type_sources() {
+                let new_ids: Vec<NodeId> = change
+                    .kept_indices()
+                    .iter()
+                    .filter_map(|&i| old_ids.get(i))
+                    .copied()
+                    .collect();
 
-                    original.set_type_sources(new_ids);
-                }
-
-                // 2. Mise à jour du type sémantique
-                // CLONE OBLIGATOIRE : On duplique le type pour l'insérer dans la table
-                // tout en laissant l'original dans la liste des 'changes'.
-                original.set_ty(change.new_type().clone());
+                original.set_type_sources(new_ids);
             }
+
+            // 2. Mise à jour du type sémantique
+            // On clone le nouveau type (issu de la simplification) dans la déclaration
+            original.set_ty(change.new_type().clone());
         }
     }
+    Ok(())
 }
 
 /// Represents a planned modification to be applied to both the `SymbolTable` and the `AST`.

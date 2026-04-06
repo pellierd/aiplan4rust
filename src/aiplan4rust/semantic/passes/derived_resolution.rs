@@ -168,26 +168,27 @@ fn collect_derived_links(
 /// 1. Locates the [`SymbolEntry`] corresponding to the `symbol_id`.
 /// 2. Updates the **Axiom** declaration to point to its parent (base) declaration.
 /// 3. Updates the **Base** declaration to include the axiom in its list of derivations.
-pub fn apply_derived_links(table: &mut SymbolTable, links: Vec<DerivedLink>) {
+pub fn apply_derived_links(
+    table: &mut SymbolTable,
+    links: Vec<DerivedLink>,
+) -> Result<(), SemanticPassError> {
     for link in links {
-        // Retrieve the entry for the specific symbol (e.g., "at", "on-table")
-        if let Some(entry) = table.get_symbol_mut(link.symbol_id()) {
-            // Gain mutable access to all declarations registered for this symbol
-            let decls = entry.declarations_mut();
+        let axiom_id = link.axiom_id();
+        let base_id = link.base_id();
 
-            // 1. Link the Axiom to its parent Signature (Upward link)
-            // This allows the axiom to know which formal signature it must satisfy.
-            if let Some(axiom) = decls.get_mut(&link.axiom_id()) {
-                axiom.set_derived_source(link.base_id());
-            }
+        // 1. Link l'Axiome vers sa Signature parente (Upward link)
+        // On utilise directement le NodeId de l'axiome via le cache
+        if let Ok(axiom) = table.try_get_declaration_mut(axiom_id) {
+            axiom.set_derived_source(base_id);
+        }
 
-            // 2. Link the Base Signature to its child Axiom (Downward link)
-            // This allows the base predicate to track all its various derived implementations.
-            if let Some(base) = decls.get_mut(&link.base_id()) {
-                base.add_derivation(link.axiom_id());
-            }
+        // 2. Link la Signature de base vers son Axiome enfant (Downward link)
+        // On utilise directement le NodeId de la base via le cache
+        if let Ok(base) = table.try_get_declaration_mut(base_id) {
+            base.add_derivation(axiom_id);
         }
     }
+    Ok(())
 }
 
 /// Represents the result of resolving a derived predicate.

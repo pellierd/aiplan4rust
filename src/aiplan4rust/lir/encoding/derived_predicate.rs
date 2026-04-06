@@ -53,8 +53,7 @@ pub fn encode(
     let predicate_symbol_id = predicate_node.try_ident()?;
 
     let symbol_table = registry.symbol_table();
-    let declaration =
-        symbol_table.try_get_declaration_from(predicate_symbol_id, predicate_symbol_node_id)?;
+    let declaration = symbol_table.try_get_declaration(predicate_symbol_node_id)?;
 
     // Retrieve the link between this axiom and the base predicate signature.
     let base_predicate_node_id = declaration.derived_source().unwrap();

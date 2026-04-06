@@ -273,7 +273,55 @@ fn collect_signature_resolutions(
 /// * `table` - The mutable symbol table to be updated.
 /// * `resolutions` - A vector of triplets containing the Symbol ID,
 ///    the Usage Node ID, and the calculated Resolution.
-fn apply_resolutions(table: &mut SymbolTable, resolutions: Vec<(SymbolId, NodeId, Resolution)>) {
+pub fn apply_resolutions(
+    table: &mut SymbolTable,
+    resolutions: Vec<(SymbolId, NodeId, Resolution)>,
+) -> Result<(), SemanticPassError> {
+    for (sym_id, usage_id, resolution) in resolutions {
+        // 1. DÉTERMINATION DE LA DÉCLARATION CIBLE ET DU STATUT
+        let (final_decl_id, status) = match resolution {
+            // Cas Local : Déjà défini
+            Resolution::Local(decl_id, status) => (decl_id, status),
+
+            // Cas Domain : Gestion du Proxy
+            Resolution::Domain(proxy, status) => {
+                let proxy_source = proxy.source();
+
+                // On récupère l'entrée en lecture seule pour chercher le proxy
+                let entry = table.try_get_symbol(sym_id)?;
+
+                if let Some(existing_id) = find_domain_proxy(entry, proxy_source) {
+                    (existing_id, status)
+                } else {
+                    // Si c'est un nouveau proxy, on utilise l'API add_declaration
+                    // qui gère l'insertion et la mise à jour du cache O(1)
+                    table.add_declaration(sym_id, proxy)?;
+                    (proxy_source, status)
+                }
+            }
+
+            // Cas Implicite : Built-ins
+            Resolution::Implicite(reserved_id, status) => (reserved_id, status),
+        };
+
+        // 2. MISE À JOUR DES LIENS BIDIRECTIONNELS VIA LE CACHE O(1)
+
+        // 2.1 Lien : Déclaration -> Usage
+        // On ne tente la mise à jour que si ce n'est pas un ID virtuel (Implicite)
+        if let Ok(decl_mut) = table.try_get_declaration_mut(final_decl_id) {
+            decl_mut.add_usage(usage_id);
+        }
+
+        // 2.2 Lien : Usage -> Déclaration
+        // On utilise le cache des usages pour modifier directement l'objet Usage
+        if let Ok(u_mut) = table.try_get_usage_mut(usage_id) {
+            u_mut.set_declaration(final_decl_id);
+            u_mut.set_resolution(status);
+        }
+    }
+    Ok(())
+}
+/*fn apply_resolutions(table: &mut SymbolTable, resolutions: Vec<(SymbolId, NodeId, Resolution)>) {
     for (sym_id, usage_id, resolution) in resolutions {
         if let Some(entry) = table.get_symbol_mut(sym_id) {
             // 1. DETERMINE TARGET DECLARATION AND STATUS
@@ -316,7 +364,7 @@ fn apply_resolutions(table: &mut SymbolTable, resolutions: Vec<(SymbolId, NodeId
             }
         }
     }
-}
+}*/
 
 /// Searches for an existing domain-originated symbol within the given entry.
 ///

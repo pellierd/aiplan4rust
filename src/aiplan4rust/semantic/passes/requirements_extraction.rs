@@ -250,9 +250,7 @@ pub fn extract_required_requirements(
                                 // --- CORRECTION ICI ---
                                 // On ne résout pas (recherche d'usage), on récupère la déclaration directe
                                 // car nous sommes au moment de la définition dans l'AST.
-                                if let Ok(decl) =
-                                    symbol_table.try_get_declaration_from(sym_id, s_node_id)
-                                {
+                                if let Ok(decl) = symbol_table.try_get_declaration(s_node_id) {
                                     if let Some(ty) = decl.ty() {
                                         // Si le type est explicitement 'number'
                                         if ty.is_number() {

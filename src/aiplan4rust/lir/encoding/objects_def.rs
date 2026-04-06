@@ -87,7 +87,7 @@ fn collect_object_ids(
         // These domain constants are already encoded globally in the LiftedDomain.
         let decl = registry
             .symbol_table()
-            .try_get_declaration_from(symbol_id, symbol_node_id)?;
+            .try_get_declaration(symbol_node_id)?;
 
         if decl.origin() == Origin::Shared {
             registry.register_object_symbol(symbol_id, symbol_node_id);

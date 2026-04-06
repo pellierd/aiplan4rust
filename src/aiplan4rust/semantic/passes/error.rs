@@ -1,4 +1,5 @@
 use crate::aiplan4rust::semantic::signature_checker::SignatureMatcherError;
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
 use thiserror::Error;
 
@@ -20,4 +21,7 @@ pub enum SemanticPassError {
     /// Errors occurring during type hierarchy or compatibility checks.
     #[error(transparent)]
     TypeChecker(#[from] TypeCheckerError),
+
+    #[error(transparent)]
+    SymbolTable(#[from] SymbolTableError),
 }

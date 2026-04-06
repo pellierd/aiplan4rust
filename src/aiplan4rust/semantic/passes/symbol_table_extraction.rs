@@ -22,9 +22,7 @@
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::lang::{SymbolId, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::passes::PassContext;
-use crate::aiplan4rust::semantic::symbol::{
-    Declaration, Scope, SymbolEntry, SymbolKind, SymbolOrigin, Usage,
-};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
@@ -296,7 +294,52 @@ fn init_from(
 /// let node_ref = ast.try_node_ref(node_id)?;
 /// builder.add_declaration_symbol(node_ref, &ast, current_scope, None, None)?;
 /// ```
-fn add_declaration_symbol(
+pub fn add_declaration_symbol(
+    context: &PassContext,
+    table: &mut SymbolTable,
+    node_ref: &NodeRef<AstNode>,
+    scope: Scope,
+    types: Option<Type<SymbolId>>,
+    ty_node_ids: Option<Vec<NodeId>>,
+    arguments: Option<TypedList<SymbolId, SymbolId>>,
+    argument_node_ids: Option<Vec<NodeId>>,
+    is_derived: bool,
+) -> Result<(), SymbolTableError> {
+    // 1. Extraction (Identique)
+    let node = context.syntax_tree().try_node(node_ref.id())?;
+    let symbol_ref = node.try_symbol()?;
+    let ident = symbol_ref.id();
+
+    // 2. Préparation des données (Identique)
+    let origin = SymbolOrigin::from(table.origin());
+
+    // 3. Création de la déclaration (Logique commune aux deux branches)
+    let mut declaration = Declaration::new(
+        symbol_ref,
+        scope,
+        origin,
+        types,
+        ty_node_ids,
+        arguments,
+        argument_node_ids,
+        node_ref.node().span().clone(),
+        node_ref.id(),
+        None,
+        None,
+    );
+    declaration.set_derived(is_derived);
+
+    // 4. LE MÊME COMPORTEMENT :
+    // Au lieu de faire le if/else manuellement ici, on appelle `add_declaration`.
+    // Pourquoi c'est le même comportement ?
+    // Parce que `table.add_declaration` fait exactement ceci :
+    //    - Si le symbole existe -> il récupère l'entrée et ajoute la decl (ton `if`)
+    //    - Si le symbole n'existe pas -> il crée l'entrée et ajoute la decl (ton `else`)
+    //    - EN PLUS : il vérifie le cache pour éviter les erreurs E2011.
+
+    table.add_declaration(ident, declaration)
+}
+/*fn add_declaration_symbol(
     context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
@@ -368,7 +411,7 @@ fn add_declaration_symbol(
 
     // Return success indicating the symbol declaration was added properly.
     Ok(())
-}
+}*/
 
 /// Adds the usage of a symbol found in the given AST syntax to the symbol table.
 ///
@@ -402,7 +445,52 @@ fn add_declaration_symbol(
 /// let node_ref = ast.try_node_ref(node_id)?;
 /// builder.add_symbol_usage(node_ref, &ast, current_scope)?;
 /// ```
-fn add_symbol_usage(
+pub fn add_symbol_usage(
+    context: &PassContext,
+    table: &mut SymbolTable,
+    node_ref: &NodeRef<AstNode>,
+    arguments: Option<Vec<NodeId>>,
+    scope: Scope,
+) -> Result<(), SymbolTableError> {
+    // 1. Détermination du nœud cible et extraction du symbole (Identique)
+    let (target_id, symbol_ref) = if matches!(
+        node_ref.node().kind(),
+        AstKind::AtomicFormula | AstKind::Function | AstKind::Task
+    ) {
+        let first_child_id = node_ref.node().children()[0];
+        (
+            first_child_id,
+            context
+                .syntax_tree()
+                .try_node(first_child_id)?
+                .try_symbol()?,
+        )
+    } else {
+        (node_ref.id(), node_ref.node().try_symbol()?)
+    };
+
+    let ident = symbol_ref.id();
+    let origin = SymbolOrigin::from(table.origin());
+
+    // Récupération du span (Identique)
+    let span = context
+        .syntax_tree()
+        .try_node_ref(target_id)?
+        .node()
+        .span()
+        .clone();
+
+    // 2. Préparation de l'usage (Identique)
+    let usage = Usage::new(symbol_ref, scope, origin, span, target_id, arguments);
+
+    // 3. Mise à jour de la Table via la nouvelle API
+    // Strictement équivalent à ton if/else précédent mais avec :
+    // - L'idempotence automatique (grâce au cache usages_index)
+    // - L'utilisation de l'Entry API interne (plus rapide)
+    // - La garantie que l'index de cache est créé
+    table.add_usage(ident, usage)
+}
+/*fn add_symbol_usage(
     context: &PassContext,
     table: &mut SymbolTable,
     node_ref: &NodeRef<AstNode>,
@@ -453,7 +541,7 @@ fn add_symbol_usage(
     }
 
     Ok(())
-}
+}*/
 
 /// Initializes the symbol table from a `TypedList` AST syntax node.
 ///
@@ -639,30 +727,33 @@ fn init_from_typed_item_elements(
             let symbol_ref = node_ref.node().try_symbol()?;
             let ident = symbol_ref.id();
 
-            // 1. Check if an implicit root (placeholder) already exists for this type.
-            // This happens when a type was used as a parent before being explicitly declared.
-            let mut merged = false;
-            if let Some(entry) = table.get_symbol_mut(ident) {
-                // Look for a PrimitiveType declaration that lacks parent types (the "empty shell").
-                if let Some(decl) = entry
-                    .declarations_mut()
-                    .values_mut()
-                    .find(|d| d.symbol().kind() == SymbolKind::PrimitiveType && d.ty().is_none())
-                {
-                    // SYMBOL PROMOTION: Transform the implicit root into a full declaration.
-                    // We update it with actual parent types and link it to its official AST node.
-                    decl.set_ty(types.clone());
-                    decl.set_type_sources(ty_node_ids.clone());
-                    decl.set_source(node_ref.id());
-                    decl.set_span(node_ref.node().span().clone());
+            let mut promoted = false;
 
-                    merged = true;
+            // 1. On cherche si une "coquille vide" existe (lecture seule)
+            if let Some(entry) = table.get_symbol(ident) {
+                let old_id = entry.declarations().iter().find_map(|(id, d)| {
+                    if d.symbol().kind() == SymbolKind::PrimitiveType && d.ty().is_none() {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                });
+
+                // 2. Si trouvée, on procède à la promotion via la nouvelle API
+                if let Some(id) = old_id {
+                    if let Ok(decl) = table.promote_declaration(id, node_ref.id()) {
+                        // Mise à jour des données sémantiques sur l'objet existant
+                        decl.set_ty(types.clone());
+                        decl.set_type_sources(ty_node_ids.clone());
+                        decl.set_span(node_ref.node().span().clone());
+
+                        promoted = true;
+                    }
                 }
             }
 
-            // 2. If no implicit root was found, create a new declaration normally.
-            // This handles types being declared for the first time or legitimate duplicates (E2011).
-            if !merged {
+            // 3. Si aucune promotion (cas standard ou premier passage), on crée normalement
+            if !promoted {
                 add_declaration_symbol(
                     context,
                     table,
