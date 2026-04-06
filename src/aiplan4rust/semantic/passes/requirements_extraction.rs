@@ -803,7 +803,7 @@ fn get_term_requirement(
 
         // Vissage direct O(1) pour tous les autres fluents
         // On utilise functor_node_id pour la résolution précise dans la table
-        if let Ok(decl) = table.resolve_primary_declaration(functor, functor_node_id) {
+        if let Ok(decl) = table.resolve_usage(functor_node_id) {
             if let Some(ty) = decl.ty() {
                 return Ok(Some(if ty.is_number() {
                     Requirement::NumericFluents

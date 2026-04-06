@@ -414,7 +414,7 @@ fn get_number_type() -> Result<Option<Type<SymbolId>>, SemanticError> {
 fn get_variable_type(
     index: NodeId,
     symbol: SymbolId,
-    context: &CheckContext,
+    _context: &CheckContext,
     symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
     // 2. Implicit Case: If no explicit declaration exists, check for reserved symbols.
@@ -426,7 +426,7 @@ fn get_variable_type(
     }
 
     // 3. Fallback: Standard declaration lookup.
-    get_declaration_type(symbol, index, symbol_table)
+    get_declaration_type(index, symbol_table)
 }
 
 /// Retrieves the type_checker of a constant symbol from the symbol table.
@@ -453,10 +453,10 @@ fn get_variable_type(
 /// ```
 fn get_constant_type(
     index: NodeId,
-    symbol: SymbolId,
+    _symbol: SymbolId,
     symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    get_declaration_type(symbol, index, symbol_table)
+    get_declaration_type(index, symbol_table)
 }
 
 /// Helper function to retrieve the types associated with a symbol usage from the symbol table.
@@ -487,11 +487,10 @@ fn get_constant_type(
 /// }
 /// ```
 fn get_declaration_type(
-    symbol: SymbolId,
     node_id: NodeId,
     symbol_table: &SymbolTable,
 ) -> Result<Option<Type<SymbolId>>, SemanticError> {
-    match symbol_table.resolve_primary_declaration(symbol, node_id) {
+    match symbol_table.resolve_usage(node_id) {
         Ok(decl) => Ok(decl.ty().cloned()),
         Err(_) => Ok(None),
     }
@@ -537,7 +536,7 @@ fn get_function_term_type(
         {
             return get_number_type();
         }
-        return get_declaration_type(function_symbol, functor_index, symbol_table);
+        return get_declaration_type(functor_index, symbol_table);
     }
 
     Err(SemanticError::unexpected_node_kind(

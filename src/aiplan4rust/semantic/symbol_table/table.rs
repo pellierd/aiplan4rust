@@ -456,7 +456,7 @@ impl Table {
     /// * `Ok(&Declaration)` - A reference to the primary source declaration.
     /// * `Err(SymbolTableError)` - If the usage record is missing or if the link
     ///   to the declaration has not been established (unresolved).
-    pub fn resolve_primary_declaration(
+    /*pub fn resolve_primary_declaration(
         &self,
         symbol: SymbolId,
         usage_node_id: NodeId,
@@ -472,6 +472,20 @@ impl Table {
 
         // 3. Retrieve the final declaration from the table using its source NodeId
         Ok(entry.declarations().get(&decl_node_id).unwrap())
+    }*/
+    pub fn resolve_usage(&self, usage_node_id: NodeId) -> Result<&Declaration, SymbolTableError> {
+        // 1. Accès direct à l'usage via le cache O(1)
+        // On ne cherche plus l'Entry, on va direct à l'usage
+        let usage = self.try_get_usage(usage_node_id)?;
+
+        // 2. Récupération de l'ID de la déclaration liée
+        let decl_node_id = usage
+            .declaration()
+            .ok_or_else(|| SymbolTableError::unresolved_usage(usage.symbol_id(), usage_node_id))?;
+
+        // 3. Accès direct à la déclaration finale via le cache O(1)
+        // Zéro recherche linéaire, zéro unwrap risqué
+        self.try_get_declaration(decl_node_id)
     }
 
     /// This method scans all symbols of kind [`SymbolKind::PrimitiveType`],

@@ -307,9 +307,7 @@ fn encode_content(
             let predicate_node = subtree.tree().try_node(predicate_node_id)?;
             let predicate_symbol = predicate_node.try_ident()?;
 
-            let declaration = registry
-                .symbol_table()
-                .resolve_primary_declaration(predicate_symbol, predicate_node_id)?;
+            let declaration = registry.symbol_table().resolve_usage(predicate_node_id)?;
 
             // Apply redirection when declaration are defined in domain
             let effective_id = declaration.alias().unwrap_or(declaration.source());
@@ -333,9 +331,7 @@ fn encode_content(
                         .try_resolve_function_skeleton(EncodingRegistry::TOTAL_COST_NODE_ID)?,
                     _ => {
                         // Utilisation directe de resolve_primary_declaration
-                        let declaration = registry
-                            .symbol_table()
-                            .resolve_primary_declaration(symbol, function_id)?;
+                        let declaration = registry.symbol_table().resolve_usage(function_id)?;
 
                         // Apply redirection when declaration are defined in domain
                         let effective_id = declaration.alias().unwrap_or(declaration.source());
@@ -353,9 +349,7 @@ fn encode_content(
 
             // 1. Résolution unifiée : On demande à la table ce qui a été décidé en Phase 4.
             // resolve_primary_declaration s'occupe de suivre le lien déjà calculé.
-            let declaration = registry
-                .symbol_table()
-                .resolve_primary_declaration(symbol, task_node_id)?;
+            let declaration = registry.symbol_table().resolve_usage(task_node_id)?;
 
             // Apply redirection when declaration are defined in domain
             let effective_id = declaration.alias().unwrap_or(declaration.source());
@@ -399,9 +393,7 @@ fn encode_content(
             let symbol = predicate_node.try_ident()?;
 
             // 1. On récupère la déclaration (O(1) via resolved_declaration)
-            let declaration = registry
-                .symbol_table()
-                .resolve_primary_declaration(symbol, ast_node_id)?;
+            let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
 
             // --- CORRECTION ICI ---
             // Si la déclaration a un alias (NodeId du domaine), on prend l'alias.
@@ -425,9 +417,7 @@ fn encode_content(
                 }
                 _ => {
                     // Utilisation de resolve_primary_declaration pour bousiller la dépendance au cache
-                    let declaration = registry
-                        .symbol_table()
-                        .resolve_primary_declaration(symbol, ast_node_id)?;
+                    let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
                     // Apply redirection when declaration are defined in domain
                     let effective_id = declaration.alias().unwrap_or(declaration.source());
                     registry.try_resolve_functor(effective_id)?
@@ -440,9 +430,7 @@ fn encode_content(
             let symbol_id = ast_node.try_ident()?;
 
             // 1. Utilisation du lien direct (O(1)) établi par check_undeclared_symbols
-            let declaration = registry
-                .symbol_table()
-                .resolve_primary_declaration(symbol_id, ast_node_id)?;
+            let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
 
             // 2. Résolution de l'ID de l'objet via la source de la déclaration
             let effective_id = declaration.alias().unwrap_or(declaration.source());
@@ -461,9 +449,7 @@ fn encode_content(
                 // Cas standard : paramètres d'actions ou variables de quantificateurs
                 _ => {
                     // Utilise ta nouvelle méthode de vissage O(1)
-                    let declaration = registry
-                        .symbol_table()
-                        .resolve_primary_declaration(symbol_id, ast_node_id)?;
+                    let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
 
                     // On utilise .source() qui est le NodeId de la déclaration
                     registry.try_resolve_variable(declaration.source())?
@@ -478,9 +464,7 @@ fn encode_content(
 
             // 1. Plus de "match" ou de "fallback".
             // On fait confiance au vissage de la Phase 4.
-            let declaration = registry
-                .symbol_table()
-                .resolve_primary_declaration(symbol, ast_node_id)?;
+            let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
 
             // 2. On récupère l'ID symbolique via la source de la déclaration.
             let effective_id = declaration.alias().unwrap_or(declaration.source());
