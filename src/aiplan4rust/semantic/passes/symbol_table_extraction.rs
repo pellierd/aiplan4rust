@@ -57,7 +57,7 @@ pub fn extract_symbol_table(context: &PassContext) -> Result<SymbolTable, Semant
     let root_ref = context.syntax_tree().try_root_node_ref()?;
     let root_node = root_ref.node();
 
-    let mut table = SymbolTable::new();
+    let mut table = SymbolTable::new(context.interner());
     // Match the root node kind and configure the symbol table's origin and root ID accordingly
     match root_node.kind() {
         AstKind::Domain => {
@@ -82,7 +82,7 @@ pub fn extract_symbol_table(context: &PassContext) -> Result<SymbolTable, Semant
     initialize_from_ast(context, &mut table, &root_ref)?;
 
     // Return the fully constructed symbol table, replacing the internal table with an empty one
-    Ok(std::mem::take(&mut table))
+    Ok(table)
 }
 
 /// Initializes the symbol table by processing nodes from the Abstract Syntax Tree (AST).
@@ -310,6 +310,13 @@ pub fn add_declaration_symbol(
     let symbol_ref = node.try_symbol()?;
     let ident = symbol_ref.id();
 
+    if ident.as_usize() == 23 {
+        println!(
+            "INFO: Enregistrement de la tâche do_observation (ID 23) au nœud {:?}",
+            node_ref.id()
+        );
+    }
+
     // 2. Préparation des données (Identique)
     let origin = SymbolOrigin::from(table.origin());
 
@@ -339,79 +346,6 @@ pub fn add_declaration_symbol(
 
     table.add_declaration(ident, declaration)
 }
-/*fn add_declaration_symbol(
-    context: &PassContext,
-    table: &mut SymbolTable,
-    node_ref: &NodeRef<AstNode>,
-    scope: Scope,
-    types: Option<Type<SymbolId>>,
-    ty_node_ids: Option<Vec<NodeId>>,
-    arguments: Option<TypedList<SymbolId, SymbolId>>,
-    argument_node_ids: Option<Vec<NodeId>>,
-    is_derived: bool,
-) -> Result<(), SymbolTableError> {
-    // Extract the symbol reference from the AST node ID.
-    // This retrieves s
-    // ymbol metadata such as the identifier name and kind.
-    let node = context.syntax_tree().try_node(node_ref.id())?;
-    let mut symbol_ref = node.try_symbol()?;
-
-    // Obtain the symbol's identifier (name) from the symbol reference.
-    let ident = symbol_ref.id();
-
-    // Determine the origin context of this symbol declaration.
-    // This helps track where the symbol was declared, for error reporting and resolution.
-    let origin = SymbolOrigin::from(table.origin());
-
-    // Check if the symbol already exists in the symbol table.
-    // If it exists, add a new declaration to the existing symbol.
-    if let Some(symbol) = table.get_symbol_mut(ident) {
-        // Create a new declaration instance for this symbol with provided metadata.
-        let mut declaration = Declaration::new(
-            symbol_ref,
-            scope,
-            origin,
-            types,
-            ty_node_ids,
-            arguments,
-            argument_node_ids,
-            node_ref.node().span().clone(), // Source code span for error diagnostics.
-            node_ref.id(),                  // AST node identifier.
-            None,                           // Optional additional data (currently None).
-            None,
-        );
-        declaration.set_derived(is_derived);
-        // Append this declaration to the existing symbol's declarations list.
-        symbol.add_declaration(declaration);
-    } else {
-        // If the symbol does not exist, create a new symbol entry.
-        let mut symbol = SymbolEntry::new(ident);
-
-        // Create a new declaration for the new symbol.
-        let mut declaration = Declaration::new(
-            symbol_ref,
-            scope,
-            origin,
-            types,
-            ty_node_ids,
-            arguments,
-            argument_node_ids,
-            node_ref.node().span().clone(),
-            node_ref.id(),
-            None,
-            None,
-        );
-        declaration.set_derived(is_derived);
-        // Add the declaration to the symbol.
-        symbol.add_declaration(declaration);
-
-        // Insert the new symbol entry into the symbol table.
-        table.insert_symbol(ident, symbol);
-    }
-
-    // Return success indicating the symbol declaration was added properly.
-    Ok(())
-}*/
 
 /// Adds the usage of a symbol found in the given AST syntax to the symbol table.
 ///
@@ -490,58 +424,6 @@ pub fn add_symbol_usage(
     // - La garantie que l'index de cache est créé
     table.add_usage(ident, usage)
 }
-/*fn add_symbol_usage(
-    context: &PassContext,
-    table: &mut SymbolTable,
-    node_ref: &NodeRef<AstNode>,
-    arguments: Option<Vec<NodeId>>,
-    scope: Scope,
-) -> Result<(), SymbolTableError> {
-    // 1. Détermination du nœud cible et extraction du symbole
-    // On factorise l'accès pour éviter de chercher deux fois dans l'AST
-    let (target_id, symbol_ref) = if matches!(
-        node_ref.node().kind(),
-        AstKind::AtomicFormula | AstKind::Function | AstKind::Task
-    ) {
-        let first_child_id = node_ref.node().children()[0];
-        (
-            first_child_id,
-            context
-                .syntax_tree()
-                .try_node(first_child_id)?
-                .try_symbol()?,
-        )
-    } else {
-        (node_ref.id(), node_ref.node().try_symbol()?)
-    };
-
-    let ident = symbol_ref.id();
-    let origin = SymbolOrigin::from(table.origin());
-
-    // On récupère le span directement depuis l'AST via le target_id
-    let span = context
-        .syntax_tree()
-        .try_node_ref(target_id)?
-        .node()
-        .span()
-        .clone();
-
-    // 2. Préparation de l'usage
-    let usage = Usage::new(symbol_ref, scope, origin, span, target_id, arguments);
-
-    // 3. Mise à jour de la Table (via méthodes publiques)
-    // Ajout de l'usage dans l'entrée du symbole
-    // Comme on n'a pas accès à .entry(), on utilise les méthodes get_mut / insert
-    if let Some(symbol_entry) = table.get_symbol_mut(ident) {
-        symbol_entry.add_usage(usage);
-    } else {
-        let mut new_entry = SymbolEntry::new(ident);
-        new_entry.add_usage(usage);
-        table.insert_symbol(ident, new_entry);
-    }
-
-    Ok(())
-}*/
 
 /// Initializes the symbol table from a `TypedList` AST syntax node.
 ///
@@ -1177,68 +1059,6 @@ fn init_from_def(
     Ok(())
 }
 
-/// Initializes the syntax state from an `AtomicFormula`, `FunctionTerm`, or `Task` AST syntax.
-///
-/// This function processes an AST syntax expected to represent either an atomic formula,
-/// a function term, or a task. It verifies that the syntax has at least one child (the symbol),
-/// registers the usage of that symbol, then recursively processes all children as arguments.
-///
-/// # Parameters
-/// - `node_ref`: Reference to the AST syntax representing the atomic formula or function term.
-/// - `ast`: The AST arena containing all nodes.
-/// - `scope`: The current scope used for symbol resolution and symbol usage registration.
-///
-/// # Returns
-/// - `Ok(())` if the syntax and its children are successfully processed.
-/// - `Err(ParserInternalError)` if the syntax kind is invalid, lacks children, or if recursive processing fails.
-///
-/// # Errors
-/// Returns an error if:
-/// - The AST syntax kind is not one of `AtomicFormula`, `FunctionTerm`, or `Task`.
-/// - The syntax has no children (at least one child is expected as the symbol).
-/// - Any recursive call to `init_from` returns an error.
-///
-/// # Example
-/// ```rust
-/// symbol_table.init_from_atomic_formula(node_ref, &ast, scope)?;
-/// ```
-fn init_from_atomic_formula(
-    context: &PassContext,
-    table: &mut SymbolTable,
-    node_ref: &NodeRef<AstNode>,
-    scope: Scope,
-) -> Result<(), SemanticError> {
-    let children = node_ref.node().children();
-
-    // 1. HEAD MANAGEMENT (The Caller)
-    // We treat the first child as the predicate/task head.
-    if let Some(&predicate_id) = children.first() {
-        let predicate_ref = context.syntax_tree().try_node_ref(predicate_id)?;
-
-        // We clone the children IDs to provide the Usage with its full syntactic context.
-        // This 'flattens' the AST relationship into the Symbol Table for easier type checking.
-        let arguments = children[1..].to_vec();
-        add_symbol_usage(
-            context,
-            table,
-            &predicate_ref,
-            Some(arguments),
-            scope.clone(),
-        )?;
-    }
-
-    // 2. ARGUMENTS MANAGEMENT (The Parameters)
-    // Iterate through the remaining children. We use skip(1) to avoid
-    // double-processing the head node, ensuring each argument is initialized
-    // according to its specific AstKind (Variable, Object, etc.).
-    for &child_id in children.iter().skip(1) {
-        let child_ref = context.syntax_tree().try_node_ref(child_id)?;
-        init_from(context, table, &child_ref, scope.clone())?;
-    }
-
-    Ok(())
-}
-
 /// Initializes the symbol table for a quantified expression (`Exists` or `Forall`) in the AST.
 ///
 /// A quantified expression must follow this structure:
@@ -1407,6 +1227,68 @@ fn init_from_atomic_formula_skeleton(
         Some(ids),  // Les IDs des variables
         false,      // is_derived
     )?;
+
+    Ok(())
+}
+
+/// Initializes the syntax state from an `AtomicFormula`, `FunctionTerm`, or `Task` AST syntax.
+///
+/// This function processes an AST syntax expected to represent either an atomic formula,
+/// a function term, or a task. It verifies that the syntax has at least one child (the symbol),
+/// registers the usage of that symbol, then recursively processes all children as arguments.
+///
+/// # Parameters
+/// - `node_ref`: Reference to the AST syntax representing the atomic formula or function term.
+/// - `ast`: The AST arena containing all nodes.
+/// - `scope`: The current scope used for symbol resolution and symbol usage registration.
+///
+/// # Returns
+/// - `Ok(())` if the syntax and its children are successfully processed.
+/// - `Err(ParserInternalError)` if the syntax kind is invalid, lacks children, or if recursive processing fails.
+///
+/// # Errors
+/// Returns an error if:
+/// - The AST syntax kind is not one of `AtomicFormula`, `FunctionTerm`, or `Task`.
+/// - The syntax has no children (at least one child is expected as the symbol).
+/// - Any recursive call to `init_from` returns an error.
+///
+/// # Example
+/// ```rust
+/// symbol_table.init_from_atomic_formula(node_ref, &ast, scope)?;
+/// ```
+fn init_from_atomic_formula(
+    context: &PassContext,
+    table: &mut SymbolTable,
+    node_ref: &NodeRef<AstNode>,
+    scope: Scope,
+) -> Result<(), SemanticError> {
+    let children = node_ref.node().children();
+
+    // 1. HEAD MANAGEMENT (The Caller)
+    // We treat the first child as the predicate/task head.
+    if let Some(&predicate_id) = children.first() {
+        let predicate_ref = context.syntax_tree().try_node_ref(predicate_id)?;
+
+        // We clone the children IDs to provide the Usage with its full syntactic context.
+        // This 'flattens' the AST relationship into the Symbol Table for easier type checking.
+        let arguments = children[1..].to_vec();
+        add_symbol_usage(
+            context,
+            table,
+            &predicate_ref,
+            Some(arguments),
+            scope.clone(),
+        )?;
+    }
+
+    // 2. ARGUMENTS MANAGEMENT (The Parameters)
+    // Iterate through the remaining children. We use skip(1) to avoid
+    // double-processing the head node, ensuring each argument is initialized
+    // according to its specific AstKind (Variable, Object, etc.).
+    for &child_id in children.iter().skip(1) {
+        let child_ref = context.syntax_tree().try_node_ref(child_id)?;
+        init_from(context, table, &child_ref, scope.clone())?;
+    }
 
     Ok(())
 }
@@ -1647,22 +1529,35 @@ fn init_from_type(
         let symbol_ref = ty_ref.node().try_symbol()?;
         let ident = symbol_ref.id();
 
-        // --- LA LOGIQUE CRITIQUE ---
-        // Si le type (ex: 'object') n'a aucune déclaration dans la table
-        if is_type_def && table.get_symbol(ident).is_none() {
-            // On le déclare comme une racine (PrimitiveType sans parent)
-            // Cela crée l'entrée manquante pour le SignatureChecker
-            add_declaration_symbol(
-                context,
-                table,
-                &ty_ref,
-                scope.clone(),
-                None, // Pas de super-type (c'est une racine)
-                None,
-                None,
-                None,
-                false, // Non dérivé
-            )?;
+        if is_type_def {
+            // On cherche si parmi les déclarations existantes, il y en a une de genre PrimitiveType
+            let already_has_primitive_type = table
+                .get_symbol(ident)
+                .map(|entry| {
+                    entry
+                        .declarations()
+                        .values()
+                        .any(|d| d.symbol().kind() == SymbolKind::PrimitiveType)
+                })
+                .unwrap_or(false);
+
+            if !already_has_primitive_type {
+                // On le déclare comme une racine (PrimitiveType sans parent)
+                // Cela crée l'entrée manquante pour le SignatureChecker
+                add_declaration_symbol(
+                    context,
+                    table,
+                    &ty_ref,
+                    scope.clone(),
+                    None, // Pas de super-type (c'est une racine)
+                    None,
+                    None,
+                    None,
+                    false, // Non dérivé
+                )?;
+            } else {
+                add_symbol_usage(context, table, &ty_ref, None, scope.clone())?;
+            }
         } else {
             // Si le symbole existe déjà, on enregistre simplement son usage
             add_symbol_usage(context, table, &ty_ref, None, scope.clone())?;

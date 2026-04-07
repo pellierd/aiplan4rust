@@ -528,6 +528,17 @@ impl SymbolInterner {
             .enumerate()
             .map(|(i, s)| (LiteralId::new(i), s.as_ref()))
     }
+
+    /// Retourne le nombre total de symboles (identifiants) internés.
+    /// Utile pour dimensionner la SymbolTable.
+    pub fn symbol_len(&self) -> usize {
+        self.symbol_string_pool.len()
+    }
+
+    /// Retourne le nombre total de littéraux internés.
+    pub fn literal_len(&self) -> usize {
+        self.literal_string_pool.len()
+    }
 }
 
 impl Serialize for SymbolInterner {

@@ -49,7 +49,7 @@ impl Table {
         scope: Option<&Scope>,
     ) -> Vec<&SymbolEntry> {
         if let Some(name) = symbol_name {
-            if let Some(symbol) = self.symbols.get(name) {
+            if let Some(symbol) = self.symbols.get(name.as_usize()) {
                 let declarations = symbol.declarations();
                 let filtered = Table::collect(kind, scope, declarations);
                 if !filtered.is_empty() {
@@ -61,7 +61,7 @@ impl Table {
         }
 
         self.symbols
-            .values()
+            .iter()
             .filter(|symbol| {
                 let declarations = symbol.declarations();
                 !Table::collect(kind, scope, declarations).is_empty()
@@ -118,7 +118,7 @@ impl Table {
         scope: Option<&Scope>,
     ) -> Vec<&SymbolEntry> {
         if let Some(name) = symbol_name {
-            if let Some(symbol) = self.symbols.get(name) {
+            if let Some(symbol) = self.symbols.get(name.as_usize()) {
                 let usages = symbol.usages();
                 let filtered_usages = Table::collect(kind, scope, usages);
                 if !filtered_usages.is_empty() {
@@ -129,7 +129,7 @@ impl Table {
         }
 
         self.symbols
-            .values()
+            .iter()
             .filter(|symbol| {
                 let usages = symbol.usages();
                 !Table::collect(kind, scope, usages).is_empty()
@@ -177,7 +177,7 @@ impl Table {
         scope: Option<&Scope>,
     ) -> Vec<&Declaration> {
         if let Some(name) = symbol_name {
-            if let Some(symbol) = self.symbols.get(name) {
+            if let Some(symbol) = self.symbols.get(name.as_usize()) {
                 return Table::collect(kind, scope, symbol.declarations());
             } else {
                 return Vec::new();
@@ -185,7 +185,7 @@ impl Table {
         }
 
         self.symbols
-            .values()
+            .iter()
             .flat_map(|symbol| Table::collect(kind, scope, symbol.declarations()))
             .collect()
     }
@@ -227,7 +227,7 @@ impl Table {
         scope: Option<&Scope>,
     ) -> Vec<&Usage> {
         if let Some(name) = symbol_name {
-            if let Some(symbol) = self.symbols.get(name) {
+            if let Some(symbol) = self.symbols.get(name.as_usize()) {
                 return Table::collect(kind, scope, symbol.usages());
             } else {
                 return Vec::new();
@@ -235,7 +235,7 @@ impl Table {
         }
 
         self.symbols
-            .values()
+            .iter()
             .flat_map(|symbol| Table::collect(kind, scope, symbol.usages()))
             .collect()
     }

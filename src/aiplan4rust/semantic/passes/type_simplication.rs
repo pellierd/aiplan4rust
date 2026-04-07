@@ -105,7 +105,7 @@ fn collect_type_simplifications(
 ) -> Result<Vec<Simplification>, TypeCheckerError> {
     let mut changes = Vec::new();
 
-    for (&symbol_id, entry) in target_table.iter() {
+    for (symbol_id, entry) in target_table.iter() {
         for decl in entry.declarations().values() {
             if let Some(raw_ty) = decl.ty() {
                 // Pass the type_checker to utilize its internal cache

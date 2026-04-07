@@ -65,7 +65,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Table {
     /// Map from symbol identifier to symbol metadata, preserving insertion order.
-    pub(super) symbols: LinkedHashMap<SymbolId, SymbolEntry>,
+    pub(super) symbols: Vec<SymbolEntry>,
 
     /// Indicates the origin context of the symbol table (e.g., Domain, Problem, Merged).
     pub(super) origin: SymbolTableOrigin,
@@ -100,7 +100,7 @@ impl Default for Table {
     fn default() -> Self {
         Self {
             /// La map ordonnée des symboles
-            symbols: LinkedHashMap::new(),
+            symbols: Vec::new(),
 
             /// Cache O(1) pour retrouver une déclaration par son NodeId
             /// On pré-alloue une petite capacité pour éviter les premières re-allocations
@@ -116,16 +116,27 @@ impl Default for Table {
 }
 
 impl Table {
-    /// Creates a new, empty `SymbolTable` with default values.
-    ///
-    /// # Returns
-    /// A new `SymbolTable` instance with no symbols and a default origin.
-    pub fn new() -> Self {
-        Table::default()
+    pub fn new(interner: &SymbolInterner) -> Self {
+        println!("{}", interner);
+        let size = interner.symbol_len();
+        let mut symbols = Vec::with_capacity(size);
+
+        // On pré-remplit le Vec avec des entrées vides pour chaque ID
+        for i in 0..size {
+            symbols.push(SymbolEntry::new(SymbolId::from(i)));
+        }
+
+        SymbolTable {
+            symbols,
+            declarations_index: HashMap::with_capacity(size),
+            usages_index: HashMap::with_capacity(size),
+            origin: SymbolTableOrigin::default(),
+            root_id: NodeId::default(),
+        }
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &SymbolId> {
-        self.symbols.keys()
+    pub fn symbol_ids(&self) -> impl Iterator<Item = SymbolId> + '_ {
+        self.symbols.iter().map(|entry| entry.id())
     }
 
     /// Returns the origin metadata of the symbol table.
@@ -166,12 +177,13 @@ impl Table {
         self.root_id = root_id;
     }
 
-    /// Returns an iter over all symbols in the table as immutable references.
-    ///
-    /// # Returns
-    /// An iter yielding (`&Ident`, `&SymbolEntry`) pairs for all entries.
-    pub fn iter(&self) -> impl Iterator<Item = (&SymbolId, &SymbolEntry)> {
-        self.symbols.iter()
+    /// Retourne un itérateur sur les paires (SymbolId, &SymbolEntry).
+    /// C'est l'équivalent de l'ancien iter() de ta HashMap.
+    pub fn iter(&self) -> impl Iterator<Item = (SymbolId, &SymbolEntry)> {
+        self.symbols
+            .iter()
+            .enumerate()
+            .map(|(idx, entry)| (SymbolId::from(idx), entry))
     }
 
     /// Retrieves an immutable reference to a symbol by its name.
@@ -182,9 +194,21 @@ impl Table {
     /// # Returns
     /// An `Option` containing a reference to the symbol, or `None` if not found.
     pub fn get_symbol(&self, name: SymbolId) -> Option<&SymbolEntry> {
-        self.symbols.get(&name)
+        let entry = self.symbols.get(name.as_usize());
+        if entry.is_none() {
+            println!(
+                "!!! CRITICAL: ID {} non trouvé dans le vecteur de taille {}",
+                name.as_usize(),
+                self.symbols.len()
+            );
+        } else if entry.unwrap().declarations().is_empty() {
+            println!(
+                "!!! WARNING: ID {} trouvé mais declarations est VIDE",
+                name.as_usize()
+            );
+        }
+        entry
     }
-
     /// Retrieves an immutable reference to a symbol by its ID, or returns an error if not found.
     ///
     /// This is the fallible version of `get_symbol`. It is preferred when a missing
@@ -201,21 +225,12 @@ impl Table {
     ///
     /// Returns a [`SymbolTableError::SymbolNotFound`] with a captured trace via `#[track_caller]`.
     pub fn try_get_symbol(&self, id: SymbolId) -> Result<&SymbolEntry, SymbolTableError> {
+        // Avec un Vec, .get(index) est l'équivalent sûr.
+        // On convertit le SymbolId en usize pour l'indexation.
         self.symbols
-            .get(&id)
+            .get(id.as_usize())
             .ok_or_else(|| SymbolTableError::symbol_not_found(id))
     }
-
-    /*/// Retrieves a mutable reference to a symbol by its name.
-    ///
-    /// # Parameters
-    /// - `name`: The identifier (`Ident`) of the symbol.
-    ///
-    /// # Returns
-    /// An `Option` containing a mutable reference to the symbol, or `None` if not found.
-    pub fn get_symbol_mut(&mut self, name: SymbolId) -> Option<&mut SymbolEntry> {
-        self.symbols.get_mut(&name)
-    }*/
 
     pub fn add_declaration(
         &mut self,
@@ -225,23 +240,26 @@ impl Table {
         let node_id = decl.source();
 
         // 1. GARDE D'IDEMPOTENCE
-        // Si ce NodeId est déjà dans le cache, on ne fait rien (évite E2011).
+        // Le cache NodeId -> SymbolRef reste indispensable
         if self.declarations_index.contains_key(&node_id) {
             return Ok(());
         }
 
-        // 2. RÉCUPÉRATION OU CRÉATION (Entry API pour la performance)
+        // 2. ACCÈS DIRECT O(1)
+        // On récupère l'entrée qui a été pré-initialisée à la création de la table.
+        // L'indexation directe sur Vec est une instruction machine unique.
         let entry = self
             .symbols
-            .entry(id)
-            .or_insert_with(|| SymbolEntry::new(id));
+            .get_mut(id.as_usize())
+            .ok_or_else(|| SymbolTableError::symbol_not_found(id))?;
 
         // 3. INDEXATION & INSERTION
-        // L'index est la taille actuelle avant l'ajout
+        // On utilise l'état actuel de l'entrée (vide ou déjà remplie par d'autres décl)
         let index = entry.declarations().len();
         entry.add_declaration(decl);
 
         // 4. MISE À JOUR DU CACHE
+        // On lie le NodeId de l'AST à notre SymbolId et sa position dans le vecteur interne de l'entrée.
         self.declarations_index
             .insert(node_id, SymbolRef::new(id, index));
 
@@ -252,12 +270,15 @@ impl Table {
     /// À utiliser dans apply_resolutions pour éviter les lookups manuels.
     pub fn link_resolution(&mut self, usage_id: NodeId, decl_id: NodeId, status: MatchResult) {
         // 1. On récupère les refs du cache (C'est du O(1) pur)
+        // SymbolRef contient le SymbolId et l'index dans le vecteur interne de l'entrée.
         let u_ref = self.usages_index.get(&usage_id).copied();
         let d_ref = self.declarations_index.get(&decl_id).copied();
 
-        // 2. Mise à jour de l'Usage (Usage -> Decl)
+        // 2. Mise à jour de l'Usage (Lien Usage -> Déclaration)
         if let Some(r) = u_ref {
-            if let Some(entry) = self.symbols.get_mut(&r.id()) {
+            // Accès direct par index dans le Vec<SymbolEntry>
+            if let Some(entry) = self.symbols.get_mut(r.id().as_usize()) {
+                // Accès direct par index dans le IndexMap/Vec de l'entrée
                 if let Some(u) = entry.usages_mut().get_index_mut(r.index()).map(|(_, v)| v) {
                     u.set_declaration(decl_id);
                     u.set_resolution(status);
@@ -265,10 +286,11 @@ impl Table {
             }
         }
 
-        // 3. Mise à jour de la Déclaration (Decl -> Usage)
-        // On ne le fait que si decl_id n'est pas un ID virtuel (ex: built-ins)
+        // 3. Mise à jour de la Déclaration (Lien Déclaration -> Usage)
+        // d_ref peut être None si decl_id est un symbole virtuel (ex: built-ins, types réservés)
         if let Some(r) = d_ref {
-            if let Some(entry) = self.symbols.get_mut(&r.id()) {
+            // Accès direct par index dans le Vec<SymbolEntry>
+            if let Some(entry) = self.symbols.get_mut(r.id().as_usize()) {
                 if let Some(d) = entry
                     .declarations_mut()
                     .get_index_mut(r.index())
@@ -279,50 +301,50 @@ impl Table {
             }
         }
     }
-
     pub fn promote_declaration(
         &mut self,
         old_id: NodeId,
         new_id: NodeId,
     ) -> Result<&mut Declaration, SymbolTableError> {
-        // 1. On extrait la référence (SymbolId + Index) via l'ancien ID
-        // On utilise .remove() car l'ancien ID (la coquille vide) n'existera plus
+        // 1. On extrait la référence (SymbolId + Index) via l'ancien NodeId
+        // On utilise .remove() car l'ancien ID (la "coquille vide" de l'AST) est remplacé.
         let s_ref = self
             .declarations_index
             .remove(&old_id)
             .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(old_id))?;
 
-        // 2. On réinsère immédiatement la même référence sous le nouvel ID
-        // L'index reste identique, donc les autres SymbolRef ne sont pas impactés
+        // 2. On réinsère immédiatement la même référence (SymbolRef) sous le nouvel ID de nœud
+        // L'index dans le vecteur interne du symbole ne change pas.
         self.declarations_index.insert(new_id, s_ref);
 
-        // 3. On récupère la déclaration mutable pour la retourner
+        // 3. On récupère l'entrée du symbole via son index numérique (O(1))
         let entry = self
             .symbols
-            .get_mut(&s_ref.id())
+            .get_mut(s_ref.id().as_usize())
             .ok_or_else(|| SymbolTableError::symbol_not_found(s_ref.id()))?;
 
+        // 4. On récupère la déclaration spécifique au sein de ce symbole
         let decl = entry
             .declarations_mut()
             .get_index_mut(s_ref.index())
             .map(|(_, d)| d)
             .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(new_id))?;
 
-        // 4. Mise à jour de l'ID source interne à la déclaration
+        // 5. Mise à jour de l'ID source interne à la déclaration pour refléter le nouveau nœud
         decl.set_source(new_id);
 
         Ok(decl)
     }
 
     pub fn get_declaration(&self, node_id: NodeId) -> Option<&Declaration> {
-        // 1. Accès direct au cache via le NodeId
+        // 1. Accès direct au cache via le NodeId (HashMap interne)
         let s_ref = self.declarations_index.get(&node_id)?;
 
-        // 2. Récupération de l'entrée du symbole (O(1))
-        let entry = self.symbols.get(&s_ref.id())?;
+        // 2. Récupération de l'entrée du symbole via son index numérique (O(1))
+        // On convertit le SymbolId contenu dans s_ref en usize
+        let entry = self.symbols.get(s_ref.id().as_usize())?;
 
-        // 3. Accès direct à la déclaration par son index (O(1))
-        // On utilise get_index de IndexMap (ou l'équivalent sur ta collection)
+        // 3. Accès direct à la déclaration par son index dans l'entrée
         entry
             .declarations()
             .get_index(s_ref.index())
@@ -330,19 +352,20 @@ impl Table {
     }
 
     pub fn try_get_declaration(&self, node_id: NodeId) -> Result<&Declaration, SymbolTableError> {
-        // 1. Recherche dans le cache global
+        // 1. Recherche dans le cache global (NodeId -> SymbolRef)
         let s_ref = self
             .declarations_index
             .get(&node_id)
             .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(node_id))?;
 
-        // 2. Récupération de l'entrée (devrait toujours exister si le cache est cohérent)
+        // 2. Récupération de l'entrée via l'index numérique du SymbolId (O(1))
+        // On convertit le SymbolId en usize pour l'accès au Vec.
         let entry = self
             .symbols
-            .get(&s_ref.id())
+            .get(s_ref.id().as_usize())
             .ok_or_else(|| SymbolTableError::symbol_not_found(s_ref.id()))?;
 
-        // 3. Accès direct par index
+        // 3. Accès direct à la déclaration spécifique par son index dans l'entrée
         entry
             .declarations()
             .get_index(s_ref.index())
@@ -351,16 +374,16 @@ impl Table {
     }
 
     pub fn get_declaration_mut(&mut self, node_id: NodeId) -> Option<&mut Declaration> {
-        // 1. Accès au cache (lecture seule ici, donc .get suffit)
+        // 1. Accès au cache (O(1) via HashMap) pour récupérer la référence
         let s_ref = *self.declarations_index.get(&node_id)?;
 
-        // 2. Récupération mutable de l'entrée du symbole
-        let entry = self.symbols.get_mut(&s_ref.id())?;
+        // 2. Récupération mutable de l'entrée du symbole via son index numérique (O(1))
+        // On convertit le SymbolId en usize pour l'accès direct au Vec
+        let entry = self.symbols.get_mut(s_ref.id().as_usize())?;
 
-        // 3. Accès direct mutable par index
-        // Note : get_index_mut est la méthode correspondante dans IndexMap
+        // 3. Accès direct mutable par index dans la collection interne de l'entrée
         entry
-            .declarations_mut() // Assure-toi que cette méthode existe et renvoie &mut IndexMap
+            .declarations_mut()
             .get_index_mut(s_ref.index())
             .map(|(_, d)| d)
     }
@@ -375,13 +398,14 @@ impl Table {
             .get(&node_id)
             .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(node_id))?;
 
-        // 2. Récupération mutable de l'entrée du symbole
+        // 2. Récupération mutable de l'entrée du symbole par son index numérique (O(1))
+        // On utilise le usize issu du SymbolId pour un accès direct au vecteur.
         let entry = self
             .symbols
-            .get_mut(&s_ref.id())
-            .ok_or(SymbolTableError::SymbolNotFound(s_ref.id()))?;
+            .get_mut(s_ref.id().as_usize())
+            .ok_or_else(|| SymbolTableError::symbol_not_found(s_ref.id()))?;
 
-        // 3. Accès direct mutable par index
+        // 3. Accès direct mutable par index au sein de l'entrée
         entry
             .declarations_mut()
             .get_index_mut(s_ref.index())
@@ -393,52 +417,59 @@ impl Table {
         let node_id = usage.source();
 
         // 1. GARDE D'IDEMPOTENCE
+        // Si ce NodeId est déjà dans le cache, on ne fait rien.
         if self.usages_index.contains_key(&node_id) {
             return Ok(());
         }
 
-        // 2. RÉCUPÉRATION OU CRÉATION
+        // 2. ACCÈS DIRECT O(1)
+        // On récupère l'entrée via son index numérique.
         let entry = self
             .symbols
-            .entry(id)
-            .or_insert_with(|| SymbolEntry::new(id));
+            .get_mut(id.as_usize())
+            .ok_or_else(|| SymbolTableError::symbol_not_found(id))?;
 
         // 3. INDEXATION & INSERTION
+        // On récupère la position actuelle dans la liste des usages du symbole.
         let index = entry.usages().len();
         entry.add_usage(usage);
 
         // 4. MISE À JOUR DU CACHE
+        // On lie le NodeId de l'usage au SymbolId et à sa position dans l'entrée.
         self.usages_index.insert(node_id, SymbolRef::new(id, index));
 
         Ok(())
     }
 
     pub fn get_usage(&self, node_id: NodeId) -> Option<&Usage> {
-        // 1. On interroge le cache global des usages via le NodeId
+        // 1. On interroge le cache global des usages (NodeId -> SymbolRef)
+        // C'est la seule opération de hachage restante.
         let s_ref = self.usages_index.get(&node_id)?;
 
-        // 2. On récupère l'entrée du symbole correspondante
-        let entry = self.symbols.get(&s_ref.id())?;
+        // 2. On récupère l'entrée du symbole correspondante par index direct (O(1))
+        // On convertit le SymbolId en usize pour l'accès au Vec.
+        let entry = self.symbols.get(s_ref.id().as_usize())?;
 
-        // 3. Accès direct par index (Performance maximale)
-        // .get_index() provient de IndexMap, c'est une opération en temps constant.
+        // 3. Accès direct par index dans la collection interne de l'entrée
+        // .get_index() sur une IndexMap (ou un Vec) est une opération en temps constant.
         entry.usages().get_index(s_ref.index()).map(|(_, u)| u)
     }
 
     pub fn try_get_usage(&self, node_id: NodeId) -> Result<&Usage, SymbolTableError> {
-        // 1. Recherche dans le cache global (O(1))
+        // 1. Recherche dans le cache global (O(1) via NodeId)
         let s_ref = self
             .usages_index
             .get(&node_id)
             .ok_or_else(|| SymbolTableError::uage_not_found_for_node(node_id))?;
 
-        // 2. Récupération de l'entrée du symbole
+        // 2. Récupération de l'entrée du symbole par son index numérique (O(1))
+        // L'ID est directement converti en usize pour pointer dans le Vec.
         let entry = self
             .symbols
-            .get(&s_ref.id())
+            .get(s_ref.id().as_usize())
             .ok_or_else(|| SymbolTableError::symbol_not_found(s_ref.id()))?;
 
-        // 3. Accès direct à l'usage par son index
+        // 3. Accès direct à l'usage par son index au sein de l'entrée
         entry
             .usages()
             .get_index(s_ref.index())
@@ -447,19 +478,19 @@ impl Table {
     }
 
     pub fn try_get_usage_mut(&mut self, node_id: NodeId) -> Result<&mut Usage, SymbolTableError> {
-        // 1. Recherche dans le cache avec erreur spécifique
+        // 1. Recherche dans le cache (on déréférence s_ref pour libérer l'emprunt sur le cache)
         let s_ref = *self
             .usages_index
             .get(&node_id)
             .ok_or_else(|| SymbolTableError::uage_not_found_for_node(node_id))?;
 
-        // 2. Récupération de l'entrée mutable
+        // 2. Récupération de l'entrée mutable par index direct (O(1))
         let entry = self
             .symbols
-            .get_mut(&s_ref.id())
+            .get_mut(s_ref.id().as_usize())
             .ok_or_else(|| SymbolTableError::symbol_not_found(s_ref.id()))?;
 
-        // 3. Accès indexé mutable
+        // 3. Accès indexé mutable au sein de l'entrée
         entry
             .usages_mut()
             .get_index_mut(s_ref.index())
@@ -472,7 +503,9 @@ impl Table {
     /// # Returns
     /// An iter yielding references to each `SymbolEntry` in the table.
     pub fn values(&self) -> impl Iterator<Item = &SymbolEntry> {
-        self.symbols.values()
+        // Sur un Vec, .iter() remplace .values() des Maps.
+        // C'est un passage en revue linéaire de la mémoire, très rapide.
+        self.symbols.iter()
     }
 
     /// Resolves a symbol usage to its primary source declaration by traversing the
@@ -490,17 +523,18 @@ impl Table {
     /// * `Err(SymbolTableError)` - If the usage record is missing or if the link
     ///   to the declaration has not been established (unresolved).
     pub fn resolve_usage(&self, usage_node_id: NodeId) -> Result<&Declaration, SymbolTableError> {
-        // 1. Accès direct à l'usage via le cache O(1)
-        // On ne cherche plus l'Entry, on va direct à l'usage
+        // 1. Accès direct à l'usage via le cache O(1) et l'index du Vec
+        // Cette méthode utilise déjà le nouveau système d'indexation numérique.
         let usage = self.try_get_usage(usage_node_id)?;
 
-        // 2. Récupération de l'ID de la déclaration liée
+        // 2. Récupération de l'ID du nœud de déclaration lié
+        // Si l'usage n'est pas lié (None), on renvoie une erreur de résolution.
         let decl_node_id = usage
             .declaration()
             .ok_or_else(|| SymbolTableError::unresolved_usage(usage.symbol_id(), usage_node_id))?;
 
         // 3. Accès direct à la déclaration finale via le cache O(1)
-        // Zéro recherche linéaire, zéro unwrap risqué
+        // On passe par le declarations_index puis par l'index du Vec.
         self.try_get_declaration(decl_node_id)
     }
 
@@ -515,75 +549,97 @@ impl Table {
     /// # Returns
     /// A [`TypeHierarchy`] reflecting the state of the types in this table.
     pub fn to_type_hierarchy(&self) -> TypeHierarchy {
+        // On garde une capacité initiale raisonnable
         let mut hierarchy_map: HashMap<SymbolId, Vec<SymbolId>> =
             HashMap::with_capacity(self.symbols.len() / 4);
 
-        for (&id, entry) in self.symbols.iter() {
+        // L'itérateur de Vec renvoie directement &SymbolEntry
+        for entry in self.symbols.iter() {
+            let id = entry.id(); // On récupère l'ID stocké dans l'entrée
+
             for decl in entry.declarations().values() {
                 if decl.kind() == SymbolKind::PrimitiveType {
-                    // Étape 1 : On récupère les parents s'ils existent
+                    // Étape 1 : On récupère les parents (super-types) s'ils existent
                     if let Some(ty) = decl.ty() {
                         let parents = ty.members();
 
-                        // Étape 2 : On insère les parents pour l'enfant actuel
-                        // On ne stocke pas le résultat de .entry() dans une variable longue durée
+                        // Étape 2 : On enregistre les parents pour ce type
                         hierarchy_map
                             .entry(id)
                             .or_default()
                             .extend(parents.iter().cloned());
 
-                        // Étape 3 : On s'assure que chaque parent a sa propre entrée
+                        // Étape 3 : On s'assure que chaque parent est présent dans la map
+                        // (Important pour les types racines qui ne sont jamais "enfants")
                         for &parent_id in parents {
                             hierarchy_map.entry(parent_id).or_default();
                         }
                     } else {
-                        // Si pas de parents, on s'assure quand même que le type existe (root)
+                        // Si le type n'a pas de parents, on l'inscrit comme noeud (potentiellement racine)
                         hierarchy_map.entry(id).or_default();
                     }
                 }
             }
         }
+
         TypeHierarchy::new(hierarchy_map)
+    }
+
+    /// Reconstruit les index de recherche rapide à partir du vecteur de symboles actuel.
+    fn rebuild_caches(&mut self) {
+        self.declarations_index.clear();
+        self.usages_index.clear();
+
+        for entry in self.symbols.iter() {
+            let symbol_id = entry.id();
+
+            // Ré-indexation des déclarations
+            for (idx, (node_id, _)) in entry.declarations().iter().enumerate() {
+                self.declarations_index
+                    .insert(*node_id, SymbolRef::new(symbol_id, idx));
+            }
+
+            // Ré-indexation des usages
+            for (idx, (node_id, _)) in entry.usages().iter().enumerate() {
+                self.usages_index
+                    .insert(*node_id, SymbolRef::new(symbol_id, idx));
+            }
+        }
     }
 }
 
 impl RemapSymbol for SymbolTable {
     fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
-        // --- ÉTAPE 1 : Remap interne des SymbolEntry (Déclarations/Usages internes) ---
-        for (_key, symbol) in self.symbols.iter_mut() {
-            symbol.remap_symbol(map)?;
+        // --- ÉTAPE 1 : Remap récursif (Utilise ta fonction SymbolEntry::remap_symbol) ---
+        // On modifie les données "internes" (ident, types dans decls, etc.)
+        // AVANT de déplacer les entrées dans le nouveau vecteur.
+        for entry in self.symbols.iter_mut() {
+            entry.remap_symbol(map)?;
         }
 
-        // --- ÉTAPE 2 : Reconstruction de la map principale (symbols) ---
-        let mut new_symbols = LinkedHashMap::with_capacity(self.symbols.len());
+        // --- ÉTAPE 2 : Reconstruction du stockage (Vec) ---
+        let max_id = map.values().map(|id| id.as_usize()).max().unwrap_or(0);
+        let mut new_symbols = Vec::with_capacity(max_id + 1);
 
-        for (key, symbol) in std::mem::take(&mut self.symbols) {
-            let new_key = map
-                .get(&key)
-                .cloned()
-                .ok_or_else(|| InternerError::missing_ident(key))?;
+        for i in 0..=max_id {
+            new_symbols.push(SymbolEntry::new(SymbolId::from(i)));
+        }
 
-            if new_symbols.contains_key(&new_key) {
-                return Err(InternerError::conflict(new_key))?;
+        let old_symbols = std::mem::take(&mut self.symbols);
+        for old_entry in old_symbols {
+            // Note : old_entry.ident est déjà mis à jour par l'étape 1 !
+            let new_id = old_entry.id();
+
+            // On vérifie si ce symbole est conservé dans le nouvel interner
+            // (Si l'ID a changé ou est resté le même, il doit être dans la map)
+            if map.contains_key(&new_id) || map.values().any(|&v| v == new_id) {
+                new_symbols[new_id.as_usize()] = old_entry;
             }
-            new_symbols.insert(new_key, symbol);
         }
         self.symbols = new_symbols;
 
-        // --- ÉTAPE 3 : Synchronisation des Caches O(1) ---
-        // On met à jour le SymbolId stocké dans chaque SymbolRef
-
-        // Mise à jour des Déclarations
-        for s_ref in self.declarations_index.values_mut() {
-            // s_ref.id est un SymbolId, on peut appeler ta méthode dessus
-            // (Assure-toi que le champ 'id' est accessible ou via un getter mut)
-            s_ref.remap_id(map)?;
-        }
-
-        // Mise à jour des Usages
-        for s_ref in self.usages_index.values_mut() {
-            s_ref.remap_id(map)?;
-        }
+        // --- ÉTAPE 3 : Reconstruction des index (Caches O(1)) ---
+        self.rebuild_caches();
 
         Ok(())
     }
@@ -608,13 +664,17 @@ impl fmt::Display for Table {
     /// println!("{}", symbol_table); // Prints all symbols line by line.
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Iterate over all symbols stored in the symbol table.
-        for symbol in self.symbols.values() {
-            // Write each symbol followed by a newline into the formatter.
-            // The `?` operator propagates any error that might occur.
-            writeln!(f, "{}", symbol)?;
+        // On itère directement sur le vecteur de symboles.
+        // Puisque la table est pré-initialisée, on parcourt tous les IDs
+        // dans l'ordre de l'interner (0, 1, 2...).
+        for symbol in self.symbols.iter() {
+            // On n'affiche le symbole que s'il contient quelque chose
+            // (optionnel, selon si tu veux voir les slots vides de l'interner)
+            if !symbol.declarations().is_empty() || !symbol.usages().is_empty() {
+                writeln!(f, "{}", symbol)?;
+            }
         }
-        // Return Ok to indicate successful formatting.
+
         Ok(())
     }
 }
@@ -651,9 +711,15 @@ impl InternerDisplay for Table {
         f: &mut fmt::Formatter<'_>,
         interner: &SymbolInterner,
     ) -> fmt::Result {
-        for symbol in self.symbols.values() {
-            symbol.fmt_with_interner(f, interner)?;
-            writeln!(f)?;
+        // On itère sur le Vec de symboles.
+        // L'ordre sera celui de l'interner (0, 1, 2...).
+        for symbol in self.symbols.iter() {
+            // On ne délègue l'affichage que si le symbole a du contenu
+            // pour éviter des blocs vides dans les logs.
+            if !symbol.declarations().is_empty() || !symbol.usages().is_empty() {
+                symbol.fmt_with_interner(f, interner)?;
+                writeln!(f)?;
+            }
         }
         Ok(())
     }
