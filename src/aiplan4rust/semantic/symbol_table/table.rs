@@ -27,6 +27,7 @@
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
+use crate::aiplan4rust::semantic::signature_checker::MatchResult;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
@@ -247,6 +248,38 @@ impl Table {
         Ok(())
     }
 
+    /// Lie un usage à une déclaration de manière atomique et ultra-rapide.
+    /// À utiliser dans apply_resolutions pour éviter les lookups manuels.
+    pub fn link_resolution(&mut self, usage_id: NodeId, decl_id: NodeId, status: MatchResult) {
+        // 1. On récupère les refs du cache (C'est du O(1) pur)
+        let u_ref = self.usages_index.get(&usage_id).copied();
+        let d_ref = self.declarations_index.get(&decl_id).copied();
+
+        // 2. Mise à jour de l'Usage (Usage -> Decl)
+        if let Some(r) = u_ref {
+            if let Some(entry) = self.symbols.get_mut(&r.id()) {
+                if let Some(u) = entry.usages_mut().get_index_mut(r.index()).map(|(_, v)| v) {
+                    u.set_declaration(decl_id);
+                    u.set_resolution(status);
+                }
+            }
+        }
+
+        // 3. Mise à jour de la Déclaration (Decl -> Usage)
+        // On ne le fait que si decl_id n'est pas un ID virtuel (ex: built-ins)
+        if let Some(r) = d_ref {
+            if let Some(entry) = self.symbols.get_mut(&r.id()) {
+                if let Some(d) = entry
+                    .declarations_mut()
+                    .get_index_mut(r.index())
+                    .map(|(_, v)| v)
+                {
+                    d.add_usage(usage_id);
+                }
+            }
+        }
+    }
+
     pub fn promote_declaration(
         &mut self,
         old_id: NodeId,
@@ -456,23 +489,6 @@ impl Table {
     /// * `Ok(&Declaration)` - A reference to the primary source declaration.
     /// * `Err(SymbolTableError)` - If the usage record is missing or if the link
     ///   to the declaration has not been established (unresolved).
-    /*pub fn resolve_primary_declaration(
-        &self,
-        symbol: SymbolId,
-        usage_node_id: NodeId,
-    ) -> Result<&Declaration, SymbolTableError> {
-        // 1. Get the usage record (O(1) access via the usage map)
-        let entry = self.try_get_symbol(symbol)?;
-        let usage = entry.usages().get(&usage_node_id).unwrap();
-
-        // 2. Get the node ID of the declaration it points to (the "vissage")
-        let decl_node_id = usage
-            .declaration()
-            .ok_or_else(|| SymbolTableError::unresolved_usage(symbol, usage_node_id))?;
-
-        // 3. Retrieve the final declaration from the table using its source NodeId
-        Ok(entry.declarations().get(&decl_node_id).unwrap())
-    }*/
     pub fn resolve_usage(&self, usage_node_id: NodeId) -> Result<&Declaration, SymbolTableError> {
         // 1. Accès direct à l'usage via le cache O(1)
         // On ne cherche plus l'Entry, on va direct à l'usage

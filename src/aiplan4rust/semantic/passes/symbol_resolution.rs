@@ -280,6 +280,40 @@ pub fn apply_resolutions(
     for (sym_id, usage_id, resolution) in resolutions {
         // 1. DÉTERMINATION DE LA DÉCLARATION CIBLE ET DU STATUT
         let (final_decl_id, status) = match resolution {
+            // Cas Local : L'ID de la déclaration existe déjà dans la table
+            Resolution::Local(decl_id, status) => (decl_id, status),
+
+            // Cas Domain : Gestion des Proxys (Importation du domaine vers le problème)
+            Resolution::Domain(proxy, status) => {
+                let proxy_source = proxy.source();
+
+                // On utilise ton nouveau add_declaration.
+                // Grâce à sa "Garde d'Idempotence", si le proxy existe déjà,
+                // il ne fait rien. C'est ultra-efficace.
+                table.add_declaration(sym_id, proxy)?;
+
+                (proxy_source, status)
+            }
+
+            // Cas Implicite : Symboles réservés (ex: object, ?duration)
+            Resolution::Implicite(reserved_id, status) => (reserved_id, status),
+        };
+
+        // 2. MISE À JOUR DES LIENS BIDIRECTIONNELS (Cache O(1))
+        // On remplace tout l'ancien bloc 2.1 et 2.2 par ton "vissage" atomique.
+        // Cette fonction gère seule l'accès aux index du cache.
+        table.link_resolution(usage_id, final_decl_id, status);
+    }
+
+    Ok(())
+}
+/*pub fn apply_resolutions(
+    table: &mut SymbolTable,
+    resolutions: Vec<(SymbolId, NodeId, Resolution)>,
+) -> Result<(), SemanticPassError> {
+    for (sym_id, usage_id, resolution) in resolutions {
+        // 1. DÉTERMINATION DE LA DÉCLARATION CIBLE ET DU STATUT
+        let (final_decl_id, status) = match resolution {
             // Cas Local : Déjà défini
             Resolution::Local(decl_id, status) => (decl_id, status),
 
@@ -320,7 +354,7 @@ pub fn apply_resolutions(
         }
     }
     Ok(())
-}
+}*/
 /*fn apply_resolutions(table: &mut SymbolTable, resolutions: Vec<(SymbolId, NodeId, Resolution)>) {
     for (sym_id, usage_id, resolution) in resolutions {
         if let Some(entry) = table.get_symbol_mut(sym_id) {
