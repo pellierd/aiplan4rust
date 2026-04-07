@@ -247,14 +247,6 @@ impl LinkedSemanticContext {
             return Err(LinkingError::not_a_problem_syntax_tree());
         }
 
-        println!(
-            "{}",
-            domain
-                .syntax_tree()
-                .root_node()
-                .unwrap()
-                .to_string_with_interner(domain.syntax_tree(), &domain.interner())
-        );
         // Check hierarchical consistency
         if domain.is_required(Requirement::Hierarchy) != problem.is_required(Requirement::Hierarchy)
         {

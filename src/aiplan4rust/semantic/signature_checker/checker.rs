@@ -213,47 +213,37 @@ impl<'a> SignatureChecker<'a> {
         arg_node_id: NodeId,
         usage_scope: &Scope,
     ) -> Result<Option<&'a Declaration>, SignatureMatcherError> {
-        // Extract the symbol identifier (e.g., "?x" or "p") from the AST node.
-        let symbol = argument_node.try_ident()?;
+        // --- STEP 0: Fast-track resolution using already indexed data (O(1)) ---
 
-        // --- STEP 0: Fast-track resolution using already indexed data ---
-        // Check if the local symbol table already has an entry for this identifier.
-        if let Some(entry) = self.local_table.get_symbol(symbol) {
-            // --- STEP 0.1: Direct Declaration Check (Case: Derived Predicate Headers) ---
-            // If the provided NodeId is already a known Declaration within this symbol entry,
-            // return it immediately. This handles cases where parameters are passed as definitions.
-            if let Some(decl) = entry.declarations().get(&arg_node_id) {
-                return Ok(Some(decl));
-            }
+        // 0.1: Est-ce que ce NodeId est lui-même une déclaration ?
+        // On utilise la méthode de la table qui gère la conversion NodeId -> Index
+        if let Some(decl) = self.local_table.get_declaration(arg_node_id) {
+            return Ok(Some(decl));
+        }
 
-            // --- STEP 0.2: Linked Usage Check (Case: Standard Actions/Calls) ---
-            // If the NodeId is an Usage that was already bound to a Declaration during
-            // the initial resolution phase, retrieve the pinned declaration directly.
-            if let Some(usage) = entry.usages().get(&arg_node_id) {
-                if let Some(decl_id) = usage.declaration() {
-                    if let Some(decl) = entry.declarations().get(&decl_id) {
-                        return Ok(Some(decl));
-                    }
+        // 0.2: Est-ce que ce NodeId est un usage déjà lié ?
+        if let Some(usage) = self.local_table.get_usage(arg_node_id) {
+            if let Some(decl_id) = usage.declaration() {
+                // On récupère la déclaration vers laquelle l'usage pointe
+                if let Some(decl) = self.local_table.get_declaration(decl_id) {
+                    return Ok(Some(decl));
                 }
             }
         }
 
-        // Determine the expected symbol category (Variable, Object, etc.) from the AST node kind.
+        // --- STEP 1 & 2 : Shadowing (Si le cache n'a rien trouvé) ---
+        let symbol = argument_node.try_ident()?;
         let kind = SymbolKind::try_from(argument_node.kind())
             .map_err(|_| SignatureMatcherError::invalid_symbol_kind())?;
 
-        // --- STEP 1: Local Scope Resolution (Problem File) ---
-        // Perform a tiered lookup in the local table using shadowing rules.
-        // This prioritizes local parameters (e.g., action variables) over global constants.
+        // Recherche locale
         if let Some(entry) = self.local_table.get_symbol(symbol) {
             if let Some(decl) = find_shadowing_candidate(entry, kind, usage_scope) {
                 return Ok(Some(decl));
             }
         }
 
-        // --- STEP 2: Global Scope Resolution (Domain File) ---
-        // If not found locally, fallback to the Domain table.
-        // Global symbols are resolved against the root scope as they have universal visibility.
+        // Recherche globale
         if let Some(domain) = self.domain_table {
             if let Some(entry) = domain.get_symbol(symbol) {
                 if let Some(decl) = find_shadowing_candidate(entry, kind, &domain.root_scope()) {
@@ -262,7 +252,6 @@ impl<'a> SignatureChecker<'a> {
             }
         }
 
-        // Return None if the symbol cannot be resolved in any available context.
         Ok(None)
     }
 

@@ -10,9 +10,6 @@ use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterne
 use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
-use crate::aiplan4rust::tree::NodeId;
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -40,33 +37,18 @@ use std::hash::{Hash, Hasher};
 /// // add declarations and usages...
 /// println!("{}", symbol);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SymbolEntry {
     /// The unique identifier of the symbol.
     ident: SymbolId,
 
     /// The set of declarations where this symbol is introduced.
-    declarations: IndexMap<NodeId, Declaration>,
+    declarations: Vec<Declaration>,
 
     /// The set of usages where this symbol is referenced.
-    usages: IndexMap<NodeId, Usage>,
+    usages: Vec<Usage>,
 }
 
-impl PartialEq for SymbolEntry {
-    /// Deux entrées sont égales si elles ont le même identifiant.
-    fn eq(&self, other: &Self) -> bool {
-        self.ident == other.ident
-    }
-}
-
-impl Eq for SymbolEntry {} // Eq n'a pas de méthodes, c'est un marqueur
-
-impl Hash for SymbolEntry {
-    /// Hash basé uniquement sur l'identifiant pour rester cohérent avec PartialEq.
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.ident.hash(state);
-    }
-}
 impl SymbolEntry {
     /// Creates a new `SymbolEntry` with the specified identifier.
     ///
@@ -80,8 +62,8 @@ impl SymbolEntry {
     pub fn new(ident: SymbolId) -> Self {
         SymbolEntry {
             ident,
-            declarations: IndexMap::new(),
-            usages: IndexMap::new(),
+            declarations: Vec::with_capacity(16),
+            usages: Vec::with_capacity(64),
         }
     }
 
@@ -95,35 +77,22 @@ impl SymbolEntry {
     }
 
     /// Returns a reference to the set of declarations of this symbol.
-    pub fn declarations(&self) -> &IndexMap<NodeId, Declaration> {
+    pub fn declarations(&self) -> &[Declaration] {
         &self.declarations
     }
 
     /// Returns a mutable reference to the set of declarations.
-    pub fn declarations_mut(&mut self) -> &mut IndexMap<NodeId, Declaration> {
+    pub fn declarations_mut(&mut self) -> &mut Vec<Declaration> {
         &mut self.declarations
     }
 
-    /// Retourne une référence à la déclaration pour un NodeId donné,
-    /// ou une erreur si elle n'existe pas.
-    pub fn try_get_declaration(&self, node_id: NodeId) -> Result<&Declaration, SymbolTableError> {
-        self.declarations
-            .get(&node_id)
-            .ok_or_else(|| SymbolTableError::declaration_not_found_for_node(node_id))
-    }
-
-    /// Retourne une Option sur la déclaration.
-    pub fn get_declaration(&self, node_id: NodeId) -> Option<&Declaration> {
-        self.declarations.get(&node_id)
-    }
-
     /// Returns a reference to the set of usages of this symbol.
-    pub fn usages(&self) -> &IndexMap<NodeId, Usage> {
+    pub fn usages(&self) -> &[Usage] {
         &self.usages
     }
 
     /// Returns a reference to the set of usages of this symbol.
-    pub fn usages_mut(&mut self) -> &mut IndexMap<NodeId, Usage> {
+    pub fn usages_mut(&mut self) -> &mut Vec<Usage> {
         &mut self.usages
     }
 
@@ -136,14 +105,10 @@ impl SymbolEntry {
     /// # Returns
     ///
     /// `true` if the declaration was added (was not present before), otherwise `false`.
-    pub fn add_declaration(&mut self, declaration: Declaration) -> bool {
-        // Puisque la clé est le NodeId de la déclaration,
-        // on l'extrait pour l'insertion dans l'IndexMap.
-        let node_id = declaration.source();
-
-        // insert() renvoie Some(old_value) si la clé existait déjà.
-        // On retourne true seulement si le résultat est None (nouvelle insertion).
-        self.declarations.insert(node_id, declaration).is_none()
+    pub fn add_declaration(&mut self, declaration: Declaration) -> usize {
+        let index = self.declarations.len();
+        self.declarations.push(declaration);
+        index
     }
 
     /// Adds a new usage of this symbol, if it is not already present.
@@ -155,13 +120,11 @@ impl SymbolEntry {
     /// # Returns
     ///
     /// `true` if the usage was added (was not present before), otherwise `false`.
-    pub fn add_usage(&mut self, usage: Usage) -> bool {
-        // On utilise le NodeId comme clé unique pour l'usage dans la map
-        let node_id = usage.source();
+    pub fn add_usage(&mut self, usage: Usage) -> usize {
+        let index = self.usages.len();
+        self.usages.push(usage);
 
-        // insert() renvoie Some(old_usage) si l'ID existait déjà.
-        // On retourne true seulement si l'insertion est nouvelle (None).
-        self.usages.insert(node_id, usage).is_none()
+        index
     }
 
     /// Merges another `SymbolEntry` into this one by combining declarations and usages.
@@ -176,11 +139,29 @@ impl SymbolEntry {
     ///
     /// `true` if merged successfully, `false` if identifiers differ and no merge was performed.
     pub fn merge_with(&mut self, other: SymbolEntry) -> bool {
+        // 1. Vérification d'identité
         if self.ident != other.ident {
             return false;
         }
-        self.declarations.extend(other.declarations);
-        self.usages.extend(other.usages);
+
+        // 2. Fusion des déclarations
+        for decl in other.declarations {
+            if !self
+                .declarations
+                .iter()
+                .any(|d| d.source() == decl.source())
+            {
+                self.declarations.push(decl);
+            }
+        }
+
+        // 3. Fusion des usages
+        for usage in other.usages {
+            if !self.usages.iter().any(|u| u.source() == usage.source()) {
+                self.usages.push(usage);
+            }
+        }
+
         true
     }
 }
@@ -207,15 +188,14 @@ impl RemapSymbol for SymbolEntry {
             self.ident = *new_ident;
         }
 
-        // 2. Remap les identifiants dans les déclarations (Modification en place)
-        // On utilise values_mut() car le NodeId (la clé) ne change pas,
-        // seul le contenu de la Declaration est modifié.
-        for decl in self.declarations.values_mut() {
+        // 2. Remap les identifiants dans les déclarations
+        // On itère simplement sur le Vec en mode mutable
+        for decl in &mut self.declarations {
             decl.remap_symbol(map)?;
         }
 
-        // 3. Remap les identifiants dans les usages (Modification en place)
-        for usage in self.usages.values_mut() {
+        // 3. Remap les identifiants dans les usages
+        for usage in &mut self.usages {
             usage.remap_symbol(map)?;
         }
 
@@ -242,13 +222,14 @@ impl fmt::Display for SymbolEntry {
         writeln!(f, "[Symbol: '{}']", self.ident)?;
 
         writeln!(f, " - Declarations ({}):", self.declarations.len())?;
-        // On utilise .values() pour ignorer la clé NodeId lors de l'affichage
-        for decl in self.declarations.values() {
+        // On itère directement sur le Vec<Declaration>
+        for decl in &self.declarations {
             writeln!(f, "   - {}", decl)?;
         }
 
         writeln!(f, " - Usages ({}):", self.usages.len())?;
-        for usage in self.usages.values() {
+        // On itère directement sur le Vec<Usage>
+        for usage in &self.usages {
             writeln!(f, "   - {}", usage)?;
         }
 
@@ -277,17 +258,19 @@ impl InternerDisplay for SymbolEntry {
             None => writeln!(w, "[Symbol: <uninterned:{:?}>]", self.ident)?,
         }
 
-        // 2. Affichage des déclarations (via .values() pour ignorer le NodeId)
+        // 2. Affichage des déclarations
+        // On itère directement sur le Vec<Declaration>
         writeln!(w, " - Declarations ({}):", self.declarations.len())?;
-        for decl in self.declarations.values() {
+        for decl in &self.declarations {
             write!(w, "   - ")?;
             decl.fmt_with_interner(w, interner)?;
             writeln!(w)?;
         }
 
-        // 3. Affichage des usages (via .values())
+        // 3. Affichage des usages
+        // On itère directement sur le Vec<Usage>
         writeln!(w, " - Usages ({}):", self.usages.len())?;
-        for usage in self.usages.values() {
+        for usage in &self.usages {
             write!(w, "   - ")?;
             usage.fmt_with_interner(w, interner)?;
             writeln!(w)?;

@@ -114,13 +114,13 @@ fn collect_derived_links(
 
         // --- STEP 1: Categorize and Pre-compute ---
         // We separate declarations and compute base signatures only once.
-        for (&node_id, decl) in entry.declarations() {
+        for decl in entry.declarations() {
             if decl.is_derived() {
-                derived_worklist.push((node_id, decl));
+                derived_worklist.push((decl.source(), decl));
             } else {
                 // OPTIMIZATION: Extract and store the signature once for each base predicate.
                 let sig = Signature::from_declaration(decl);
-                bases_worklist.push((node_id, sig));
+                bases_worklist.push((decl.source(), sig));
             }
         }
 

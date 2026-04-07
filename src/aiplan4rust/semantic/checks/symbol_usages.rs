@@ -60,7 +60,7 @@ pub fn check_symbol_usage(
     let mut no_errors = true;
 
     for symbol_entry in symbol_table.values() {
-        for usage in symbol_entry.usages().values() {
+        for usage in symbol_entry.usages() {
             // --- 1. FILTRAGE ---
             // On ignore les primitives, les built-ins, et les types structurels (DomainName, etc.)
             if should_skip_symbol(symbol_entry, context, usage.symbol_kind(), skip_symbols) {
@@ -88,7 +88,7 @@ pub fn check_symbol_usage(
                 // CAS B : Le symbole est déclaré, on vérifie sa signature
                 Some(decl_id) => {
                     // On récupère la déclaration pointée
-                    let Some(declaration) = symbol_entry.declarations().get(&decl_id) else {
+                    let Some(declaration) = symbol_table.get_declaration(decl_id) else {
                         continue;
                     };
 

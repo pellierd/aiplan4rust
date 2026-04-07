@@ -133,7 +133,7 @@ fn collect_nominal_resolutions(
     let mut all_resolved = true;
 
     for entry in table.values() {
-        for usage in entry.usages().values() {
+        for usage in entry.usages() {
             let kind = usage.symbol().kind();
 
             // Process ONLY unresolved symbols that belong to a nominal kind.
@@ -221,7 +221,7 @@ fn collect_signature_resolutions(
     let mut all_resolved = true;
 
     for entry in table.values() {
-        for usage in entry.usages().values() {
+        for usage in entry.usages() {
             let kind = usage.symbol().kind();
             let is_nominal = is_nominal_kind(kind);
             let has_resolution = usage.resolution().is_some();
@@ -415,7 +415,7 @@ pub fn apply_resolutions(
 /// * `None` - If this domain symbol has not been imported into the local table yet.
 fn find_domain_proxy(entry: &SymbolEntry, proxy_source: NodeId) -> Option<NodeId> {
     // Iterate through all existing declarations for this symbol name
-    for declaration in entry.declarations().values() {
+    for declaration in entry.declarations() {
         // A duplicate is identified if:
         // 1. The declaration's origin is the Domain (it's a Proxy).
         // 2. The source NodeId matches the one we are trying to resolve.

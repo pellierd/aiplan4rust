@@ -60,7 +60,7 @@ pub fn check_unused_symbols(
     const MAX_REPORTS: usize = 100;
 
     for symbol_entry in symbol_table.values() {
-        for declaration in symbol_entry.declarations().values() {
+        for declaration in symbol_entry.declarations() {
             if !declaration.usages().is_empty()
                 || !declaration.derivations().is_empty()
                 || (declaration.is_derived() && declaration.derived_source().is_some())

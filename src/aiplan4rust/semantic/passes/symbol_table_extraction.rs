@@ -310,13 +310,6 @@ pub fn add_declaration_symbol(
     let symbol_ref = node.try_symbol()?;
     let ident = symbol_ref.id();
 
-    if ident.as_usize() == 23 {
-        println!(
-            "INFO: Enregistrement de la tâche do_observation (ID 23) au nœud {:?}",
-            node_ref.id()
-        );
-    }
-
     // 2. Préparation des données (Identique)
     let origin = SymbolOrigin::from(table.origin());
 
@@ -613,9 +606,11 @@ fn init_from_typed_item_elements(
 
             // 1. On cherche si une "coquille vide" existe (lecture seule)
             if let Some(entry) = table.get_symbol(ident) {
-                let old_id = entry.declarations().iter().find_map(|(id, d)| {
+                let old_id = entry.declarations().iter().find_map(|d| {
+                    // d est maintenant un &Declaration
                     if d.symbol().kind() == SymbolKind::PrimitiveType && d.ty().is_none() {
-                        Some(*id)
+                        // On récupère le NodeId via .source()
+                        Some(d.source())
                     } else {
                         None
                     }
@@ -1534,9 +1529,10 @@ fn init_from_type(
             let already_has_primitive_type = table
                 .get_symbol(ident)
                 .map(|entry| {
+                    // .iter() remplace .values()
                     entry
                         .declarations()
-                        .values()
+                        .iter()
                         .any(|d| d.symbol().kind() == SymbolKind::PrimitiveType)
                 })
                 .unwrap_or(false);

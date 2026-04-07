@@ -77,7 +77,7 @@ pub fn check_symbol_types(
     // Iterate through every symbol stored in the table (constants, types, predicates, etc.)
     for symbol in symbol_table.values() {
         // A symbol can have multiple declarations (e.g., same name in different scopes)
-        for declaration in symbol.declarations().values() {
+        for declaration in symbol.declarations() {
             // Check if this specific declaration associates a type with the symbol
             // (e.g., in 'v - vehicle', we retrieve the ID for 'vehicle')
             if let Some(type_ids) = declaration.ty() {

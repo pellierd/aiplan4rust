@@ -106,7 +106,7 @@ fn collect_type_simplifications(
     let mut changes = Vec::new();
 
     for (symbol_id, entry) in target_table.iter() {
-        for decl in entry.declarations().values() {
+        for decl in entry.declarations() {
             if let Some(raw_ty) = decl.ty() {
                 // Pass the type_checker to utilize its internal cache
                 if let Some((new_type, kept_indices)) = simplify_type(type_checker, raw_ty)? {

@@ -80,7 +80,7 @@ pub fn check_cross_declared_symbols(
 
     // Iterate over all symbols declared in the problem context
     for symbol in problem_symbol_table.values() {
-        for declaration in symbol.declarations().values() {
+        for declaration in symbol.declarations() {
             // On ne vérifie que ce qui vient du Problème et n'est pas exempté
             if !is_declaration_exempt_from_conflict_check(declaration)
                 && declaration.origin() == SymbolOrigin::Problem

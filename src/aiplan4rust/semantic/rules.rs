@@ -65,7 +65,7 @@ pub fn find_shadowing_candidate<'a>(
     scope: &Scope,
 ) -> Option<&'a Declaration> {
     let mut best_candidate: Option<&'a Declaration> = None;
-    for declaration in symbol_entry.declarations().values() {
+    for declaration in symbol_entry.declarations() {
         let decl_kind = declaration.symbol_kind();
 
         // 1. Gardes rapides sur la compatibilité et le genre

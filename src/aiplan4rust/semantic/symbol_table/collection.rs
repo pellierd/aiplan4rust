@@ -1,10 +1,6 @@
 use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::semantic::symbol::{
-    Declaration, Filterable, Scope, SymbolEntry, SymbolKind, Usage,
-};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Filterable, Scope, SymbolKind};
 use crate::aiplan4rust::semantic::symbol_table::table::Table;
-use crate::aiplan4rust::tree::NodeId;
-use indexmap::IndexMap;
 
 impl Table {
     /// Collects symbols from the symbol table that have at least one declaration matching the provided filters.
@@ -42,7 +38,7 @@ impl Table {
     ///     None
     /// );
     /// ```
-    pub fn collect_symbol_with_declaration(
+    /*pub fn collect_symbol_with_declaration(
         &self,
         symbol_name: Option<&SymbolId>,
         kind: Option<&SymbolKind>,
@@ -67,9 +63,9 @@ impl Table {
                 !Table::collect(kind, scope, declarations).is_empty()
             })
             .collect()
-    }
+    }*/
 
-    /// Collects symbols that have at least one usage matching the provided optional filters.
+    /*/// Collects symbols that have at least one usage matching the provided optional filters.
     ///
     /// This method searches the symbol table for entries with usages filtered by:
     /// - the symbol's name (`symbol_name`),
@@ -135,7 +131,7 @@ impl Table {
                 !Table::collect(kind, scope, usages).is_empty()
             })
             .collect()
-    }
+    }*/
 
     /// Filters and collects declarations from the symbol table based on optional criteria.
     ///
@@ -190,7 +186,7 @@ impl Table {
             .collect()
     }
 
-    /// Filters and collects usages of symbols based on optional criteria.
+    /*/// Filters and collects usages of symbols based on optional criteria.
     ///
     /// This method retrieves usages of symbols stored in the symbol table, optionally filtered by:
     /// - the symbol's name,
@@ -238,7 +234,7 @@ impl Table {
             .iter()
             .flat_map(|symbol| Table::collect(kind, scope, symbol.usages()))
             .collect()
-    }
+    }*/
 
     /// Filters a collection of symbols or symbol-like items based on optional kind and scope criteria.
     ///
@@ -267,11 +263,11 @@ impl Table {
     fn collect<'a, T: Filterable>(
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
-        // Remplacement du HashSet par IndexMap (NodeId est la clé standard ici)
-        items: &'a IndexMap<NodeId, T>,
+        // On accepte maintenant une slice, ce qui est beaucoup plus flexible
+        items: &'a [T],
     ) -> Vec<&'a T> {
         items
-            .values() // On itère uniquement sur les valeurs (&T)
+            .iter() // Itère directement sur les éléments du slice
             .filter(|item| {
                 if let Some(k) = kind {
                     if item.kind() != *k {
