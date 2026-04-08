@@ -30,16 +30,19 @@
 //! }
 //! ```
 
+use std::collections::HashMap;
 use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SymbolTable, TypeChecker};
+use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::{linking, semantic};
 
 /// The `Linker` struct is responsible for performing the linking phase
@@ -174,6 +177,7 @@ impl Linker {
                     &problem_check_ctx,
                     &mut domain_table,
                     &mut problem_table,
+                    problem_ctx.requirement_triggers(),
                     &mut self.diagnostic_manager,
                 )?;
 
@@ -223,57 +227,41 @@ impl Linker {
     }
 }
 
-/// Performs semantic and structural linking checks between a domain and a problem.
+/// Performs a comprehensive linking analysis between a Domain and a Problem.
 ///
-/// This function runs a sequence of verification logic to ensure the compatibility and
-/// coherence between a domain and a problem during the linking phase. It emits diagnostics
-/// (warnings and errors) via the provided `DiagnosticManager`.
+/// This function acts as the central coordinator for structural and semantic
+/// validation of the Problem AST against the Domain's definitions. It operates
+/// in two modes based on the success of the symbol resolution (binding) phase.
 ///
-/// The checks are performed in two phases:
-///
-/// 1. **Structural Checks** (always executed):
-///     - Domain and problem name consistency (`check_domain_name`)
-///     - Duplicate symbol declarations (`check_cross_declared_symbols`)
-///     - Undeclared symbol usages (`check_undeclared_symbols`)
-///     - Unused symbol declarations (`check_unused_symbols`)
-///
-/// 2. **Type-Dependent Checks** (executed only if no errors found in phase 1):
-///     - Signature validation of declared symbols (`check_declared_symbol_signatures`)
-///     - Type correctness of logic (`check_typed_expressions`)
-///     - Task ordering consistency (`check_task_ordering`)
-///     - Requirement compliance (`check_requirement_violations`)
+/// ### Analysis Phases
+/// 1. **Symbol Binding**: Attempts to resolve Problem symbols (objects, types)
+///    against Domain declarations.
+/// 2. **Cross-Requirement Validation**: Verifies that features inferred from the
+///    problem (via `problem_triggers`) are covered by the union of declared requirements.
+/// 3. **Semantic Integrity**: Checks domain-problem name matching, type hierarchy
+///    consistency, and task network ordering.
+/// 4. **Deep Expression Analysis**: (Only if binding succeeds) Validates typed
+///    expressions in `:init` and `:goal` blocks.
 ///
 /// # Arguments
-///
-/// * `domain` - Reference to the domain's semantic context.
-/// * `problem` - Reference to the problem's check context.
-/// * `diagnostic_manager` - Mutable reference to collect diagnostics.
+/// * `domain` - Read-only context of the linked domain.
+/// * `problem` - Context of the problem being analyzed (includes merged requirements).
+/// * `domain_table` - Reference to the domain's symbol table for resolution.
+/// * `problem_table` - Mutable symbol table of the problem to be enriched/linked.
+/// * `problem_triggers` - Map of PDDL/HDDL features utilized in the problem AST,
+///    linking each [`Requirement`] to its specific [`NodeId`]s.
+/// * `diagnostic_manager` - Manager used to collect and report errors/warnings.
 ///
 /// # Returns
-///
-/// Returns `Ok(true)` if all checks passed successfully without critical errors, or `Ok(false)`
-/// if some checks failed but no internal error occurred. Returns `Err` if an internal error
-/// (e.g., inconsistent state or invalid assumptions) occurs during the process.
-///
-/// # Errors
-///
-/// Returns `ParserInternalError` if an internal semantic or resolution error prevents
-/// the checks from completing.
-///
-/// # Example
-///
-/// ```rust
-/// let mut diagnostics = DiagnosticManager::default();
-/// let result = perform_linking_checks(&domain_ctx, &problem_ctx, &mut diagnostics)?;
-/// if !result {
-///     eprintln!("Some linking checks failed");
-/// }
-/// ```
+/// * `Ok(true)` - The problem is semantically valid and successfully linked.
+/// * `Ok(false)` - Analysis found issues (errors are available in `diagnostic_manager`).
+/// * `Err(LinkingError)` - A fatal internal error occurred during the process.
 pub fn perform_linking_analysis(
     domain: &CheckContext,
     problem: &CheckContext,
-    domain_table: &SymbolTable, // Gardé en immuable pour la sécurité
+    domain_table: &SymbolTable,
     problem_table: &mut SymbolTable,
+    problem_triggers: &HashMap<Requirement, Vec<NodeId>>,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingError> {
     let type_hierarchy = domain_table.to_type_hierarchy();
@@ -286,9 +274,9 @@ pub fn perform_linking_analysis(
         Provider::Linker,
     );
 
-    // --- PHASE 1 : LE BINDING (Tentative de résolution) ---
-    // On essaie de lier les symboles du problème aux déclarations du domaine.
-    // resolve_symbols doit retourner Ok(true) si tous les symboles critiques sont liés.
+    // --- PHASE 1: BINDING (Resolution Attempt) ---
+    // Attempt to bind problem symbols to domain declarations.
+    // resolve_symbols should return Ok(true) if all critical symbols are successfully linked.
     let binding_success = passes::resolve_symbols(
         &pass_context,
         problem_table,
@@ -301,10 +289,10 @@ pub fn perform_linking_analysis(
 
     if binding_success {
         // ==========================================
-        // MODE NORMAL : Analyse Sémantique Complète
+        // NORMAL MODE: Full Semantic Analysis
         // ==========================================
 
-        // 1. Cohérence des métadonnées
+        // 1. Metadata consistency (e.g., matching domain names)
         is_valid &= linking::checks::check_domain_name(
             domain,
             problem,
@@ -313,11 +301,11 @@ pub fn perform_linking_analysis(
             diagnostic_manager,
         )?;
 
-        // 2. Usage des symboles (est-ce que tout ce qui est utilisé est défini ?)
+        // 2. Symbol usage (ensure utilized symbols are properly defined)
         is_valid &=
             semantic::checks::check_symbol_usage(problem, problem_table, &[], diagnostic_manager)?;
 
-        // 3. Validation des types (Objets vs Hiérarchie du domaine)
+        // 3. Type validation (Objects vs. Domain Hierarchy)
         is_valid &= semantic::checks::check_symbol_types(
             problem,
             problem_table,
@@ -326,7 +314,7 @@ pub fn perform_linking_analysis(
         )?;
 
         if is_valid {
-            // 4. Conflits de noms (Shadowing illégal)
+            // 4. Name conflicts (e.g., illegal shadowing across scopes)
             is_valid &= linking::checks::check_cross_declared_symbols(
                 domain,
                 problem,
@@ -335,7 +323,7 @@ pub fn perform_linking_analysis(
                 diagnostic_manager,
             )?;
 
-            // 5. Analyse profonde des expressions (:init, :goal)
+            // 5. Deep expression analysis (:init, :goal)
             is_valid &= semantic::checks::check_typed_expressions(
                 problem,
                 problem_table,
@@ -343,19 +331,27 @@ pub fn perform_linking_analysis(
                 diagnostic_manager,
             )?;
 
-            // 6. Contraintes structurelles (Cycles dans le Task Network)
+            // 6. Structural constraints (e.g., Task Network cycles)
             is_valid &= semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
+
+            // 7. Requirement compliance check
+            // Note: problem (CheckContext) already contains the merged Domain + Problem requirements.
+            is_valid &= semantic::checks::check_requirements(
+                problem,          // CheckContext with merged requirements
+                problem_triggers, // Inferred requirements and their evidence
+                diagnostic_manager,
+            )?;
         }
     } else {
         // ==========================================
-        // MODE DÉGRADÉ : Analyse de Surface Uniquement
+        // DEGRADED MODE: Surface Analysis Only
         // ==========================================
-        // Le binding a échoué (certains symboles sont orphelins).
-        // On ne fait que les checks qui ne dépendent pas de la résolution.
+        // Binding failed (orphan symbols detected).
+        // We only execute checks that do not depend on successful resolution.
 
-        is_valid = false; // Le linking est d'office invalide
+        is_valid = false; // Linking is inherently invalid if binding fails
 
-        // On vérifie quand même le nom du domaine pour aider l'utilisateur
+        // Still check the domain name to provide helpful feedback to the user
         let _ = linking::checks::check_domain_name(
             domain,
             problem,
@@ -364,11 +360,18 @@ pub fn perform_linking_analysis(
             diagnostic_manager,
         );
 
-        // On vérifie quand même les cycles de tâches (analyse de graphe pure)
+        // Still check task ordering (pure graph-based analysis)
         let _ = semantic::checks::check_task_ordering(problem, diagnostic_manager);
 
-        // Note: Les erreurs de résolution (symboles non trouvés) sont déjà
-        // injectées par `resolve_symbols` dans le diagnostic_manager.
+        // Still check requirement compliance for the problem-local scope
+        let _ = semantic::checks::check_requirements(
+            problem,          // CheckContext with merged requirements
+            problem_triggers, // Inferred requirements and their evidence
+            diagnostic_manager,
+        )?;
+
+        // Note: Resolution errors (symbols not found) are already
+        // injected into the diagnostic_manager by `resolve_symbols`.
     }
 
     Ok(is_valid)
