@@ -22,7 +22,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::linking::checks::error::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::SymbolTable;
 
 /// Checks for consistency between the domain name declared in the domain context
@@ -57,25 +56,27 @@ use crate::SymbolTable;
 /// [`CheckContext`]: crate::semantics::CheckContext
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_domain_name(
-    domain: &CheckContext,
+    _domain: &CheckContext,
     problem: &CheckContext,
-    domain_symbol_table: &mut SymbolTable,
-    problem_symbol_table: &mut SymbolTable,
+    domain_symbol_table: &SymbolTable,  // Now immutable
+    problem_symbol_table: &SymbolTable, // Now immutable
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingCheckError> {
-    // --- 1. Resolve the domain name declared in the domain AST ---
-    let declared = domain_symbol_table.try_resolve_unique_declaration(SymbolKind::DomainName)?;
+    // --- 1. Resolve domain names from both tables ---
+    // We use specialized O(n) getters that avoid Vec allocations and cloning.
+    // In the problem table, we also look for "DomainName" as it is the
+    // identifier of the domain the problem claims to belong to.
+    let declared = domain_symbol_table.try_domain_name()?;
+    let referenced = problem_symbol_table.try_domain_name()?;
 
-    // --- 2. Resolve the domain name referenced in the problem AST ---
-    let referenced = problem_symbol_table.try_resolve_unique_declaration(SymbolKind::DomainName)?;
-
-    // --- 3. Compare both domain names ---
-    // If the names don't match, emit a diagnostic warning.
+    // --- 2. Compare both domain name identifiers ---
+    // We compare SymbolId for maximum performance.
     if declared.symbol().id() != referenced.symbol().id() {
-        // --- 4. Retrieve the corresponding AST entry ---
+        // --- 3. Retrieve the AST node for diagnostic positioning ---
         let ast = problem.syntax_tree().try_node(referenced.source())?;
 
-        // --- 5. Emit a warning about the mismatch ---
+        // --- 4. Emit a warning about the name mismatch ---
+        // Cloning only occurs here, in the cold error path, to populate the diagnostic.
         let warning = Diagnostic::warning_domain_problem_name_mismatch(
             declared.clone(),
             referenced.clone(),
@@ -86,6 +87,6 @@ pub fn check_domain_name(
         diagnostic_manager.add_diagnostic(warning);
     }
 
-    // --- 6. Names match or warning has been emitted; return success ---
+    // --- 5. Return success (warnings do not stop the linking process) ---
     Ok(true)
 }

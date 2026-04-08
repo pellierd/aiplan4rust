@@ -125,7 +125,7 @@ impl Table {
             symbols.push(SymbolEntry::new(SymbolId::from(i)));
         }
 
-        SymbolTable {
+        Self {
             symbols,
             declarations_index: FxHashMap::with_capacity(size),
             usages_index: FxHashMap::with_capacity(size),
@@ -199,6 +199,52 @@ impl Table {
             .get(id.as_usize())
             .into_iter()
             .flat_map(|entry| entry.usages().iter())
+    }
+
+    pub fn iter_primitive_types(&self) -> impl Iterator<Item = &Declaration> + '_ {
+        let root = self.root_scope();
+        self.symbols
+            .iter()
+            .flat_map(|entry| entry.declarations())
+            .filter(move |d| d.scope() == &root && d.symbol_kind() == SymbolKind::PrimitiveType)
+    }
+
+    /// Retourne la déclaration du nom du domaine.
+    ///
+    /// Optimisé pour s'arrêter dès la première occurrence trouvée (Short-circuit).
+    /// Étant donné que le nom du domaine est généralement l'un des premiers symboles
+    /// rencontrés, cette opération est proche de O(1) en pratique.
+    pub fn domain_name(&self) -> Option<&Declaration> {
+        let root = self.root_scope();
+        self.symbols
+            .iter()
+            .flat_map(|e| e.declarations())
+            .find(|d| d.scope() == &root && d.symbol_kind() == SymbolKind::DomainName)
+    }
+
+    /// Retourne la déclaration du nom du problème.
+    ///
+    /// Effectue un scan linéaire rapide. Même si le nom du problème apparaît plus tard
+    /// dans le fichier, l'absence d'allocations rend cette fonction très performante.
+    pub fn problem_name(&self) -> Option<&Declaration> {
+        let root = self.root_scope();
+        self.symbols
+            .iter()
+            .flat_map(|e| e.declarations())
+            .find(|d| d.scope() == &root && d.symbol_kind() == SymbolKind::ProblemName)
+    }
+
+    /// Récupère la déclaration du nom du domaine ou renvoie une erreur si absente.
+    pub fn try_domain_name(&self) -> Result<&Declaration, SymbolTableError> {
+        self.domain_name()
+            .ok_or_else(|| SymbolTableError::declaration_not_found_for_kind(SymbolKind::DomainName))
+    }
+
+    /// Récupère la déclaration du nom du problème ou renvoie une erreur si absente.
+    pub fn try_problem_name(&self) -> Result<&Declaration, SymbolTableError> {
+        self.problem_name().ok_or_else(|| {
+            SymbolTableError::declaration_not_found_for_kind(SymbolKind::ProblemName)
+        })
     }
 
     /// Retrieves an immutable reference to a symbol by its name.

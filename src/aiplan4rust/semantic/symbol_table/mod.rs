@@ -30,22 +30,14 @@
 //! Internal usage (not public API):
 //! - `SymbolTableBuilder` is exposed internally for constructing symbol tables.
 
-mod collection;
 pub mod entry;
 pub mod error;
 pub mod origin;
-pub mod resolution;
 pub mod table;
-
-/// Main symbol table interface for semantic resolution.
-pub use table::Table as SymbolTable;
-
 
 /// Public error typing for symbol table construction/resolution.
 pub use error::SymbolTableError;
-
-
-use crate::aiplan4rust::semantic::passes::extract_symbol_table;
-
 /// Describes the origin of the symbol table (domain/problem/merged).
 pub use origin::Origin as SymbolTableOrigin;
+/// Main symbol table interface for semantic resolution.
+pub use table::Table as SymbolTable;

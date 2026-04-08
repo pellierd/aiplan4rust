@@ -5,7 +5,6 @@ use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{LiteralId, SymbolId};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::Declaration;
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 
 use crate::SymbolTable;
 use bimap::BiMap;
@@ -52,42 +51,48 @@ use std::collections::HashSet;
 /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
 pub fn check_type_hierarchy(
     context: &CheckContext,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable, // Suppression du mut car l'itérateur est immutable
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
-    // Step 1: Collect all type_checker declarations from the root scope (PrimitiveType only)
-    let types = symbol_table.collect_declarations(
-        None,
-        Some(&SymbolKind::PrimitiveType),
-        Some(&symbol_table.root_scope()),
-    );
+    // Step 1: Fast collection of primitive type declarations from the root scope.
+    // We use the table's internal iterator to avoid expensive clones of Declaration objects.
+    let types: Vec<&Declaration> = symbol_table.iter_primitive_types().collect();
 
-    // Step 2: Build a bidirectional mapping between type_checker names and unique numeric indices
+    // If no types are defined, the hierarchy is vacuously valid.
+    if types.is_empty() {
+        return Ok(true);
+    }
+
+    // Step 2: Build a bidirectional mapping between type identifiers and unique numeric indices.
+    // This allows representing the hierarchy as a compact adjacency matrix.
     let type_bimap = build_type_bimap(&types);
 
-    // Step 3: Construct the inheritance adjacency matrix (direct parent-child relationships)
+    // Step 3: Construct the inheritance adjacency matrix representing direct parent-child relationships.
     let mut hierarchy = build_type_adjacency_matrix(&type_bimap, &types)?;
 
-    // Step 4: Compute the transitive closure to reveal indirect inheritance paths
+    // Step 4: Compute the transitive closure using Floyd-Warshall to reveal indirect inheritance paths.
     compute_transitive_closure(&mut hierarchy);
 
-    // Step 5: Detect cycles in the type_checker graph using Johnson’s algorithm
+    // Step 5: Detect all elementary cycles in the inheritance graph using Johnson’s algorithm.
     let all_cycles = johnson_find_cycles(&hierarchy);
 
-    // Step 6: Filter out trivial/self cycles and remove redundant ones
+    // Step 6: Filter out trivial self-loops and redundant rotations of the same cycle.
     let filtered_cycles = filter_cycles(all_cycles);
 
-    // Step 7: Emit diagnostics for each meaningful cycle found in the hierarchy
-    report_cyclic_type_declaration_error(
-        &filtered_cycles,
-        &type_bimap,
-        &types,
-        context.source(),
-        context.provider(),
-        diagnostic_manager,
-    )?;
+    // Step 7: Emit detailed diagnostics for each detected cycle.
+    // Cloning only happens here, and only for the specific declarations involved in an error.
+    if !filtered_cycles.is_empty() {
+        report_cyclic_type_declaration_error(
+            &filtered_cycles,
+            &type_bimap,
+            &types,
+            context.source(),
+            context.provider(),
+            diagnostic_manager,
+        )?;
+    }
 
-    // Return true if no cycles were found; false if diagnostics were emitted
+    // Return true if the hierarchy is acyclic; false if diagnostics were reported.
     Ok(filtered_cycles.is_empty())
 }
 
