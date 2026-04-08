@@ -181,8 +181,8 @@ impl LinkedSemanticContext {
             .collect();
 
         let required_requirements = domain
-            .required_requirements()
-            .union(problem.required_requirements())
+            .inferred_requirements()
+            .union(problem.inferred_requirements())
             .cloned()
             .collect();
 
@@ -248,7 +248,7 @@ impl LinkedSemanticContext {
         }
 
         // Check hierarchical consistency
-        if domain.is_required(Requirement::Hierarchy) != problem.is_required(Requirement::Hierarchy)
+        if domain.is_inferred(Requirement::Hierarchy) != problem.is_inferred(Requirement::Hierarchy)
         {
             return Err(LinkingError::hierarchical_mismatch());
         }

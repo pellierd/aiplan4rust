@@ -83,15 +83,15 @@ pub fn extract_declared_requirements(
 /// versus standard STRIPS deletions.
 ///
 /// ### Context Awareness
-/// The function maintains a `gd` (Goal Description) state using the node depth:
-/// - **Logical Contexts**: Triggered by nodes like `PreconditionDef`, `Goal`, or
+/// The function maintains a "logical context" state during traversal:
+/// - **Goal Description (GD) Scopes**: Triggered by nodes like `PreconditionDef`, `Goal`, or
 ///   `Constraints`. Inside these, operators like `not` or `forall` trigger
-///   precondition-specific requirements.
-/// - **Effect Contexts**: Outside of `gd` scopes, the same operators might simply
+///   precondition-specific requirements (e.g., `:negative-preconditions`).
+/// - **Effect Scopes**: Outside of GD scopes, the same operators might simply
 ///   be part of basic STRIPS or `:conditional-effects`.
 ///
 /// ### Requirement Mapping
-/// - **Typing**: Detected via `:types` definitions or typed variable declarations.
+/// - **Typing**: Detected via `:types` definitions or typed variable/parameter declarations.
 /// - **Fluents**: Distinguishes between `:numeric-fluents` and `:object-fluents`
 ///   by resolving function return types in the `SymbolTable`.
 /// - **Action Costs**: Identified by specific manipulations of the `total-cost`
@@ -99,33 +99,29 @@ pub fn extract_declared_requirements(
 /// - **HTN/Hierarchy**: Triggered by `MethodDef`, `TaskDef`, and ordering constraints.
 ///
 /// # Arguments
-/// * `syntax_tree` - The arena-based syntax tree to traverse.
-/// * `symbol_table` - The table used to resolve function signatures and type information.
-/// * `triggers` - A mutable map populated during traversal. It links each detected
-///   [`Requirement`] to the list of [`NodeId`]s that necessitated it, enabling
-///   detailed diagnostic reporting.
+/// * `context` - The `PassContext` providing access to the syntax tree and source metadata.
+/// * `symbol_table` - The table used to resolve function signatures and type information
+///   during requirement inference.
 ///
 /// # Returns
-/// * `Ok(HashSet<Requirement>)` - The set of all requirements inferred from AST usage.
+/// * `Ok(HashMap<Requirement, Vec<NodeId>>)` - A mapping where each key is an inferred
+///   requirement and the value is a list of AST `NodeId`s that triggered its necessity.
 /// * `Err(SemanticError)` - If tree traversal or symbol resolution fails.
 ///
 /// # Default Behavior
-/// If no specialized features are detected, the function returns a set containing
-/// only `Requirement::Strips` as the baseline capability.
+/// If no specialized features are detected, the function returns a map containing
+/// only `Requirement::Strips` with the root node as its trigger.
 pub fn extract_required_requirements(
     context: &PassContext,
     symbol_table: &SymbolTable,
-    triggers: &mut HashMap<Requirement, Vec<NodeId>>,
-) -> Result<HashSet<Requirement>, SemanticError> {
-    let mut required: HashSet<Requirement> = HashSet::new();
+) -> Result<HashMap<Requirement, Vec<NodeId>>, SemanticError> {
+    let mut triggers: HashMap<Requirement, Vec<NodeId>> = HashMap::new();
     let syntax_tree = context.syntax_tree();
 
     // INTERNAL MACRO: Tracks feature usage by simultaneously updating the set of
     // required capabilities and mapping the specific NodeId that triggered the need.
     macro_rules! add_req {
         ($req:expr, $id:expr) => {{
-            // Record the requirement for the final effective set
-            required.insert($req);
             // Link the specific AST node to this requirement for diagnostics
             triggers.entry($req).or_default().push($id);
         }};
@@ -217,8 +213,8 @@ pub fn extract_required_requirements(
             // between numeric functions and object-returning functions.
             AstKind::FunctionsDef => {
                 // Si on a déjà les deux, on peut sauter l'analyse de ce bloc pour gagner du temps
-                if required.contains(&Requirement::NumericFluents)
-                    && required.contains(&Requirement::ObjectFluents)
+                if triggers.contains_key(&Requirement::NumericFluents)
+                    && triggers.contains_key(&Requirement::ObjectFluents)
                 {
                     continue;
                 }
@@ -254,7 +250,8 @@ pub fn extract_required_requirements(
                                     if let Some(ty) = decl.ty() {
                                         // Si le type est explicitement 'number'
                                         if ty.is_number() {
-                                            if !required.contains(&Requirement::NumericFluents) {
+                                            if !triggers.contains_key(&Requirement::NumericFluents)
+                                            {
                                                 add_req!(
                                                     Requirement::NumericFluents,
                                                     *typed_item_id
@@ -262,7 +259,7 @@ pub fn extract_required_requirements(
                                             }
                                         } else {
                                             // Si c'est un autre type (Object Fluent)
-                                            if !required.contains(&Requirement::ObjectFluents) {
+                                            if !triggers.contains_key(&Requirement::ObjectFluents) {
                                                 add_req!(
                                                     Requirement::ObjectFluents,
                                                     *typed_item_id
@@ -271,7 +268,7 @@ pub fn extract_required_requirements(
                                         }
                                     } else {
                                         // En PDDL, une fonction sans type est Numeric par défaut
-                                        if !required.contains(&Requirement::NumericFluents) {
+                                        if !triggers.contains_key(&Requirement::NumericFluents) {
                                             add_req!(Requirement::NumericFluents, *typed_item_id);
                                         }
                                     }
@@ -539,9 +536,9 @@ pub fn extract_required_requirements(
 
             AstKind::Assignment => {
                 // Optimization: If all related requirements are already detected, skip the node.
-                if required.contains(&Requirement::NumericFluents)
-                    && required.contains(&Requirement::ObjectFluents)
-                    && required.contains(&Requirement::ContinuousEffects)
+                if triggers.contains_key(&Requirement::NumericFluents)
+                    && triggers.contains_key(&Requirement::ObjectFluents)
+                    && triggers.contains_key(&Requirement::ContinuousEffects)
                 {
                     continue;
                 }
@@ -596,7 +593,7 @@ pub fn extract_required_requirements(
 
                 // --- 3. R-Value (Source) Analysis ---
                 // If NumericFluents isn't active yet, check if the source expression necessitates it.
-                if !required.contains(&Requirement::NumericFluents) {
+                if !triggers.contains_key(&Requirement::NumericFluents) {
                     if let Some(Requirement::NumericFluents) =
                         self::get_term_requirement(r_id, syntax_tree, symbol_table)?
                     {
@@ -610,9 +607,9 @@ pub fn extract_required_requirements(
 
             AstKind::Comparison => {
                 // Early exit: if all potential requirements from this node are already found, skip.
-                if required.contains(&Requirement::NumericFluents)
-                    && required.contains(&Requirement::ObjectFluents)
-                    && required.contains(&Requirement::DurationInequalities)
+                if triggers.contains_key(&Requirement::NumericFluents)
+                    && triggers.contains_key(&Requirement::ObjectFluents)
+                    && triggers.contains_key(&Requirement::DurationInequalities)
                 {
                     continue;
                 }
@@ -722,13 +719,13 @@ pub fn extract_required_requirements(
     // the domain is assumed to be a basic STRIPS domain.
     // STRIPS includes basic actions with preconditions and effects
     // consisting only of addition and deletion of atomic facts.
-    if required.is_empty() {
+    if triggers.is_empty() {
         // If the requirement set is empty after the full AST sweep,
         // we default to :strips using a dummy or root NodeId (0).
         add_req!(Requirement::Strips, NodeId::from(0));
     }
 
-    Ok(required)
+    Ok(triggers)
 }
 
 /// Attempts to determine the PDDL requirement implied by a specific term node.

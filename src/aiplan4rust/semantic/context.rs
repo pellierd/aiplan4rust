@@ -70,59 +70,74 @@ use std::time::SystemTime;
 /// Holds the results of semantic analysis, including the syntax tree, symbol table,
 /// requirements analysis, and associated metadata.
 ///
-/// This structure represents the full context of a parsed and analyzed PDDL file
-/// or module. It encapsulates all data needed for further processing stages such
-/// as validation, linkage, or code generation.
+/// This structure represents the full context of a parsed and analyzed PDDL/HDDL file.
+/// It acts as a standalone "semantic unit" encapsulating all data needed for further
+/// processing stages such as linkage, validation, or code generation.
 ///
-/// # Fields
+/// # Metadata and Requirements
 ///
-/// - `syntax_tree`: The annotated syntax tree, represented as an arena of `AstNode` values.
-/// - `declared_requirements`: A set of `Requirement`s explicitly declared in the source (e.g., `:typing`).
-/// - `required_requirements`: A set of `Requirement`s implicitly required by the actual content of the source.
-/// - `required_requirements_trigger`: A mapping between each required `Requirement` and the `NodeId`s in the AST
-///             that triggered that requirement. Used for precise error reporting and diagnostics.
-/// - `symbol_table`: The global symbol table built during semantic analysis, mapping names to declarations.
-/// - `interner`: A `SymbolInterner` used for efficient string storage and resolution across the context.
-/// - `source_id`: A `LiteralId` representing the interned identifier of the source file or module name.
-///             This can be resolved via the `interner` to avoid string duplication.
-/// - `generated_at`: A `SystemTime` timestamp indicating when semantic analysis was completed.
+/// The context distinguishes between **declared** requirements (what the user stated)
+/// and **inferred** requirements (what the syntax actually uses). This duality allows
+/// the compiler to detect missing declarations and provide precise diagnostics via
+/// the `requirement_triggers` mapping.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
     /// The annotated syntax tree stored as an arena of AST nodes.
+    /// This tree is the structural backbone of the context.
     syntax_tree: Tree<AstNode>,
 
     /// Requirements explicitly stated in the `:requirements` section of the PDDL file.
+    /// Used to verify user intent against actual feature usage.
     declared_requirements: HashSet<Requirement>,
 
-    /// Requirements that are logically necessary based on the syntax used in the file.
-    required_requirements: HashSet<Requirement>,
+    /// The set of PDDL/HDDL features actually utilized in the syntax tree.
+    ///
+    /// This is a derived set from the keys of `requirement_triggers`, cached here
+    /// for O(1) membership checks during linking and validation.
+    inferred_requirements: HashSet<Requirement>,
+
+    /// A detailed mapping between a required feature and the specific AST nodes
+    /// that triggered its necessity.
+    ///
+    /// This map is crucial for the Linker to generate precise diagnostics,
+    /// pointing exactly to the location in the source file that requires an
+    /// undeclared requirement.
+    requirement_triggers: HashMap<Requirement, Vec<NodeId>>,
 
     /// The symbol table built during semantic analysis.
+    /// Contains all declarations (types, constants, predicates, etc.) found in the file.
     symbol_table: SymbolTable,
 
-    /// String interner used for efficient symbol resolution.
+    /// String interner used for efficient identifier storage and comparison.
+    /// This interner is local to the context until unified by a Linker.
     interner: SymbolInterner,
 
-    /// The interned identifier of the source file or input from which the AST was parsed.
+    /// The interned identifier of the source file or input (e.g., file path or buffer name).
+    /// This avoids string duplication and allows for efficient cross-referencing.
     source: LiteralId,
 
-    /// Timestamp marking when semantic analysis was completed.
+    /// Timestamp marking when the semantic analysis was completed.
+    /// Useful for caching strategies and invalidated build detection.
     generated_at: SystemTime,
 }
-
 impl Default for Context {
     /// Returns a default `Context`.
     ///
     /// All fields are initialized to their respective defaults, except for `generated_at`,
     /// which is set to the current system time (`SystemTime::now()`).
+    /// Creates a default, empty `Context`.
+    ///
+    /// Note: `generated_at` is initialized to the current system time,
+    /// representing the moment this empty context was instantiated.
     fn default() -> Self {
-        Context {
-            syntax_tree: Default::default(),
-            declared_requirements: Default::default(),
-            required_requirements: Default::default(),
-            symbol_table: Default::default(),
-            interner: Default::default(),
-            source: Default::default(),
+        Self {
+            syntax_tree: Tree::default(),
+            declared_requirements: HashSet::default(),
+            inferred_requirements: HashSet::default(),
+            requirement_triggers: HashMap::default(),
+            symbol_table: SymbolTable::default(),
+            interner: SymbolInterner::default(),
+            source: LiteralId::default(),
             generated_at: SystemTime::now(),
         }
     }
@@ -133,8 +148,8 @@ impl Context {
     /// syntax tree invariants.
     ///
     /// Unlike previous versions, this constructor does not perform extraction itself;
-    /// it receives the already processed symbol table and requirement sets from the
-    /// analysis pipeline.
+    /// it receives the already processed symbol table and the rich requirement trigger
+    /// map from the analysis pipeline.
     ///
     /// # Parameters
     /// - `syntax_tree`: The syntax tree representing the domain or problem AST.
@@ -142,27 +157,35 @@ impl Context {
     /// - `symbol_table`: The fully resolved symbol table.
     /// - `interner`: The string interner used for symbol storage.
     /// - `declared_requirements`: Requirements explicitly stated in the `:requirements` section.
-    /// - `required_requirements`: Requirements effectively used and inferred during semantic analysis.
+    /// - `requirement_triggers`: A mapping of requirements effectively used in the AST to
+    ///   their triggering `NodeId`s.
     ///
     /// # Returns
-    /// A `Result` containing the new `SemanticContext` instance, or a `SemanticError`
+    /// A `Result` containing the new `Context` instance, or a `SemanticError`
     /// if invariants are violated.
     ///
-    /// # Note
+    /// # Logic
+    /// - The `inferred_requirements` set is automatically derived from the keys of
+    ///   `requirement_triggers` to ensure data consistency.
     /// - The `generated_at` timestamp is automatically set to the current system time.
-    /// - In debug builds, this function calls `check_invariant` to ensure the tree root
-    ///   is a valid PDDL domain or problem.
+    ///
+    /// # Safety and Invariants
+    /// In debug builds, this function calls `check_invariant` to ensure the tree root
+    /// is a valid PDDL/HDDL domain or problem.
     pub(crate) fn new(
         syntax_tree: Tree<AstNode>,
         source_id: LiteralId,
         symbol_table: SymbolTable,
         interner: SymbolInterner,
         declared_requirements: HashSet<Requirement>,
-        required_requirements: HashSet<Requirement>,
+        requirement_triggers: HashMap<Requirement, Vec<NodeId>>,
     ) -> Result<Self, SemanticError> {
         // Validate that the syntax tree is not empty and the root is domain/problem
         #[cfg(debug_assertions)]
         Self::check_invariant(&syntax_tree)?;
+
+        // Derive the inferred requirements set from the trigger map keys
+        let inferred_requirements = requirement_triggers.keys().cloned().collect();
 
         Ok(Self {
             syntax_tree,
@@ -170,7 +193,8 @@ impl Context {
             symbol_table,
             interner,
             declared_requirements,
-            required_requirements,
+            inferred_requirements,
+            requirement_triggers,
             generated_at: SystemTime::now(),
         })
     }
@@ -262,8 +286,8 @@ impl Context {
     ///     println!("DurativeActions are required by this context.");
     /// }
     /// ```
-    pub fn is_required(&self, requirement: Requirement) -> bool {
-        self.required_requirements.contains(&requirement)
+    pub fn is_inferred(&self, requirement: Requirement) -> bool {
+        self.inferred_requirements.contains(&requirement)
     }
 
     /// Returns a reference to the AST node by its ID if it exists.
@@ -297,19 +321,37 @@ impl Context {
     }
 
     /// Returns a reference to the set of required semantic requirements.
-    pub fn required_requirements(&self) -> &HashSet<Requirement> {
-        &self.required_requirements
+    pub fn inferred_requirements(&self) -> &HashSet<Requirement> {
+        &self.inferred_requirements
     }
 
-    /// Returns a reference to the requirement triggers.
+    /// Returns a reference to the requirement triggers map.
     ///
-    /// The triggers map associates each necessary `Requirement` with the `NodeId`s
-    /// in the AST that invoked it. This is primarily used for generating
-    /// detailed diagnostics and error reports.
+    /// This map associates each inferred [`Requirement`] with the [`NodeId`]s
+    /// that triggered its necessity.
+    pub fn requirement_triggers(&self) -> &HashMap<Requirement, Vec<NodeId>> {
+        &self.requirement_triggers
+    }
 
-    /// Sets the set of effective PDDL/HDDL requirements used in the AST.
-    pub fn set_required_requirements(&mut self, requirements: HashSet<Requirement>) {
-        self.required_requirements = requirements;
+    /// Returns the list of AST nodes that triggered a specific requirement.
+    ///
+    /// # Arguments
+    /// * `requirement` - The requirement to look up.
+    ///
+    /// # Returns
+    /// An `Option` containing a slice of [`NodeId`]s if the requirement was inferred.
+    pub fn get_triggers_for(&self, requirement: &Requirement) -> Option<&[NodeId]> {
+        self.requirement_triggers
+            .get(requirement)
+            .map(|v| v.as_slice())
+    }
+
+    /// Sets the requirement triggers and synchronizes the inferred requirements set.
+    ///
+    /// This ensures that `inferred_requirements` always matches the keys of the triggers map.
+    pub fn set_requirement_triggers(&mut self, triggers: HashMap<Requirement, Vec<NodeId>>) {
+        self.inferred_requirements = triggers.keys().cloned().collect();
+        self.requirement_triggers = triggers;
     }
 
     /// Returns a reference to the symbol table.
@@ -553,24 +595,45 @@ impl fmt::Display for Context {
             .generated_at
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_else(|_| std::time::Duration::new(0, 0));
+
         writeln!(
             f,
             "Generated at: {} seconds since UNIX epoch\n",
             duration_since_epoch.as_secs()
         )?;
 
-        writeln!(f, "Declared requirements:")?;
-        for req in &self.declared_requirements {
-            writeln!(f, "  - {}", req)?;
+        // --- Requirements Section ---
+        writeln!(f, "Declared Requirements:")?;
+        if self.declared_requirements.is_empty() {
+            writeln!(f, "  (none)")?;
+        } else {
+            for req in &self.declared_requirements {
+                writeln!(f, "  - {}", req)?;
+            }
         }
 
-        writeln!(f, "Required requirements:")?;
-        for req in &self.required_requirements {
-            writeln!(f, "  - {}", req)?;
+        writeln!(f, "\nInferred Requirements (and their triggers):")?;
+        if self.requirement_triggers.is_empty() {
+            writeln!(f, "  (none)")?;
+        } else {
+            for (req, nodes) in &self.requirement_triggers {
+                // On affiche le requirement et la liste des NodeIds qui l'ont déclenché
+                let node_ids: Vec<String> = nodes.iter().map(|id| format!("{:?}", id)).collect();
+                writeln!(
+                    f,
+                    "  - {}: triggered at nodes [{}]",
+                    req,
+                    node_ids.join(", ")
+                )?;
+            }
         }
 
-        writeln!(f, "\nAbstract Syntax Tree:\n{:?}", self.syntax_tree)?;
-        writeln!(f, "\nSymbol Table:\n{}", self.symbol_table)?;
+        // --- Data Structures Section ---
+        writeln!(f, "\nAbstract Syntax Tree Structure:")?;
+        writeln!(f, "{}", self.syntax_tree)?;
+
+        writeln!(f, "\nSymbol Table Content:")?;
+        writeln!(f, "{}", self.symbol_table)?;
 
         Ok(())
     }

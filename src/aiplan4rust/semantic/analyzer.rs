@@ -291,8 +291,7 @@ impl Analyzer {
         )?;
 
         // Containers for data discovered during deep analysis.
-        let mut inferred_reqs = HashSet::new();
-        let mut requirement_triggers = HashMap::new();
+        let mut inferred_reqs = HashMap::new();
 
         // =========================================================================
         // 3. RESOLUTION & DEEP SEMANTIC ANALYSIS
@@ -329,16 +328,12 @@ impl Analyzer {
 
             // --- REQUIREMENT INFERENCE ---
             // Detect which PDDL features are actually used in the domain.
-            inferred_reqs = passes::extract_required_requirements(
-                &pass_ctx,
-                &symbol_table,
-                &mut requirement_triggers,
-            )?;
+            inferred_reqs = passes::extract_required_requirements(&pass_ctx, &symbol_table)?;
 
             // Validate that used features match the declared requirements.
             semantic::checks::check_requirements(
                 &check_ctx,
-                &requirement_triggers,
+                &inferred_reqs,
                 &mut self.diagnostic_manager,
             )?;
         }
@@ -457,15 +452,9 @@ impl Analyzer {
         // =========================================================================
         // Metadata containers, usually populated during the Domain-Problem linking.
 
-        let mut requirement_triggers = HashMap::new();
-
         // --- REQUIREMENT INFERENCE ---
         // Detect which PDDL features are actually used in the domain.
-        let inferred_reqs = passes::extract_required_requirements(
-            &pass_ctx,
-            &symbol_table,
-            &mut requirement_triggers,
-        )?;
+        let inferred_reqs = passes::extract_required_requirements(&pass_ctx, &symbol_table)?;
 
         // Finalize by moving the AST and Interner into the SemanticContext.
         let mut context = SemanticContext::new(

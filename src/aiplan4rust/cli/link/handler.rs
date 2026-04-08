@@ -16,22 +16,22 @@
 //! - **Diagnostics:** Tracks and prints errors and warnings encountered during linking.
 //! - **CLI Integration:** Uses `clap::ArgMatches` to parse command-line arguments for the `link` subcommand.
 
-use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
-use crate::aiplan4rust::cli::error::CliError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::artefact::source::Source;
-use crate::aiplan4rust::artefact::{IRContent, Artefact};
+use crate::aiplan4rust::artefact::{Artefact, IRContent};
+use crate::aiplan4rust::cli::check::check_link_args;
+use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
+use crate::aiplan4rust::cli::error::CliError;
+use crate::aiplan4rust::cli::path::{default_lifted_output_path, output_path};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use crate::{Frontend, Renderer, Severity};
+use clap::error::ErrorKind;
 use clap::ArgMatches;
 use colored::Colorize;
 use std::fs;
 use std::path::PathBuf;
-use clap::error::ErrorKind;
-use crate::aiplan4rust::cli::check::check_link_args;
-use crate::aiplan4rust::cli::path::{default_lifted_output_path, output_path};
 
 /// Handles the `link` CLI subcommand.
 ///
@@ -82,14 +82,12 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
         .collect();
 
     // --- Determine output format (default to JSON) ---
-    let format = *matches
-        .get_one::<SerdeFormat>(FORMAT_ARG)
-        .ok_or_else(|| {
-            clap::Error::raw(
-                ErrorKind::MissingRequiredArgument,
-                "No output format provided"
-            )
-        })?;
+    let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).ok_or_else(|| {
+        clap::Error::raw(
+            ErrorKind::MissingRequiredArgument,
+            "No output format provided",
+        )
+    })?;
 
     // --- Optional output path ---
     let output_opt = matches.get_one::<String>(OUTPUT_ARG).map(PathBuf::from);
@@ -99,7 +97,6 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
         .get_one::<String>(OUT_DIR_ARG)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CURRENT_DIR));
-
 
     // --- Validate domain file ---
     let domain_file = PathBuf::from(&files[0]);
@@ -660,7 +657,7 @@ fn filter_parsed_problems(domain: &Source, problems: Vec<Source>) -> Result<Vec<
     let domain_sc = domain.try_parsed_content()?;
 
     // Check whether the domain requires hierarchical constructs.
-    let domain_requires_hierarchy = domain_sc.is_required(Requirement::Hierarchy);
+    let domain_requires_hierarchy = domain_sc.is_inferred(Requirement::Hierarchy);
 
     // Accumulate only the problems that are valid for this domain.
     let mut valid_problems = Vec::new();
@@ -679,7 +676,7 @@ fn filter_parsed_problems(domain: &Source, problems: Vec<Source>) -> Result<Vec<
             let problem_sc = p.try_parsed_content()?;
 
             // If the domain is hierarchical, the problem must be hierarchical as well.
-            if domain_requires_hierarchy && !problem_sc.is_required(Requirement::Hierarchy) {
+            if domain_requires_hierarchy && !problem_sc.is_inferred(Requirement::Hierarchy) {
                 println!(
                     "Warning: problem IR '{}' ignored: must be hierarchical because the domain is hierarchical",
                     p.path().display()
