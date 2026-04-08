@@ -185,6 +185,22 @@ impl Table {
         self.symbols.len()
     }
 
+    #[inline]
+    pub fn iter_declarations(&self, id: SymbolId) -> impl Iterator<Item = &Declaration> {
+        self.symbols
+            .get(id.as_usize())
+            .into_iter()
+            .flat_map(|entry| entry.declarations().iter())
+    }
+
+    #[inline]
+    pub fn iter_usages(&self, id: SymbolId) -> impl Iterator<Item = &Usage> {
+        self.symbols
+            .get(id.as_usize())
+            .into_iter()
+            .flat_map(|entry| entry.usages().iter())
+    }
+
     /// Retrieves an immutable reference to a symbol by its name.
     ///
     /// # Parameters

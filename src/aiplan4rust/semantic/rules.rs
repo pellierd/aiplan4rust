@@ -135,6 +135,10 @@ pub fn is_structural_mismatch(decl_kind: SymbolKind, usage_kind: SymbolKind) -> 
         && matches!(decl_kind, SymbolKind::DomainName | SymbolKind::ProblemName)
 }
 
+pub fn is_structural(kind: SymbolKind) -> bool {
+    matches!(kind, SymbolKind::DomainName | SymbolKind::ProblemName)
+}
+
 /// Règle de compatibilité spécifique (Bercher) :
 /// Autorise une Task à matcher une Action (Upcasting) même si les types
 /// ne sont pas strictement compatibles selon la hiérarchie standard.
