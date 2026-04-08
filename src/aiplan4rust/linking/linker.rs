@@ -18,7 +18,7 @@
 //! # Key Functions
 //!
 //! - [`Linker::link`]: Performs full semantic linking and verification.
-//! - [`perform_linking_checks`]: Runs semantic and structural verification logic.
+//! - [`perform_linking_analysis`]: Runs semantic and structural verification logic.
 //!
 //! # Usage Example
 //!
@@ -139,9 +139,6 @@ impl Linker {
                 self.diagnostic_manager
                     .add_diagnostic_from(problem_diag_mgr);
 
-                // Step 3: Resolve external references in the problem with respect to the domain
-                //resolve_external_references(&mut domain_ctx, &mut problem_ctx)?;
-
                 // Step 4: Create a check context for the problem using the global interner
                 // and perform semantic and structural linking checks on the problem
                 let mut total_declared = domain_ctx.declared_requirements().clone();
@@ -172,7 +169,7 @@ impl Linker {
                 );
 
                 // 3. On fait l'analyse avec les tables "volées" (et mutables !)
-                perform_linking_checks(
+                perform_linking_analysis(
                     &domain_check_ctx,
                     &problem_check_ctx,
                     &mut domain_table,
@@ -272,16 +269,15 @@ impl Linker {
 ///     eprintln!("Some linking checks failed");
 /// }
 /// ```
-pub fn perform_linking_checks(
+pub fn perform_linking_analysis(
     domain: &CheckContext,
     problem: &CheckContext,
-    domain_table: &mut SymbolTable,
+    domain_table: &SymbolTable, // Gardé en immuable pour la sécurité
     problem_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingError> {
     let type_hierarchy = domain_table.to_type_hierarchy();
     let type_checker = TypeChecker::new(&type_hierarchy);
-    let mut check = true;
 
     let pass_context = PassContext::new(
         problem.syntax_tree(),
@@ -289,47 +285,27 @@ pub fn perform_linking_checks(
         problem.source(),
         Provider::Linker,
     );
-    // Appel direct de la fonction pure
-    passes::resolve_symbols(
+
+    // --- PHASE 1 : LE BINDING (Tentative de résolution) ---
+    // On essaie de lier les symboles du problème aux déclarations du domaine.
+    // resolve_symbols doit retourner Ok(true) si tous les symboles critiques sont liés.
+    let binding_success = passes::resolve_symbols(
         &pass_context,
         problem_table,
         Some(&type_checker),
         Some(domain_table),
-    )?;
+    )
+    .is_ok();
 
-    passes::resolve_derived_predicates(
-        &pass_context,
-        problem_table,
-        Some(&type_checker),
-        Some(domain_table),
-    )?;
+    let mut is_valid = true;
 
-    // 1. Vérification de base : Nom du domaine
-    linking::checks::check_domain_name(
-        domain,
-        problem,
-        domain_table,
-        problem_table,
-        diagnostic_manager,
-    )?;
+    if binding_success {
+        // ==========================================
+        // MODE NORMAL : Analyse Sémantique Complète
+        // ==========================================
 
-    let mut check =
-        semantic::checks::check_symbol_usage(problem, problem_table, &[], diagnostic_manager)?;
-
-    // 2. On vérifie que les types utilisés dans le PROBLÈME existent dans le DOMAINE
-    // On réutilise la fonction du domaine !
-    check = semantic::checks::check_symbol_types(
-        problem,
-        problem_table,   // On scanne la table du problème
-        &type_hierarchy, // Mais on valide par rapport à la hiérarchie du domaine
-        diagnostic_manager,
-    )?;
-
-    // 3. Vérifications sémantiques post-linking
-    if check {
-        // Optionnel : tu peux garder cette vérification si tu veux détecter
-        // explicitement des collisions (même nom déclaré dans les deux)
-        check &= linking::checks::check_cross_declared_symbols(
+        // 1. Cohérence des métadonnées
+        is_valid &= linking::checks::check_domain_name(
             domain,
             problem,
             domain_table,
@@ -337,24 +313,63 @@ pub fn perform_linking_checks(
             diagnostic_manager,
         )?;
 
-        // Vérification des expressions typées (préconditions, effets, etc.)
-        // Maintenant que les liens sont faits, le TypeChecker pourra remonter aux types du domaine.
-        semantic::checks::check_typed_expressions(
+        // 2. Usage des symboles (est-ce que tout ce qui est utilisé est défini ?)
+        is_valid &=
+            semantic::checks::check_symbol_usage(problem, problem_table, &[], diagnostic_manager)?;
+
+        // 3. Validation des types (Objets vs Hiérarchie du domaine)
+        is_valid &= semantic::checks::check_symbol_types(
             problem,
             problem_table,
-            &type_checker,
+            &type_hierarchy,
             diagnostic_manager,
         )?;
 
-        // Vérification des contraintes d'ordre et des requirements
-        semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
+        if is_valid {
+            // 4. Conflits de noms (Shadowing illégal)
+            is_valid &= linking::checks::check_cross_declared_symbols(
+                domain,
+                problem,
+                domain_table,
+                problem_table,
+                diagnostic_manager,
+            )?;
 
-        // Extraction des requirements (besoin de la table résolue)
-        /* let mut triggers = HashMap::new();
-        let required =
-            passes::extract_required_requirements(&pass_context, problem_table, &mut triggers)?;
-        semantic::checks::check_requirements(&problem, &triggers, diagnostic_manager)?;*/
+            // 5. Analyse profonde des expressions (:init, :goal)
+            is_valid &= semantic::checks::check_typed_expressions(
+                problem,
+                problem_table,
+                &type_checker,
+                diagnostic_manager,
+            )?;
+
+            // 6. Contraintes structurelles (Cycles dans le Task Network)
+            is_valid &= semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
+        }
+    } else {
+        // ==========================================
+        // MODE DÉGRADÉ : Analyse de Surface Uniquement
+        // ==========================================
+        // Le binding a échoué (certains symboles sont orphelins).
+        // On ne fait que les checks qui ne dépendent pas de la résolution.
+
+        is_valid = false; // Le linking est d'office invalide
+
+        // On vérifie quand même le nom du domaine pour aider l'utilisateur
+        let _ = linking::checks::check_domain_name(
+            domain,
+            problem,
+            domain_table,
+            problem_table,
+            diagnostic_manager,
+        );
+
+        // On vérifie quand même les cycles de tâches (analyse de graphe pure)
+        let _ = semantic::checks::check_task_ordering(problem, diagnostic_manager);
+
+        // Note: Les erreurs de résolution (symboles non trouvés) sont déjà
+        // injectées par `resolve_symbols` dans le diagnostic_manager.
     }
 
-    Ok(check)
+    Ok(is_valid)
 }
