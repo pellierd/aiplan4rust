@@ -23,7 +23,7 @@ fn finalize_all_types(
     ast: &mut Tree<AstNode>,
     symbol_table: &SymbolTable,
 ) -> Result<(), SemanticFinalizationError> {
-    for entry in symbol_table.values() {
+    for entry in symbol_table {
         for declaration in entry.declarations() {
             // 1. On récupère le type s'il existe
             let Ok((resolved_ty, original_node_ids)) = try_get_type_and_nodes(declaration) else {

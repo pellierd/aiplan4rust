@@ -75,7 +75,7 @@ pub fn check_symbol_types(
     let mut no_error = true;
 
     // Iterate through every symbol stored in the table (constants, types, predicates, etc.)
-    for symbol in symbol_table.values() {
+    for symbol in symbol_table {
         // A symbol can have multiple declarations (e.g., same name in different scopes)
         for declaration in symbol.declarations() {
             // Check if this specific declaration associates a type with the symbol

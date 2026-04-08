@@ -78,7 +78,7 @@ fn check_symbol_declarations_internal(
     let mut seen_scopes: HashMap<&Scope, &Declaration> = HashMap::with_capacity(8);
 
     // Iterate through each unique symbol entry in the table
-    for symbol in symbol_table.values() {
+    for symbol in symbol_table {
         // Clear the map for the new symbol while keeping the allocated memory bucket.
         // This is a zero-allocation operation that significantly speeds up analysis.
         seen_scopes.clear();

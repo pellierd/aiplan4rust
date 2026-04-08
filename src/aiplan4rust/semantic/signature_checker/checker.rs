@@ -126,6 +126,8 @@ impl<'a> SignatureChecker<'a> {
 
         let mut current_global_result = MatchResult::Match;
 
+        let can_upcast = allow_implicit_upcast_for_task_matching(expected.kind(), provided.kind());
+
         // Phase 2: Argument-level Semantic Validation
         // Iterate through each provided argument to verify its specific type and declaration.
         for (index, &arg_id) in arguments.iter().enumerate() {
@@ -147,8 +149,6 @@ impl<'a> SignatureChecker<'a> {
             // Phase 3: Logic Selection (Standard vs. Upcasting)
             // Determine if the current context allows implicit upcasting (e.g., matching a Task call
             // against an Action definition).
-            let can_upcast =
-                allow_implicit_upcast_for_task_matching(expected.kind(), provided.kind());
 
             let match_res = if can_upcast {
                 // Apply stupid Bercher/Holler upcasting logic for HTN task decomposition.
@@ -380,6 +380,7 @@ impl<'a> SignatureChecker<'a> {
     ///
     /// # Errors
     /// * Returns [`MatchFailure`] detailing the specific structural mismatch found.
+    #[inline(always)]
     pub fn match_structure(
         expected: Signature<'a>,
         observed: Signature<'a>,

@@ -132,7 +132,7 @@ fn collect_nominal_resolutions(
     let mut resolutions = Vec::new();
     let mut all_resolved = true;
 
-    for entry in table.values() {
+    for entry in table {
         for usage in entry.usages() {
             let kind = usage.symbol().kind();
 
@@ -220,7 +220,7 @@ fn collect_signature_resolutions(
     let mut resolutions = Vec::new();
     let mut all_resolved = true;
 
-    for entry in table.values() {
+    for entry in table {
         for usage in entry.usages() {
             let kind = usage.symbol().kind();
             let is_nominal = is_nominal_kind(kind);
@@ -307,98 +307,6 @@ pub fn apply_resolutions(
 
     Ok(())
 }
-/*pub fn apply_resolutions(
-    table: &mut SymbolTable,
-    resolutions: Vec<(SymbolId, NodeId, Resolution)>,
-) -> Result<(), SemanticPassError> {
-    for (sym_id, usage_id, resolution) in resolutions {
-        // 1. DÉTERMINATION DE LA DÉCLARATION CIBLE ET DU STATUT
-        let (final_decl_id, status) = match resolution {
-            // Cas Local : Déjà défini
-            Resolution::Local(decl_id, status) => (decl_id, status),
-
-            // Cas Domain : Gestion du Proxy
-            Resolution::Domain(proxy, status) => {
-                let proxy_source = proxy.source();
-
-                // On récupère l'entrée en lecture seule pour chercher le proxy
-                let entry = table.try_get_symbol(sym_id)?;
-
-                if let Some(existing_id) = find_domain_proxy(entry, proxy_source) {
-                    (existing_id, status)
-                } else {
-                    // Si c'est un nouveau proxy, on utilise l'API add_declaration
-                    // qui gère l'insertion et la mise à jour du cache O(1)
-                    table.add_declaration(sym_id, proxy)?;
-                    (proxy_source, status)
-                }
-            }
-
-            // Cas Implicite : Built-ins
-            Resolution::Implicite(reserved_id, status) => (reserved_id, status),
-        };
-
-        // 2. MISE À JOUR DES LIENS BIDIRECTIONNELS VIA LE CACHE O(1)
-
-        // 2.1 Lien : Déclaration -> Usage
-        // On ne tente la mise à jour que si ce n'est pas un ID virtuel (Implicite)
-        if let Ok(decl_mut) = table.try_get_declaration_mut(final_decl_id) {
-            decl_mut.add_usage(usage_id);
-        }
-
-        // 2.2 Lien : Usage -> Déclaration
-        // On utilise le cache des usages pour modifier directement l'objet Usage
-        if let Ok(u_mut) = table.try_get_usage_mut(usage_id) {
-            u_mut.set_declaration(final_decl_id);
-            u_mut.set_resolution(status);
-        }
-    }
-    Ok(())
-}*/
-/*fn apply_resolutions(table: &mut SymbolTable, resolutions: Vec<(SymbolId, NodeId, Resolution)>) {
-    for (sym_id, usage_id, resolution) in resolutions {
-        if let Some(entry) = table.get_symbol_mut(sym_id) {
-            // 1. DETERMINE TARGET DECLARATION AND STATUS
-            let (final_decl_id, status) = match resolution {
-                // Local Case: The declaration is already defined in the current file.
-                Resolution::Local(decl_id, status) => (decl_id, status),
-
-                // Domain Case: The symbol belongs to a parent domain.
-                // We use a proxy strategy to link the Problem to the Domain.
-                Resolution::Domain(proxy, status) => {
-                    let proxy_source = proxy.source();
-
-                    // FUSION STRATEGY: Avoid duplicating the same domain symbol
-                    if let Some(existing_id) = find_domain_proxy(entry, proxy_source) {
-                        (existing_id, status)
-                    } else {
-                        // First time this domain symbol is used: register it as a proxy.
-                        entry.add_declaration(proxy);
-                        (proxy_source, status)
-                    }
-                }
-                // Implicite Case: The symbol is a built-in (object, #t, etc.).
-                // It maps directly to a virtual NodeId without needing a physical Declaration.
-                Resolution::Implicite(reserved_id, status) => {
-                    // On retourne l'ID virtuel directement.
-                    // Pas besoin d'ajouter de déclaration dans `entry` (ce qui évite le warning W2004).
-                    (reserved_id, status)
-                }
-            };
-
-            // 2. UPDATE BIDIRECTIONAL LINKS
-            // 2.1 Link: Declaration -> Usage (The declaration tracks its callers/users)
-            if let Some(decl_mut) = entry.declarations_mut().get_mut(&final_decl_id) {
-                decl_mut.add_usage(usage_id);
-            }
-            // 2.2else Link: Usage -> Declaration (The usage knows its source and match quality)
-            if let Some(u_mut) = entry.usages_mut().get_mut(&usage_id) {
-                u_mut.set_declaration(final_decl_id);
-                u_mut.set_resolution(status);
-            }
-        }
-    }
-}*/
 
 /// Searches for an existing domain-originated symbol within the given entry.
 ///

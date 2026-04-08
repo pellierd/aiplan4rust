@@ -59,7 +59,7 @@ pub fn check_symbol_usage(
 ) -> Result<bool, SemanticError> {
     let mut no_errors = true;
 
-    for symbol_entry in symbol_table.values() {
+    for symbol_entry in symbol_table {
         for usage in symbol_entry.usages() {
             // --- 1. FILTRAGE ---
             // On ignore les primitives, les built-ins, et les types structurels (DomainName, etc.)

@@ -107,7 +107,7 @@ fn collect_derived_links(
     let mut bases_worklist = Vec::with_capacity(8);
     let mut derived_worklist = Vec::with_capacity(8);
 
-    for entry in table.values() {
+    for entry in table {
         // Clear lists for the new symbol while keeping the allocated capacity.
         bases_worklist.clear();
         derived_worklist.clear();

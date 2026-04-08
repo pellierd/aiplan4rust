@@ -38,7 +38,8 @@ use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOr
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::tree::NodeId;
-use linked_hash_map::LinkedHashMap;
+use ahash::HashMapExt;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -75,11 +76,11 @@ pub struct Table {
 
     /// Index de Cache pour les DÉCLARATIONS : NodeId -> (SymbolId, Position)
     /// Permet de savoir instantanément quel symbole est déclaré à tel endroit de l'AST.
-    pub(super) declarations_index: HashMap<NodeId, SymbolRef>,
+    pub(super) declarations_index: FxHashMap<NodeId, SymbolRef>,
 
     /// Index de Cache pour les USAGES : NodeId -> (SymbolId, Position)
     /// Permet de retrouver l'usage d'un symbole à partir d'un nœud d'appel.
-    pub(super) usages_index: HashMap<NodeId, SymbolRef>,
+    pub(super) usages_index: FxHashMap<NodeId, SymbolRef>,
 }
 
 impl Default for Table {
@@ -104,10 +105,10 @@ impl Default for Table {
 
             /// Cache O(1) pour retrouver une déclaration par son NodeId
             /// On pré-alloue une petite capacité pour éviter les premières re-allocations
-            declarations_index: HashMap::with_capacity(64),
+            declarations_index: FxHashMap::with_capacity(64),
 
             /// Cache O(1) pour retrouver un usage par son NodeId
-            usages_index: HashMap::with_capacity(128),
+            usages_index: FxHashMap::with_capacity(128),
 
             origin: SymbolTableOrigin::default(),
             root_id: NodeId::default(),
@@ -126,13 +127,18 @@ impl Table {
 
         SymbolTable {
             symbols,
-            declarations_index: HashMap::with_capacity(size),
-            usages_index: HashMap::with_capacity(size),
+            declarations_index: FxHashMap::with_capacity(size),
+            usages_index: FxHashMap::with_capacity(size),
             origin: SymbolTableOrigin::default(),
             root_id: NodeId::default(),
         }
     }
 
+    /// Returns an iterator over all symbol identifiers present in the table.
+    ///
+    /// This provides a lightweight way to traverse the table when only the
+    /// identity of symbols is required, avoiding direct access to the full
+    /// symbol metadata.
     pub fn symbol_ids(&self) -> impl Iterator<Item = SymbolId> + '_ {
         self.symbols.iter().map(|entry| entry.id())
     }
@@ -175,13 +181,8 @@ impl Table {
         self.root_id = root_id;
     }
 
-    /// Retourne un itérateur sur les paires (SymbolId, &SymbolEntry).
-    /// C'est l'équivalent de l'ancien iter() de ta HashMap.
-    pub fn iter(&self) -> impl Iterator<Item = (SymbolId, &SymbolEntry)> {
-        self.symbols
-            .iter()
-            .enumerate()
-            .map(|(idx, entry)| (SymbolId::from(idx), entry))
+    pub fn len(&self) -> usize {
+        self.symbols.len()
     }
 
     /// Retrieves an immutable reference to a symbol by its name.
@@ -471,15 +472,6 @@ impl Table {
             .get_mut(s_ref.index())
             .ok_or_else(|| SymbolTableError::uage_not_found_for_node(node_id))
     }
-    /// Returns an iter over all symbols in the table as immutable references.
-    ///
-    /// # Returns
-    /// An iter yielding references to each `SymbolEntry` in the table.
-    pub fn values(&self) -> impl Iterator<Item = &SymbolEntry> {
-        // Sur un Vec, .iter() remplace .values() des Maps.
-        // C'est un passage en revue linéaire de la mémoire, très rapide.
-        self.symbols.iter()
-    }
 
     /// Resolves a symbol usage to its primary source declaration by traversing the
     /// bidirectional link (usage -> declaration).
@@ -560,24 +552,29 @@ impl Table {
 
     /// Reconstruit les index de recherche rapide à partir du vecteur de symboles actuel.
     pub fn rebuild_caches(&mut self) {
+        // On vide mais on garde la capacité mémoire (évite des mallocs)
         self.declarations_index.clear();
         self.usages_index.clear();
+
+        // Optionnel : si tu as vraiment beaucoup de données,
+        // tu peux pré-réserver la place si tu as un compteur global.
 
         for entry in self.symbols.iter() {
             let symbol_id = entry.id();
 
-            // Ré-indexation des déclarations
-            // 'decl' est maintenant directement la structure Declaration
-            for (idx, decl) in entry.declarations().iter().enumerate() {
-                self.declarations_index
-                    .insert(decl.source(), SymbolRef::new(symbol_id, idx));
+            // On ne traite que les symboles qui ont des données
+            if !entry.declarations().is_empty() {
+                for (idx, decl) in entry.declarations().iter().enumerate() {
+                    self.declarations_index
+                        .insert(decl.source(), SymbolRef::new(symbol_id, idx));
+                }
             }
 
-            // Ré-indexation des usages
-            // 'usage' est maintenant directement la structure Usage
-            for (idx, usage) in entry.usages().iter().enumerate() {
-                self.usages_index
-                    .insert(usage.source(), SymbolRef::new(symbol_id, idx));
+            if !entry.usages().is_empty() {
+                for (idx, usage) in entry.usages().iter().enumerate() {
+                    self.usages_index
+                        .insert(usage.source(), SymbolRef::new(symbol_id, idx));
+                }
             }
         }
     }
@@ -585,35 +582,32 @@ impl Table {
 
 impl RemapSymbol for SymbolTable {
     fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
-        // --- ÉTAPE 1 : Remap récursif (Utilise ta fonction SymbolEntry::remap_symbol) ---
-        // On modifie les données "internes" (ident, types dans decls, etc.)
-        // AVANT de déplacer les entrées dans le nouveau vecteur.
-        for entry in self.symbols.iter_mut() {
-            entry.remap_symbol(map)?;
-        }
-
-        // --- ÉTAPE 2 : Reconstruction du stockage (Vec) ---
+        // 1. Calculer la taille finale une seule fois
         let max_id = map.values().map(|id| id.as_usize()).max().unwrap_or(0);
-        let mut new_symbols = Vec::with_capacity(max_id + 1);
 
+        // 2. Pré-allouer le nouveau vecteur
+        let mut new_symbols = Vec::with_capacity(max_id + 1);
         for i in 0..=max_id {
             new_symbols.push(SymbolEntry::new(SymbolId::from(i)));
         }
 
+        // 3. Déplacer et transformer en une seule passe
         let old_symbols = std::mem::take(&mut self.symbols);
-        for old_entry in old_symbols {
-            // Note : old_entry.ident est déjà mis à jour par l'étape 1 !
-            let new_id = old_entry.id();
+        for mut entry in old_symbols {
+            let old_id = entry.id();
 
-            // On vérifie si ce symbole est conservé dans le nouvel interner
-            // (Si l'ID a changé ou est resté le même, il doit être dans la map)
-            if map.contains_key(&new_id) || map.values().any(|&v| v == new_id) {
-                new_symbols[new_id.as_usize()] = old_entry;
+            // Si le symbole a une correspondance dans la nouvelle map
+            if let Some(&new_id) = map.get(&old_id) {
+                // Mise à jour interne (ident, types, etc.)
+                entry.remap_symbol(map)?;
+                // On le place directement au bon index
+                new_symbols[new_id.as_usize()] = entry;
             }
         }
+
         self.symbols = new_symbols;
 
-        // --- ÉTAPE 3 : Reconstruction des index (Caches O(1)) ---
+        // 4. Reconstruction optimisée des caches
         self.rebuild_caches();
 
         Ok(())
@@ -697,6 +691,26 @@ impl InternerDisplay for Table {
             }
         }
         Ok(())
+    }
+}
+
+// Pour l'itération par référence : for entry in &table
+impl<'a> IntoIterator for &'a Table {
+    type Item = &'a SymbolEntry;
+    type IntoIter = std::slice::Iter<'a, SymbolEntry>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.symbols.iter()
+    }
+}
+
+// Pour l'itération par référence mutuelle : for entry in &mut table
+impl<'a> IntoIterator for &'a mut Table {
+    type Item = &'a mut SymbolEntry;
+    type IntoIter = std::slice::IterMut<'a, SymbolEntry>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.symbols.iter_mut()
     }
 }
 
