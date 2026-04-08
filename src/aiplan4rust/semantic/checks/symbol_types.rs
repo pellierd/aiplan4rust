@@ -68,7 +68,7 @@ use crate::SymbolTable;
 /// domains with thousands of symbols.
 pub fn check_symbol_types(
     context: &CheckContext,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable,
     type_hierarchy: &TypeHierarchy,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticError> {

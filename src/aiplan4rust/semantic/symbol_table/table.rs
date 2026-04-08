@@ -614,9 +614,22 @@ impl Table {
 
     /// Reconstruit les index de recherche rapide à partir du vecteur de symboles actuel.
     pub fn rebuild_caches(&mut self) {
-        // On vide mais on garde la capacité mémoire (évite des mallocs)
+        // 1. On compte exactement combien on a de déclarations et d'usages
+        let mut total_decls = 0;
+        let mut total_usages = 0;
+
+        // 1. On compte les éléments de manière explicite
+        for entry in &self.symbols {
+            total_decls += entry.declarations().len();
+            total_usages += entry.usages().len();
+        }
+
+        // 2. On vide et on réserve l'espace EXACT
         self.declarations_index.clear();
+        self.declarations_index.reserve(total_decls);
+
         self.usages_index.clear();
+        self.usages_index.reserve(total_usages);
 
         // Optionnel : si tu as vraiment beaucoup de données,
         // tu peux pré-réserver la place si tu as un compteur global.

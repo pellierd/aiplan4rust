@@ -6,7 +6,9 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::Requirement::{DurativeActions, Fluents, NumericFluents};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::semantic::rules::{can_kind_share_namespace, can_share_namespace};
+use crate::aiplan4rust::semantic::rules::{
+    can_kind_share_namespace, can_share_namespace, is_structural,
+};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolEntry};
@@ -35,7 +37,7 @@ use std::collections::{HashMap, HashSet};
 /// ```
 pub fn check_symbol_declarations(
     context: &CheckContext,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     check_symbol_declarations_internal(context, symbol_table, diagnostic_manager, None)
@@ -66,7 +68,7 @@ pub fn check_symbol_declarations(
 /// - `Err(SemanticCheckError)` if an internal error occurred (e.g., missing AST node).
 fn check_symbol_declarations_internal(
     context: &CheckContext,
-    symbol_table: &mut SymbolTable,
+    symbol_table: &SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
     kinds_to_check: Option<&HashSet<SymbolKind>>,
 ) -> Result<bool, SemanticCheckError> {
@@ -92,7 +94,7 @@ fn check_symbol_declarations_internal(
             }
 
             // STEP 2: Skip global names like Domain or Problem names
-            if skip_declaration(declaration)? {
+            if is_structural(declaration.symbol().kind()) {
                 continue;
             }
 
@@ -414,31 +416,4 @@ fn is_skeleton_exception(kind: SymbolKind, scope_kind: AstKind) -> bool {
             scope_kind,
             AstKind::AtomicFormulaSkeleton | AstKind::AtomicFunctionSkeleton
         )
-}
-
-/// Determines whether a given symbol declaration should be skipped from duplicate checking.
-///
-/// Currently skips declarations of kind:
-/// - `DomainName`
-/// - `ProblemName`
-///
-/// These kinds are allowed to appear multiple times in a program without being considered
-/// as semantic errors.
-///
-/// # Parameters
-/// - `declaration`: The declaration to evaluate.
-///
-/// # Returns
-/// - `Ok(true)` if the declaration should be skipped.
-/// - `Ok(false)` otherwise.
-/// - `Err(ParserInternalError)` if the operation fails unexpectedly.
-fn skip_declaration(declaration: &Declaration) -> Result<bool, SemanticCheckError> {
-    if matches!(
-        declaration.symbol_kind(),
-        SymbolKind::DomainName | SymbolKind::ProblemName
-    ) {
-        return Ok(true);
-    }
-
-    Ok(false)
 }
