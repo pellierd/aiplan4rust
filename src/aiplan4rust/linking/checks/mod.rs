@@ -21,11 +21,11 @@ pub mod domain_name;
 
 /// Module for detecting and reporting symbol declaration conflicts
 /// between the problem and the domain.
-pub mod cross_declared_symbols;
+pub mod cross_declarations;
 
 /// Module containing error types related to linking checks.
 pub mod error;
 
-pub use cross_declared_symbols::check_cross_declared_symbols;
+pub use cross_declarations::check_cross_declared_symbols;
 pub use domain_name::check_domain_name;
 pub use error::LinkingCheckError;

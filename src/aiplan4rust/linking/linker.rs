@@ -4,64 +4,78 @@
 //! resolving identifiers, verifying consistency, and producing a combined linked semantic context.
 //!
 //! This module provides the `Linker` struct which:
-//! - Merges string interners from domain and problem contexts to unify identifier spaces.
-//! - Remaps identifiers in the problem to the global interner.
-//! - Resolves external references from the problem against the domain.
-//! - Performs semantic and structural consistency checks.
-//! - Produces a `LinkerResult` encapsulating the linked semantic context and diagnostics.
+//! - **Unifies Identifier Spaces**: Merges string interners from domain and problem contexts.
+//! - **Remaps Problem Symbols**: Aligns problem AST and symbol tables with the global interner.
+//! - **Cross-Context Analysis**: Performs semantic and structural consistency checks between domain and problem.
+//! - **Produces Linked Results**: Encapsulates the final [`LinkedSemanticContext`] and collected diagnostics.
 //!
 //! # Key Types
 //!
-//! - [`Linker`]: Main struct performing linking.
-//! - [`Result`]: Encapsulates linking output and diagnostics.
+//! - [`Linker`]: Main struct performing the linking process.
+//! - [`LinkerResult`]: Encapsulates the success or failure of the linking, including diagnostics.
+//! - [`LinkedSemanticContext`]: The final unified semantic model (Domain + Problem).
 //!
 //! # Key Functions
 //!
-//! - [`Linker::link`]: Performs full semantic linking and verification.
-//! - [`perform_linking_analysis`]: Runs semantic and structural verification logic.
+//! - [`Linker::link`]: High-level entry point for full semantic linking.
+//! - [`perform_problem_analysis`]: Core coordinator for cross-context validation logic.
 //!
 //! # Usage Example
 //!
 //! ```rust
 //! let mut linker = Linker::new();
-//! let result = linker.link(domain_context, problem_context)?;
-//! if let Some(linked_task) = result.context() {
-//!     // Use the linked semantic context...
+//! // domain_res and problem_res are AnalyzerResult instances
+//! let result = linker.link(domain_res, problem_res)?;
+//!
+//! if let Some(linked_context) = result.context() {
+//!     // Access unified interner, domain, and problem contexts...
 //! }
-//! ```
+//! ````
 
-use std::collections::HashMap;
-use std::mem::take;
-
-use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider};
+use crate::aiplan4rust::interner::{InternerMergeResult, SymbolInterner};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;
-use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
+use crate::aiplan4rust::semantic::{passes, AnalyzerResult, SemanticContext};
 use crate::aiplan4rust::semantic::{SymbolTable, TypeChecker};
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::{linking, semantic};
+use crate::Severity;
+use std::collections::HashMap;
 
-/// The `Linker` struct is responsible for performing the linking phase
-/// between domain and problem semantic contexts.
+/// The `Linker` struct orchestrates the semantic linking between domain and problem contexts.
 ///
-/// Linking resolves identifiers, checks semantic and structural consistency,
-/// and produces a combined [`LinkedSemanticContext`] along with diagnostics.
+/// It manages a [`DiagnosticManager`] to collect errors and warnings during the multi-step
+/// linking process: unification of interners, identifier remapping, and cross-context
+/// semantic verification.
+///
+/// # Internal Workflow
+/// The `Linker` follows a strict pipeline to ensure memory safety and borrow checker
+/// compliance while performing mutable transformations on the contexts:
+/// 1. Technical unification of string interners.
+/// 2. Isolation and analysis of symbol tables.
+/// 3. Construction of the final unified semantic context.
 ///
 /// # Example
 ///
 /// ```rust
 /// let mut linker = Linker::new();
-/// let result = linker.link(domain_context, problem_context)?;
-/// if let Some(linked) = result.context() {
-///     // use the linked semantic context...
+/// let result = linker.link(domain_result, problem_result)?;
+///
+/// if result.is_success() {
+///     println!("Linking successful!");
+/// } else {
+///     for diag in result.diagnostic_manager().diagnostics() {
+///         println!("{:?}", diag);
+///     }
 /// }
 /// ```
 #[derive(Debug)]
 pub struct Linker {
+    /// Internal manager for collecting diagnostics during the linking phase.
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -79,184 +93,254 @@ impl Linker {
         &self.diagnostic_manager
     }
 
-    /// Performs semantic linking between a domain and a problem context.
+    /// Performs the complete semantic linking process between a domain and a problem.
     ///
-    /// This method executes the following steps in order:
+    /// This is the primary entry point of the [`Linker`]. It unifies the identifier spaces,
+    /// executes cross-context semantic analysis, and packages the results into a
+    /// [`LinkerResult`].
     ///
-    /// 1. Merges the string interners from the domain and the problem contexts to produce a global interner,
-    ///    ensuring consistent identifier representation across both contexts.
-    /// 2. Remaps identifiers in the problem's AST and symbol table to align with the global interner's identifier space.
-    /// 3. Resolves external references within the problem context against the domain context to establish correct linkages.
-    /// 4. Creates a `CheckContext` for the problem using the global interner, along with its syntax tree, symbol table,
-    ///    source name, and requirements.
-    /// 5. Performs semantic and structural linking checks on the problem context within the merged environment,
-    ///    recording any diagnostics encountered.
-    /// 6. If errors of severity `Error` are detected, returns early with diagnostics and the global interner.
-    /// 7. Otherwise, constructs a final linked semantic context combining domain and problem data, with unified
-    ///    interners and symbol tables.
-    /// 8. Returns the successful linking result, including the linked semantic context and collected diagnostics.
+    /// ### Linking Pipeline
+    /// 1. **Technical Unification**: Merges the string interners and remaps the problem's
+    ///    identifiers and diagnostics to a shared global space.
+    /// 2. **Context Extraction**: Retrieves the semantic contexts from the analyzer results.
+    ///    If either is missing, it returns a failure result immediately.
+    /// 3. **Semantic Analysis**: Performs deep checks (binding, types, requirements) between
+    ///    the domain and the problem.
+    /// 4. **Severity Validation**: Evaluates collected diagnostics. While warnings are
+    ///    tolerated, any diagnostic with `Severity::Error` triggers a failure return.
+    /// 5. **Context Construction**: Upon success, wraps the unified contexts and interner
+    ///    into a [`LinkedSemanticContext`].
     ///
     /// # Arguments
-    ///
-    /// * `domain` - The analyzer result containing the semantic context of the domain (reference context).
-    /// * `problem` - The analyzer result containing the semantic context of the problem to be linked.
+    /// * `domain` - The result from the domain analysis.
+    /// * `problem` - The result from the problem analysis.
     ///
     /// # Returns
-    ///
-    /// * `Ok(LinkerResult)` containing the linked semantic context and diagnostics if linking succeeds.
-    /// * `Err(LinkingError)` if any error occurs during resolution or verification.
-    ///
-    /// # Notes
-    ///
-    /// * Identifier remapping is crucial to maintain symbol consistency within the combined identifier space.
-    /// * The diagnostic manager accumulates errors and warnings during linking, which are included in the result.
-    /// * In case either domain or problem contexts are missing semantic information, the function returns
-    ///   a failure result with diagnostics and a merged interner, ensuring graceful error handling.
+    /// * `Ok(LinkerResult)` - A result containing either the successfully linked context
+    ///   or a collection of diagnostics in case of semantic failure.
+    /// * `Err(LinkingError)` - If a fatal internal error occurs (e.g., AST corruption).
     pub fn link(
         &mut self,
         mut domain: AnalyzerResult,
         mut problem: AnalyzerResult,
     ) -> Result<LinkerResult, LinkingError> {
-        match (
+        // 1. Technical unification (Interner + Remap + Diagnostics)
+        let global_interner = self.unify_problem_interner(&mut domain, &mut problem)?;
+
+        // 2. Extract contexts with early return if either is None
+        let (Some(mut dc), Some(mut pc)) = (
             domain.take_semantic_context(),
             problem.take_semantic_context(),
-        ) {
-            (Some(mut domain_ctx), Some(mut problem_ctx)) => {
-                // Step 1: Merge the string interners from domain and problem to form a global interner
-                let mut result = InternerMergeResult::from_domain_and_problem(
-                    domain_ctx.interner(),
-                    problem_ctx.interner(),
-                );
-                let global_interner = result.take_interner();
+        ) else {
+            return Ok(LinkerResult::failure(
+                std::mem::take(&mut self.diagnostic_manager),
+                global_interner,
+            ));
+        };
 
-                // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
-                let ident_map = result.take_symbol_map();
-                let literal_map = result.take_literal_map();
-                problem_ctx.remap(&ident_map, &literal_map)?;
+        // 3. Semantic analysis (populates the diagnostic manager)
+        self.perform_linking_analysis(&mut dc, &mut pc, &global_interner)?;
 
-                // Collect diagnostics from domain and problem diagnostic managers
-                self.diagnostic_manager
-                    .add_diagnostic_from(domain.take_diagnostic_manager());
-                let mut problem_diag_mgr = problem.take_diagnostic_manager();
-                problem_diag_mgr.remap(&ident_map, &literal_map)?;
-                self.diagnostic_manager
-                    .add_diagnostic_from(problem_diag_mgr);
-
-                // Step 4: Create a check context for the problem using the global interner
-                // and perform semantic and structural linking checks on the problem
-                let mut total_declared = domain_ctx.declared_requirements().clone();
-                total_declared.extend(problem_ctx.declared_requirements());
-
-                // 1. On "prend" les tables (elles sont remplacées par des tables vides dans les contextes)
-                // Cela libère domain_ctx et problem_ctx de tout emprunt mutable sur leurs tables.
-                let mut domain_table = take(domain_ctx.symbol_table_mut());
-                let mut problem_table = take(problem_ctx.symbol_table_mut());
-
-                // 2. Maintenant, on peut créer les CheckContext sans conflit !
-                // Rust autorise l'emprunt immuable de domain_ctx car domain_table est
-                // maintenant une variable indépendante sur la pile.
-                let domain_check_ctx = CheckContext::new(
-                    domain_ctx.syntax_tree(),
-                    &global_interner,
-                    domain_ctx.source(),
-                    Provider::Linker,
-                    domain_ctx.declared_requirements(),
-                );
-
-                let problem_check_ctx = CheckContext::new(
-                    problem_ctx.syntax_tree(),
-                    &global_interner,
-                    problem_ctx.source(),
-                    Provider::Linker,
-                    &total_declared,
-                );
-
-                // 3. On fait l'analyse avec les tables "volées" (et mutables !)
-                perform_linking_analysis(
-                    &domain_check_ctx,
-                    &problem_check_ctx,
-                    &mut domain_table,
-                    &mut problem_table,
-                    problem_ctx.requirement_triggers(),
-                    &mut self.diagnostic_manager,
-                )?;
-
-                domain_ctx.set_symbol_table(domain_table);
-                problem_ctx.set_symbol_table(problem_table);
-
-                // Step 5: If errors, return early with diagnostics only
-                if self
-                    .diagnostic_manager
-                    .has_diagnostics_of_severity(Severity::Error)
-                {
-                    return Ok(LinkerResult::failure(
-                        take(&mut self.diagnostic_manager),
-                        global_interner,
-                    ));
-                }
-
-                // Step 7: Construct the final linked semantic context
-                let semantic_context =
-                    LinkedSemanticContext::new(domain_ctx, problem_ctx, global_interner)?;
-
-                // Adapte selon ton API
-                // Step 8: Return the result with the semantic context and diagnostics
-                Ok(LinkerResult::success(
-                    semantic_context,
-                    take(&mut self.diagnostic_manager),
-                ))
-            }
-            _ => {
-                let domain_interner = domain.take_interner();
-                let problem_interner = problem.take_interner();
-                let mut result = InternerMergeResult::from_domain_and_problem(
-                    &domain_interner,
-                    &problem_interner,
-                );
-                let global_interner = result.take_interner();
-                self.diagnostic_manager
-                    .add_diagnostic_from(domain.take_diagnostic_manager());
-                let mut problem_diag_mgr = problem.take_diagnostic_manager();
-                problem_diag_mgr.remap(result.symbol_map(), result.literal_map())?;
-                Ok(LinkerResult::failure(
-                    take(&mut self.diagnostic_manager),
-                    global_interner,
-                ))
-            }
+        // 4. Severity check (tolerate Warnings, block on Errors)
+        if self
+            .diagnostic_manager
+            .has_diagnostics_of_severity(Severity::Error)
+        {
+            return Ok(LinkerResult::failure(
+                std::mem::take(&mut self.diagnostic_manager),
+                global_interner,
+            ));
         }
+
+        // 5. Success: Construct the linked semantic context
+        let context = LinkedSemanticContext::new(dc, pc, global_interner)?;
+
+        Ok(LinkerResult::success(
+            context,
+            std::mem::take(&mut self.diagnostic_manager),
+        ))
+    }
+
+    /// Orchestrates the semantic and structural analysis between domain and problem contexts.
+    ///
+    /// This method prepares the environment for cross-context validation by unifying requirements
+    /// and isolating symbol tables to avoid mutable borrow conflicts. It then delegates the
+    /// actual check logic to [`perform_problem_analysis`].
+    ///
+    /// ### Workflow
+    /// 1. **Requirement Merging**: Combines requirements from both domain and problem to
+    ///    ensure the problem analysis respects the full set of declared features.
+    /// 2. **Table Isolation**: Temporarily extracts (via `std::mem::take`) the symbol tables
+    ///    from the contexts. This allows the checker to mutably access the tables while
+    ///    immutably referencing the rest of the contexts.
+    /// 3. **Context Preparation**: Creates ephemeral `CheckContext` instances for both
+    ///    sides using the unified global interner.
+    /// 4. **Cross-Analysis**: Executes the core semantic checks (binding, type checking, etc.).
+    /// 5. **Restoration**: Re-inserts the symbol tables back into their respective
+    ///    semantic contexts regardless of analysis success.
+    ///
+    /// # Arguments
+    /// * `domain_ctx` - The semantic context of the domain.
+    /// * `problem_ctx` - The semantic context of the problem.
+    /// * `global_interner` - The unified interner containing symbols from both sides.
+    ///
+    /// # Returns
+    /// * `Ok(())` - Analysis completed (check `self.diagnostic_manager` for semantic errors).
+    fn perform_linking_analysis(
+        &mut self,
+        domain_ctx: &mut SemanticContext,
+        problem_ctx: &mut SemanticContext,
+        global_interner: &SymbolInterner,
+    ) -> Result<(), LinkingError> {
+        // 1. Prepare cumulative requirements (Domain + Problem)
+        let mut total_declared = domain_ctx.declared_requirements().clone();
+        total_declared.extend(problem_ctx.declared_requirements());
+
+        // 2. Isolate symbol tables
+        // We use std::mem::take to extract the tables and leave empty ones
+        // in the contexts. This releases mutable borrows on dc and pc.
+        let mut domain_table = std::mem::take(domain_ctx.symbol_table_mut());
+        let mut problem_table = std::mem::take(problem_ctx.symbol_table_mut());
+
+        // 3. Create ephemeral check contexts
+        let domain_check_ctx = CheckContext::new(
+            domain_ctx.syntax_tree(),
+            global_interner,
+            domain_ctx.source(),
+            Provider::Linker,
+            domain_ctx.declared_requirements(),
+        );
+
+        let problem_check_ctx = CheckContext::new(
+            problem_ctx.syntax_tree(),
+            global_interner,
+            problem_ctx.source(),
+            Provider::Linker,
+            &total_declared,
+        );
+
+        // 4. Execute cross-analysis
+        // We pass the extracted tables (mutable) and the requirement triggers
+        perform_problem_analysis(
+            &domain_check_ctx,
+            &problem_check_ctx,
+            &mut domain_table,
+            &mut problem_table,
+            problem_ctx.requirement_triggers(),
+            &mut self.diagnostic_manager,
+        )?;
+
+        // 5. Restore tables to their respective contexts
+        domain_ctx.set_symbol_table(domain_table);
+        problem_ctx.set_symbol_table(problem_table);
+
+        Ok(())
+    }
+
+    /// This method performs the technical synchronization required to merge two independent
+    /// semantic contexts. It aligns the problem's internal IDs with the domain's ID space
+    /// to ensure consistent symbol resolution during the linking phase.
+    ///
+    /// ### Process
+    /// 1. **Interner Merging**: Computes a new `SymbolInterner` containing the union of
+    ///    all symbols from both contexts and generates mapping tables.
+    /// 2. **Context Remapping**: Updates the problem's semantic context (AST and Symbol Table)
+    ///    so that all existing identifiers point to their new IDs in the global interner.
+    /// 3. **Diagnostic Alignment**: Collects diagnostics from both results, remapping
+    ///    those from the problem to maintain correct source references.
+    ///
+    /// # Arguments
+    /// * `domain_res` - The analyzer result of the domain (used as the primary ID reference).
+    /// * `problem_res` - The analyzer result of the problem to be remapped and unified.
+    ///
+    /// # Returns
+    /// * `Ok(SymbolInterner)` - The unified global interner.
+    fn unify_problem_interner(
+        &mut self,
+        domain_res: &mut AnalyzerResult,
+        problem_res: &mut AnalyzerResult,
+    ) -> Result<SymbolInterner, LinkingError> {
+        // Step 1: Direct merging of interners (Computation)
+        let mut result = InternerMergeResult::from_domain_and_problem(
+            domain_res.interner(),
+            problem_res.interner(),
+        );
+
+        let global_interner = result.take_interner();
+        let ident_map = result.take_symbol_map();
+        let literal_map = result.take_literal_map();
+
+        // Step 2: Remap the semantic context (if present)
+        if let Some(ctx) = problem_res.semantic_context_mut() {
+            ctx.remap(&ident_map, &literal_map)?;
+        }
+
+        // Step 3: Merge and Remap diagnostics
+        self.diagnostic_manager
+            .add_diagnostic_from(domain_res.take_diagnostic_manager());
+
+        let mut problem_diag_mgr = problem_res.take_diagnostic_manager();
+        problem_diag_mgr.remap(&ident_map, &literal_map)?;
+        self.diagnostic_manager
+            .add_diagnostic_from(problem_diag_mgr);
+
+        Ok(global_interner)
     }
 }
 
 /// Performs a comprehensive linking analysis between a Domain and a Problem.
 ///
 /// This function acts as the central coordinator for structural and semantic
-/// validation of the Problem AST against the Domain's definitions. It operates
-/// in two modes based on the success of the symbol resolution (binding) phase.
+/// validation of the Problem AST against the Domain's definitions. It ensures
+/// that the problem is not only syntactically correct but also semantically
+/// consistent with the rules and objects defined in its associated domain.
+///
+/// ### Analysis Strategy: Adaptive Modes
+/// The function operates in two distinct modes depending on the outcome of the
+/// **Symbol Binding** phase:
+///
+/// 1. **Normal Mode (Full Analysis)**:
+///    Triggered if all critical symbols (types, constants, predicates) are
+///    successfully resolved. Performs deep checks including typed expressions
+///    in `:init` and `:goal`, and cross-context name conflicts.
+///
+/// 2. **Degraded Mode (Surface Analysis)**:
+///    Triggered if binding fails (e.g., orphan types or missing domain references).
+///    Only executes non-dependent checks (domain name matching, structural
+///    task network ordering) to provide maximum diagnostic feedback without
+///    triggering secondary resolution errors.
 ///
 /// ### Analysis Phases
-/// 1. **Symbol Binding**: Attempts to resolve Problem symbols (objects, types)
-///    against Domain declarations.
-/// 2. **Cross-Requirement Validation**: Verifies that features inferred from the
-///    problem (via `problem_triggers`) are covered by the union of declared requirements.
-/// 3. **Semantic Integrity**: Checks domain-problem name matching, type hierarchy
-///    consistency, and task network ordering.
-/// 4. **Deep Expression Analysis**: (Only if binding succeeds) Validates typed
-///    expressions in `:init` and `:goal` blocks.
+/// * **Symbol Binding**: Resolves problem-local symbols (objects) and links them
+///   to domain-level declarations (types, constants).
+/// * **Metadata Consistency**: Verifies that the problem correctly references
+///   the intended domain name.
+/// * **Type Integrity**: Validates the problem's object hierarchy against the
+///   domain's type system using the unified hierarchy.
+/// * **Cross-Requirement Validation**: Ensures that every feature used in the
+///   problem (detected via `problem_triggers`) is explicitly covered by the
+///   combined requirements of the domain and problem.
+/// * **Deep Expression Analysis**: Performs type-checking on initial state
+///   fluents and goal conditions.
+/// * **Structural Verification**: Validates Task Network (HTN) constraints such
+///   as cycle detection and ordering consistency.
 ///
 /// # Arguments
-/// * `domain` - Read-only context of the linked domain.
-/// * `problem` - Context of the problem being analyzed (includes merged requirements).
-/// * `domain_table` - Reference to the domain's symbol table for resolution.
-/// * `problem_table` - Mutable symbol table of the problem to be enriched/linked.
-/// * `problem_triggers` - Map of PDDL/HDDL features utilized in the problem AST,
-///    linking each [`Requirement`] to its specific [`NodeId`]s.
-/// * `diagnostic_manager` - Manager used to collect and report errors/warnings.
+/// * `domain` - Immutable reference to the domain's check context.
+/// * `problem` - Immutable reference to the problem's check context (must
+///   contain merged requirements).
+/// * `domain_table` - The resolved symbol table of the domain used as a reference.
+/// * `problem_table` - The mutable symbol table of the problem, enriched during
+///   binding and validation.
+/// * `problem_triggers` - A mapping of utilized PDDL/HDDL requirements to the
+///   specific AST nodes that triggered them.
+/// * `diagnostic_manager` - Accumulates errors, warnings, and info during analysis.
 ///
 /// # Returns
-/// * `Ok(true)` - The problem is semantically valid and successfully linked.
-/// * `Ok(false)` - Analysis found issues (errors are available in `diagnostic_manager`).
-/// * `Err(LinkingError)` - A fatal internal error occurred during the process.
-pub fn perform_linking_analysis(
+/// * `Ok(true)` - The problem is semantically valid and ready for finalization.
+/// * `Ok(false)` - Semantic issues were found (look into `diagnostic_manager`).
+/// * `Err(LinkingError)` - A fatal internal error prevented the analysis from completing.
+fn perform_problem_analysis(
     domain: &CheckContext,
     problem: &CheckContext,
     domain_table: &SymbolTable,
