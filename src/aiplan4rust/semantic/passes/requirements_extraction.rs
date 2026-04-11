@@ -246,31 +246,23 @@ pub fn extract_required_requirements(
                                 // --- CORRECTION ICI ---
                                 // On ne résout pas (recherche d'usage), on récupère la déclaration directe
                                 // car nous sommes au moment de la définition dans l'AST.
-                                if let Ok(decl) = symbol_table.try_get_declaration(s_node_id) {
-                                    if let Some(ty) = decl.ty() {
-                                        // Si le type est explicitement 'number'
-                                        if ty.is_number() {
-                                            if !triggers.contains_key(&Requirement::NumericFluents)
-                                            {
-                                                add_req!(
-                                                    Requirement::NumericFluents,
-                                                    *typed_item_id
-                                                );
-                                            }
-                                        } else {
-                                            // Si c'est un autre type (Object Fluent)
-                                            if !triggers.contains_key(&Requirement::ObjectFluents) {
-                                                add_req!(
-                                                    Requirement::ObjectFluents,
-                                                    *typed_item_id
-                                                );
-                                            }
-                                        }
-                                    } else {
-                                        // En PDDL, une fonction sans type est Numeric par défaut
+                                let decl = symbol_table.try_get_declaration(s_node_id)?;
+                                if let Some(ty) = decl.ty() {
+                                    // Si le type est explicitement 'number'
+                                    if ty.is_number() {
                                         if !triggers.contains_key(&Requirement::NumericFluents) {
                                             add_req!(Requirement::NumericFluents, *typed_item_id);
                                         }
+                                    } else {
+                                        // Si c'est un autre type (Object Fluent)
+                                        if !triggers.contains_key(&Requirement::ObjectFluents) {
+                                            add_req!(Requirement::ObjectFluents, *typed_item_id);
+                                        }
+                                    }
+                                } else {
+                                    // En PDDL, une fonction sans type est Numeric par défaut
+                                    if !triggers.contains_key(&Requirement::NumericFluents) {
+                                        add_req!(Requirement::NumericFluents, *typed_item_id);
                                     }
                                 }
                             }
@@ -714,17 +706,6 @@ pub fn extract_required_requirements(
         }
     }
 
-    // --- :strips (Default Requirement) ---
-    // In PDDL, if no specific requirements are detected or declared,
-    // the domain is assumed to be a basic STRIPS domain.
-    // STRIPS includes basic actions with preconditions and effects
-    // consisting only of addition and deletion of atomic facts.
-    if triggers.is_empty() {
-        // If the requirement set is empty after the full AST sweep,
-        // we default to :strips using a dummy or root NodeId (0).
-        add_req!(Requirement::Strips, NodeId::from(0));
-    }
-
     Ok(triggers)
 }
 
@@ -800,14 +781,13 @@ fn get_term_requirement(
 
         // Vissage direct O(1) pour tous les autres fluents
         // On utilise functor_node_id pour la résolution précise dans la table
-        if let Ok(decl) = table.resolve_usage(functor_node_id) {
-            if let Some(ty) = decl.ty() {
-                return Ok(Some(if ty.is_number() {
-                    Requirement::NumericFluents
-                } else {
-                    Requirement::ObjectFluents
-                }));
-            }
+        let decl = table.resolve_usage(functor_node_id)?;
+        if let Some(ty) = decl.ty() {
+            return Ok(Some(if ty.is_number() {
+                Requirement::NumericFluents
+            } else {
+                Requirement::ObjectFluents
+            }));
         }
 
         // Fallback par défaut

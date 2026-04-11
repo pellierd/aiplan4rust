@@ -94,7 +94,7 @@ pub struct Context {
     ///
     /// This is a derived set from the keys of `requirement_triggers`, cached here
     /// for O(1) membership checks during linking and validation.
-    inferred_requirements: HashSet<Requirement>,
+    inferred_requirements: Option<HashSet<Requirement>>,
 
     /// A detailed mapping between a required feature and the specific AST nodes
     /// that triggered its necessity.
@@ -102,7 +102,7 @@ pub struct Context {
     /// This map is crucial for the Linker to generate precise diagnostics,
     /// pointing exactly to the location in the source file that requires an
     /// undeclared requirement.
-    requirement_triggers: HashMap<Requirement, Vec<NodeId>>,
+    requirement_triggers: Option<HashMap<Requirement, Vec<NodeId>>>,
 
     /// The symbol table built during semantic analysis.
     /// Contains all declarations (types, constants, predicates, etc.) found in the file.
@@ -133,8 +133,8 @@ impl Default for Context {
         Self {
             syntax_tree: Tree::default(),
             declared_requirements: HashSet::default(),
-            inferred_requirements: HashSet::default(),
-            requirement_triggers: HashMap::default(),
+            inferred_requirements: None,
+            requirement_triggers: None,
             symbol_table: SymbolTable::default(),
             interner: SymbolInterner::default(),
             source: LiteralId::default(),
@@ -178,14 +178,16 @@ impl Context {
         symbol_table: SymbolTable,
         interner: SymbolInterner,
         declared_requirements: HashSet<Requirement>,
-        requirement_triggers: HashMap<Requirement, Vec<NodeId>>,
+        requirement_triggers: Option<HashMap<Requirement, Vec<NodeId>>>,
     ) -> Result<Self, SemanticError> {
         // Validate that the syntax tree is not empty and the root is domain/problem
         #[cfg(debug_assertions)]
         Self::check_invariant(&syntax_tree)?;
 
         // Derive the inferred requirements set from the trigger map keys
-        let inferred_requirements = requirement_triggers.keys().cloned().collect();
+        let inferred_requirements = requirement_triggers
+            .as_ref()
+            .map(|triggers| triggers.keys().cloned().collect::<HashSet<Requirement>>());
 
         Ok(Self {
             syntax_tree,
@@ -272,22 +274,15 @@ impl Context {
         self.declared_requirements.contains(&requirement)
     }
 
-    /// Checks if a given semantic requirement is actually required by the AST content.
+    /// Checks if a specific requirement has been inferred from the syntax tree.
     ///
-    /// # Arguments
-    /// * `requirement` - The semantic requirement to check.
-    ///
-    /// # Returns
-    /// `true` if the requirement is required by the AST, `false` otherwise.
-    ///
-    /// # Example
-    /// ```
-    /// if context.is_required(Requirement::DurativeActions) {
-    ///     println!("DurativeActions are required by this context.");
-    /// }
-    /// ```
+    /// # Note
+    /// This method returns `false` if the analysis has not been performed yet
+    /// (`None` state), as no requirements have been officially detected.
     pub fn is_inferred(&self, requirement: Requirement) -> bool {
-        self.inferred_requirements.contains(&requirement)
+        self.inferred_requirements
+            .as_ref()
+            .map_or(false, |reqs| reqs.contains(&requirement))
     }
 
     /// Returns a reference to the AST node by its ID if it exists.
@@ -305,6 +300,21 @@ impl Context {
         &self.syntax_tree
     }
 
+    /// Updates the context's syntax tree with a new version.
+    ///
+    /// # Warning
+    /// Replacing the syntax tree is a structural change. If this context has already
+    /// been analyzed, the existing `symbol_table` and `inferred_requirements` may
+    /// become out of sync with the new tree structure. This is typically used by the
+    /// Linker during AST merging or by optimization passes.
+    ///
+    /// # Parameters
+    /// - `tree`: The new [`Tree<AstNode>`] to be used as the structural backbone
+    ///   of this context.
+    pub fn set_syntax_tree(&mut self, tree: Tree<AstNode>) {
+        self.syntax_tree = tree;
+    }
+
     /// Returns a mutable reference to the syntax tree.
     pub fn syntax_tree_mut(&mut self) -> &mut Tree<AstNode> {
         &mut self.syntax_tree
@@ -320,38 +330,57 @@ impl Context {
         &self.declared_requirements
     }
 
-    /// Returns a reference to the set of required semantic requirements.
-    pub fn inferred_requirements(&self) -> &HashSet<Requirement> {
-        &self.inferred_requirements
+    /// Returns the set of requirements inferred from the syntax tree.
+    ///
+    /// Returns `Some(&HashSet<Requirement>)` if the semantic analysis (inference pass)
+    /// has been performed. Returns `None` if the inference pass is pending,
+    /// which typically occurs for PDDL problems before they are linked to a domain.
+    pub fn inferred_requirements(&self) -> Option<&HashSet<Requirement>> {
+        self.inferred_requirements.as_ref()
     }
 
-    /// Returns a reference to the requirement triggers map.
+    /// Returns the mapping of requirements to their triggering AST nodes.
     ///
-    /// This map associates each inferred [`Requirement`] with the [`NodeId`]s
-    /// that triggered its necessity.
-    pub fn requirement_triggers(&self) -> &HashMap<Requirement, Vec<NodeId>> {
-        &self.requirement_triggers
+    /// Returns `Some(&HashMap<Requirement, Vec<NodeId>>)` if the analysis has
+    /// been completed. This map provides the exact locations (NodeIds) that
+    /// necessitate specific PDDL/HDDL features.
+    ///
+    /// Returns `None` if the analysis has not yet been executed.
+    pub fn requirement_triggers(&self) -> Option<&HashMap<Requirement, Vec<NodeId>>> {
+        self.requirement_triggers.as_ref()
     }
 
-    /// Returns the list of AST nodes that triggered a specific requirement.
+    /// Retrieves the specific AST nodes that triggered a given requirement.
     ///
-    /// # Arguments
-    /// * `requirement` - The requirement to look up.
+    /// This is a convenience method that safely navigates the optional triggers map.
     ///
     /// # Returns
-    /// An `Option` containing a slice of [`NodeId`]s if the requirement was inferred.
+    /// - `Some(&[NodeId])`: A slice of node identifiers that utilize the requirement.
+    /// - `None`: If the requirement is not present OR if the inference analysis
+    ///   has not been performed yet.
     pub fn get_triggers_for(&self, requirement: &Requirement) -> Option<&[NodeId]> {
         self.requirement_triggers
-            .get(requirement)
+            .as_ref()
+            .and_then(|map| map.get(requirement))
             .map(|v| v.as_slice())
     }
 
     /// Sets the requirement triggers and synchronizes the inferred requirements set.
     ///
-    /// This ensures that `inferred_requirements` always matches the keys of the triggers map.
+    /// This method transitions the context from an "uninitialized" or "pending" state
+    /// to an "analyzed" state. It automatically populates `inferred_requirements`
+    /// by collecting the keys from the provided triggers map, ensuring data consistency
+    /// between the detailed trigger locations and the high-level requirement set.
+    ///
+    /// # Parameters
+    /// - `triggers`: A map linking each utilized PDDL/HDDL [`Requirement`] to the
+    ///   specific [`NodeId`]s that triggered its necessity.
     pub fn set_requirement_triggers(&mut self, triggers: HashMap<Requirement, Vec<NodeId>>) {
-        self.inferred_requirements = triggers.keys().cloned().collect();
-        self.requirement_triggers = triggers;
+        // Derive the inferred requirements set from the triggers' keys and wrap in Some
+        self.inferred_requirements = Some(triggers.keys().cloned().collect());
+
+        // Store the triggers map and wrap in Some to mark the analysis as completed
+        self.requirement_triggers = Some(triggers);
     }
 
     /// Returns a reference to the symbol table.
@@ -613,18 +642,27 @@ impl fmt::Display for Context {
         }
 
         writeln!(f, "\nInferred Requirements (and their triggers):")?;
-        if self.requirement_triggers.is_empty() {
-            writeln!(f, "  (none)")?;
-        } else {
-            for (req, nodes) in &self.requirement_triggers {
-                // On affiche le requirement et la liste des NodeIds qui l'ont déclenché
-                let node_ids: Vec<String> = nodes.iter().map(|id| format!("{:?}", id)).collect();
-                writeln!(
-                    f,
-                    "  - {}: triggered at nodes [{}]",
-                    req,
-                    node_ids.join(", ")
-                )?;
+        match &self.requirement_triggers {
+            // Case 1: The analysis has not been performed yet (e.g., a standalone Problem)
+            None => {
+                writeln!(f, "  (analysis pending)")?;
+            }
+            // Case 2: Analysis was completed, but no specific requirements were detected
+            Some(triggers) if triggers.is_empty() => {
+                writeln!(f, "  (none)")?;
+            }
+            // Case 3: Display requirements and their associated AST NodeIds
+            Some(triggers) => {
+                for (req, nodes) in triggers {
+                    let node_ids: Vec<String> =
+                        nodes.iter().map(|id| format!("{:?}", id)).collect();
+                    writeln!(
+                        f,
+                        "  - {}: triggered at nodes [{}]",
+                        req,
+                        node_ids.join(", ")
+                    )?;
+                }
             }
         }
 

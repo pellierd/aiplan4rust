@@ -34,14 +34,16 @@
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider};
 use crate::aiplan4rust::interner::{InternerMergeResult, SymbolInterner};
-use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::linking::error::LinkingError;
-use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
+use crate::aiplan4rust::linking::finalization::FinalizationContext;
+use crate::aiplan4rust::linking::{finalization, LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult, SemanticContext};
 use crate::aiplan4rust::semantic::{SymbolTable, TypeChecker};
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::aiplan4rust::{linking, semantic};
 use crate::Severity;
 use std::collections::HashMap;
@@ -151,9 +153,20 @@ impl Linker {
                 global_interner,
             ));
         }
+        /*let mut domain_ast = dc.take_syntax_tree();
+        let mut domain_table = dc.take_symbol_table();
+        let domain_source = dc.source();
+        self.finalize(
+            &mut domain_ast,
+            &mut domain_table,
+            domain_source,
+            &global_interner,
+        )?;
+        dc.set_syntax_tree(domain_ast);
+        dc.set_symbol_table(domain_table);*/
 
         // 5. Success: Construct the linked semantic context
-        let context = LinkedSemanticContext::new(dc, pc, global_interner)?;
+        let mut context = LinkedSemanticContext::new(dc, pc, global_interner)?;
 
         Ok(LinkerResult::success(
             context,
@@ -221,16 +234,19 @@ impl Linker {
 
         // 4. Execute cross-analysis
         // We pass the extracted tables (mutable) and the requirement triggers
-        perform_problem_analysis(
+        let inferred_requirements = perform_problem_analysis(
             &domain_check_ctx,
             &problem_check_ctx,
             &mut domain_table,
             &mut problem_table,
-            problem_ctx.requirement_triggers(),
             &mut self.diagnostic_manager,
         )?;
 
-        // 5. Restore tables to their respective contexts
+        // 5. Update the Problem context with the results of the inference pass
+        // This transitions the problem context from "pending" to "analyzed
+        problem_ctx.set_requirement_triggers(inferred_requirements);
+
+        // 6. Restore tables to their respective contexts
         domain_ctx.set_symbol_table(domain_table);
         problem_ctx.set_symbol_table(problem_table);
 
@@ -286,6 +302,19 @@ impl Linker {
 
         Ok(global_interner)
     }
+
+    fn finalize(
+        &mut self,
+        ast: &mut Tree<AstNode>,
+        symbol_table: &SymbolTable,
+        source: LiteralId,
+        interner: &SymbolInterner,
+    ) -> Result<(), LinkingError> {
+        let context = FinalizationContext::new(interner, source, Provider::Linker);
+        finalization::types::finalize(&context, symbol_table, ast)?;
+
+        Ok(())
+    }
 }
 
 /// Performs a comprehensive linking analysis between a Domain and a Problem.
@@ -307,49 +336,42 @@ impl Linker {
 /// 2. **Degraded Mode (Surface Analysis)**:
 ///    Triggered if binding fails (e.g., orphan types or missing domain references).
 ///    Only executes non-dependent checks (domain name matching, structural
-///    task network ordering) to provide maximum diagnostic feedback without
-///    triggering secondary resolution errors.
+///    task network ordering) to provide maximum diagnostic feedback.
 ///
 /// ### Analysis Phases
 /// * **Symbol Binding**: Resolves problem-local symbols (objects) and links them
-///   to domain-level declarations (types, constants).
-/// * **Metadata Consistency**: Verifies that the problem correctly references
-///   the intended domain name.
-/// * **Type Integrity**: Validates the problem's object hierarchy against the
-///   domain's type system using the unified hierarchy.
-/// * **Cross-Requirement Validation**: Ensures that every feature used in the
-///   problem (detected via `problem_triggers`) is explicitly covered by the
-///   combined requirements of the domain and problem.
+///   to domain-level declarations.
+/// * **Metadata Consistency**: Verifies matching domain names.
+/// * **Type Integrity**: Validates the problem's object hierarchy.
 /// * **Deep Expression Analysis**: Performs type-checking on initial state
 ///   fluents and goal conditions.
-/// * **Structural Verification**: Validates Task Network (HTN) constraints such
-///   as cycle detection and ordering consistency.
+/// * **Requirement Extraction**: **(Crucial)** Detects utilized PDDL features
+///   within the problem AST *after* symbols have been merged, allowing for
+///   accurate identification of fluents and requirements.
+/// * **Requirement Compliance**: Validates inferred features against the
+///   merged requirements set.
 ///
 /// # Arguments
-/// * `domain` - Immutable reference to the domain's check context.
-/// * `problem` - Immutable reference to the problem's check context (must
-///   contain merged requirements).
-/// * `domain_table` - The resolved symbol table of the domain used as a reference.
-/// * `problem_table` - The mutable symbol table of the problem, enriched during
-///   binding and validation.
-/// * `problem_triggers` - A mapping of utilized PDDL/HDDL requirements to the
-///   specific AST nodes that triggered them.
-/// * `diagnostic_manager` - Accumulates errors, warnings, and info during analysis.
+/// * `domain` - The domain's check context.
+/// * `problem` - The problem's check context.
+/// * `domain_table` - The resolved symbol table of the domain (reference).
+/// * `problem_table` - The mutable symbol table of the problem, enriched during analysis.
+/// * `diagnostic_manager` - Accumulates errors and warnings.
 ///
 /// # Returns
-/// * `Ok(true)` - The problem is semantically valid and ready for finalization.
-/// * `Ok(false)` - Semantic issues were found (look into `diagnostic_manager`).
-/// * `Err(LinkingError)` - A fatal internal error prevented the analysis from completing.
+/// * `Ok(HashMap<Requirement, Vec<NodeId>>)` - The map of requirements inferred
+///   from the problem AST. Returns an empty map if analysis failed or was degraded.
+/// * `Err(LinkingError)` - A fatal internal error prevented completion.
 fn perform_problem_analysis(
     domain: &CheckContext,
     problem: &CheckContext,
     domain_table: &SymbolTable,
     problem_table: &mut SymbolTable,
-    problem_triggers: &HashMap<Requirement, Vec<NodeId>>,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, LinkingError> {
+) -> Result<HashMap<Requirement, Vec<NodeId>>, LinkingError> {
     let type_hierarchy = domain_table.to_type_hierarchy();
     let type_checker = TypeChecker::new(&type_hierarchy);
+    let mut inferred_reqs = HashMap::new();
 
     let pass_context = PassContext::new(
         problem.syntax_tree(),
@@ -369,9 +391,8 @@ fn perform_problem_analysis(
     )
     .is_ok();
 
-    let mut is_valid = true;
-
     if binding_success {
+        let mut is_valid = true;
         // ==========================================
         // NORMAL MODE: Full Semantic Analysis
         // ==========================================
@@ -399,7 +420,7 @@ fn perform_problem_analysis(
 
         if is_valid {
             // 4. Name conflicts (e.g., illegal shadowing across scopes)
-            is_valid &= linking::checks::check_cross_declared_symbols(
+            linking::checks::check_cross_declared_symbols(
                 domain,
                 problem,
                 domain_table,
@@ -408,7 +429,7 @@ fn perform_problem_analysis(
             )?;
 
             // 5. Deep expression analysis (:init, :goal)
-            is_valid &= semantic::checks::check_typed_expressions(
+            semantic::checks::check_typed_expressions(
                 problem,
                 problem_table,
                 &type_checker,
@@ -416,13 +437,16 @@ fn perform_problem_analysis(
             )?;
 
             // 6. Structural constraints (e.g., Task Network cycles)
-            is_valid &= semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
+            semantic::checks::check_task_ordering(problem, diagnostic_manager)?;
 
-            // 7. Requirement compliance check
+            // 7. Detect which PDDL features are actually used in the problem.
+            inferred_reqs = passes::extract_required_requirements(&pass_context, &problem_table)?;
+
+            // 8. Requirement compliance check
             // Note: problem (CheckContext) already contains the merged Domain + Problem requirements.
-            is_valid &= semantic::checks::check_requirements(
-                problem,          // CheckContext with merged requirements
-                problem_triggers, // Inferred requirements and their evidence
+            semantic::checks::check_requirements(
+                problem,        // CheckContext with merged requirements
+                &inferred_reqs, // Inferred requirements and their evidence
                 diagnostic_manager,
             )?;
         }
@@ -432,8 +456,6 @@ fn perform_problem_analysis(
         // ==========================================
         // Binding failed (orphan symbols detected).
         // We only execute checks that do not depend on successful resolution.
-
-        is_valid = false; // Linking is inherently invalid if binding fails
 
         // Still check the domain name to provide helpful feedback to the user
         let _ = linking::checks::check_domain_name(
@@ -447,16 +469,9 @@ fn perform_problem_analysis(
         // Still check task ordering (pure graph-based analysis)
         let _ = semantic::checks::check_task_ordering(problem, diagnostic_manager);
 
-        // Still check requirement compliance for the problem-local scope
-        let _ = semantic::checks::check_requirements(
-            problem,          // CheckContext with merged requirements
-            problem_triggers, // Inferred requirements and their evidence
-            diagnostic_manager,
-        )?;
-
         // Note: Resolution errors (symbols not found) are already
         // injected into the diagnostic_manager by `resolve_symbols`.
     }
 
-    Ok(is_valid)
+    Ok(inferred_reqs)
 }

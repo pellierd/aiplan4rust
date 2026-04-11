@@ -1,111 +1,65 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::linking::finalization::error::SemanticFinalizationError;
+use crate::aiplan4rust::linking::finalization::FinalizationContext;
 use crate::aiplan4rust::semantic::symbol::Declaration;
-use crate::aiplan4rust::semantic::SemanticContext;
-use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
+use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
 use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::SymbolTable;
 
-/// Point d'entrée unique pour la finalisation.
-/// C'est la seule fonction que tu appelles depuis ton Match.
-pub fn finalize(context: &mut SemanticContext) -> Result<(), SemanticFinalizationError> {
-    let (symbol_table, ast, interner) = context.split_all_mut();
-
-    // On passe la slice de changements
-    finalize_all_types(ast, symbol_table)?;
-
-    Ok(())
-}
-
 /// La nouvelle version "systématique"
-fn finalize_all_types(
-    ast: &mut Tree<AstNode>,
+pub fn finalize(
+    _context: &FinalizationContext,
     symbol_table: &SymbolTable,
+    ast: &mut Tree<AstNode>,
 ) -> Result<(), SemanticFinalizationError> {
-    for entry in symbol_table {
-        for declaration in entry.declarations() {
-            // 1. On récupère le type s'il existe
-            let Ok((resolved_ty, original_node_ids)) = try_get_type_and_nodes(declaration) else {
+    for symbol in symbol_table {
+        for declaration in symbol.declarations() {
+            // 1. Garde : Si pas de type défini, on ne touche à rien (cas STRIPS ou non-typé)
+            if declaration.ty().is_none() {
                 continue;
-            };
-
-            // 2. Localisation du parent dans l'AST
-            let element_id = declaration.source();
-            let parent_id = ast.try_node(element_id)?.try_parent()?;
-
-            // 3. Collecte des spans originaux (pour garder le formattage)
-            let original_spans: Vec<_> = original_node_ids
-                .iter()
-                .map(|&id| ast.try_node(id).map(|n| n.span().clone()))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            // 4. Création des nouveaux nœuds PrimitiveType
-            let mut pt_ids = Vec::with_capacity(resolved_ty.len());
-            for (i, &pt_symbol_id) in resolved_ty.members().iter().enumerate() {
-                let span = original_spans
-                    .get(i)
-                    .cloned()
-                    .unwrap_or_else(|| ast.try_node(element_id).map(|n| n.span().clone()).unwrap());
-
-                let primitive_node = AstNode::new(
-                    AstKind::PrimitiveType,
-                    AstContent::Ident(pt_symbol_id),
-                    vec![],
-                    span,
-                    None,
-                );
-                pt_ids.push(ast.alloc(primitive_node));
             }
 
-            // 5. Calcul du span global du conteneur 'Type'
-            let type_span = if let Some(first) = original_spans.first() {
-                original_spans
-                    .iter()
-                    .skip(1)
-                    .fold(first.clone(), |acc, s| acc.merge(s.clone()))
-            } else {
-                ast.try_node(element_id)?.span().clone()
+            // 2. Extraction sécurisée des données de type et des nœuds sources
+            let (resolved_ty, original_node_ids) = match try_get_type_and_nodes(declaration) {
+                Ok((ty, ids)) if !ids.is_empty() => (ty, ids),
+                _ => continue,
             };
 
-            // 6. Création du nœud Type parent
-            let new_type_node_id = ast.alloc(AstNode::new(
-                AstKind::Type,
-                AstContent::None,
-                pt_ids.clone(),
-                type_span,
-                Some(parent_id),
-            ));
+            // 3. Localisation du conteneur "Type"
+            let first_pt_id = original_node_ids[0];
+            let type_node_id = ast.try_node(first_pt_id)?.try_parent()?;
+            let members_to_keep = resolved_ty.members();
 
-            // Wiring des enfants
-            for &child_id in &pt_ids {
-                ast.try_node_mut(child_id)?
-                    .set_parent(Some(new_type_node_id));
-            }
-
-            // 7. Remplacement CHIRURGICAL dans le parent (TypedItem)
-            let mut updated_children = Vec::new();
-            let current_children = ast.try_node(parent_id)?.children().to_vec();
-
-            let mut type_replaced = false;
-            for &child_id in &current_children {
-                // Si on tombe sur l'ancien nœud de type, on met le nouveau à la place
-                if ast.try_node(child_id)?.kind() == AstKind::Type {
-                    if !type_replaced {
-                        updated_children.push(new_type_node_id);
-                        type_replaced = true;
+            // --- ÉTAPE A : Collecte des IDs à supprimer (Emprunt Immuable) ---
+            let mut to_remove = Vec::new();
+            if let Ok(type_node) = ast.try_node(type_node_id) {
+                for &child_id in type_node.children() {
+                    if let Ok(child_node) = ast.try_node(child_id) {
+                        if let AstContent::Ident(id) = child_node.content() {
+                            // Si le symbole n'est plus dans la table, on marque pour suppression
+                            if !members_to_keep.contains(id) {
+                                to_remove.push(child_id);
+                            }
+                        }
                     }
-                } else {
-                    updated_children.push(child_id);
                 }
             }
 
-            // Si le parent n'avait pas de type du tout (type implicite), on l'ajoute
-            if !type_replaced {
-                updated_children.push(new_type_node_id);
+            // --- ÉTAPE B : Nettoyage et Orphelinage (Emprunt Mutable) ---
+            // On débranche les nœuds supprimés de leur parent pour la sécurité
+            for &id in &to_remove {
+                if let Ok(node) = ast.try_node_mut(id) {
+                    node.set_parent(None);
+                }
             }
 
-            ast.try_node_mut(parent_id)?.set_children(updated_children);
+            // Mise à jour de la liste des enfants du nœud Type
+            let type_node_mut = ast.try_node_mut(type_node_id)?;
+            let children = type_node_mut.children_mut();
+
+            // On ne garde que ceux qui ne sont pas dans la liste de suppression
+            children.retain(|id| !to_remove.contains(id));
         }
     }
     Ok(())
@@ -237,4 +191,42 @@ fn finalize_types(
     }
 
     Ok(())
+}*/
+
+/*/// Attempts to retrieve the semantic type and corresponding AST node IDs from a declaration.
+///
+/// This function replaces previous panics/asserts with a recoverable Result.
+///
+/// # Errors
+/// * [`SemanticPassError::IncompleteDeclaration`] - If type data or node IDs are missing.
+/// * [`SemanticPassError::TypeInconsistency`] - If there is a count mismatch between types and nodes.
+pub fn try_get_type_and_nodes(
+    declaration: &Declaration,
+) -> Result<(&Type<SymbolId>, &[NodeId]), SemanticPassError> {
+    let ty_opt = declaration.ty();
+    let ids_opt = declaration.ty_node_ids();
+    let symbol_id = declaration.symbol().id();
+
+    // 1. Check if both data sets are present
+    if ty_opt.is_none() || ids_opt.is_none() {
+        return Err(SemanticPassError::incomplete_declaration(
+            symbol_id,
+            ty_opt.is_some(),
+            ids_opt.is_some(),
+        ));
+    }
+
+    let ty = ty_opt.unwrap();
+    let ids = ids_opt.unwrap();
+
+    // 2. Check for structural length consistency
+    if ty.len() != ids.len() {
+        return Err(SemanticPassError::type_inconsistency(
+            symbol_id,
+            ty.len(),
+            ids.len(),
+        ));
+    }
+
+    Ok((ty, ids))
 }*/

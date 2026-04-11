@@ -349,7 +349,7 @@ impl Analyzer {
             symbol_table,
             ast.take_interner(),
             declared_reqs,
-            inferred_reqs,
+            Some(inferred_reqs),
         )?;
 
         Ok(context)
@@ -452,10 +452,6 @@ impl Analyzer {
         // =========================================================================
         // Metadata containers, usually populated during the Domain-Problem linking.
 
-        // --- REQUIREMENT INFERENCE ---
-        // Detect which PDDL features are actually used in the domain.
-        let inferred_reqs = passes::extract_required_requirements(&pass_ctx, &symbol_table)?;
-
         // Finalize by moving the AST and Interner into the SemanticContext.
         let mut context = SemanticContext::new(
             ast.take_syntax_tree(),
@@ -463,7 +459,7 @@ impl Analyzer {
             symbol_table,
             ast.take_interner(),
             declared_reqs,
-            inferred_reqs,
+            None,
         )?;
 
         Ok(context)

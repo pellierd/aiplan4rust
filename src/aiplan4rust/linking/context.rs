@@ -180,9 +180,14 @@ impl LinkedSemanticContext {
             .cloned()
             .collect();
 
-        let required_requirements = domain
+        let required_requirements: HashSet<Requirement> = domain
             .inferred_requirements()
-            .union(problem.inferred_requirements())
+            .expect("Domain analysis must be completed before linking")
+            .union(
+                problem
+                    .inferred_requirements()
+                    .expect("Problem analysis must be completed before linking"),
+            )
             .cloned()
             .collect();
 
@@ -336,6 +341,15 @@ impl LinkedSemanticContext {
         &self.domain_syntax_tree
     }
 
+    /// Returns a mutable reference to the domain AST.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `Tree<AstNode>` representing the domain AST.
+    pub fn domain_syntax_tree_mut(&mut self) -> &mut Tree<AstNode> {
+        &mut self.domain_syntax_tree
+    }
+
     /// Takes ownership of the domain AST, leaving an empty AST in its place.
     ///
     /// # Returns
@@ -352,6 +366,15 @@ impl LinkedSemanticContext {
     /// A reference to the `SyntaxTree` representing the problem AST.
     pub fn problem_syntax_tree(&self) -> &Tree<AstNode> {
         &self.problem_syntax_tree
+    }
+
+    /// Returns a mutable reference to the problem AST.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `Tree<AstNode>` representing the problem AST.
+    pub fn problem_syntax_tree_mut(&mut self) -> &mut Tree<AstNode> {
+        &mut self.problem_syntax_tree
     }
 
     /// Takes ownership of the problem AST, leaving an empty AST in its place.
