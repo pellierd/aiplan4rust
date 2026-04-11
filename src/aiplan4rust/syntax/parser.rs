@@ -184,7 +184,7 @@ impl Parser {
                 Some(parse_err) => {
                     let source = interner.intern_literal(source.path().to_string_lossy());
                     let diagnostic = Diagnostic::from((parse_err, source, &fast_line_table));
-                    self.diagnostic_manager.add_diagnostic(diagnostic);
+                    self.diagnostic_manager.report(diagnostic);
                     Ok(ParserResult::failure(
                         mem::take(&mut self.diagnostic_manager),
                         interner,
@@ -231,7 +231,7 @@ impl Parser {
     ) {
         for error_recovery in lalrpop_errors {
             let diagnostic = Diagnostic::from((&error_recovery.error, source_id, fast_line_table));
-            self.diagnostic_manager.add_diagnostic(diagnostic);
+            self.diagnostic_manager.report(diagnostic);
         }
     }
 }

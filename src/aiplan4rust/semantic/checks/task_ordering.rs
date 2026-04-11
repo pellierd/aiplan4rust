@@ -67,7 +67,7 @@ pub fn check_task_ordering(
                     context.source(),
                     node.span(),
                 );
-                diagnostic_manager.add_diagnostic(error);
+                diagnostic_manager.report(error);
             }
         }
     }

@@ -1,232 +1,263 @@
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{SymbolId, Type};
-use crate::aiplan4rust::linking::finalization::error::SemanticFinalizationError;
-use crate::aiplan4rust::linking::finalization::FinalizationContext;
-use crate::aiplan4rust::semantic::symbol::Declaration;
-use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
-use crate::aiplan4rust::tree::{NodeId, Tree};
-use crate::SymbolTable;
+//! AST Type Finalization Pass
+//!
+//! This module provides the logic for synchronizing the physical Abstract Syntax Tree (AST)
+//! with the semantically resolved types from the [`SymbolTable`].
+//!
+//! ## Overview
+//!
+//! During the early stages of parsing and linking, PDDL types are often represented
+//! broadly as `(either ...)` blocks. Once the semantic analyzer (inference engine)
+//! determines a specific narrowed type for a symbol, the AST becomes "stale"—it still
+//! contains the original broad type list.
+//!
+//! This pass iterates through the tree and "prunes" (physically removes) type
+//! identifiers that are no longer part of the resolved type definition.
+//!
+//! ## Architecture
+//!
+//! The finalization process follows a strictly ordered pattern to comply with
+//! Rust's ownership model:
+//!
+//! 1. **Filtering**: Symbols are screened using `ty.is_root()` and `ty.is_primitive()`
+//!    to avoid unnecessary tree traversals.
+//! 2. **Inspection (Immutable)**: The module navigates to the `TypedItem` and identifies
+//!    obsolete [`NodeId`]s, storing them in a stack-allocated [`SmallVec`].
+//! 3. **Pruning (Mutable)**: The module re-borrows the tree mutably to detach the
+//!    orphaned nodes and update the parent's children list.
+//!
+//! ## Constants
+//!
+//! * [`INLINE_CAPACITY`]: Optimized stack size for the pruning buffer to minimize
+//!   heap allocations.
+//!
+//! ## Safety
+//!
+//! This module uses the `Arena` pattern. It ensures tree integrity by manually
+//! orphaning nodes (setting their parent to `None`) before removing them from
+//! child lists, preventing dangling parent-child references.
 
-/// La nouvelle version "systématique"
+use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::linking::finalization::error::FinalizationError;
+use crate::aiplan4rust::linking::finalization::FinalizationContext;
+use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind};
+use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
+use crate::aiplan4rust::tree::{NodeId, Tree};
+use crate::{DiagnosticManager, SymbolTable};
+use smallvec::SmallVec;
+
+/// The maximum number of elements to be stored on the stack before migrating to the heap.
+///
+/// This constant defines the inline capacity for [`SmallVec`] collections used during
+/// AST pruning.
+///
+/// ### Performance Rationale
+/// - **Stack Allocation**: In PDDL, the majority of `either` type blocks contain
+///   fewer than 8 types (often 2 or 3). By setting this to `8`, we ensure that
+///   most pruning operations involve zero heap allocations, significantly
+///   speeding up the finalization pass.
+/// - **Memory Footprint**: Keeping this value small prevents the stack frame
+///   of the `finalize` function from becoming excessively large when processing
+///   deeply nested declarations.
+const INLINE_CAPACITY: usize = 8;
+
+/// Synchronizes the Abstract Syntax Tree (AST) with narrowed semantic type definitions.
+///
+/// This function performs a "Pruning Pass" over the AST. In PDDL, symbols can be declared
+/// with multiple possible types using the `either` syntax: `?x - (either typeA typeB)`.
+/// During semantic analysis (linking and inference), it is common to discover that a symbol
+/// is actually restricted to a subset of those types (e.g., only `typeA`).
+///
+/// While the `SymbolTable` is updated to reflect this narrowed reality, the physical AST
+/// remains unchanged. This function identifies such discrepancies and physically removes
+/// the obsolete type identifiers from the AST nodes.
+///
+/// # Arguments
+///
+/// * `context` - The finalization context containing shared state and settings for the pass.
+/// * `symbol_table` - A reference to the resolved symbol table containing the "semantic truth."
+/// * `ast` - A mutable reference to the AST tree to be pruned.
+/// * `diagnostic_manager` - A mutable reference to the manager responsible for collecting
+///   and reporting warnings (e.g., when a type list is narrowed).
+///
+/// # Logic and Optimizations
+///
+/// The function follows a "Look-ahead, then Mutate" pattern to respect Rust's ownership rules:
+/// 1. **High-Speed Filtering**: Symbols that are root types or primitive types are skipped
+///    immediately as they cannot contain `either` blocks.
+/// 2. **Structural Validation**: It uses a helper to locate the physical `TypedItem` node.
+///    If the symbol is a usage rather than a declaration, it is ignored.
+/// 3. **Step A (Immutable)**: Identifies specific child nodes in the AST that represent
+///    types no longer present in the `SymbolTable`.
+/// 4. **Reporting**: If pruning occurs, a warning is emitted via the `diagnostic_manager`
+///    to inform the user of the automated type narrowing.
+/// 5. **Step B (Mutable)**: Detaches the identified nodes from the tree and updates the
+///    parent's children list.
+///
+/// # Errors
+///
+/// Returns a [`FinalizationError`] if:
+/// * The AST structure is corrupted (e.g., a parent link is missing).
+/// * A required node ID cannot be found in the tree arena.
+/// * The symbol kind is unsupported for finalization.
+///
+/// # Examples
+///
+/// Input AST:  `?v - (either ship object)`
+/// SymbolTable: `v` is resolved to only `ship`.
+/// Output AST: `?v - ship`
+/// *Diagnostic: A warning is issued notifying that `object` was removed from `v`'s type list.*
 pub fn finalize(
-    _context: &FinalizationContext,
+    context: &FinalizationContext,
     symbol_table: &SymbolTable,
     ast: &mut Tree<AstNode>,
-) -> Result<(), SemanticFinalizationError> {
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<(), FinalizationError> {
+    // We pre-allocate buffers here. They stay on the stack and
+    // we just clear them at each iteration.
+    let mut to_remove: SmallVec<[NodeId; INLINE_CAPACITY]> = SmallVec::new();
+    let mut removed_type_ids: SmallVec<[SymbolId; INLINE_CAPACITY]> = SmallVec::new();
+
     for symbol in symbol_table {
         for declaration in symbol.declarations() {
-            // 1. Garde : Si pas de type défini, on ne touche à rien (cas STRIPS ou non-typé)
-            if declaration.ty().is_none() {
+            // Check if the declaration has an associated type.
+            // If not, there's nothing to synchronize.
+            let Some(ty) = declaration.ty() else {
+                continue;
+            };
+
+            // Optimization: Skip root types (object, number) and simple types.
+            // If a type has 0 or 1 member, it cannot be an 'either' type that
+            // requires physical narrowing in the AST.
+            // We skip this BEFORE the expensive AST navigation helper.
+            if ty.is_root() || ty.is_primitive() {
                 continue;
             }
 
-            // 2. Extraction sécurisée des données de type et des nœuds sources
-            let (resolved_ty, original_node_ids) = match try_get_type_and_nodes(declaration) {
-                Ok((ty, ids)) if !ids.is_empty() => (ty, ids),
-                _ => continue,
+            // 1. Locate the "Type" container node.
+            // If None, this declaration doesn't use a TypedItem syntax (e.g., it's
+            // a function usage/initialization), so we skip it.
+            let Some(type_node_id) = get_type_node_id(declaration, ast)? else {
+                continue;
             };
 
-            // 3. Localisation du conteneur "Type"
-            let first_pt_id = original_node_ids[0];
-            let type_node_id = ast.try_node(first_pt_id)?.try_parent()?;
-            let members_to_keep = resolved_ty.members();
+            let type_node = ast.try_node(type_node_id)?;
+            let members_to_keep = ty.members();
 
-            // --- ÉTAPE A : Collecte des IDs à supprimer (Emprunt Immuable) ---
-            let mut to_remove = Vec::new();
-            if let Ok(type_node) = ast.try_node(type_node_id) {
-                for &child_id in type_node.children() {
-                    if let Ok(child_node) = ast.try_node(child_id) {
-                        if let AstContent::Ident(id) = child_node.content() {
-                            // Si le symbole n'est plus dans la table, on marque pour suppression
-                            if !members_to_keep.contains(id) {
-                                to_remove.push(child_id);
-                            }
+            // Secondary Optimization: If the AST child count already matches the
+            // SymbolTable member count, the nodes are already synchronized.
+            if members_to_keep.len() == type_node.children().len() {
+                continue;
+            }
+
+            // --- STEP A: Collect IDs (No heap allocation if types <= INLINE_CAPACITY) ---
+            to_remove.clear();
+            removed_type_ids.clear();
+
+            for &child_id in type_node.children() {
+                if let Ok(child_node) = ast.try_node(child_id) {
+                    if let AstContent::Ident(id) = child_node.content() {
+                        if !members_to_keep.contains(id) {
+                            to_remove.push(child_id);
+                            removed_type_ids.push(*id);
                         }
                     }
                 }
             }
 
-            // --- ÉTAPE B : Nettoyage et Orphelinage (Emprunt Mutable) ---
-            // On débranche les nœuds supprimés de leur parent pour la sécurité
+            // --- STEP B: Report Diagnostic ---
+            if !removed_type_ids.is_empty() {
+                // We only convert to a Vec at the moment of reporting if your Diagnostic requires it,
+                // or if we need to adapt the constructor to accept an IntoIterator.
+                diagnostic_manager.report(Diagnostic::warning_type_narrowing(
+                    *declaration.symbol(),
+                    removed_type_ids.to_vec(), // Conversion happens here, only when a warning is actually triggered.
+                    members_to_keep.to_vec(),
+                    context.provider(),
+                    context.source(),
+                    declaration.span(),
+                ));
+            }
+
+            // --- STEP B: Cleanup and Orphaning (Mutable Borrow) ---
+            // Detach nodes from parent first to maintain AST integrity.
             for &id in &to_remove {
                 if let Ok(node) = ast.try_node_mut(id) {
                     node.set_parent(None);
                 }
             }
 
-            // Mise à jour de la liste des enfants du nœud Type
+            // Physically update the children list of the Type node.
             let type_node_mut = ast.try_node_mut(type_node_id)?;
             let children = type_node_mut.children_mut();
 
-            // On ne garde que ceux qui ne sont pas dans la liste de suppression
+            // Retain only the valid narrowed types.
             children.retain(|id| !to_remove.contains(id));
         }
     }
     Ok(())
 }
 
-/// Attempts to retrieve the semantic type and corresponding AST node IDs from a declaration.
+/// Navigates the AST to find the specific "Type" node associated with a declaration.
 ///
-/// This function replaces previous panics/asserts with a recoverable Result.
+/// This helper abstracts the structural differences between various symbol types
+/// (variables, constants, and functions) to find the common `TypedItem` container.
+///
+/// # Returns
+///
+/// - `Ok(Some(NodeId))` if a valid type definition block is found.
+/// - `Ok(None)` if the symbol is not part of a type-narrowing context (e.g., built-ins or
+///   malformed nodes).
 ///
 /// # Errors
-/// * [`SemanticFinalizationError::IncompleteDeclaration`] - If type data or node IDs are missing.
-/// * [`SemanticFinalizationError::TypeInconsistency`] - If there is a count mismatch between types and nodes.
-pub fn try_get_type_and_nodes(
+///
+/// Returns [`FinalizationError`] if:
+/// - The expected tree structure is missing or a parent/child link is broken.
+/// - The symbol kind is not supported for type finalization (e.g., trying to finalize
+///   a symbol that doesn't belong to a typed structure).
+fn get_type_node_id(
     declaration: &Declaration,
-) -> Result<(&Type<SymbolId>, &[NodeId]), SemanticFinalizationError> {
-    let ty_opt = declaration.ty();
-    let ids_opt = declaration.type_sources();
-    let symbol_id = declaration.symbol().id();
+    ast: &Tree<AstNode>,
+) -> Result<Option<NodeId>, FinalizationError> {
+    let declaration_node_id = declaration.source();
 
-    // 1. Check if both data sets are present
-    if ty_opt.is_none() || ids_opt.is_none() {
-        return Err(SemanticFinalizationError::incomplete_declaration(
-            symbol_id,
-            ty_opt.is_some(),
-            ids_opt.is_some(),
-        ));
+    // 1. Traverse up to the TypedItem node.
+    // The path differs based on the symbol kind:
+    // - Variables/Constants: Ident -> TypedItem
+    // - Functions: FunctionSymbol -> FunctionSkeleton -> TypedItem
+    let symbol = declaration.symbol();
+    let typed_item_node_id = match symbol.kind() {
+        SymbolKind::PrimitiveType | SymbolKind::Constant | SymbolKind::Variable => {
+            ast.try_node(declaration_node_id)?.try_parent()?
+        }
+        SymbolKind::Function => {
+            let skeleton_id = ast.try_node(declaration_node_id)?.try_parent()?;
+            ast.try_node(skeleton_id)?.try_parent()?
+        }
+        _ => return Err(FinalizationError::unsupported_symbol_kind(symbol)),
+    };
+
+    let typed_item = ast.try_node(typed_item_node_id)?;
+
+    // 2. Validate the container.
+    // We ensure the node is indeed a TypedItem and that it actually contains
+    // a type definition (index 1). If not, we skip it.
+    if typed_item.kind() != AstKind::TypedItem || typed_item.children().len() <= 1 {
+        return Ok(None);
     }
 
-    let ty = ty_opt.unwrap();
-    let ids = ids_opt.unwrap();
+    // 3. Extract the Type node ID.
+    // In a TypedItem structure, child 0 is the TypedList (names)
+    // and child 1 is the Type (the definition to be pruned).
+    let type_node_id = typed_item.try_child(1)?;
 
-    // 2. Check for structural length consistency
-    if ty.len() != ids.len() {
-        return Err(SemanticFinalizationError::type_inconsistency(
-            symbol_id,
-            ty.len(),
-            ids.len(),
-        ));
+    // 4. Built-in protection.
+    // Built-in types (indices 0-5) are virtual and do not exist as
+    // physical "either" blocks in the AST that require pruning.
+    if AstNode::is_builtin(type_node_id) {
+        return Ok(None);
     }
 
-    Ok((ty, ids))
+    Ok(Some(type_node_id))
 }
-
-/*/// Finalise l'AST en mettant à jour les types des déclarations basés sur les changements.
-///
-/// Cette version est chirurgicale : elle ne boucle que sur les symboles modifiés.
-fn finalize_types(
-    ast: &mut Tree<AstNode>,
-    symbol_table: &SymbolTable,
-    changes: &[TypeSimplification],
-    _interner: &SymbolInterner,
-) -> Result<(), SemanticFinalizationError> {
-    for change in changes {
-        // 1. On récupère la déclaration directement depuis le changement
-        let entry = symbol_table.try_get_symbol(change.symbol_id())?;
-        let declaration = entry.try_get_declaration(change.node_id())?;
-
-        // 2. Ta fonction 'try' qui garantit que resolved_ty et original_node_ids sont synchros
-        let (resolved_ty, original_node_ids) = try_get_type_and_nodes(declaration)?;
-
-        let element_id = declaration.source();
-        let parent_id = ast.try_node(element_id)?.try_parent()?;
-
-        // 3. Récupération sécurisée des spans via les NodeIds synchronisés
-        let original_spans: Vec<_> = original_node_ids
-            .iter()
-            .map(|&id| ast.try_node(id).map(|n| n.span().clone()))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        // 4. Création des nouveaux nœuds PrimitiveType
-        let mut pt_ids = Vec::new();
-        for (i, &pt_symbol_id) in resolved_ty.members().iter().enumerate() {
-            // Le mapping est 1-pour-1 entre membres du type et IDs de l'AST
-            let span = original_spans[i].clone();
-
-            let primitive_node = AstNode::new(
-                AstKind::PrimitiveType,
-                AstContent::Ident(pt_symbol_id),
-                vec![],
-                span,
-                None,
-            );
-            pt_ids.push(ast.alloc(primitive_node));
-        }
-
-        // 5. Calcul du span du container Type
-        let type_span = if let Some(&first) = original_spans.first() {
-            original_spans
-                .iter()
-                .skip(1)
-                .fold(first, |acc, &s| acc.merge(s))
-        } else {
-            // Fallback si le type est vide (cas du type 'object')
-            ast.try_node(element_id)?.span()
-        };
-
-        let new_type_node_id = ast.alloc(AstNode::new(
-            AstKind::Type,
-            AstContent::None,
-            pt_ids.clone(),
-            type_span,
-            Some(parent_id),
-        ));
-
-        // 6. Wiring des nouveaux enfants vers leur parent Type
-        for &child_id in &pt_ids {
-            ast.try_node_mut(child_id)?
-                .set_parent(Some(new_type_node_id));
-        }
-
-        // 7. Mise à jour chirurgicale du parent (TypedItem)
-        // On récupère les enfants, on filtre l'ancien Type, et on ajoute le nouveau.
-        let mut new_children: Vec<_> = ast
-            .try_node(parent_id)?
-            .children()
-            .iter()
-            .filter(|&&id| {
-                ast.try_node(id)
-                    .map(|n| n.kind() != AstKind::Type)
-                    .unwrap_or(true)
-            })
-            .copied()
-            .collect();
-
-        new_children.push(new_type_node_id);
-
-        let parent_node = ast.try_node_mut(parent_id)?;
-        parent_node.set_children(new_children);
-    }
-
-    Ok(())
-}*/
-
-/*/// Attempts to retrieve the semantic type and corresponding AST node IDs from a declaration.
-///
-/// This function replaces previous panics/asserts with a recoverable Result.
-///
-/// # Errors
-/// * [`SemanticPassError::IncompleteDeclaration`] - If type data or node IDs are missing.
-/// * [`SemanticPassError::TypeInconsistency`] - If there is a count mismatch between types and nodes.
-pub fn try_get_type_and_nodes(
-    declaration: &Declaration,
-) -> Result<(&Type<SymbolId>, &[NodeId]), SemanticPassError> {
-    let ty_opt = declaration.ty();
-    let ids_opt = declaration.ty_node_ids();
-    let symbol_id = declaration.symbol().id();
-
-    // 1. Check if both data sets are present
-    if ty_opt.is_none() || ids_opt.is_none() {
-        return Err(SemanticPassError::incomplete_declaration(
-            symbol_id,
-            ty_opt.is_some(),
-            ids_opt.is_some(),
-        ));
-    }
-
-    let ty = ty_opt.unwrap();
-    let ids = ids_opt.unwrap();
-
-    // 2. Check for structural length consistency
-    if ty.len() != ids.len() {
-        return Err(SemanticPassError::type_inconsistency(
-            symbol_id,
-            ty.len(),
-            ids.len(),
-        ));
-    }
-
-    Ok((ty, ids))
-}*/

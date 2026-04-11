@@ -173,7 +173,7 @@ fn check_equal_and_assignment_expression(
             node.span(),
         );
 
-        diagnostic_manager.add_diagnostic(error);
+        diagnostic_manager.report(error);
     }
 
     Ok(no_error)
@@ -235,7 +235,7 @@ fn check_numeric_expression(
             context.source(),
             node.span(),
         );
-        diagnostic_manager.add_diagnostic(error);
+        diagnostic_manager.report(error);
     }
 
     no_error

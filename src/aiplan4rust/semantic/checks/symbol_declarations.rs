@@ -212,7 +212,7 @@ fn handle_declaration_conflict(
                 ),
             };
 
-            diagnostic_manager.add_diagnostic(Diagnostic::warning_ambiguous_type_predicate_symbol(
+            diagnostic_manager.report(Diagnostic::warning_ambiguous_type_predicate_symbol(
                 type_decl.clone(),
                 pred_decl.clone(),
                 context.provider(),
@@ -239,31 +239,27 @@ fn handle_declaration_conflict(
 
         // Legacy Exception: IPC-2000 allows duplicate variables in "skeletons".
         if is_skeleton_exception(current_kind, scope_node.kind()) {
-            diagnostic_manager.add_diagnostic(
-                Diagnostic::warning_duplicate_variable_skeleton_declaration(
-                    Symbol::new(symbol.id(), current_kind),
-                    previous_declaration.clone(),
-                    declaration.clone(),
-                    scope_node.kind(),
-                    context.provider(),
-                    context.source(),
-                    ast_entry.span(),
-                ),
-            );
+            diagnostic_manager.report(Diagnostic::warning_duplicate_variable_skeleton_declaration(
+                Symbol::new(symbol.id(), current_kind),
+                previous_declaration.clone(),
+                declaration.clone(),
+                scope_node.kind(),
+                context.provider(),
+                context.source(),
+                ast_entry.span(),
+            ));
         } else {
             // Standard Case: This is a hard duplicate error.
             is_valid = false;
-            diagnostic_manager.add_diagnostic(
-                Diagnostic::error_duplicated_symbol_declaration_in_scope(
-                    Symbol::new(symbol.id(), current_kind),
-                    previous_declaration.clone(),
-                    declaration.clone(),
-                    scope_node.kind(),
-                    context.provider(),
-                    context.source(),
-                    ast_entry.span(),
-                ),
-            );
+            diagnostic_manager.report(Diagnostic::error_duplicated_symbol_declaration_in_scope(
+                Symbol::new(symbol.id(), current_kind),
+                previous_declaration.clone(),
+                declaration.clone(),
+                scope_node.kind(),
+                context.provider(),
+                context.source(),
+                ast_entry.span(),
+            ));
         }
     }
 
@@ -346,7 +342,7 @@ fn check_pddl_builtin_symbol_declaration(
             context.source(),
             declaration.span().clone(),
         );
-        diagnostic_manager.add_diagnostic(error);
+        diagnostic_manager.report(error);
         return true;
     }
     // 3. CAS B : Usage Ambigu (Genre différent)
@@ -367,7 +363,7 @@ fn check_pddl_builtin_symbol_declaration(
             context.source(),
             declaration.span(),
         );
-        diagnostic_manager.add_diagnostic(warning);
+        diagnostic_manager.report(warning);
         false
     } else {
         // CAS C : Conflit Radical (ex: Variable nommée "object")

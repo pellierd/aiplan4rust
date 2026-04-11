@@ -164,7 +164,32 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
             original_type,
             simplified_type,
         } => format_redundant_type_union(*symbol_id, original_type, simplified_type, interner),
+        Kind::TypeNarrowing {
+            symbol,
+            removed_types,
+            remaining_types,
+        } => format_type_narrowing(symbol.id(), removed_types, remaining_types, interner),
     }
+}
+
+/// Constructs a descriptive message for automated type narrowing.
+///
+/// This informs the user that the compiler has refined the symbol's type
+/// by removing unreachable or incompatible members from the original 'either' block.
+fn format_type_narrowing(
+    symbol_id: SymbolId,
+    removed_types: &[SymbolId],
+    _remaining_types: &[SymbolId], // Optionnel ici si on utilise la suggestion
+    interner: Option<&SymbolInterner>,
+) -> String {
+    let symbol_name = formatting::ident_to_string(symbol_id, interner);
+    let removed = formatting::idents_to_string_list(removed_types, interner);
+
+    // Plus direct : on nomme l'action et les éléments retirés.
+    format!(
+        "Type narrowing for `{}`: removed redundant types `{}`.",
+        symbol_name, removed
+    )
 }
 
 fn format_redundant_type_union(

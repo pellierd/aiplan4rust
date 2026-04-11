@@ -148,18 +148,16 @@ fn report_declaration_incompatibility(
 
                 // Pass the collected type lists to the diagnostic.
                 // This allows the renderer to show: "Expected (either a b), found number".
-                diagnostic_manager.add_diagnostic(
-                    Diagnostic::error_incompatible_type_declarations(
-                        key.symbol,
-                        kind,
-                        expected,               // expected_types
-                        found,                  // found_types
-                        *dupe_span,             // offending_span (Copy trait used)
-                        occurrences.first_span, // original_span
-                        Provider::Normalizer,
-                        ast.source_id(),
-                    ),
-                );
+                diagnostic_manager.report(Diagnostic::error_incompatible_type_declarations(
+                    key.symbol,
+                    kind,
+                    expected,               // expected_types
+                    found,                  // found_types
+                    *dupe_span,             // offending_span (Copy trait used)
+                    occurrences.first_span, // original_span
+                    Provider::Normalizer,
+                    ast.source_id(),
+                ));
             }
         }
     }
@@ -230,7 +228,7 @@ fn report_duplicated_declaration_warning(
                 ast.source_id(),
                 occurrences.first_span,
             );
-            diagnostic_manager.add_diagnostic(warning);
+            diagnostic_manager.report(warning);
         }
     }
     Ok(())

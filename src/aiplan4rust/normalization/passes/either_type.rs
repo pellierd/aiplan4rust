@@ -219,7 +219,7 @@ fn report_either_type_duplicate_warnings(
                 node.span().clone(),
             );
             // Add the diagnostic to the diagnostic manager for reporting
-            diagnostic_manager.add_diagnostic(warning);
+            diagnostic_manager.report(warning);
         }
     }
 

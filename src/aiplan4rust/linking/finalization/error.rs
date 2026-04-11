@@ -1,63 +1,64 @@
+//! Error types for the AST finalization phase.
+//!
+//! This module defines the [`FinalizationError`] enum, which encapsulates all possible
+//! failures that can occur when synchronizing the Symbol Table with the Syntax Tree.
+
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use thiserror::Error;
 
+/// Errors that can occur during the finalization of the semantic analysis.
+///
+/// This enum aggregates errors from underlying subsystems (Arena, SymbolTable, SyntaxTree)
+/// and defines specific high-level errors unique to the finalization process.
 #[derive(Debug, Error)]
-pub enum SemanticFinalizationError {
-    /// Errors related to the symbol table.
+pub enum FinalizationError {
+    /// Errors forwarded from the [`SymbolTable`].
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
 
-    /// Errors related to the arena.
+    /// Errors forwarded from the internal [`Arena`] storage.
     #[error(transparent)]
     Arena(#[from] ArenaError),
 
-    /// Errors related to the syntax tree.
+    /// Errors forwarded from the [`Tree`] structure or navigation.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
 
-    /// Les données de type ou les IDs de nœuds sont absents de la déclaration.
-    #[error("Finalizer: Incomplete declaration data for symbol '{symbol}'. (Type present: {has_ty}, Nodes present: {has_ids})")]
-    IncompleteDeclaration {
-        symbol: SymbolId,
-        has_ty: bool,
-        has_ids: bool,
-    },
-
-    /// Le nombre de types sémantiques ne correspond pas au nombre de nœuds AST.
-    #[error("Finalizer: Type inconsistency for '{symbol}'. {ty_len} semantic types vs {ids_len} AST nodes.")]
-    TypeInconsistency {
-        symbol: SymbolId,
-        ty_len: usize,
-        ids_len: usize,
+    /// Occurs when a symbol's kind does not match the expected patterns for type pruning.
+    ///
+    /// Finalization typically expects symbols that can be part of a `TypedItem`,
+    /// such as Variables, Constants, or Functions. Encountering other kinds suggests
+    /// a structural mismatch between the Symbol Table and the AST.
+    #[error("Finalizer: Unsupported symbol kind '{kind:?}' for symbol '{id}'. Expected Variable, Constant, PrimitiveType or Function.")]
+    UnsupportedSymbolKind {
+        /// The unique identifier of the offending symbol.
+        id: SymbolId,
+        /// The kind of the symbol that caused the mismatch.
+        kind: SymbolKind,
     },
 }
 
-impl SemanticFinalizationError {
-    /// Creates a [`SemanticFinalizationError`] for a declaration missing critical data.
+impl FinalizationError {
+    /// Creates a new [`FinalizationError::UnsupportedSymbolKind`] from a [`Symbol`] reference.
+    ///
+    /// This helper automatically extracts the `id` and `kind` from the provided symbol
+    /// and captures the caller's location for traceability.
+    ///
+    /// # Arguments
+    /// * `symbol` - A reference to the symbol that triggered the error.
     #[track_caller]
-    pub fn incomplete_declaration(symbol: SymbolId, has_ty: bool, has_ids: bool) -> Self {
-        Self::IncompleteDeclaration {
-            symbol,
-            has_ty,
-            has_ids,
-        }
-        .trace()
-    }
-
-    /// Creates a [`SemanticFinalizationError`] for a mismatch between semantic types and AST nodes.
-    #[track_caller]
-    pub fn type_inconsistency(symbol: SymbolId, ty_len: usize, ids_len: usize) -> Self {
-        Self::TypeInconsistency {
-            symbol,
-            ty_len,
-            ids_len,
+    pub fn unsupported_symbol_kind(symbol: &Symbol) -> Self {
+        Self::UnsupportedSymbolKind {
+            id: symbol.id(),
+            kind: symbol.kind(),
         }
         .trace()
     }
 }
 
-impl Traceable for SemanticFinalizationError {}
+impl Traceable for FinalizationError {}

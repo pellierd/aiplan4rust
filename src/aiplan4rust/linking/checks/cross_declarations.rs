@@ -101,7 +101,7 @@ pub fn check_cross_declared_symbols(
                     declaration.span().clone(),
                 );
 
-                diagnostic_manager.add_diagnostic(error);
+                diagnostic_manager.report(error);
                 checked = false;
             }
         }

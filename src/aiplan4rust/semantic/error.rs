@@ -14,7 +14,7 @@
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::linking::finalization::error::SemanticFinalizationError;
+use crate::aiplan4rust::linking::finalization::error::FinalizationError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::signature_checker::SignatureMatcherError;
@@ -79,7 +79,7 @@ pub enum SemanticError {
 
     /// Errors related to the finalization.
     #[error(transparent)]
-    SemanticPass(#[from] SemanticFinalizationError),
+    SemanticPass(#[from] FinalizationError),
 
     /// Error related to the string interner.
     #[error(transparent)]

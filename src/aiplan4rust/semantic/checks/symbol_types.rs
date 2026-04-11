@@ -96,7 +96,7 @@ pub fn check_symbol_types(
                             .unwrap_or_else(|| declaration.span()); // FALLBACK : Le nom de l'objet (ex: Phenomenon7)
 
                         // Generate an error diagnostic for the user
-                        diagnostic_manager.add_diagnostic(Diagnostic::error_undeclared_type(
+                        diagnostic_manager.report(Diagnostic::error_undeclared_type(
                             *type_id,
                             declaration.clone(),
                             context.provider(),

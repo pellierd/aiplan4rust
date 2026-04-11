@@ -177,7 +177,7 @@ fn report_cyclic_type_declaration_error(
         let error =
             Diagnostic::error_cyclic_type_declaration(cycle_detail, provider, source, first_span);
 
-        diagnostic_manager.add_diagnostic(error);
+        diagnostic_manager.report(error);
     }
 
     Ok(())

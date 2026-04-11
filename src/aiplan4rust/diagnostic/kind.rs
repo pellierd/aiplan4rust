@@ -563,6 +563,20 @@ pub enum Kind {
         /// The simplified version of the type.
         simplified_type: Type<SymbolId>,
     },
+
+    /// A type union has been narrowed down to a more specific subset of types.
+    ///
+    /// This occurs during the finalization phase when semantic inference determines that
+    /// a symbol declared with an `(either ...)` block is restricted to fewer types than
+    /// originally specified. The AST is physically pruned to reflect this refinement.
+    TypeNarrowing {
+        /// The symbol (variable, constant, or function) whose type was narrowed.
+        symbol: Symbol,
+        /// The list of types that were identified as unreachable and removed from the AST.
+        removed_types: Vec<SymbolId>,
+        /// The final list of types retained for this symbol after synchronization.
+        remaining_types: Vec<SymbolId>,
+    },
 }
 
 impl Kind {
@@ -608,6 +622,7 @@ impl Kind {
             Kind::IncompatibleTypeDeclarations { .. } => "011",
             Kind::DeprecatedFeature { .. } => "012",
             Kind::RedundantTypeUnion { .. } => "013",
+            Kind::TypeNarrowing { .. } => "014",
         }
     }
 
@@ -667,6 +682,7 @@ impl Kind {
             Kind::DuplicateVariableSkeletonDeclaration { .. } => Severity::Warning,
             Kind::DeprecatedFeature { .. } => Severity::Warning,
             Kind::RedundantTypeUnion { .. } => Severity::Warning,
+            Kind::TypeNarrowing { .. } => Severity::Warning,
         }
     }
 }
@@ -823,6 +839,23 @@ impl RemapSymbol for DiagnosticKind {
                 symbol_id.remap_idents(map)?;
                 original_type.remap_symbol(map)?;
                 simplified_type.remap_symbol(map)?;
+            }
+
+            Kind::TypeNarrowing {
+                symbol,
+                removed_types,
+                remaining_types,
+            } => {
+                // Remap the main symbol (this handles the unique ID of the narrowed variable/constant).
+                symbol.remap_symbol(map)?;
+                // Remap all type identifiers that were removed from the AST.
+                for type_id in removed_types {
+                    type_id.remap_idents(map)?;
+                }
+                // Remap all type identifiers that are still present after narrowing.
+                for type_id in remaining_types {
+                    type_id.remap_idents(map)?;
+                }
             }
 
             Kind::UnexpectedToken { .. }

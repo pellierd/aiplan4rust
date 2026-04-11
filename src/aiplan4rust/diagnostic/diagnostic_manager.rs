@@ -8,10 +8,10 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Severity};
 use crate::aiplan4rust::interner::InternerError;
 
+use crate::aiplan4rust::lang::{LiteralId, SymbolId};
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt;
-use itertools::Itertools;
-use crate::aiplan4rust::lang::{LiteralId, SymbolId};
 
 /// Manages a collection of diagnostics and their associated source files.
 ///
@@ -99,7 +99,7 @@ impl DiagnosticManager {
     /// # Arguments
     ///
     /// * `diagnostic` - A diagnostic message (error, warning, etc.).
-    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+    pub fn report(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
     }
 
@@ -116,9 +116,7 @@ impl DiagnosticManager {
     ///
     /// Diagnostics are sorted by their starting character offset.
     pub fn diagnostics(&self) -> impl Iterator<Item = &Diagnostic> {
-        self.diagnostics
-            .iter()
-            .sorted_by_key(|d| d.span().start())
+        self.diagnostics.iter().sorted_by_key(|d| d.span().start())
     }
 
     /// Checks if at least one diagnostic of a specific kind exists.
@@ -144,7 +142,9 @@ impl DiagnosticManager {
     ///
     /// `true` if at least one diagnostic has the specified severity.
     pub fn has_diagnostics_of_severity(&self, severity: Severity) -> bool {
-        self.diagnostics.iter().any(|e| e.kind().severity() == severity)
+        self.diagnostics
+            .iter()
+            .any(|e| e.kind().severity() == severity)
     }
 
     /// Returns the number of diagnostics with the specified severity.
@@ -153,7 +153,8 @@ impl DiagnosticManager {
     ///
     /// * `severity` - The severity level to count.
     pub fn count_diagnostics_of_severity(&self, severity: Severity) -> usize {
-        self.diagnostics.iter()
+        self.diagnostics
+            .iter()
             .filter(|e| e.kind().severity() == severity)
             .count()
     }
@@ -188,7 +189,11 @@ impl DiagnosticManager {
     /// [`Ident`]: crate::interner::Ident
     /// [`Literal`]: crate::interner::Literal
     /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
-     pub fn remap(&mut self, idents: &HashMap<SymbolId, SymbolId>, literals: &HashMap<LiteralId, LiteralId>) -> Result<(), InternerError> {
+    pub fn remap(
+        &mut self,
+        idents: &HashMap<SymbolId, SymbolId>,
+        literals: &HashMap<LiteralId, LiteralId>,
+    ) -> Result<(), InternerError> {
         for diagnostic in &mut self.diagnostics {
             diagnostic.remap(idents, literals)?;
         }
@@ -217,7 +222,6 @@ impl DiagnosticManager {
     pub fn is_empty(&self) -> bool {
         self.diagnostics.is_empty()
     }
-
 }
 
 /// Implements the `Display` trait for `DiagnosticManager` for debugging purposes.
@@ -261,7 +265,7 @@ impl fmt::Display for DiagnosticManager {
                 f,
                 "[{}] kind: {}, provider: {}, source: {}, span: {}",
                 i,
-                diag.kind(),      // Assuming `Kind` holds the variant
+                diag.kind(), // Assuming `Kind` holds the variant
                 diag.provider(),
                 diag.source(),
                 diag.span()

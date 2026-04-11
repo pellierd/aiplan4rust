@@ -126,7 +126,7 @@ fn report_warning_requirement_violation(
             source,
             node.span(),
         );
-        diagnostic_manager.add_diagnostic(warning);
+        diagnostic_manager.report(warning);
         false
     } else {
         true

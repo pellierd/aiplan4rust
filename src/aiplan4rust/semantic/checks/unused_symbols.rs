@@ -84,7 +84,7 @@ pub fn check_unused_symbols(
                 return Ok(true); // On retourne Ok(true) car l'analyse est finie (même si tronquée)
             }
 
-            diagnostic_manager.add_diagnostic(Diagnostic::warning_unused_symbol(
+            diagnostic_manager.report(Diagnostic::warning_unused_symbol(
                 declaration.clone(),
                 context.provider(),
                 context.source(),

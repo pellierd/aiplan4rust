@@ -84,7 +84,7 @@ pub fn check_domain_name(
             problem.source(),
             ast.span().clone(),
         );
-        diagnostic_manager.add_diagnostic(warning);
+        diagnostic_manager.report(warning);
     }
 
     // --- 5. Return success (warnings do not stop the linking process) ---

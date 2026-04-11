@@ -246,7 +246,29 @@ fn format_suggestion_internal(
             simplified_type,
             ..
         } => format_redundant_type_union_suggestion(*symbol_id, simplified_type, interner),
+        Kind::TypeNarrowing {
+            symbol,
+            remaining_types,
+            ..
+        } => format_type_narrowing_suggestion(symbol.id(), remaining_types, interner),
     }
+}
+
+/// Constructs a suggestion for type narrowing diagnostics.
+///
+/// Encourages the user to simplify their source code to match the inferred narrowed type.
+fn format_type_narrowing_suggestion(
+    symbol_id: SymbolId,
+    remaining_types: &[SymbolId],
+    interner: Option<&SymbolInterner>,
+) -> Option<String> {
+    let symbol_name = formatting::ident_to_string(symbol_id, interner);
+    let suggested_type = formatting::idents_to_string_list(remaining_types, interner);
+
+    Some(format!(
+        "use `{}` instead to match the inferred usage of `{}`",
+        suggested_type, symbol_name
+    ))
 }
 
 fn format_redundant_type_union_suggestion(

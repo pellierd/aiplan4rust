@@ -753,7 +753,7 @@ fn init_from_atomic_function_skeleton(
         // PROPRE : Si on injecte un type par défaut, on associe l'ID du nœud
         // de la fonction pour que le Finalizer sache où "pointer" ce type.
         if ty_node_ids.is_empty() {
-            ty_node_ids.push(ParseContext::NODE_ID_NUMBER);
+            ty_node_ids.push(AstNode::NODE_ID_NUMBER);
         }
     }
     // ------------------------------------------------

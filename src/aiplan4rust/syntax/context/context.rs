@@ -66,37 +66,6 @@ pub struct ParseContext {
 }
 
 impl ParseContext {
-    /// Reserved AST node index for the PDDL 'object' root type.
-    /// Matches [`SymbolInterner::OBJECT_SYMBOL_ID`].
-    pub const NODE_ID_OBJECT: NodeId = NodeId::new(0);
-
-    /// Reserved AST node index for the PDDL 'number' primitive type.
-    /// Matches [`SymbolInterner::NUMBER_SYMBOL_ID`].
-    pub const NODE_ID_NUMBER: NodeId = NodeId::new(1);
-
-    /// Reserved AST node index for the implicit '?duration' variable.
-    /// This node is automatically available within the scope of durative actions.
-    /// Matches [`SymbolInterner::DURATION_VARIABLE_SYMBOL_ID`].
-    pub const NODE_ID_DURATION: NodeId = NodeId::new(2);
-
-    /// Reserved AST node index for the 'total-time' system function.
-    /// Typically used in problem metrics for temporal planning.
-    /// Matches [`SymbolInterner::TOTAL_TIME_SYMBOL_ID`].
-    pub const NODE_ID_TOTAL_TIME: NodeId = NodeId::new(3);
-
-    /// Reserved AST node index for the 'total-cost' system function.
-    /// Used when the `:action-costs` requirement is active.
-    /// Matches [`SymbolInterner::TOTAL_COST_SYMBOL_ID`].
-    pub const NODE_ID_TOTAL_COST: NodeId = NodeId::new(4);
-
-    /// Reserved AST node index for the '#t' continuous time variable.
-    /// Used in PDDL+ for continuous effects and processes.
-    /// Matches [`SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID`].
-    pub const NODE_ID_CONTINUOUS_TIME: NodeId = NodeId::new(5);
-
-    /// The total number of built-in nodes reserved at the start of the AST arena.
-    pub const BUILTIN_NODES_COUNT: usize = 6;
-
     /// Creates a new `ParseContext` and attempts to initialize the PDDL built-in nodes.
     ///
     /// This constructor ensures that the AST arena is pre-populated with reserved

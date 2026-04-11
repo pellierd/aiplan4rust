@@ -153,7 +153,7 @@ impl Linker {
                 global_interner,
             ));
         }
-        /*let mut domain_ast = dc.take_syntax_tree();
+        let mut domain_ast = dc.take_syntax_tree();
         let mut domain_table = dc.take_symbol_table();
         let domain_source = dc.source();
         self.finalize(
@@ -163,10 +163,26 @@ impl Linker {
             &global_interner,
         )?;
         dc.set_syntax_tree(domain_ast);
-        dc.set_symbol_table(domain_table);*/
+        dc.set_symbol_table(domain_table);
+
+        let mut problem_ast = pc.take_syntax_tree();
+        let mut problem_table = pc.take_symbol_table();
+        let problem_source = pc.source();
+
+        // 2. On exécute la finalisation/analyse
+        self.finalize(
+            &mut problem_ast,
+            &mut problem_table,
+            problem_source,
+            &global_interner,
+        )?;
+
+        // 3. On réinjecte les données transformées dans le contexte
+        pc.set_syntax_tree(problem_ast);
+        pc.set_symbol_table(problem_table);
 
         // 5. Success: Construct the linked semantic context
-        let mut context = LinkedSemanticContext::new(dc, pc, global_interner)?;
+        let context = LinkedSemanticContext::new(dc, pc, global_interner)?;
 
         Ok(LinkerResult::success(
             context,
@@ -311,7 +327,7 @@ impl Linker {
         interner: &SymbolInterner,
     ) -> Result<(), LinkingError> {
         let context = FinalizationContext::new(interner, source, Provider::Linker);
-        finalization::types::finalize(&context, symbol_table, ast)?;
+        finalization::types::finalize(&context, symbol_table, ast, &mut self.diagnostic_manager)?;
 
         Ok(())
     }

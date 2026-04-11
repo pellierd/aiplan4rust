@@ -192,7 +192,7 @@ fn report_duplicate_requirements_warnings(
             source_id,
             require_def_node.span().clone(),
         );
-        diagnostic_manager.add_diagnostic(warning);
+        diagnostic_manager.report(warning);
     }
 
     Ok(())

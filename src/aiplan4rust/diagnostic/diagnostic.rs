@@ -1000,6 +1000,39 @@ impl Diagnostic {
         }
     }
 
+    /// Constructs a diagnostic warning for automated type narrowing.
+    ///
+    /// This occurs during the finalization phase when a symbol declared with multiple
+    /// possible types (via 'either') is narrowed down to a specific subset based on
+    /// semantic inference or usage constraints.
+    ///
+    /// # Arguments
+    /// - `symbol`: The symbol whose type list was narrowed.
+    /// - `removed_types`: The list of types that were pruned from the AST.
+    /// - `remaining_types`: The final list of types kept for this symbol.
+    /// - `provider`: The origin of the diagnostic (e.g., SemanticFinalization).
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source (usually the 'either' block) where narrowing occurred.
+    pub fn warning_type_narrowing(
+        symbol: Symbol,
+        removed_types: Vec<SymbolId>,
+        remaining_types: Vec<SymbolId>,
+        provider: Provider,
+        source: LiteralId,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::TypeNarrowing {
+                symbol,
+                removed_types,
+                remaining_types,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
     /// Constructs a custom error with a message and optional suggestion.
     ///
     /// # Arguments

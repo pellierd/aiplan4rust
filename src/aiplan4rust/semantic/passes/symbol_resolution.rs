@@ -54,6 +54,7 @@ use crate::aiplan4rust::semantic::symbol::{
 };
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ParseContext;
 use crate::aiplan4rust::tree::NodeId;
 
@@ -189,12 +190,12 @@ fn collect_nominal_resolutions(
 ///   via standard scoping rules (Local or Domain).
 fn resolve_builtin(symbol_id: SymbolId) -> Option<Resolution> {
     let reserved_id = match symbol_id {
-        SymbolInterner::OBJECT_SYMBOL_ID => ParseContext::NODE_ID_OBJECT,
-        SymbolInterner::NUMBER_SYMBOL_ID => ParseContext::NODE_ID_NUMBER,
-        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID => ParseContext::NODE_ID_DURATION,
-        SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID => ParseContext::NODE_ID_CONTINUOUS_TIME,
-        SymbolInterner::TOTAL_TIME_SYMBOL_ID => ParseContext::NODE_ID_TOTAL_TIME,
-        SymbolInterner::TOTAL_COST_SYMBOL_ID => ParseContext::NODE_ID_TOTAL_COST,
+        SymbolInterner::OBJECT_SYMBOL_ID => AstNode::NODE_ID_OBJECT,
+        SymbolInterner::NUMBER_SYMBOL_ID => AstNode::NODE_ID_NUMBER,
+        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID => AstNode::NODE_ID_DURATION,
+        SymbolInterner::CONTINUOUS_VARIABLE_SYMBOL_ID => AstNode::NODE_ID_CONTINUOUS_TIME,
+        SymbolInterner::TOTAL_TIME_SYMBOL_ID => AstNode::NODE_ID_TOTAL_TIME,
+        SymbolInterner::TOTAL_COST_SYMBOL_ID => AstNode::NODE_ID_TOTAL_COST,
         // Return None if the symbol is not a managed built-in.
         _ => return None,
     };

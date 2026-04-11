@@ -90,6 +90,43 @@ pub(crate) fn type_to_string(ty: &Type<SymbolId>, interner: Option<&SymbolIntern
     }
 }
 
+/// Formats a list of identifiers into a PDDL-style type string.
+///
+/// If the list contains multiple identifiers, they are wrapped in an `(either ...)` block.
+/// If only one identifier is present, it is returned as a plain string.
+///
+/// # Parameters
+/// - `idents`: Slice of `SymbolId` representing the types.
+/// - `interner`: Optional reference to a `SymbolInterner` to resolve names.
+///
+/// # Returns
+/// A formatted string: `"type_a"` or `"(either type_a type_b)"`.
+pub(crate) fn idents_to_string_list(
+    idents: &[SymbolId],
+    interner: Option<&SymbolInterner>,
+) -> String {
+    match idents.len() {
+        0 => "unknown".to_string(),
+        1 => ident_to_string(idents[0], interner),
+        _ => {
+            let list = idents
+                .iter()
+                .map(|&id| ident_to_string(id, interner))
+                .collect::<Vec<_>>()
+                .join(" ");
+            format!("(either {})", list)
+        }
+    }
+}
+
+/// Formats a list of symbols into a PDDL-style type string.
+///
+/// Helper wrapper around [`idents_to_string_list`] for slices of [`Symbol`].
+pub(crate) fn format_symbol_list(symbols: &[Symbol], interner: Option<&SymbolInterner>) -> String {
+    let idents: Vec<SymbolId> = symbols.iter().map(|s| s.id()).collect();
+    idents_to_string_list(&idents, interner)
+}
+
 /// Formats a list of `Ident` values into a comma-separated string, resolving each ident using
 /// an optional `StringInterner`.
 ///

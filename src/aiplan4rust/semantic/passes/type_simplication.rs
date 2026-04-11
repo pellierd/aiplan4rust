@@ -127,7 +127,7 @@ fn collect_type_simplifications(
                         decl.span(),
                     );
 
-                    diagnostic_manager.add_diagnostic(warning);
+                    diagnostic_manager.report(warning);
                 }
             }
         }

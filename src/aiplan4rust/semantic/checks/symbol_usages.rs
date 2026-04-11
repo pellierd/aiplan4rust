@@ -74,7 +74,7 @@ pub fn check_symbol_usage(
                 // CAS A : Le symbole n'a aucune déclaration (Ni locale, ni domaine)
                 None => {
                     no_errors = false;
-                    diagnostic_manager.add_diagnostic(Diagnostic::error_undeclared_symbol(
+                    diagnostic_manager.report(Diagnostic::error_undeclared_symbol(
                         usage.clone(),
                         context.provider(),
                         context.source(),
@@ -108,7 +108,7 @@ pub fn check_symbol_usage(
                             } => {
                                 // Succès partiel (Type plus général) : Warning
                                 let arg_node = context.syntax_tree().try_node(*arg_node_id)?;
-                                diagnostic_manager.add_diagnostic(
+                                diagnostic_manager.report(
                                     Diagnostic::warning_task_argument_is_supertype_of_declaration(
                                         arg_decl.clone(),
                                         expected.clone(),
@@ -124,7 +124,7 @@ pub fn check_symbol_usage(
                                 // Erreur de signature (Arguments invalides) : Error
                                 no_errors = false;
                                 let usage_node = context.syntax_tree().try_node(usage.source())?;
-                                diagnostic_manager.add_diagnostic(
+                                diagnostic_manager.report(
                                     Diagnostic::error_invalid_symbol_signature(
                                         declaration.clone(),
                                         usage.clone(),
