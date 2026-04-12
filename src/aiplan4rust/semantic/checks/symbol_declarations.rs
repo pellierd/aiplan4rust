@@ -4,7 +4,8 @@
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::Requirement::{DurativeActions, Fluents, NumericFluents};
+use crate::aiplan4rust::lang::Requirement::ActionCosts;
+use crate::aiplan4rust::lang::{Requirement, SymbolId};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::rules::{
     can_kind_share_namespace, can_share_namespace, is_structural,
@@ -310,66 +311,157 @@ fn check_pddl_builtin_symbol_declaration(
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
-    let requirements = context.declared_requirements();
+    // 1. Built-in Identification:
+    // Check if the symbol ID corresponds to a reserved PDDL keyword
+    // based on the domain's active requirements.
+    let (expected_kind, reqs) =
+        match get_builtin_definition(declaration.symbol().id(), context.declared_requirements()) {
+            Some(def) => def,
+            None => return true, // Not a reserved keyword, proceed with standard validation.
+        };
 
-    let (expected_kind, reqs) = match declaration.symbol_ident() {
-        // "number" -> PrimitiveType
-        SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&NumericFluents) => {
-            (SymbolKind::PrimitiveType, vec![NumericFluents, Fluents])
+    // 2. Kind and Signature Validation:
+    // If the symbol is a built-in, verify that the declaration uses the correct
+    // SymbolKind and follows the expected PDDL signature (arguments/types).
+    if declaration.symbol().kind() == expected_kind {
+        // Use the signature helper to validate compliance (e.g., arity 0 for total-cost).
+        if is_compliant_builtin_signature(declaration) {
+            return true; // Valid built-in redeclaration, accepted silently.
         }
-        // "total-time" -> Function
-        SymbolInterner::TOTAL_TIME_SYMBOL_ID if requirements.contains(&NumericFluents) => {
-            (SymbolKind::Function, vec![NumericFluents, Fluents])
-        }
-        // "total-cost" -> Function (Ajouté ici pour la protection)
-        SymbolInterner::TOTAL_COST_SYMBOL_ID if requirements.contains(&NumericFluents) => {
-            (SymbolKind::Function, vec![NumericFluents, Fluents])
-        }
-        // "?duration" -> Variable
-        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if requirements.contains(&DurativeActions) => {
-            (SymbolKind::Variable, vec![DurativeActions])
-        }
-        _ => return true, // Nom non réservé
-    };
-    // 3. SANCTION : Si l'utilisateur a déclaré le bon nom avec le bon genre (Collision)
-    // On l'interdit pour protéger la priorité de ton resolve_type_id / resolve_function_id.
-    if declaration.symbol_kind() == expected_kind {
-        let error = Diagnostic::error_symbol_conflicts_with_keyword(
+
+        // 3. Enforcement:
+        // Report an error if the built-in is redeclared with an invalid signature.
+        diagnostic_manager.report(Diagnostic::error_symbol_conflicts_with_keyword(
             declaration.clone(),
             expected_kind,
             reqs,
             context.provider(),
             context.source(),
             declaration.span().clone(),
-        );
-        diagnostic_manager.report(error);
-        return true;
+        ));
+        return false;
     }
-    // 3. CAS B : Usage Ambigu (Genre différent)
-    // L'utilisateur déclare "object" comme "Constant".
-    // On vérifie si notre nouvelle stratégie autorise ce partage.
+
+    // 4. Namespace Conflict Handling:
+    // If the kind differs, check if the language rules allow cross-namespace sharing.
+    // Issues a warning for ambiguous usage (e.g., total-cost used as a Predicate).
     if can_kind_share_namespace(
         declaration.symbol().kind(),
         declaration.is_derived(),
         expected_kind,
     ) {
-        // C'est autorisé (ex: Constant vs Type), mais c'est risqué.
-        // -> WARNING (ton ancienne stratégie d'ambiguïté)
-        let warning = Diagnostic::warning_symbol_declared_ambiguously_as_keyword(
+        diagnostic_manager.report(Diagnostic::warning_symbol_declared_ambiguously_as_keyword(
             declaration.clone(),
             expected_kind,
             reqs,
             context.provider(),
             context.source(),
             declaration.span(),
-        );
-        diagnostic_manager.report(warning);
-        false
-    } else {
-        // CAS C : Conflit Radical (ex: Variable nommée "object")
-        // Ce n'est pas autorisé par can_share_name_space_with.
-        // On pourrait ici mettre une erreur plus grave ou rester sur le warning.
-        false
+        ));
+    }
+
+    false
+}
+
+/// Retrieves the expected [`SymbolKind`] and the associated [`Requirement`] list for a PDDL built-in symbol.
+///
+/// This function acts as a registry for reserved keywords that become active only when
+/// specific requirements are declared in the domain (e.g., `total-cost` requires `:numeric-fluents`
+/// or `:action-costs`).
+///
+/// # Arguments
+///
+/// * `symbol_id` - The internal identifier of the symbol to check.
+/// * `requirements` - The set of requirements currently active in the PDDL context.
+///
+/// # Returns
+///
+/// * `Some((SymbolKind, Vec<Requirement>))` - If the symbol is a reserved built-in under the current requirements.
+///   The vector contains all requirements that trigger this reservation.
+/// * `None` - If the symbol is not reserved or if the necessary requirements are missing.
+fn get_builtin_definition(
+    symbol_id: SymbolId,
+    requirements: &HashSet<Requirement>,
+) -> Option<(SymbolKind, Vec<Requirement>)> {
+    match symbol_id {
+        // "number" is reserved as a PrimitiveType if numeric fluents are enabled.
+        SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&Requirement::NumericFluents) => {
+            Some((SymbolKind::PrimitiveType, vec![Requirement::NumericFluents]))
+        }
+
+        // "total-cost" is a special built-in function activated by either :numeric-fluents or :action-costs.
+        SymbolInterner::TOTAL_COST_SYMBOL_ID => {
+            let mut found = Vec::new();
+            if requirements.contains(&Requirement::NumericFluents) {
+                found.push(Requirement::NumericFluents);
+            }
+            if requirements.contains(&ActionCosts) {
+                found.push(ActionCosts);
+            }
+
+            if !found.is_empty() {
+                Some((SymbolKind::Function, found))
+            } else {
+                None
+            }
+        }
+
+        // "total-time" is a built-in function for temporal or metric planning.
+        SymbolInterner::TOTAL_TIME_SYMBOL_ID
+            if requirements.contains(&Requirement::NumericFluents) =>
+        {
+            Some((SymbolKind::Function, vec![Requirement::NumericFluents]))
+        }
+
+        // "?duration" is a reserved variable name within durative action specifications.
+        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID
+            if requirements.contains(&Requirement::DurativeActions) =>
+        {
+            Some((SymbolKind::Variable, vec![Requirement::DurativeActions]))
+        }
+
+        _ => None,
+    }
+}
+
+/// Validates whether a declaration's signature (arguments and return type)
+/// complies with PDDL architectural standards for built-in symbols.
+///
+/// This helper ensures that reserved symbols are not only used with the correct
+/// [`SymbolKind`], but also with the correct structure. For example, in PDDL 3.1,
+/// `total-cost` must be a nullary function (0 arguments) returning a numeric value.
+///
+/// # Arguments
+///
+/// * `declaration` - The symbol declaration to validate.
+///
+/// # Returns
+///
+/// * `true` - If the signature matches the standard requirements for the built-in,
+///   or if the symbol has no specific signature constraints (e.g., `number`).
+/// * `false` - If the signature violates PDDL constraints (e.g., `total-cost` declared with parameters).
+fn is_compliant_builtin_signature(declaration: &Declaration) -> bool {
+    match declaration.symbol().id() {
+        // total-cost and total-time must be functions of arity 0 (no arguments)
+        // and must return a numeric type (either explicitly via 'number' or implicitly).
+        SymbolInterner::TOTAL_COST_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
+            let has_no_args = declaration
+                .arguments()
+                .as_ref()
+                .map_or(true, |a| a.is_empty());
+
+            // PDDL 3.1: If no type is specified, 'number' is assumed for fluents.
+            let is_number = declaration
+                .ty()
+                .as_ref()
+                .map_or(true, |t| t.is_number() || t.is_empty());
+
+            has_no_args && is_number
+        }
+
+        // For other built-ins like 'number', having the correct SymbolKind
+        // (PrimitiveType) is sufficient, so the signature is always considered compliant.
+        _ => true,
     }
 }
 
