@@ -98,9 +98,6 @@ extern {
         "end" => Token::End,
         "over" => Token::Over,
         "all" => Token::All,
-        //"at start" => Token::AtStart,
-        //"at end" => Token::AtEnd,
-        //"over all" => Token::OverAll,
 
         // Constraints
         "always" => Token::Always,
@@ -811,7 +808,7 @@ pub ConGD: Result<NodeId, ParseContextError> = {
 }
 
 pub TemporalConGD: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" AtStart <gd:GD> ")" <end:@R> => {
+    <start:@L> "(" "at" "end" <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![gd?], start, end)
     },
     <start:@L> "(" "always" <gd:GD> ")" <end:@R> => {
@@ -843,16 +840,11 @@ pub TemporalConGD: Result<NodeId, ParseContextError> = {
     },
 }
 
-pub AtStart: () = { "at" "start" };
-pub AtEnd: () = { "at" "end" };
-pub OverAll: () = { "over" "all" };
-
 pub DerivedDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":derived" <atom:AtomicFormulaSkeleton> <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::DerivedDef, AstContent::None, vec![atom?, gd?], start, end)
     }
 }
-
 
 pub DurativeActionDef: Result<NodeId, ParseContextError> = {
     <start:@L>
@@ -889,10 +881,10 @@ pub SimpleDurationConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <op:DOp> <var:DurationVariable> <value:DValue> ")" <end:@R> => {
         context.alloc_node(AstKind::Comparison, op, vec![var?, value?], start, end)
     },
-    <start:@L> AtStart <constraints:SimpleDurationConstraint> <end:@R> => {
+    <start:@L> "at" "start" <constraints:SimpleDurationConstraint> <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![constraints?], start, end)
     },
-    <start:@L> AtEnd <constraints:SimpleDurationConstraint> <end:@R> => {
+    <start:@L> "at" "end" <constraints:SimpleDurationConstraint> <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![constraints?], start, end)
     },
 }
@@ -942,13 +934,13 @@ pub PrefTimedGD: Result<NodeId, ParseContextError> = {
 }
 
 pub TimedGD: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" AtStart <gd:GD> ")" <end:@R> => {
+    <start:@L> "(" "at" "start" <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![gd?], start, end)
     },
-    <start:@L> "(" AtEnd <gd:GD> ")" <end:@R> => {
+    <start:@L> "(" "at" "end" <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![gd?], start, end)
     },
-    <start:@L> "(" OverAll <gd:GD> ")" <end:@R> => {
+    <start:@L> "(" "over" "all" <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::Overall, AstContent::None, vec![gd?], start, end)
     },
 }
@@ -973,10 +965,10 @@ pub DAEffect: Result<NodeId, ParseContextError> = {
 }
 
 pub TimedEffect: Result<NodeId, ParseContextError> = {
-    <start:@L> "(" AtStart <con_effect:CondEffect> ")" <end:@R> => {
+    <start:@L> "(" "at" "start" <con_effect:CondEffect> ")" <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![con_effect?], start, end)
     },
-    <start:@L> "(" AtEnd <con_effect:CondEffect> ")" <end:@R> => {
+    <start:@L> "(" "at" "end" <con_effect:CondEffect> ")" <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![con_effect?], start, end)
     },
     <start:@L> "(" <op:AssignOpT> <fhead:FHead> <fexpt:FExpT> ")" <end:@R> => {
