@@ -507,6 +507,7 @@ pub PreGD: Result<NodeId, ParseContextError> = {
     <comparison:Comparison> => comparison,
 }
 
+
 pub PrefGD: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "preference" <pref_name:PrefName?> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -762,30 +763,54 @@ pub FHead: Result<NodeId, ParseContextError> = {
     }
 }
 
-pub Constraints: Result<NodeId, ParseContextError> = {
+pub DomainConstraints: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":constraints" <con_gd:ConGD> ")" <end:@R> => {
         context.alloc_node(AstKind::Constraints, AstContent::None, vec![con_gd?], start, end)
     }
 }
 
-pub AtStart: () = { "at" "start" };
-pub AtEnd: () = { "at" "end" };
-pub OverAll: () = { "over" "all" };
+pub ProblemConstraints: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":constraints" <pref_con_gd:PrefConGD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Constraints, AstContent::None, vec![pref_con_gd?], start, end)
+    }
+}
 
+pub PrefConGD:Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "preference" <pref_name:PrefName?> <gd:ConGD> ")" <end:@R> => {
+            let mut children = Vec::new();
+            if let Some(pref_name) = pref_name {
+                children.push(pref_name?);
+            }
+            children.push(gd?);
+            context.alloc_node(AstKind::Preference, AstContent::None, children, start, end)
+        },
+    <start:@L> "(" "and" <pre_con_gd:PrefConGD*> ")" <end:@R> => {
+        let pre_con_gd = pre_con_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, pre_con_gd, start, end)
+    },
+    <start:@L>
+        "(" "forall"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <pre_con_gd:PrefConGD>
+        ")"
+    <end:@R> => {
+            context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, pre_con_gd?], start, end)
+    },
+    <con_gd:TemporalConGD> => con_gd,
+}
 
 pub ConGD: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "and" <con_gd:ConGD*> ")" <end:@R> => {
         let con_gd = con_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::And, AstContent::None, con_gd, start, end)
     },
-    <start:@L>
-        "(" "forall"
-            <start_var:@L> "(" <variables:TypedList<Variable>> ")"
-            <end_var:@R> <con_gd:ConGD>
-        ")"
-    <end:@R> => {
+    <start:@L> "(" "forall" "(" <variables:TypedList<Variable>> ")" <con_gd:ConGD> ")" <end:@R> => {
         context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, con_gd?], start, end)
     },
+    <gd:TemporalConGD> => gd,
+}
+
+pub TemporalConGD: Result<NodeId, ParseContextError> = {
     <start:@L> "(" AtStart <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::AtEnd, AstContent::None, vec![gd?], start, end)
     },
@@ -817,6 +842,10 @@ pub ConGD: Result<NodeId, ParseContextError> = {
         context.alloc_node(AstKind::HoldAfter, AstContent::None, vec![number?, gd?], start, end)
     },
 }
+
+pub AtStart: () = { "at" "start" };
+pub AtEnd: () = { "at" "end" };
+pub OverAll: () = { "over" "all" };
 
 pub DerivedDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":derived" <atom:AtomicFormulaSkeleton> <gd:GD> ")" <end:@R> => {
@@ -988,7 +1017,7 @@ DomainElement: Result<NodeId, ParseContextError> = {
     <c:ConstantsDef> => c,
     <p:PredicatesDef> => p,
     <f:FunctionsDef> => f,
-    <s:Constraints> => s,
+    <s:DomainConstraints> => s,
 }
 
 pub Domain: Result<NodeId, ParseContextError> = {
@@ -1169,7 +1198,7 @@ ProblemElement: Result<NodeId, ParseContextError> = {
     <o:ObjectsDef> => o,
     <i:Init> => i,
     <g:Goal> => g,
-    <c:Constraints> => c,
+    <c:ProblemConstraints> => c,
     <m:MetricSpec> => m,
     <l:LengthSpec> => l,
 }
