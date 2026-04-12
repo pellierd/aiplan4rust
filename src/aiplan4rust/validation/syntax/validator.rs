@@ -220,9 +220,8 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         | AstKind::AtMostOnce
         | AstKind::Goal
         | AstKind::Constraints
-        | AstKind::TaskLogicalConstraintDef => {
-            syntax::checks::check_unary_child_expression(ast, node)
-        }
+        | AstKind::TaskLogicalConstraintDef
+        | AstKind::DurationConstraint => syntax::checks::check_unary_child_expression(ast, node),
         AstKind::Metric => {
             common::checks::check_children_count(node.arity(), 1, node)?;
             common::checks::check_child_kind(ast, node, 0, METRIC_EXPRESSION)

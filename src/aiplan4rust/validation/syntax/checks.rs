@@ -1083,7 +1083,7 @@ pub fn check_durative_action_def(ast: &Ast, node: &AstNode) -> Result<(), WellFo
 /// or if any child is not a valid expression.
 pub fn check_duartive_action_def_body(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     common::checks::check_children_count(node.arity(), 3, node)?;
-    common::checks::check_child_kind(ast, node, 0, EXPRESSION)?;
+    common::checks::check_child_kind(ast, node, 0, &[AstKind::DurationConstraint])?;
     common::checks::check_child_kind(ast, node, 1, EXPRESSION)?;
     common::checks::check_child_kind(ast, node, 2, EXPRESSION)
 }

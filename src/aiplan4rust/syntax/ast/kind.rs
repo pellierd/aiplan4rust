@@ -10,11 +10,11 @@
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::lexer::token::{
     ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS,
-    CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS, GOAL,
-    HOLD_AFTER, HOLD_DURING, HTN, IMPLY, INIT, IS_VIOLATED, LENGTH, METHOD, METRIC, NOT, OBJECTS,
-    OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVER_ALL, PARALLEL, PARAMETERS, PRECONDITION, PREDICATES,
-    PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER, SOMETIME_BEFORE, SUBTASKS,
-    TASK, TOTAL_TIME, TYPES, WHEN, WITHIN,
+    CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATION, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS,
+    GOAL, HOLD_AFTER, HOLD_DURING, HTN, IMPLY, INIT, IS_VIOLATED, LENGTH, METHOD, METRIC, NOT,
+    OBJECTS, OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVER_ALL, PARALLEL, PARAMETERS, PRECONDITION,
+    PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER,
+    SOMETIME_BEFORE, SUBTASKS, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN,
 };
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
@@ -141,6 +141,9 @@ pub enum Kind {
 
     /// The body of a durative action.
     DADefBody,
+
+    /// Represents the :duration constraint block in a durative action.
+    DurationConstraint,
 
     /// Definition of derived predicates or functions.
     DerivedDef,
@@ -389,6 +392,7 @@ impl Kind {
             Kind::TaskNetworkDef => "",
             Kind::InitialTaskNetwork => HTN,
             Kind::ParametersDef => PARAMETERS,
+            Kind::DurationConstraint => DURATION,
         };
         s.to_string()
     }
@@ -493,6 +497,7 @@ impl fmt::Display for Kind {
             Kind::TaskNetworkDef => "TaskNetworkDef",
             Kind::InitialTaskNetwork => "InitialTaskNetwork",
             Kind::ParametersDef => "ParametersDef",
+            Kind::DurationConstraint => "DurationConstraint",
         };
         write!(f, "{}", s)
     }

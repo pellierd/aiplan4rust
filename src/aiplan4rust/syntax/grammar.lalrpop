@@ -871,12 +871,16 @@ pub DADefBody: Result<NodeId, ParseContextError> = {
 pub DurationConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "and" <constraints:SimpleDurationConstraint*> ")" <end:@R> => {
         let constraints = constraints.into_iter().collect::<Result<Vec<_>, _>>()?;
-        context.alloc_node(AstKind::And, AstContent::None, constraints, start, end)
+        let and_node = context.alloc_node(AstKind::And, AstContent::None, constraints, start, end)?;
+        context.alloc_node(AstKind::DurationConstraint, AstContent::None, vec![and_node], start, end)
     },
     <start:@L> "(" ")" <end:@R> => {
-        context.alloc_node(AstKind::And, AstContent::None, vec![], start, end)
+        let and_node = context.alloc_node(AstKind::And, AstContent::None, vec![], start, end)?;
+        context.alloc_node(AstKind::DurationConstraint, AstContent::None, vec![and_node], start, end)
     },
-    <constraint:SimpleDurationConstraint> => constraint,
+    <start:@L> <constraint:SimpleDurationConstraint> <end:@R> => {
+        context.alloc_node(AstKind::DurationConstraint, AstContent::None, vec![constraint?], start, end)
+    },
 }
 
 pub SimpleDurationConstraint: Result<NodeId, ParseContextError> = {

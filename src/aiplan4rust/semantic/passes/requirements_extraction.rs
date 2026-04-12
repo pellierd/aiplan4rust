@@ -132,6 +132,14 @@ pub fn extract_required_requirements(
     // node is within a scope that requires specific requirement checks.
     let mut gd: Option<usize> = None;
 
+    /// Sentinel for the durative action context.
+    ///
+    /// This variable tracks the starting depth of a `:duration` constraint block.
+    /// It is used to suppress certain requirements that are usually mandatory for
+    /// numeric expressions (like raw numbers) but are implicitly covered by
+    /// `:durative-actions` when used within a duration specification.
+    let mut duration_depth: Option<usize> = None;
+
     // Perform a preorder traversal (root-to-leaves) of the syntax tree.
     // - 'id': Unique identifier for the node.
     // - 'depth': Vertical position in the tree hierarchy.
@@ -146,6 +154,14 @@ pub fn extract_required_requirements(
         if let Some(d) = gd {
             if depth <= d {
                 gd = None;
+            }
+        }
+
+        // Exit the Duration context if the current traversal depth is less than or equal
+        // to the recorded duration start depth.
+        if let Some(d) = duration_depth {
+            if depth <= d {
+                duration_depth = None;
             }
         }
 
@@ -196,6 +212,14 @@ pub fn extract_required_requirements(
                 }
                 _ => {}
             }
+        }
+
+        // --- 4. ENTER DURATION CONTEXT ---
+        // We now have a dedicated DurationConstraint node from the parser.
+        // When entering this node, we set the sentinel to handle numeric
+        // literals differently (PDDL 2.1 exception for :durative-actions).
+        if duration_depth.is_none() && node.kind() == AstKind::DurationConstraint {
+            duration_depth = Some(depth);
         }
 
         match node.kind() {
@@ -346,11 +370,24 @@ pub fn extract_required_requirements(
             }
 
             // --- :numeric-fluents ---
-            // Direct usage of numbers or arithmetic operations (outside of specialized
-            // contexts like action costs) requires the :numeric-fluents capability.
-            AstKind::Number | AstKind::Arithmetic => {
-                // Record that the domain uses numeric values or calculations,
-                // linking the requirement to this specific node ID.
+            // This section handles the requirements for numeric expressions.
+            // In PDDL, using numbers or math typically requires :numeric-fluents,
+            // but there are structural exceptions for durative actions.
+            AstKind::Number => {
+                // PDDL 2.1+ Exception: Raw numeric literals (e.g., (= ?duration 2))
+                // used within a duration constraint are implicitly allowed by
+                // :durative-actions and do not require :numeric-fluents.
+                if duration_depth.is_none() {
+                    // Outside of a duration context, any number triggers :numeric-fluents.
+                    add_req!(Requirement::NumericFluents, id);
+                }
+            }
+
+            AstKind::Arithmetic => {
+                // Arithmetic operators (+, -, *, /) represent advanced numeric
+                // capabilities. Unlike raw numbers, these ALWAYS trigger
+                // :numeric-fluents, even when used to calculate a duration
+                // (e.g., (= ?duration (* 2 ?t))).
                 add_req!(Requirement::NumericFluents, id);
             }
 
@@ -610,30 +647,44 @@ pub fn extract_required_requirements(
                 let l_id = node.try_child(0)?;
                 let r_id = node.try_child(1)?;
 
-                // --- 1. Specific Handling for :duration-inequalities ---
-                // If one side involves the '?duration' variable and the operator is an
-                // inequality (e.g., >=), it triggers the specific :duration-inequalities requirement.
-                let is_dur = is_duration_variable(l_id, syntax_tree)
-                    || is_duration_variable(r_id, syntax_tree);
-                if is_dur && op != CompareOp::Equal {
-                    add_req!(Requirement::DurationInequalities, id);
+                // Check if the comparison involves the '?duration' variable (temporal context).
+                let is_l_dur = is_duration_variable(l_id, syntax_tree);
+                let is_r_dur = is_duration_variable(r_id, syntax_tree);
+                let is_dur_context = is_l_dur || is_r_dur;
+
+                // --- 1. Specific Handling for :durative-actions & :duration-inequalities ---
+                if is_dur_context {
+                    // Inequality operators (>=, <=) on ?duration trigger :duration-inequalities.
+                    if op != CompareOp::Equal {
+                        add_req!(Requirement::DurationInequalities, id);
+                    }
+                    // NOTE: Simple equality (= ?duration 2) does NOT trigger :numeric-fluents
+                    // as it is inherently covered by the :durative-actions requirement.
                 }
 
                 // --- 2. Term Type Analysis (Numeric vs Object) ---
                 let req_l = self::get_term_requirement(l_id, syntax_tree, symbol_table)?;
 
-                // Optimization: if the left side is already identified as numeric,
-                // flag it and skip checking the right side.
+                // We only add NumericFluents if we are NOT in a simple duration constraint
+                // (e.g., ?duration compared to a constant).
                 if let Some(Requirement::NumericFluents) = req_l {
-                    add_req!(Requirement::NumericFluents, id);
+                    if !is_dur_context {
+                        add_req!(Requirement::NumericFluents, id);
+                    }
                 } else {
                     let req_r = self::get_term_requirement(r_id, syntax_tree, symbol_table)?;
 
                     match (req_l, req_r) {
-                        // Rule 1: At least one side is a numeric expression.
-                        (_, Some(Requirement::NumericFluents)) => {
+                        // If the right side is numeric but we are not in a duration context.
+                        (_, Some(Requirement::NumericFluents)) if !is_dur_context => {
                             add_req!(Requirement::NumericFluents, id);
                         }
+                        // Special Case: if we are in a duration context, only trigger NumericFluents
+                        // if the other side is a complex numeric expression (e.g., (* 2 (fuel))).
+                        (None, Some(Requirement::NumericFluents)) if is_dur_context => {
+                            add_req!(Requirement::NumericFluents, id);
+                        }
+
                         // Rule 2: Handling object comparisons (requires :object-fluents).
                         (Some(Requirement::ObjectFluents), _)
                         | (_, Some(Requirement::ObjectFluents)) => {
@@ -641,11 +692,16 @@ pub fn extract_required_requirements(
                         }
                         // Rule 3: Simple equality (=) between standard symbols.
                         _ if op == CompareOp::Equal => {
-                            add_req!(Requirement::Equality, id);
+                            // Standard equality only triggers :equality if not involving ?duration.
+                            if !is_dur_context {
+                                add_req!(Requirement::Equality, id);
+                            }
                         }
-                        // Rule 4: Inequality operators (<, >, etc.) on direct numbers or constants.
+                        // Rule 4: Inequality operators on numbers outside of simple ?duration constraints.
                         _ => {
-                            add_req!(Requirement::NumericFluents, id);
+                            if !is_dur_context {
+                                add_req!(Requirement::NumericFluents, id);
+                            }
                         }
                     }
                 }
@@ -699,8 +755,8 @@ pub fn extract_required_requirements(
             | AstKind::TotalTime
             | AstKind::Function
             | AstKind::FunctionSymbol
-            | AstKind::AtomicFunctionSkeleton => {
-
+            | AstKind::AtomicFunctionSkeleton
+            | AstKind::DurationConstraint => {
                 // No requirement associated
             }
         }

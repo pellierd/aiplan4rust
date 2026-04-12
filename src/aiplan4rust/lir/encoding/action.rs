@@ -101,10 +101,17 @@ pub fn encode(
             let def_body_node = ast.try_node(node.try_child(2)?)?;
 
             // 1. Contraintes de durée (:duration ...)
-            let duration_id = def_body_node.try_child(0)?;
-            let duration_node = ast.try_node(duration_id)?;
+            // 1.1 Accéder à l'enveloppe DurationConstraint
+            let duration_wrapper_id = def_body_node.try_child(0)?;
+            let duration_wrapper_node = ast.try_node(duration_wrapper_id)?;
+
+            // 1.2 Extraire la véritable expression (le premier fils du wrapper)
+            let actual_duration_id = duration_wrapper_node.try_child(0)?;
+            let actual_duration_node = ast.try_node(actual_duration_id)?;
+
+            // 1.3 Encoder la vraie expression
             let duration = expr::encode(
-                &SyntaxSubtree::new(duration_node, duration_id, ast),
+                &SyntaxSubtree::new(actual_duration_node, actual_duration_id, ast),
                 registry,
             )?;
 
