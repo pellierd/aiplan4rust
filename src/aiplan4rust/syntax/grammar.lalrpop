@@ -91,6 +91,7 @@ extern {
         ":preferences" => Token::Preferences,
         ":constraints" => Token::Constraints,
         ":action-costs" => Token::ActionCosts,
+        ":goal-utilities" => Token::GoalUtilities,
 
         // Time
         "at" => Token::At,
@@ -323,6 +324,7 @@ pub Requirement: Result<NodeId, ParseContextError> = {
     <start:@L> ":preferences" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Preferences), Vec::new(), start, end),
     <start:@L> ":constraints" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Constraints), Vec::new(), start, end),
     <start:@L> ":action-costs" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::ActionCosts), Vec::new(), start, end),
+    <start:@L> ":goal-utilities" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::GoalUtilities), Vec::new(), start, end),
     <start:@L> <error:!> <end:@R> => {
         context.push_error(error);
         context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end)

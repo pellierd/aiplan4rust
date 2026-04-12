@@ -1000,6 +1000,30 @@ impl Diagnostic {
         }
     }
 
+    /// Constructs a warning for a deprecated requirement.
+    ///
+    /// This diagnostic is triggered when a requirement from an older PDDL version
+    /// or a non-standard extension (like `:goal-utilities`) is used.
+    ///
+    /// # Arguments
+    /// - `requirement`: The deprecated requirement found in the PDDL source.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source where the requirement is declared.
+    pub fn warning_deprecated_requirement(
+        requirement: Requirement,
+        provider: Provider,
+        source: LiteralId,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::DeprecatedRequirement { requirement },
+            provider,
+            source,
+            span,
+        }
+    }
+
     /// Constructs a diagnostic warning for automated type narrowing.
     ///
     /// This occurs during the finalization phase when a symbol declared with multiple

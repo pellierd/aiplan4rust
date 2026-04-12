@@ -471,6 +471,17 @@ pub enum Kind {
         duplicate_requirements: Vec<Requirement>,
     },
 
+    /// A warning emitted when a deprecated requirement is declared.
+    ///
+    /// This diagnostic is triggered when a requirement from an older PDDL version
+    /// or a non-standard extension (e.g., `:goal-utilities` from IPC-2008) is used.
+    /// These requirements are maintained for backward compatibility but should be
+    /// replaced by official PDDL 3.0+ features like `:preferences`.
+    ///
+    /// # Fields
+    /// * `requirement` - The deprecated requirement found in the PDDL source.
+    DeprecatedRequirement { requirement: Requirement },
+
     /// Variant representing a custom error with a descriptive message and an optional suggestion.
     ///
     /// This variant stores owned `String`s for both the error message and an optional suggestion,
@@ -623,6 +634,7 @@ impl Kind {
             Kind::DeprecatedFeature { .. } => "012",
             Kind::RedundantTypeUnion { .. } => "013",
             Kind::TypeNarrowing { .. } => "014",
+            Kind::DeprecatedRequirement { .. } => "015",
         }
     }
 
@@ -683,6 +695,7 @@ impl Kind {
             Kind::DeprecatedFeature { .. } => Severity::Warning,
             Kind::RedundantTypeUnion { .. } => Severity::Warning,
             Kind::TypeNarrowing { .. } => Severity::Warning,
+            Kind::DeprecatedRequirement { .. } => Severity::Warning,
         }
     }
 }
@@ -870,8 +883,9 @@ impl RemapSymbol for DiagnosticKind {
             | Kind::DuplicateRequirementWarning { .. }
             | Kind::CustomError { .. }
             | Kind::DeprecatedFeature { .. }
-            | Kind::MissingMandatoryBlock { .. } => {}
-            Kind::CustomWarning { .. } => {
+            | Kind::MissingMandatoryBlock { .. }
+            | Kind::CustomWarning { .. }
+            | Kind::DeprecatedRequirement { .. } => {
                 // No remap needed
             }
         }

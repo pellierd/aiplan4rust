@@ -23,9 +23,7 @@
 //! println!("{}", req); // prints "strips"
 //! ```
 
-use std::collections::HashSet;
 use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
-use crate::aiplan4rust::syntax::lexer::token::ACTION_COSTS;
 use crate::aiplan4rust::syntax::lexer::token::ADL;
 use crate::aiplan4rust::syntax::lexer::token::CONDITIONAL_EFFECTS;
 use crate::aiplan4rust::syntax::lexer::token::CONSTRAINTS;
@@ -47,7 +45,9 @@ use crate::aiplan4rust::syntax::lexer::token::STRIPS;
 use crate::aiplan4rust::syntax::lexer::token::TIME_INITIAL_LITERALS;
 use crate::aiplan4rust::syntax::lexer::token::TYPING;
 use crate::aiplan4rust::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
+use crate::aiplan4rust::syntax::lexer::token::{ACTION_COSTS, GOAL_UTILITIES};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
+use std::collections::HashSet;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -110,9 +110,30 @@ pub enum Requirement {
     Hierarchy,
     /// Specifies method preconditions in HTN for HDDL.
     MethodPreconditions,
+    /// **[Deprecated]** Non-standard requirement from IPC-2008.
+    /// Used for Net Benefit planning; equivalent functionality is now
+    /// covered by `:preferences` and `:constraints` in PDDL 3.0+.
+    GoalUtilities,
 }
 
 impl Requirement {
+    /// Returns `true` if the requirement is considered deprecated.
+    ///
+    /// A requirement is deprecated if it was a non-standard or experimental
+    /// extension (e.g., from specific IPC competitions) that has since been
+    /// superseded by official PDDL 3.0+ features.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use crate::aiplan4rust::lang::Requirement;
+    ///
+    /// assert!(Requirement::GoalUtilities.is_deprecated());
+    /// assert!(!Requirement::Typing.is_deprecated());
+    /// ```
+    pub fn is_deprecated(&self) -> bool {
+        matches!(self, Requirement::GoalUtilities)
+    }
 
     /// Computes the transitive closure of a set of requirements.
     ///
@@ -177,7 +198,9 @@ impl Requirement {
 
                 // Quantified Preconditions covers its children
                 (Requirement::QuantifiedPreconditions, _) => match atomic {
-                    Requirement::ExistentialPreconditions | Requirement::UniversalPreconditions => true,
+                    Requirement::ExistentialPreconditions | Requirement::UniversalPreconditions => {
+                        true
+                    }
                     _ => false,
                 },
 
@@ -258,6 +281,7 @@ impl Requirement {
             Requirement::ActionCosts => ACTION_COSTS,
             Requirement::Hierarchy => HIERARCHY,
             Requirement::MethodPreconditions => METHOD_PRECONDITIONS,
+            Requirement::GoalUtilities => GOAL_UTILITIES,
         }
     }
 }

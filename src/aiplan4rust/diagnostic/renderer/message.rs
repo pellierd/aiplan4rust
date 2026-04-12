@@ -18,7 +18,7 @@ use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::diagnostic::renderer::formatting;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{SymbolId, Type};
+use crate::aiplan4rust::lang::{Requirement, SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::Language;
@@ -169,7 +169,19 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&SymbolIntern
             removed_types,
             remaining_types,
         } => format_type_narrowing(symbol.id(), removed_types, remaining_types, interner),
+        Kind::DeprecatedRequirement { requirement } => format_deprecated_requirement(*requirement),
     }
+}
+
+/// Constructs a descriptive message for a deprecated requirement.
+///
+/// This warns the user that a declared requirement is obsolete and provides
+/// context on its status (e.g., non-standard IPC extension).
+fn format_deprecated_requirement(requirement: Requirement) -> String {
+    format!(
+        "Requirement `{}` is deprecated since IPC 2008.",
+        requirement
+    )
 }
 
 /// Constructs a descriptive message for automated type narrowing.

@@ -251,7 +251,22 @@ fn format_suggestion_internal(
             remaining_types,
             ..
         } => format_type_narrowing_suggestion(symbol.id(), remaining_types, interner),
+        Kind::DeprecatedRequirement { requirement } => {
+            format_deprecated_requirement_suggestion(requirement)
+        }
     }
+}
+
+/// Constructs a suggestion for deprecated requirement diagnostics.
+///
+/// Advises the user on the modern PDDL alternative to use instead of the deprecated one.
+fn format_deprecated_requirement_suggestion(requirement: &Requirement) -> Option<String> {
+    let suggestion = match requirement {
+        Requirement::GoalUtilities => "use `:preferences` and `:constraints` instead",
+        _ => return None,
+    };
+
+    Some(suggestion.to_string())
 }
 
 /// Constructs a suggestion for type narrowing diagnostics.

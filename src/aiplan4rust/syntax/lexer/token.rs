@@ -261,6 +261,10 @@ pub const CONSTRAINTS: &str = ":constraints";
 /// Represents the ":action-costs" requirement in PDDL.
 pub const ACTION_COSTS: &str = ":action-costs";
 
+/// **[Deprecated]** Non-standard requirement from IPC-2008.
+/// Equivalent functionality is now covered by `:preferences` and `:constraints`.
+pub const GOAL_UTILITIES: &str = ":goal-utilities";
+
 // PDDL SEPARATORS
 /// "(" is used to denote the opening parenthesis in logic or groupings.
 pub const LPAREN: &str = "(";
@@ -545,6 +549,8 @@ pub enum Token {
     Constraints,
     #[token(":action-costs", ignore(ascii_case))]
     ActionCosts,
+    #[token(":goal-utilities", ignore(ascii_case))]
+    GoalUtilities,
 
     // Add for HDDL
     #[token(":hierarchy", ignore(ascii_case))]
@@ -631,12 +637,6 @@ pub enum Token {
     Decrease,
 
     // Time-related Tokens: Tokens for time-related actions.
-    /*#[token("at start", ignore(ascii_case))]
-    AtStart,
-    #[token("at end", ignore(ascii_case))]
-    AtEnd,
-    #[token("over all", ignore(ascii_case))]
-    OverAll,*/
     #[token("start", ignore(ascii_case))]
     Start,
     #[token("end", ignore(ascii_case))]
@@ -772,6 +772,7 @@ impl Token {
             Token::Preferences => PREFERENCES.to_string(),
             Token::Constraints => CONSTRAINTS.to_string(),
             Token::ActionCosts => ACTION_COSTS.to_string(),
+            Token::GoalUtilities => GOAL_UTILITIES.to_string(),
 
             // Separators
             Token::LParen => LPAREN.to_string(),
