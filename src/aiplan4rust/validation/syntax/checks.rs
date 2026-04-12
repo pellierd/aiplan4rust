@@ -216,9 +216,7 @@ pub fn check_atomic_formula_skeleton(ast: &Ast, node: &AstNode) -> Result<(), We
     common::checks::check_children_count_range(children_len, 1, 2, node)?;
 
     match children_len {
-        1 => {
-            common::checks::check_child_kind(ast, node, 0, &[AstKind::PredicateSymbol])
-        }
+        1 => common::checks::check_child_kind(ast, node, 0, &[AstKind::PredicateSymbol]),
         2 => {
             common::checks::check_child_kind(ast, node, 0, &[AstKind::PredicateSymbol])?;
             common::checks::check_child_kind(ast, node, 1, &[AstKind::TypedList])
@@ -259,9 +257,7 @@ pub fn check_atomic_function_skeleton(ast: &Ast, node: &AstNode) -> Result<(), W
     common::checks::check_children_count_range(children_len, 1, 2, node)?;
 
     match children_len {
-        1 => {
-            common::checks::check_child_kind(ast, node, 0, &[AstKind::FunctionSymbol])
-        }
+        1 => common::checks::check_child_kind(ast, node, 0, &[AstKind::FunctionSymbol]),
         2 => {
             common::checks::check_child_kind(ast, node, 0, &[AstKind::FunctionSymbol])?;
             common::checks::check_child_kind(ast, node, 1, &[AstKind::TypedList])
@@ -310,9 +306,12 @@ pub fn check_action_def_body(ast: &Ast, node: &AstNode) -> Result<(), WellFormed
 
     match children_len {
         0 => Ok(()),
-        1 => {
-            common::checks::check_child_kind(ast, node, 0, &[AstKind::PreconditionDef, AstKind::EffectDef])
-        }
+        1 => common::checks::check_child_kind(
+            ast,
+            node,
+            0,
+            &[AstKind::PreconditionDef, AstKind::EffectDef],
+        ),
         2 => {
             common::checks::check_child_kind(ast, node, 0, &[AstKind::PreconditionDef])?;
             common::checks::check_child_kind(ast, node, 1, &[AstKind::EffectDef])
@@ -571,19 +570,25 @@ pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForme
     let children_len = node.arity();
     common::checks::check_children_count_range(children_len, 1, 2, node)?;
     match children_len {
-        1 => {
-            common::checks::check_child_kind(ast, node, 0, &[
-                    AstKind::Number,
-                    AstKind::Comparison,
-                    AstKind::Function,
-                    AstKind::Variable,
-                    AstKind::Object,
-                    AstKind::Arithmetic,
-                ],
-            )
-        }
+        1 => common::checks::check_child_kind(
+            ast,
+            node,
+            0,
+            &[
+                AstKind::Number,
+                AstKind::Comparison,
+                AstKind::Function,
+                AstKind::Variable,
+                AstKind::Object,
+                AstKind::Arithmetic,
+            ],
+        ),
         2 => {
-            common::checks::check_child_kind(ast, node, 0, &[
+            common::checks::check_child_kind(
+                ast,
+                node,
+                0,
+                &[
                     AstKind::Number,
                     AstKind::Comparison,
                     AstKind::Function,
@@ -592,7 +597,11 @@ pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForme
                     AstKind::Arithmetic,
                 ],
             )?;
-            common::checks::check_child_kind(ast, node, 1, &[
+            common::checks::check_child_kind(
+                ast,
+                node,
+                1,
+                &[
                     AstKind::Number,
                     AstKind::Comparison,
                     AstKind::Function,
@@ -618,7 +627,11 @@ pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForme
 pub fn check_assign_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     common::checks::check_children_count(node.arity(), 2, node)?;
     common::checks::check_child_kind(ast, node, 0, &[AstKind::Function])?;
-    common::checks::check_child_kind(ast, node, 1, &[
+    common::checks::check_child_kind(
+        ast,
+        node,
+        1,
+        &[
             AstKind::Number,
             AstKind::Variable,
             AstKind::Object,
@@ -640,13 +653,19 @@ pub fn check_assign_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForm
 /// Returns an error if the number of children is not 1 or 2,
 /// or if any child does not have kind `Number` or 'FunctionTerm'.
 pub fn check_arithmetic_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    common::checks::check_min_children_count(node.arity(),  1, node)?;
+    common::checks::check_min_children_count(node.arity(), 1, node)?;
     for index in 0..node.arity() {
         common::checks::check_child_kind(
             ast,
             node,
             index,
-            &[AstKind::Number, AstKind::Variable, AstKind::Function, AstKind::Arithmetic]
+            &[
+                AstKind::Number,
+                AstKind::Variable,
+                AstKind::Function,
+                AstKind::Arithmetic,
+                AstKind::IsViolated,
+            ],
         )?;
     }
     Ok(())
@@ -661,7 +680,10 @@ pub fn check_arithmetic_expression(ast: &Ast, node: &AstNode) -> Result<(), Well
 ///
 /// # Errors
 /// Returns an error if the children do not match the expected kinds.
-pub fn check_within_hold_after_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
+pub fn check_within_hold_after_expression(
+    ast: &Ast,
+    node: &AstNode,
+) -> Result<(), WellFormedError> {
     let children_len = node.arity();
     common::checks::check_children_count(children_len, 2, node)?;
     common::checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
@@ -778,7 +800,7 @@ pub fn check_timed_initial_literal(ast: &Ast, node: &AstNode) -> Result<(), Well
         ast,
         node,
         1,
-        &[AstKind::Comparison, AstKind::Not, AstKind::AtomicFormula]
+        &[AstKind::Comparison, AstKind::Not, AstKind::AtomicFormula],
     )?;
 
     // 2. Verification of the (not <atomic_formula>)
@@ -911,28 +933,42 @@ pub fn check_task_network_def(ast: &Ast, node: &AstNode) -> Result<(), WellForme
     common::checks::check_children_count_range(children_len, 0, 3, node)?;
     match children_len {
         0 => Ok(()),
-        1 => {
-            common::checks::check_child_kind(ast, node, 0, &[
-                    AstKind::OrderedSubtaskDef,
-                    AstKind::PartiallyOrderedSubtaskDef,
-                    AstKind::TaskLogicalConstraintDef,
-                ],
-            )
-        }
+        1 => common::checks::check_child_kind(
+            ast,
+            node,
+            0,
+            &[
+                AstKind::OrderedSubtaskDef,
+                AstKind::PartiallyOrderedSubtaskDef,
+                AstKind::TaskLogicalConstraintDef,
+            ],
+        ),
         2 => {
-            common::checks::check_child_kind(ast, node, 0, &[
+            common::checks::check_child_kind(
+                ast,
+                node,
+                0,
+                &[
                     AstKind::OrderedSubtaskDef,
                     AstKind::PartiallyOrderedSubtaskDef,
                 ],
             )?;
-            common::checks::check_child_kind(ast, node, 1, &[
+            common::checks::check_child_kind(
+                ast,
+                node,
+                1,
+                &[
                     AstKind::TaskOrderingConstraintDef,
                     AstKind::TaskLogicalConstraintDef,
                 ],
             )
         }
         3 => {
-            common::checks::check_child_kind(ast, node, 0, &[
+            common::checks::check_child_kind(
+                ast,
+                node,
+                0,
+                &[
                     AstKind::OrderedSubtaskDef,
                     AstKind::PartiallyOrderedSubtaskDef,
                 ],
@@ -1065,9 +1101,7 @@ pub fn check_duartive_action_def_body(ast: &Ast, node: &AstNode) -> Result<(), W
 pub fn check_initial_task_network(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     common::checks::check_children_count_range(node.arity(), 1, 2, node)?;
     match node.arity() {
-        1 => {
-            common::checks::check_child_kind(ast, node, 0, &[AstKind::TaskNetworkDef])
-        }
+        1 => common::checks::check_child_kind(ast, node, 0, &[AstKind::TaskNetworkDef]),
         2 => {
             common::checks::check_child_kind(ast, node, 0, &[AstKind::ParametersDef])?;
             common::checks::check_child_kind(ast, node, 1, &[AstKind::TaskNetworkDef])
@@ -1133,16 +1167,19 @@ pub fn check_typed_list_of(
             common::checks::check_all_children_kind(ast, node, expected)?;
             // Return early because TypedItemElements are leaf nodes for this validation
             // No need to recurse further down this branch
-            return Ok(())
+            return Ok(());
         }
         AstKind::Type => {
             // Type nodes are also leaf nodes: validate and stop recursion here
             check_type(ast, node)?;
-            return Ok(())
+            return Ok(());
         }
         _ => {
             // If the node kind is unexpected here, return an error indicating invalid node kind
-            return Err(WellFormedError::InvalidNodeKind { found: node.clone() }.into());
+            return Err(WellFormedError::InvalidNodeKind {
+                found: node.clone(),
+            }
+            .into());
         }
     }
 
