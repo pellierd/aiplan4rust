@@ -15,6 +15,24 @@
   `aiplan4rust` prioritizes strict PDDL 2.1 compliance. Legacy benchmarks that rely on non-standard parser laxity are
   excluded to ensure the integrity of the semantic analyzer and state propagator.
 
+## IPC 2008 PDDL - Woodworking (Empty Typed Lists)
+
+- **Status**: Manually Patched (Fixture Cleaning)
+- **File**: `./tests/fixtures/pddl/ipc08/seq-sat/woodworking-strips/pb11.pddl`
+- **Issue**: Syntax error due to the "Empty Typed List" generator bug.
+- **Technical Breakdown**:
+    - The problem file contains a type declaration `- board` without any preceding object identifiers.
+    - **BNF Violation**: PDDL requires at least one identifier before the hyphen in a typed list:
+      `<typed list (name)> ::= name+ - <type>`. (Note: many BNF versions use `+` to indicate at least one element is
+      required before the separator).
+- **Resolution Strategy**:
+    - **Manual Stripping**: The orphan declaration `- board` has been removed from the fixture to align with strict PDDL
+      3.1 syntax.
+- **Project Policy**:
+    - `aiplan4rust` maintains a strict LALRPOP grammar. We do not implement "parser laxity" to accommodate broken legacy
+      generators. Benchmarks must be standard-compliant to be included.
+    -
+
 ## IPC 2020 HDDL - UMT-Translog (Typing Inconsistency)
 
 - **Status**: Patched (Type Alignment)

@@ -22,7 +22,6 @@
     blue mauve - acolour
     beech mahogany - awood
     p0 p1 p2 - part
-     - board
     s0 - aboardsize
   )
   (:init
