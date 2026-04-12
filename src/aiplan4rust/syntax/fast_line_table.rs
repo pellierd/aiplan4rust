@@ -5,9 +5,10 @@
 //! This module addresses that gap by providing a mechanism to efficiently compute
 //! the corresponding line and column numbers from byte offsets.
 //!
-//! [`FastLineTable`] maintains a vector of line start offsets and a coarse index sampled at regular intervals.
-//! This allows fast translation of any byte offset into (line, column) coordinates,
-//! which is essential for generating user-friendly error messages, diagnostics, and tooling features.
+//! [`FastLineTable`] maintains a vector of line start offsets. This allows for $O(\log n)$
+//! translation of any byte offset into (line, column) coordinates using **binary search**.
+//! This efficiency is essential for generating user-friendly error messages and diagnostics
+//! without performance degradation, even on very large source files (e.g., 30MB+).
 //!
 //! # Key Components
 //! - [`FastLineTable`]: Main struct for managing source text indexing and position lookups.
@@ -30,17 +31,21 @@
 use crate::aiplan4rust::syntax::Span;
 
 /// A fast line table for efficiently mapping byte offsets to line and column numbers.
-/// It uses a coarse index to accelerate lookups.
 ///
-/// # Fields
-/// - `line_starts`: A vector storing the starting byte offset of each line.
-/// - `coarse_index`: A vector storing precomputed offsets and their corresponding line numbers
-///   at intervals of `k` lines to speed up lookups.
-/// - `k`: The interval for the pre-index (determines how frequently the coarse index stores values).
+/// This structure pre-computes the byte offsets for the start of every line in the source text,
+/// allowing for high-performance translation from raw byte positions to human-readable
+/// (line, column) coordinates.
+///
+/// # Implementation Details
+/// Lookups are performed using **binary search** over the `line_starts` vector,
+/// ensuring $O(\log n)$ time complexity, where $n$ is the total number of lines.
+/// This approach is highly scalable for massive files (e.g., 30MB+ benchmarks)
+/// where linear scanning would be prohibitive.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct FastLineTable {
+    /// Stores the byte offset of the beginning of each line.
+    /// Index 0 corresponds to line 1, index 1 to line 2, and so on.
     line_starts: Vec<usize>,
-    coarse_index: Vec<(usize, usize)>, // (Offset, Line number) every K lines
 }
 
 impl FastLineTable {
@@ -49,55 +54,34 @@ impl FastLineTable {
     /// Public so it can be used elsewhere if needed.
     pub const AVG_LINE_LENGTH: usize = 80;
 
-    /// Creates a new `FastLineTable` with an automatically chosen interval `k`.
+    /// Creates a new `FastLineTable` by scanning the source for line boundaries.
     ///
-    /// The interval is computed based on the number of lines in the source,
-    /// aiming to balance lookup speed and memory usage.
+    /// This constructor pre-computes the byte offset of the start of every line,
+    /// enabling $O(\log n)$ position lookups via binary search.
     ///
     /// # Arguments
     /// - `source`: The full input source code as a string slice.
     ///
     /// # Returns
-    /// A `FastLineTable` with dynamically tuned indexing.
-    pub fn new(source: &str) -> Self {
-        let total_lines = bytecount::count(source.as_bytes(), b'\n') + 1;
-        let k = std::cmp::max(10, total_lines / 100);
-        Self::with_capacity(source, k)
-    }
-
-    /// Creates a new `FastLineTable` using a manually specified indexing interval `k`.
-    ///
-    /// A lower `k` gives faster lookups but increases memory usage. A higher `k` reduces
-    /// memory usage but may slow down lookup times. Typical values range from 50 to 500.
-    ///
-    /// # Arguments
-    /// - `source`: The full input source code.
-    /// - `k`: The interval between entries in the coarse index.
-    ///
-    /// # Returns
     /// A new instance of `FastLineTable`.
-    pub fn with_capacity(source: &str, k: usize) -> Self {
-        // Estimate capacity based on source length and average line length
+    pub fn new(source: &str) -> Self {
+        // Estimate capacity based on source length and average line length (80 chars)
+        // to minimize reallocations of the Vec.
         let estimated_lines = source.len() / Self::AVG_LINE_LENGTH + 1;
         let mut line_starts = Vec::with_capacity(estimated_lines);
-        line_starts.push(0);
-        let mut coarse_index = Vec::new();
 
+        // The first line always starts at offset 0
+        line_starts.push(0);
+
+        // Scan for newline characters
         for (i, b) in source.bytes().enumerate() {
             if b == b'\n' {
-                let line_number = line_starts.len() + 1;
+                // The next line starts immediately after the '\n'
                 line_starts.push(i + 1);
-
-                if line_number % k == 0 {
-                    coarse_index.push((i + 1, line_number));
-                }
             }
         }
 
-        Self {
-            line_starts,
-            coarse_index,
-        }
+        Self { line_starts }
     }
 
     /// Calculates the span (start and end positions) of a substring within the source text,
@@ -107,7 +91,6 @@ impl FastLineTable {
     ///
     /// * `start` - The byte index in the source string where the span starts.
     /// * `end` - The byte index in the source string where the span ends.
-    /// * `source` - The entire source string from which the span is derived.
     ///
     /// # Returns
     ///
@@ -116,9 +99,9 @@ impl FastLineTable {
     ///
     /// # Notes
     ///
-    /// This function iterates over the source string character by character,
-    /// updating line and column counts, and stops once the end index is reached.
-    /// It also handles the edge case where `end` equals the length of the source.
+    /// This function leverages binary search via `get_position` to resolve line and
+    /// column numbers in $O(\log n)$ time, making it suitable for frequent calls
+    /// during AST initialization even on massive source files.
     pub fn get_span(&self, start: usize, end: usize) -> Span {
         let (sl, sc) = self.get_position(start);
         let (el, ec) = self.get_position(end);
@@ -134,40 +117,40 @@ impl FastLineTable {
 
     /// Retrieves the line and column number corresponding to a given byte offset.
     ///
+    /// This method uses a binary search over the precomputed line start offsets,
+    /// providing an $O(\log n)$ lookup time where $n$ is the number of lines.
+    /// This is highly efficient even for very large files (e.g., several megabytes).
+    ///
     /// # Arguments
-    /// - `offset`: The byte offset in the source string.
+    /// * `offset` - The byte offset in the source string.
     ///
     /// # Returns
     /// A tuple `(line_number, column_number)`, where:
     /// - `line_number` is the 1-based index of the line.
     /// - `column_number` is the 1-based index of the column within the line.
+    ///
+    /// # Complexity
+    /// $O(\log(\text{number\_of\_lines}))$
     pub fn get_position(&self, offset: usize) -> (usize, usize) {
-        // Clip offset to maximum valid position (end of source)
-        let max_offset = self.line_starts.last().copied().unwrap_or(0);
-        let offset = offset.min(max_offset);
-
-        // Fast lookup using the coarse index (binary search)
-        let mut approx_line = match self
-            .coarse_index
-            .binary_search_by_key(&offset, |&(pos, _)| pos)
-        {
-            Ok(idx) => self.coarse_index[idx].1, // Exact match found
-            Err(idx) => {
-                if idx == 0 {
-                    1 // If the offset is before the first indexed entry, start from line 1
-                } else {
-                    self.coarse_index[idx - 1].1 // Start from the nearest coarse index entry
-                }
-            }
-        };
-
-        // Fine-tune the search with a linear scan from the approximate starting point
-        while approx_line < self.line_starts.len() && self.line_starts[approx_line] <= offset {
-            approx_line += 1;
+        if self.line_starts.is_empty() {
+            return (1, 1);
         }
 
-        // Compute the column by subtracting the line start offset from the given offset
-        let line_start = self.line_starts[approx_line - 1];
-        (approx_line, offset - line_start + 1)
+        // Ensure the offset does not exceed the last valid position in the source
+        let max_offset = *self.line_starts.last().unwrap_or(&0);
+        let offset = offset.min(max_offset);
+
+        // Perform a binary search to find the line containing the offset.
+        // - Ok(idx): The offset matches exactly the start of a line.
+        // - Err(idx): The offset is within the line starting at idx - 1.
+        let line_idx = self
+            .line_starts
+            .binary_search(&offset)
+            .unwrap_or_else(|idx| idx - 1);
+
+        let line_start = self.line_starts[line_idx];
+
+        // Convert 0-based index to 1-based line and calculate 1-based column
+        (line_idx + 1, offset - line_start + 1)
     }
 }

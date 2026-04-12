@@ -45,6 +45,7 @@ dependencies = [
  "linked-hash-map",
  "log",
  "logos",
+ "memchr",
  "once_cell",
  "ordered-float",
  "rmp-serde",

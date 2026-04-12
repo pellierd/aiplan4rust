@@ -16,7 +16,6 @@
 //! - `NodeId`: Unique identifier for nodes.
 //! - `ArenaError`: Error type_checker for arena operations.
 
-use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -72,7 +71,6 @@ pub struct ArenaTree<T: ArenaNode> {
 }
 
 impl<T: ArenaNode> ArenaTree<T> {
-
     /// Creates a new, empty arena.
     ///
     /// Note that this does not allocate any nodes initially.
@@ -708,45 +706,59 @@ impl<T: ArenaNode> ArenaTree<T> {
         max_depth
     }
 
-    /// Checks if the arena forms a valid tree (no cycles).
+    /// Checks if the arena forms a valid tree structure starting from the root, detecting any cycles.
     ///
-    /// A valid tree must satisfy the following:
-    /// - Each node has at most one parent (guaranteed by construction).
-    /// - There are no cycles in the parent-child relationships.
+    /// A valid tree in this context must satisfy the following:
+    /// - Each node is reachable from the root exactly once.
+    /// - There are no cycles or re-entrant nodes (guaranteed by the tree definition).
     ///
-    /// This method uses the `preorder_from` iter to traverse the tree
-    /// starting from the root. A `visited` vector is used to detect cycles
-    /// safely and prevent infinite loops.
+    /// # Implementation Details
+    ///
+    /// This method performs a preorder traversal and uses an internal **BitSet**
+    /// (packed `u64` vector) to track visited nodes. This is highly efficient:
+    /// - **Memory**: Uses only 1 bit per node ($O(N/64)$ space).
+    /// - **Performance**: Avoids the overhead of `HashSet` and provides $O(N)$
+    ///   time complexity with excellent CPU cache locality.
     ///
     /// # Returns
     ///
-    /// - `true` if the arena represents a valid tree (no cycles detected).
-    /// - `false` if a cycle is detected.
+    /// - `true` if the reachable part of the arena represents a valid tree.
+    /// - `false` if a cycle is detected (a node is visited more than once).
     ///
     /// # Notes
     ///
     /// - An empty arena (no nodes) is considered a valid tree.
-    /// - Orphan nodes (nodes not reachable from the root) do not cause this
-    ///   method to return `false`, but you may want to check separately if
-    ///   full connectivity is required.
+    /// - **Orphan nodes**: This check only validates the subgraph reachable from
+    ///   the `root_id`. Nodes that are not connected to the root are ignored.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// assert!(arena.is_tree());
+    /// ```
     pub fn is_tree(&self) -> bool {
-        if self.nodes.is_empty() {
-            return true; // empty arena is a valid tree
+        let len = self.nodes.len();
+        if len == 0 {
+            return true;
         }
 
-        let mut visited: HashSet<NodeId> = HashSet::new();
+        let mut visited = vec![0u64; (len + 63) / 64];
 
         if let Some(root_id) = self.root_id {
             for (node_id, _) in self.preorder_from(root_id).ids() {
-                if !visited.insert(node_id) {
-                    return false; // cycle detected
+                let idx = node_id.as_usize();
+                let word_idx = idx / 64;
+                let bit_idx = idx % 64;
+                let mask = 1 << bit_idx;
+
+                if (visited[word_idx] & mask) != 0 {
+                    return false;
                 }
+                visited[word_idx] |= mask;
             }
         }
-
-        true // no cycles detected
+        true
     }
-
 }
 
 /// Implements the [`Display`] trait for [`ArenaTree<T>`], where `T` implements both [`ArenaNode`] and [`Display`].
@@ -807,7 +819,14 @@ where
             for (i, child_id) in node.children().iter().enumerate() {
                 let is_last_child = i == node.arity() - 1;
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    fmt_node(arena, f, child_node, child_id.as_usize(), indent + 1, is_last_child)?;
+                    fmt_node(
+                        arena,
+                        f,
+                        child_node,
+                        child_id.as_usize(),
+                        indent + 1,
+                        is_last_child,
+                    )?;
                 } else {
                     // If the child does not exist, print an error placeholder
                     for _ in 0..(indent + 1) {
