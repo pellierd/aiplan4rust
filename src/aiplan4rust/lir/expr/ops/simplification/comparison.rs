@@ -1,7 +1,7 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lang::CompareOp;
+use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 
 /// Simplifies an FComp node by applying all relevant normalizations and simplifications.
@@ -35,10 +35,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 /// # Returns
 ///
 /// * `Err(ExprError)` on structural access issues.
-pub fn simplify(
-    node_id: NodeId,
-    expr: &mut Expr,
-) -> Result<(), ExprOpError> {
+pub fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     if node.kind() != ExprKind::Comparison {
@@ -194,7 +191,10 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
 
     let children = node.children();
     if children.len() != 2 {
-        debug_assert!(children.len() == 2, "FComp node does not have exactly 2 children");
+        debug_assert!(
+            children.len() == 2,
+            "FComp node does not have exactly 2 children"
+        );
         return Ok(false);
     }
 
@@ -205,7 +205,10 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
     let right_node = expr.try_node(right_id)?;
 
     // 1. Tenter l'évaluation sur des nombres (Flottants / Ints)
-    if let (Some(left_val), Some(right_val)) = (left_node.content().as_number(), right_node.content().as_number()) {
+    if let (Some(left_val), Some(right_val)) = (
+        left_node.content().as_number(),
+        right_node.content().as_number(),
+    ) {
         let result = match op {
             CompareOp::Equal => left_val == right_val,
             CompareOp::Greater => left_val > right_val,
@@ -271,31 +274,35 @@ fn simplify_comparison_trivial_identity(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<bool, ExprOpError> {
-    let node = expr.try_node(node_id)?;
+    // 1. On extrait d'abord toutes les informations nécessaires du nœud parent
+    let (left_id, right_id, op) = {
+        let node = expr.try_node(node_id)?;
 
-    // Only operate on FComp nodes
-    if node.kind() != ExprKind::Comparison {
-        return Ok(false);
-    }
+        if node.kind() != ExprKind::Comparison {
+            return Ok(false);
+        }
 
-    let children = node.children();
-    if children.len() != 2 {
-        debug_assert!(children.len() == 2, "FComp node does not have exactly 2 children");
-        return Ok(false);
-    }
+        let children = node.children();
+        if children.len() != 2 {
+            debug_assert!(
+                children.len() == 2,
+                "FComp node does not have exactly 2 children"
+            );
+            return Ok(false);
+        }
 
-    let left_id = children[0];
-    let right_id = children[1];
+        // On copie les IDs et on récupère l'opérateur de comparaison
+        (children[0], children[1], node.content().as_compare_op())
+    }; // L'emprunt immuable de 'node' s'arrête ICI.
 
-    // Use deep_sub_expr_eq to check if the two children are structurally identical
+    // 2. Maintenant expr est libre pour un emprunt mutable
     if expr.deep_sub_expr_eq(left_id, right_id)? {
-        let op = node.content().as_compare_op();
         let is_true = matches!(
             op,
-            Some(CompareOp::Equal)
-                | Some(CompareOp::GreaterEq)
-                | Some(CompareOp::LessEq)
+            Some(CompareOp::Equal) | Some(CompareOp::GreaterEq) | Some(CompareOp::LessEq)
         );
+
+        // set_to_bool lèvera le flag hash_dirty
         expr.set_to_bool(node_id, is_true)?;
         return Ok(true);
     }
@@ -305,11 +312,10 @@ fn simplify_comparison_trivial_identity(
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::{FunctionSymbolId, ObjectId, VariableId};
     use super::*;
-    use crate::aiplan4rust::lir::expr::ExprKind;
+    use crate::aiplan4rust::lang::{FunctionSymbolId, ObjectId, VariableId};
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::expr::ExprKind::FunctionSymbol;
+    use crate::aiplan4rust::lir::expr::ExprKind;
 
     /// Test que l'égalité entre deux objets identiques est simplifiée en `and` (True).
     /// Entrée : (= a a) où 'a' est une constante symbolique (objet).
@@ -320,7 +326,7 @@ mod tests {
 
         // 1. Setup: (= a a)
         // On crée deux nœuds distincts, mais représentant le même objet "a"
-        let  a = ObjectId::from(1);
+        let a = ObjectId::from(1);
         let left = builder.constant(a);
         let right = builder.constant(a);
         let eq_node = builder.equal(left, right);
@@ -484,7 +490,7 @@ mod tests {
         simplify(equality_node, &mut expr)?;
 
         // 6. Vérification du résultat
-        let root_node =expr.try_root_node()?;
+        let root_node = expr.try_root_node()?;
 
         // Une égalité tautologique doit devenir un 'and' vide (représentant 'True')
         assert!(

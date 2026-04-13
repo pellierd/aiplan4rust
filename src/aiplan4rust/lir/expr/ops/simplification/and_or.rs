@@ -1,8 +1,8 @@
-use std::collections::HashSet;
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::NodeId;
+use std::collections::HashSet;
 
 /// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN logic.
 ///
@@ -57,11 +57,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// normalize(node_id, &mut logic)?;
 /// // After simplification, the expression becomes: (and A B C (when (or X Z) Y))
 /// ```
-pub fn simplify(
-    node_id: NodeId,
-    expr: &mut Expr,
-) -> Result<(), ExprOpError> {
-
+pub fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     // Step 1: Flatten nested AND/OR nodes of the same kind
     flatten_and_or_node(node_id, expr)?;
 
@@ -123,9 +119,11 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpE
     debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
 
     // 1. Vérification rapide : est-ce qu'un enfant est du même typing ?
-    let needs_flattening = expr.try_node(node_id)?.children().iter().any(|&c| {
-        expr.try_node(c).map(|n| n.kind() == kind).unwrap_or(false)
-    });
+    let needs_flattening = expr
+        .try_node(node_id)?
+        .children()
+        .iter()
+        .any(|&c| expr.try_node(c).map(|n| n.kind() == kind).unwrap_or(false));
 
     if !needs_flattening {
         return Ok(false);
@@ -223,36 +221,82 @@ fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Expr
 /// // AND node with duplicate NodeIds: (and A A B)
 /// // After deduplication: (and A B)
 /// ```
-fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
-    // Borrow the node immutably
-    let node = expr.try_node(node_id)?;
+pub fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
+    let children = expr.try_node(node_id)?.children().to_vec();
+    if children.len() <= 1 {
+        return Ok(false);
+    }
 
-    // Only process AND or OR nodes
-    let kind = node.kind();
-    debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
+    let mut deduped = Vec::with_capacity(children.len());
+    // On mappe le Hash vers les NodeId qui ont ce hash
+    let mut seen: std::collections::HashMap<u64, Vec<NodeId>> =
+        std::collections::HashMap::with_capacity(children.len());
 
-    // Prepare a vector for deduplicated children
-    let mut deduped = Vec::with_capacity(node.children().len());
+    for child_id in children {
+        let h = expr.hash(child_id);
 
-    for &child_id in node.children() {
-        // Check if child is already present structurally
-        let mut is_duplicate = false;
-        for &seen_id in &deduped {
-            if expr.deep_sub_expr_eq(seen_id, child_id)? {
-                is_duplicate = true;
+        let bucket = seen.entry(h).or_default();
+        let mut is_real_duplicate = false;
+
+        // On ne vérifie l'égalité profonde QUE si le hash est identique (collision ou vrai doublon)
+        for &existing_id in bucket.iter() {
+            if expr.deep_sub_expr_eq(existing_id, child_id)? {
+                is_real_duplicate = true;
                 break;
             }
         }
-        if !is_duplicate {
+
+        if !is_real_duplicate {
+            bucket.push(child_id);
             deduped.push(child_id);
         }
     }
 
-    // Write back the deduplicated children
-    expr.try_node_mut(node_id)?.set_children(deduped);
-
-    Ok(true)
+    if deduped.len() < expr.try_node(node_id)?.children().len() {
+        expr.try_node_mut(node_id)?.set_children(deduped);
+        return Ok(true);
+    }
+    Ok(false)
 }
+/*fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
+    // 1. On récupère les enfants actuels
+    let children = {
+        let node = expr.try_node(node_id)?;
+        let kind = node.kind();
+        debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
+
+        if node.children().len() <= 1 {
+            return Ok(false);
+        }
+        node.children().to_vec()
+    };
+
+    let mut deduped_children = Vec::with_capacity(children.len());
+    // On utilise les hashes (u64) pour filtrer les doublons instantanément
+    let mut seen_hashes = std::collections::HashSet::with_capacity(children.len());
+
+    for child_id in children {
+        let child_hash = expr.try_node(child_id)?.structure_hash();
+
+        // insert() renvoie false si le hash existe déjà dans le set
+        if seen_hashes.insert(child_hash) {
+            deduped_children.push(child_id);
+        }
+    }
+
+    // 2. Si on a supprimé des nœuds, on met à jour
+    if deduped_children.len() < expr.try_node(node_id)?.children().len() {
+        expr.try_node_mut(node_id)?.set_children(deduped_children);
+
+        // CRITIQUE : Puisque la liste des enfants a changé,
+        // le hash du parent doit être recalculé !
+        expr.update_node_hash(node_id)?;
+
+        return Ok(true);
+    }
+
+    Ok(false)
+}*/
 
 /// Checks for tautologies and contradictions in an AND/OR node using structural analysis
 /// and static fact evaluation.
@@ -353,14 +397,17 @@ fn simplify_tautologies_and_contradictions(
 fn short_circuit_tautology(
     node_id: NodeId,
     expr: &mut Expr,
-    kind: ExprKind
+    kind: ExprKind,
 ) -> Result<bool, ExprOpError> {
     match kind {
         // Law of excluded middle: (A ∨ ¬A) ≡ True
         ExprKind::Or => Ok(expr.set_to_bool(node_id, true)?),
         // Law of non-contradiction: (A ∧ ¬A) ≡ False
         ExprKind::And => Ok(expr.set_to_bool(node_id, false)?),
-        _ => unreachable!("short_circuit_tautology called on non-logical gate: {:?}", kind),
+        _ => unreachable!(
+            "short_circuit_tautology called on non-logical gate: {:?}",
+            kind
+        ),
     }
 }
 
@@ -384,10 +431,7 @@ fn short_circuit_tautology(
 /// # Notes
 /// - Intended to be called as part of the simplification pipeline on AND/OR nodes only.
 /// - Reductions are safe and preserve the logical meaning of the expression.
-fn reduce_single_and_or_node(
-    node_id: NodeId,
-    expr: &mut Expr,
-) -> Result<bool, ExprOpError> {
+fn reduce_single_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     // 1. On récupère l'ID de l'enfant unique sans bloquer l'emprunt mutable d'logic
     let single_child = {
         let node = expr.try_node(node_id)?;
@@ -439,10 +483,7 @@ fn reduce_single_and_or_node(
 ///   - `(and)` with no children → `true`
 ///   - `(or)` with no children → `false`
 ///   - No explicit `true` or `false` constants are introduced.
-fn simplify_empty_and_or_node(
-    node_id: NodeId,
-    expr: &mut Expr,
-) -> Result<bool, ExprOpError> {
+fn simplify_empty_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     // 1. On récupère les infos nécessaires sans bloquer l'arène
     let (node_kind, children) = {
         let node = expr.try_node(node_id)?;
@@ -461,8 +502,8 @@ fn simplify_empty_and_or_node(
 
             // CAS 1 : Élément Absorbant
             // (and ... false) -> false  |  (or ... true) -> true
-            if (node_kind == ExprKind::And && child_kind == ExprKind::Or) ||
-                (node_kind == ExprKind::Or && child_kind == ExprKind::And)
+            if (node_kind == ExprKind::And && child_kind == ExprKind::Or)
+                || (node_kind == ExprKind::Or && child_kind == ExprKind::And)
             {
                 // Le parent node_id prend l'identité de l'enfant absorbant
                 expr.move_to(child_id, node_id)?;
@@ -521,10 +562,7 @@ fn simplify_empty_and_or_node(
 ///     println!("Some WHEN conditions were merged into OR nodes");
 /// }
 /// ```
-pub fn merge_when(
-    node_id: NodeId,
-    expr: &mut Expr,
-) -> Result<bool, ExprOpError> {
+pub fn merge_when(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     // Collect non-WHEN children and merged WHEN conditions
     let (non_when, merged_map) = collect_and_merge_when(node_id, expr)?;
 
@@ -585,50 +623,49 @@ pub fn merge_when(
 /// // non_when contains all non-WHEN children
 /// // merged_when groups WHEN conditions by effect
 /// ```
-fn collect_and_merge_when(
+pub fn collect_and_merge_when(
     node_id: NodeId,
-    expr: &Expr
+    expr: &mut Expr,
 ) -> Result<(Vec<NodeId>, Vec<(NodeId, Vec<NodeId>)>), ExprOpError> {
-    // Retrieve the node and ensure it is an AND or OR
-    let node = expr.try_node(node_id)?;
-    debug_assert!(
-        matches!(node.kind(), ExprKind::And | ExprKind::Or),
-        "rebuild_children_with_merged_when expects an AND or OR node"
-    );
+    // 1. On récupère le nombre d'enfants et on relâche l'emprunt immédiatement
+    let num_children = expr.try_node(node_id)?.children().len();
 
-    // Vector to store non-WHEN children
     let mut non_when: Vec<NodeId> = Vec::new();
-    // Vector to group conditions by their effect
     let mut merged_map: Vec<(NodeId, Vec<NodeId>)> = Vec::new();
 
-    // Iterate over all children
-    for &child_id in node.children() {
-        let child = expr.try_node(child_id)?;
-        if child.kind() != ExprKind::When {
-            // Non-WHEN children go directly into the non_when vector
+    // 2. Boucle par index pour éviter de garder 'node' ouvert
+    for i in 0..num_children {
+        // On récupère l'ID de l'enfant. L'emprunt de try_node s'arrête à la fin de cette ligne.
+        let child_id = expr.try_node(node_id)?.children()[i];
+        let child_kind = expr.try_node(child_id)?.kind();
+
+        if child_kind != ExprKind::When {
             non_when.push(child_id);
         } else {
-            // Ensure the WHEN node has exactly two children: condition and effect
+            // Accès sécurisé aux enfants du WHEN (condition et effet)
+            let child_node = expr.try_node(child_id)?;
             debug_assert!(
-                child.children().len() == 2,
-                "WHEN node must have exactly two children: condition and effect"
+                child_node.children().len() == 2,
+                "WHEN node must have exactly two children"
             );
 
-            // Extract condition and effect
-            let cond_id = child.children()[0];
-            let eff_id = child.children()[1];
+            let cond_id = child_node.children()[0];
+            let eff_id = child_node.children()[1];
 
-            // Merge conditions by effect
             let mut found = false;
-            for (existing_eff_id, conds) in &mut merged_map {
-                if expr.deep_sub_expr_eq(*existing_eff_id, eff_id)? {
-                    conds.push(cond_id);
+            // On utilise un index pour la boucle interne sur merged_map
+            // pour éviter tout conflit potentiel, bien que merged_map soit local
+            for j in 0..merged_map.len() {
+                let existing_eff_id = merged_map[j].0;
+
+                // Ici, expr est libre car aucun emprunt immuable n'est actif
+                if expr.deep_sub_expr_eq(existing_eff_id, eff_id)? {
+                    merged_map[j].1.push(cond_id);
                     found = true;
                     break;
                 }
             }
 
-            // If no existing entry with this effect, create a new one
             if !found {
                 merged_map.push((eff_id, vec![cond_id]));
             }
@@ -713,10 +750,8 @@ fn rebuild_children_with_merged_when(
         } else {
             // Multiple conditions, create OR node → fusion
             fusion_occurred = true;
-            let or_node = expr.alloc_with_children(
-                ExprNode::new(ExprKind::Or, Content::None, None),
-                conds,
-            );
+            let or_node =
+                expr.alloc_with_children(ExprNode::new(ExprKind::Or, Content::None, None), conds);
             simplify(or_node, expr)?; // Simplify OR node
             or_node
         };
@@ -757,8 +792,8 @@ mod realistic_tests {
         let c = builder.atomic_formula(3, vec![]);
 
         let inner1 = builder.and(vec![b, c, b]); // Duplicated B
-        let inner2 = builder.and(vec![c]);       // Single C
-        let empty_or = builder.or(vec![]);       // Empty OR
+        let inner2 = builder.and(vec![c]); // Single C
+        let empty_or = builder.or(vec![]); // Empty OR
 
         let root = builder.and(vec![a, inner1, empty_or, inner2]);
 
@@ -814,12 +849,11 @@ mod realistic_tests {
     }
 }
 
-
 #[cfg(test)]
 mod flatten_and_or_node_tests {
+    use super::*;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use super::*;
 
     /// Test flattening a root AND node with nested AND children.
     ///
@@ -971,9 +1005,9 @@ mod flatten_and_or_node_tests {
 
 #[cfg(test)]
 mod deduplicate_and_or_node_tests {
+    use super::*;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use super::*;
 
     /// Test NodeId-based deduplication in a root AND node.
     ///
@@ -1004,8 +1038,14 @@ mod deduplicate_and_or_node_tests {
         assert_eq!(root_node.children().len(), 2);
 
         // Verify the unique children are what we expect
-        assert_eq!(expr.get_node_kind(root_node.children()[0]), Some(ExprKind::AtomicFormula));
-        assert_eq!(expr.get_node_kind(root_node.children()[1]), Some(ExprKind::AtomicFormula));
+        assert_eq!(
+            expr.get_node_kind(root_node.children()[0]),
+            Some(ExprKind::AtomicFormula)
+        );
+        assert_eq!(
+            expr.get_node_kind(root_node.children()[1]),
+            Some(ExprKind::AtomicFormula)
+        );
 
         Ok(())
     }
@@ -1073,8 +1113,14 @@ mod deduplicate_and_or_node_tests {
         assert_eq!(root_node.children().len(), 2);
 
         // Verify original order/existence
-        assert_eq!(expr.get_node_kind(root_node.children()[0]), Some(ExprKind::AtomicFormula));
-        assert_eq!(expr.get_node_kind(root_node.children()[1]), Some(ExprKind::AtomicFormula));
+        assert_eq!(
+            expr.get_node_kind(root_node.children()[0]),
+            Some(ExprKind::AtomicFormula)
+        );
+        assert_eq!(
+            expr.get_node_kind(root_node.children()[1]),
+            Some(ExprKind::AtomicFormula)
+        );
 
         Ok(())
     }
@@ -1117,7 +1163,10 @@ mod deduplicate_and_or_node_tests {
 
         // Verify second child is the atomic formula C
         let second_child = root_node.children()[1];
-        assert_eq!(expr.get_node_kind(second_child), Some(ExprKind::AtomicFormula));
+        assert_eq!(
+            expr.get_node_kind(second_child),
+            Some(ExprKind::AtomicFormula)
+        );
 
         Ok(())
     }
@@ -1160,18 +1209,20 @@ mod deduplicate_and_or_node_tests {
 
         // Verify the second child is the atom C
         let second_child = root_node.children()[1];
-        assert_eq!(expr.get_node_kind(second_child), Some(ExprKind::AtomicFormula));
+        assert_eq!(
+            expr.get_node_kind(second_child),
+            Some(ExprKind::AtomicFormula)
+        );
 
         Ok(())
     }
-
 }
 
 #[cfg(test)]
 mod simplify_tautologies_and_contradictions_tests {
+    use super::*;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use super::*;
 
     /// Input: (or A (not A))
     /// Expected output: (and)  // tautology in OR -> true
@@ -1197,7 +1248,10 @@ mod simplify_tautologies_and_contradictions_tests {
         assert_eq!(expr.kind(), Some(ExprKind::And));
 
         let root_node = expr.try_root_node()?;
-        assert!(root_node.children().is_empty(), "True should be an empty AND node");
+        assert!(
+            root_node.children().is_empty(),
+            "True should be an empty AND node"
+        );
 
         Ok(())
     }
@@ -1220,13 +1274,19 @@ mod simplify_tautologies_and_contradictions_tests {
         let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
-        assert!(changed, "The contradiction should have been detected and simplified");
+        assert!(
+            changed,
+            "The contradiction should have been detected and simplified"
+        );
 
         // The result should be "False", represented as an empty OR node
         assert_eq!(expr.kind(), Some(ExprKind::Or));
 
         let root_node = expr.try_root_node()?;
-        assert!(root_node.children().is_empty(), "False should be an empty OR node");
+        assert!(
+            root_node.children().is_empty(),
+            "False should be an empty OR node"
+        );
 
         Ok(())
     }
@@ -1278,7 +1338,10 @@ mod simplify_tautologies_and_contradictions_tests {
         let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
-        assert!(!changed, "The expression should not have been flagged as changed");
+        assert!(
+            !changed,
+            "The expression should not have been flagged as changed"
+        );
 
         // The root should still be the original AND node
         assert_eq!(expr.kind(), Some(ExprKind::And));
@@ -1292,8 +1355,8 @@ mod simplify_tautologies_and_contradictions_tests {
 
 #[cfg(test)]
 mod reduce_single_and_or_node_tests {
-    use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use super::*;
+    use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     /// Test root AND with a single child
     ///
     /// Input: (and A)
@@ -1449,9 +1512,9 @@ mod reduce_single_and_or_node_tests {
 
 #[cfg(test)]
 mod simplify_empty_and_or_node_tests {
+    use super::*;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use super::*;
 
     /// Test that an AND node with an empty AND child removes the empty child.
     ///
@@ -1572,7 +1635,10 @@ mod simplify_empty_and_or_node_tests {
         assert_eq!(expr.kind(), Some(ExprKind::Or));
 
         let root_node = expr.try_root_node()?;
-        assert!(root_node.children().is_empty(), "Result should be an empty OR node (False)");
+        assert!(
+            root_node.children().is_empty(),
+            "Result should be an empty OR node (False)"
+        );
 
         Ok(())
     }
@@ -1601,7 +1667,10 @@ mod simplify_empty_and_or_node_tests {
 
         let root_node = expr.try_root_node()?;
         // The redundant inner 'or' should have been removed
-        assert!(root_node.children().is_empty(), "The result should be a clean, empty OR node");
+        assert!(
+            root_node.children().is_empty(),
+            "The result should be a clean, empty OR node"
+        );
 
         Ok(())
     }
@@ -1630,7 +1699,10 @@ mod simplify_empty_and_or_node_tests {
         assert_eq!(expr.kind(), Some(ExprKind::And));
 
         let root_node = expr.try_root_node()?;
-        assert!(root_node.children().is_empty(), "Result should be an empty AND node");
+        assert!(
+            root_node.children().is_empty(),
+            "Result should be an empty AND node"
+        );
 
         Ok(())
     }
@@ -1695,7 +1767,10 @@ mod simplify_empty_and_or_node_tests {
         assert_eq!(expr.kind(), Some(ExprKind::And));
 
         let root_node = expr.try_root_node()?;
-        assert!(root_node.children().is_empty(), "Result should be an empty AND node (True)");
+        assert!(
+            root_node.children().is_empty(),
+            "Result should be an empty AND node (True)"
+        );
 
         Ok(())
     }
@@ -1710,7 +1785,7 @@ mod simplify_empty_and_or_node_tests {
         // 1. Setup: (and (when C1 E) (when C2 E))
         let c1 = builder.atomic_formula(1, vec![]);
         let c2 = builder.atomic_formula(2, vec![]);
-        let e  = builder.atomic_formula(3, vec![]);
+        let e = builder.atomic_formula(3, vec![]);
 
         let w1 = builder.when(c1, e);
         let w2 = builder.when(c2, e);
@@ -1740,7 +1815,6 @@ mod simplify_empty_and_or_node_tests {
 
         Ok(())
     }
-
 
     /// Test that WHENs with different effects are not merged.
     /// Input: (and (when C1 E1) (when C2 E2))
@@ -1853,5 +1927,4 @@ mod simplify_empty_and_or_node_tests {
 
         Ok(())
     }
-
 }

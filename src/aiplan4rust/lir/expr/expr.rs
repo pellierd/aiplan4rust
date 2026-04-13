@@ -38,18 +38,16 @@ use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::lang::{ObjectId, OptimizationOp};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::tree::{NodeId, Node, Tree};
-use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::fmt::Formatter;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::ops::{Deref, DerefMut};
-use ordered_float::OrderedFloat;
-
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
-
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::{Node, NodeId, Tree};
+use core::fmt::Formatter;
+use ordered_float::OrderedFloat;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::ops::{Deref, DerefMut};
 
 /// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///
@@ -87,7 +85,6 @@ impl Expr {
             tree: Tree::<ExprNode>::new(),
         }
     }
-
 
     /// Constructs a new `Expr` from an existing `SyntaxTree<ExprNode>`.
     ///
@@ -132,22 +129,52 @@ impl Expr {
         self.root_id().is_none()
     }
 
-    pub fn set_to_bool(
-        &mut self,
-        node_id: NodeId,
-        value: bool,
-    ) -> Result<bool, ExprError> {
+    pub fn hash(&self, id: NodeId) -> u64 {
+        let node = self.try_node(id).expect("Le nœud doit exister");
+
+        // 1. On vérifie le cache du nœud
+        if let Some(h) = node.hash() {
+            return h;
+        }
+
+        // 2. Si None (sale), on calcule récursivement
+        let mut hasher = fxhash::FxHasher::default();
+        node.kind().hash(&mut hasher);
+        node.content().hash(&mut hasher);
+
+        for &child_id in node.children() {
+            // L'appel récursif profitera des caches des enfants non modifiés
+            let child_h = self.hash(child_id);
+            hasher.write_u64(child_h);
+        }
+
+        let final_h = hasher.finish();
+
+        // 3. On remplit le cache du nœud (grâce au Cell)
+        node.set_hash(final_h);
+        final_h
+    }
+
+    pub fn invalidate(&self, id: NodeId) {
+        let mut current = Some(id);
+        while let Some(curr_id) = current {
+            let node = self.try_node(curr_id).unwrap();
+
+            // Si c'est déjà None, on arrête : les ancêtres sont déjà invalidés.
+            if node.hash().is_none() {
+                break;
+            }
+
+            node.invalidate();
+            current = node.parent(); // Remonte vers le parent
+        }
+    }
+
+    pub fn set_to_bool(&mut self, node_id: NodeId, value: bool) -> Result<bool, ExprError> {
         let node_mut = self.try_node_mut(node_id)?;
-
-        let kind = if value {
-            ExprKind::And
-        } else {
-            ExprKind::Or
-        };
-
+        let kind = if value { ExprKind::And } else { ExprKind::Or };
         node_mut.set_kind(kind);
         node_mut.children_mut().clear();
-
         Ok(true)
     }
 
@@ -156,7 +183,7 @@ impl Expr {
     pub fn set_to_number(
         &mut self,
         node_id: NodeId,
-        val: OrderedFloat<f64>
+        val: OrderedFloat<f64>,
     ) -> Result<(), ExprError> {
         let node_mut = self.try_node_mut(node_id)?;
         node_mut.set_kind(ExprKind::Number);
@@ -166,49 +193,13 @@ impl Expr {
     }
 
     /// Version pour les objets (Constant)
-    pub fn set_to_object(
-        &mut self,
-        node_id: NodeId,
-        obj_id: ObjectId
-    ) -> Result<(), ExprError> {
+    pub fn set_to_object(&mut self, node_id: NodeId, obj_id: ObjectId) -> Result<(), ExprError> {
         let node_mut = self.try_node_mut(node_id)?;
         node_mut.set_kind(ExprKind::Object);
         node_mut.set_content(Content::Object(obj_id));
         node_mut.children_mut().clear();
         Ok(())
     }
-
-    /*pub fn substitute(&mut self, root_id: NodeId, env: &HashMap<VariableId, ObjectId>) -> Result<(), ExprError>{
-        // On utilise un parcours post-order ou un simple stack
-        let mut stack = vec![root_id];
-
-        while let Some(current_id) = stack.pop() {
-            let current_node = self.try_node(current_id)?;
-            let kind = current_node.kind();
-
-            match kind {
-                // C'EST ICI : tu interceptes le nœud Variable
-                ExprKind::Variable => {
-                    // On récupère l'ID de la variable (stocké dans le nœud)
-                    let var_node = self.try_node(current_id)?;
-                    let var_id = var_node.try_variable()?;
-
-                    // Si elle est dans notre dictionnaire de binding
-                    if let Some(&obj_id) = env.get(&var_id) {
-                        // On transforme le nœud Variable en nœud Constant (ObjectID)
-                        // Tu as probablement une méthode comme set_to_object ou replace_with_constant
-                        self.set_to_object(current_id, obj_id)?;
-                    }
-                }
-
-                // Pour tous les autres nœuds, on continue de descendre vers les feuilles
-                _ => {
-                    stack.extend(current_node.children());
-                }
-            }
-        }
-        Ok(())
-    }*/
 
     /// Creates an expression with a single root node of kind `Or` and no content.
     ///
@@ -319,7 +310,18 @@ impl Expr {
     /// # Returns
     /// The unique [`NodeId`] assigned to the newly inserted node.
     pub fn alloc(&mut self, node: ExprNode) -> NodeId {
-        self.tree.alloc(node)
+        // Si le nœud qu'on alloue a déjà un ID de parent défini
+        let parent_to_invalidate = node.parent();
+
+        let new_id = self.tree.alloc(node);
+
+        // Si on l'insère alors qu'il est déjà lié à un parent,
+        // il faut dire au parent que sa structure a changé.
+        if let Some(pid) = parent_to_invalidate {
+            self.invalidate(pid);
+        }
+
+        new_id
     }
 
     /// Allocates a new node in the expression tree and sets it as the root.
@@ -370,6 +372,7 @@ impl Expr {
 
     /// Get a mutable reference to a node by ID.
     pub fn try_node_mut(&mut self, id: NodeId) -> Result<&mut ExprNode, SyntaxTreeError> {
+        self.invalidate(id);
         self.tree.try_node_mut(id)
     }
 
@@ -428,7 +431,7 @@ impl Expr {
     /// - This function compares recursively: node kind, content, and all children.
     /// Compare two subtrees rooted at `a` in `self` and `b` in `other` for deep equality.
     /// Children should already be sorted if order does not matter.
-    pub fn deep_sub_expr_eq(&self, root_a: NodeId, root_b: NodeId) -> Result<bool, ExprError> {
+    /*pub fn deep_sub_expr_eq(&self, root_a: NodeId, root_b: NodeId) -> Result<bool, ExprError> {
         let iter1 = self.preorder_from(root_a).values();
         let iter2 = self.preorder_from(root_b).values();
 
@@ -457,45 +460,32 @@ impl Expr {
         }
 
         Ok(true)
-    }
+    }*/
 
-    /// Computes the hash of a subtree of the expression.
-    ///
-    /// The hash combines:
-    /// - the node's typing (`kind`),
-    /// - the node's content (`content`),
-    /// - the recursive hash of each child.
-    ///
-    /// This version **does not use caching**, so the hash is recalculated on each call.
-    /// Children should be sorted beforehand if order should not affect the result.
-    ///
-    /// # Parameters
-    /// - `node_id`: the ID of the root node of the subtree to hash.
-    ///
-    /// # Returns
-    /// - `Ok(u64)` containing the computed hash of the subtree.
-    /// - `Err(ExprError)` if accessing a node fails.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let hash = logic.hash(node_id)?;
-    /// ```
-    #[allow(dead_code)]
-    fn hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
-        let node = self.try_node(node_id)?;
-        let mut hasher = DefaultHasher::new();
-
-        // Hash the node typing and content
-        node.kind().hash(&mut hasher);
-        node.content().hash(&mut hasher);
-
-        // Recursively hash the children
-        for &child in node.children() {
-            let child_hash = self.hash(child)?;
-            child_hash.hash(&mut hasher);
+    pub fn deep_sub_expr_eq(&self, root_a: NodeId, root_b: NodeId) -> Result<bool, ExprError> {
+        // 1. Identité physique (O(1))
+        if root_a == root_b {
+            return Ok(true);
         }
 
-        Ok(hasher.finish())
+        // 2. Comparaison des hashes (C'est ICI que la magie opère)
+        // get_hash va soit lire le cache, soit recalculer uniquement le chemin "sale"
+        if self.hash(root_a) != self.hash(root_b) {
+            return Ok(false);
+        }
+
+        // 3. Sécurité anti-collision (nécessaire si deux arbres différents ont le même hash)
+        let n1 = self.try_node(root_a)?;
+        let n2 = self.try_node(root_b)?;
+
+        if n1.kind() != n2.kind() || n1.content() != n2.content() {
+            return Ok(false);
+        }
+
+        // 4. Comparaison des enfants
+        // Note : on compare les NodeId des enfants. Si les hashes sont identiques,
+        // il est très probable que les listes d'enfants soient identiques.
+        Ok(n1.children() == n2.children())
     }
 
     /// Sets the node at `node_id` to an empty `(and)` node.
@@ -515,7 +505,9 @@ impl Expr {
     /// expr.set_empty_and(node_id)?;
     /// ```
     pub fn set_empty_and(&mut self, node_id: NodeId) -> Result<(), ExprError> {
-        Ok(self.set(node_id, ExprKind::And, Content::None, vec![])?)
+        self.invalidate(node_id);
+        self.set(node_id, ExprKind::And, Content::None, vec![])?;
+        Ok(())
     }
 
     /// Checks whether a node in the expression tree is an empty AND node `(and)`.
@@ -557,7 +549,9 @@ impl Expr {
     /// expr.set_empty_or(node_id)?;
     /// ```
     pub fn set_empty_or(&mut self, node_id: NodeId) -> Result<(), ExprError> {
-        Ok(self.set(node_id, ExprKind::Or, Content::None, vec![])?)
+        self.invalidate(node_id);
+        self.set(node_id, ExprKind::Or, Content::None, vec![])?;
+        Ok(())
     }
 
     /// Checks whether a node in the expression tree is an empty OR node `(or)`.
@@ -627,7 +621,6 @@ impl fmt::Display for Expr {
 }
 
 impl LiftedSyntaxDisplay for Expr {
-
     fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
         renderers::syntax::expr::render(f, self, ctx)
     }

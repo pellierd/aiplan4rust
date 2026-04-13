@@ -36,24 +36,49 @@
 //! The symbol resolution method returns `Result` to handle cases where
 //! identification extraction fails or when the node kind does not correspond to a symbol.
 
-use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind};
-use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::arena::ArenaNode;
-use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::lang::{
+    AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId,
+    PreferenceSymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId, TypedList,
+    VariableId,
+};
 use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind};
 use crate::aiplan4rust::lir::renderers;
-use crate::aiplan4rust::tree::{SyntaxBaseNode, Node};
+use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::tree::{Node, SyntaxBaseNode};
+use serde::{Deserialize, Serialize};
+use std::cell::Cell;
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::ops::{Deref, DerefMut};
 
 /// Expression node wrapping a syntax base node specialized with `ExprKind` and `ExprContent`.
 ///
 /// This struct represents a node in the expression syntax tree with
 /// hierarchical parent-child relationships managed via node IDs.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ExprNode {
     inner: SyntaxBaseNode<ExprKind, ExprContent>,
+    #[serde(skip)]
+    hash: Cell<Option<u64>>,
+}
+// 2. Implémentation de PartialEq : on ignore le cache
+impl PartialEq for ExprNode {
+    fn eq(&self, other: &Self) -> bool {
+        // Deux nœuds sont égaux si leur contenu structurel est identique
+        self.inner == other.inner
+    }
+}
+
+// 3. Eq est juste un marqueur (puisqu'on a PartialEq)
+impl Eq for ExprNode {}
+
+// 4. Implémentation de Hash : on ignore le cache
+impl std::hash::Hash for ExprNode {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
+    }
 }
 
 impl ExprNode {
@@ -71,6 +96,7 @@ impl ExprNode {
     pub fn new(kind: ExprKind, content: Content, parent: Option<NodeId>) -> Self {
         ExprNode {
             inner: SyntaxBaseNode::new(kind, content, Vec::new(), parent),
+            hash: Cell::new(None),
         }
     }
 
@@ -90,6 +116,20 @@ impl ExprNode {
         self.kind() == ExprKind::Or && self.children().is_empty()
     }
 
+    pub fn hash(&self) -> Option<u64> {
+        self.hash.get()
+    }
+
+    /// Met à jour le cache du hash.
+    /// Note : on prend &self (immuable) !
+    pub fn set_hash(&self, val: u64) {
+        self.hash.set(Some(val));
+    }
+
+    /// Invalide le hash (le rend "sale").
+    pub fn invalidate(&self) {
+        self.hash.set(None);
+    }
 }
 
 /// Allows transparent access to the underlying `SyntaxBaseNode` via dereferencing.
@@ -206,6 +246,7 @@ impl Node for ExprNode {
     ///     println!("This node is an atomic formula");
     /// }
     /// ```
+    #[inline]
     fn kind(&self) -> Self::Kind {
         self.inner.kind()
     }
@@ -241,6 +282,7 @@ impl Node for ExprNode {
     /// ```
     /// let content_ref = node.content();
     /// ```
+    #[inline]
     fn content(&self) -> &Self::Content {
         &self.inner.content()
     }
@@ -297,9 +339,10 @@ impl Node for ExprNode {
             inner: SyntaxBaseNode::new(
                 self.inner.kind(),
                 self.inner.content().clone(),
-                Vec::new(),         // no children
-                None,               // no parent
+                Vec::new(),
+                None,
             ),
+            hash: Cell::new(None),
         }
     }
 
@@ -322,9 +365,9 @@ impl Node for ExprNode {
     /// ```
     fn is_atomic_formula(&self) -> bool {
         matches!(
-        self.kind(),
-        ExprKind::AtomicFormula | ExprKind::Comparison | ExprKind::Assignment
-    )
+            self.kind(),
+            ExprKind::AtomicFormula | ExprKind::Comparison | ExprKind::Assignment
+        )
     }
 
     /// Returns `true` if the node is a **temporal specifier**.
@@ -341,7 +384,10 @@ impl Node for ExprNode {
     /// assert!(node.is_time_specifier());
     /// ```
     fn is_time_specifier(&self) -> bool {
-        matches!(self.kind(), ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall)
+        matches!(
+            self.kind(),
+            ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall
+        )
     }
 
     /// Returns `true` if the node represents a **logical operator**.
@@ -359,7 +405,10 @@ impl Node for ExprNode {
     /// assert!(node.is_logic());
     /// ```
     fn is_logic(&self) -> bool {
-        matches!(self.kind(), ExprKind::And | ExprKind::Or | ExprKind::Not | ExprKind::Imply)
+        matches!(
+            self.kind(),
+            ExprKind::And | ExprKind::Or | ExprKind::Not | ExprKind::Imply
+        )
     }
 
     /// Returns `true` if this node represents a logical negation (`Not`).
@@ -382,7 +431,6 @@ impl Node for ExprNode {
     fn is_variable(&self) -> bool {
         matches!(self.kind(), ExprKind::Variable)
     }
-
 }
 
 impl ExprNode {
@@ -502,8 +550,9 @@ impl ExprNode {
     }
 
     /// Returns a mutable reference to the quantifier’s bound variables or an error.
-    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<VariableId, TypeId>, ExprError> {
+    pub fn try_quantifier_vars_mut(
+        &mut self,
+    ) -> Result<&mut TypedList<VariableId, TypeId>, ExprError> {
         self.content_mut().try_quantifier_vars_mut()
     }
-
 }

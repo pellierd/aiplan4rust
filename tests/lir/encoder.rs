@@ -322,6 +322,7 @@ pub fn test_pddl_encoder(domain_path: &str) {
 
 /// Test the LIR Builder on all problems in a domain directory
 pub fn test_lir_encode_all_files(domain_dir: &Path) -> bool {
+    std::env::set_var("FULL_TESTS", "1");
     let mut success = true;
 
     // 1. Nettoyage global (ast, diag, linking et lir)
