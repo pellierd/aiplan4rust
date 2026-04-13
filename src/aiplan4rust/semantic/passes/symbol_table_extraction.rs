@@ -57,7 +57,7 @@ pub fn extract_symbol_table(context: &PassContext) -> Result<SymbolTable, Semant
     let root_ref = context.syntax_tree().try_root_node_ref()?;
     let root_node = root_ref.node();
 
-    let mut table = SymbolTable::new(context.interner());
+    let mut table = SymbolTable::new(context.interner(), context.syntax_tree().len());
     // Match the root node kind and configure the symbol table's origin and root ID accordingly
     match root_node.kind() {
         AstKind::Domain => {

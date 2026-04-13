@@ -213,7 +213,7 @@ fn resolve_builtin(symbol_id: SymbolId) -> Option<Resolution> {
 /// * `Ok((Vec<...>, bool))` - A collection of discovered resolutions and a flag
 ///    indicating if all encountered non-atomic symbols were successfully resolved.
 /// * `Err(SemanticPassError)` - If an error occurs during the matching process.
-fn collect_signature_resolutions(
+pub fn collect_signature_resolutions(
     table: &SymbolTable,
     checker: &SignatureChecker,
     domain_table: Option<&SymbolTable>,
@@ -221,21 +221,17 @@ fn collect_signature_resolutions(
     let mut resolutions = Vec::new();
     let mut all_resolved = true;
 
+    // Itération optimisée sur le Vec de symboles
     for entry in table {
         for usage in entry.usages() {
-            let kind = usage.symbol().kind();
-            let is_nominal = is_nominal_kind(kind);
-            let has_resolution = usage.resolution().is_some();
-
-            // Skip symbols that are already resolved or belong to atomic kinds
-            // (atomic kinds are handled by nominal resolution passes).
-            if has_resolution || is_nominal {
+            // On vérifie si l'usage a déjà été traité (idempotence)
+            if usage.resolution().is_some() || is_nominal_kind(usage.symbol().kind()) {
                 continue;
             }
 
-            // Perform Signature-based resolution:
-            // 1. Attempt to find a matching declaration in the local scope.
-            // 2. If not found, attempt to find a matching proxy/declaration in the domain.
+            // Résolution par signature :
+            // 1. Recherche locale (O(1) pour l'accès aux déclinaisons internes)
+            // 2. Recherche domaine (Si on est dans un problème PDDL)
             let best_match = resolve_local_match(entry, usage, Some(checker))?.or_else(|| {
                 resolve_domain_match(entry.id(), domain_table, usage, Some(checker))
                     .ok()
@@ -243,10 +239,10 @@ fn collect_signature_resolutions(
             });
 
             if let Some(res) = best_match {
-                // Record the resolution to be applied later in the 'Apply' phase.
-                resolutions.push((usage.symbol().id(), usage.source(), res));
+                // On capture le triplet pour la phase "Apply"
+                resolutions.push((entry.id(), usage.source(), res));
             } else {
-                // Mark as unresolved if no valid signature match could be established.
+                // Si aucune signature ne matche (ex: mauvais nombre d'arguments)
                 all_resolved = false;
             }
         }
@@ -279,30 +275,22 @@ pub fn apply_resolutions(
     resolutions: Vec<(SymbolId, NodeId, Resolution)>,
 ) -> Result<(), SemanticPassError> {
     for (sym_id, usage_id, resolution) in resolutions {
-        // 1. DÉTERMINATION DE LA DÉCLARATION CIBLE ET DU STATUT
         let (final_decl_id, status) = match resolution {
-            // Cas Local : L'ID de la déclaration existe déjà dans la table
-            Resolution::Local(decl_id, status) => (decl_id, status),
-
-            // Cas Domain : Gestion des Proxys (Importation du domaine vers le problème)
-            Resolution::Domain(proxy, status) => {
-                let proxy_source = proxy.source();
-
-                // On utilise ton nouveau add_declaration.
-                // Grâce à sa "Garde d'Idempotence", si le proxy existe déjà,
-                // il ne fait rien. C'est ultra-efficace.
-                table.add_declaration(sym_id, proxy)?;
-
-                (proxy_source, status)
+            Resolution::Local(decl_id, status) | Resolution::Implicite(decl_id, status) => {
+                (decl_id, status)
             }
 
-            // Cas Implicite : Symboles réservés (ex: object, ?duration)
-            Resolution::Implicite(reserved_id, status) => (reserved_id, status),
+            Resolution::Domain(proxy, status) => {
+                let proxy_source = proxy.source();
+                // add_declaration est maintenant ultra-rapide car l'index est déjà prêt
+                table.add_declaration(sym_id, proxy)?;
+                (proxy_source, status)
+            }
         };
 
-        // 2. MISE À JOUR DES LIENS BIDIRECTIONNELS (Cache O(1))
-        // On remplace tout l'ancien bloc 2.1 et 2.2 par ton "vissage" atomique.
-        // Cette fonction gère seule l'accès aux index du cache.
+        // 2. LIAISON ATOMIQUE O(1)
+        // Grâce au reserve() au-dessus, d.add_usage(usage_id) à l'intérieur
+        // de link_resolution devient une simple écriture mémoire sans allocation.
         table.link_resolution(usage_id, final_decl_id, status);
     }
 

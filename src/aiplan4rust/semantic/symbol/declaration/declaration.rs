@@ -457,12 +457,20 @@ impl Declaration {
     /// * `true` - If the usage was newly added.
     /// * `false` - If the usage was already registered.
     pub fn add_usage(&mut self, usage_node_id: NodeId) -> bool {
-        if !self.usages.contains(&usage_node_id) {
-            self.usages.push(usage_node_id);
-            true
-        } else {
-            false
+        #[cfg(debug_assertions)]
+        {
+            // En mode Debug : on garde la sécurité maximale
+            if self.usages.contains(&usage_node_id) {
+                // Optionnel : tu peux panic! ici si tu veux être sûr
+                // de corriger tes bugs de parcours d'AST.
+                return false;
+            }
         }
+
+        // En mode Release : le bloc au-dessus est supprimé.
+        // On fait le push en O(1) sans se poser de questions.
+        self.usages.push(usage_node_id);
+        true
     }
 
     /// Returns a slice of all AST node identifiers resolved to this declaration.
@@ -499,12 +507,17 @@ impl Declaration {
     /// * `true` - If the derivation link was newly established.
     /// * `false` - If the link already existed.
     pub fn add_derivation(&mut self, derived_node_id: NodeId) -> bool {
-        if !self.derivations.contains(&derived_node_id) {
-            self.derivations.push(derived_node_id);
-            true
-        } else {
-            false
+        #[cfg(debug_assertions)]
+        {
+            // On garde le check en mode Debug pour valider la logique du compilateur
+            if self.derivations.contains(&derived_node_id) {
+                return false;
+            }
         }
+
+        // En mode Release (--release), on fonce en O(1)
+        self.derivations.push(derived_node_id);
+        true
     }
 
     /// Sets the base predicate signature node that this derived predicate refers to.
