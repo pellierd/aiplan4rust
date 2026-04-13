@@ -4,9 +4,11 @@
 //! information such as objects, the initial state, goal conditions, and HTN
 //! initial task networks. It populates the final `LiftedProblem` IR.
 
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::encoding::{expr, goal, init, initial_task_network, objects_def, EncodingRegistry};
+use crate::aiplan4rust::lir::encoding::{
+    constraints, expr, goal, init, initial_task_network, objects_def, preference, EncodingRegistry,
+};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 
@@ -49,7 +51,6 @@ pub fn encode(
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-
     // Phase 1: Structural Declarations.
     // Collect and register user-defined types, constants, predicates, and functions.
     collect_problem_definitions(syntax_tree, registry, ir)?;
@@ -104,7 +105,7 @@ pub fn collect_problem_definitions(
                 ir.set_constant_offset();
                 objects_def::encode(&subtree, registry, ir)?;
             }
-
+            AstKind::Preference => preference::encode(&subtree, registry, ir)?,
             // Other structural nodes can be added here (e.g., Requirements)
             _ => {}
         }
@@ -161,7 +162,7 @@ pub fn encode_problem_logic(
 
             // Temporal or state-based constraints
             AstKind::Constraints => {
-                let constraints = expr::encode(&subtree, registry)?;
+                let constraints = constraints::encode(&subtree, registry)?;
                 ir.set_problem_constraints(constraints);
             }
 

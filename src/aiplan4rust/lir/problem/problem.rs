@@ -44,8 +44,8 @@ use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{
     ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
-    MethodSymbolId, ObjectId, PredicateSymbolId, Requirement, SymbolId, TaskSkeletonId,
-    TaskSymbolId, Type, TypeId, TypedSymbol,
+    MethodSymbolId, ObjectId, PredicateSymbolId, PreferenceSymbolId, Requirement, SymbolId,
+    TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedSymbol,
 };
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::atomic_skeleton::{
@@ -87,6 +87,8 @@ pub struct Problem {
     action_symbols: SymbolRegistry<ActionSymbolId>,
     /// Map between Method names and their internal IDs.
     method_symbols: SymbolRegistry<MethodSymbolId>,
+    /// Map between Preference names (labels) and their internal IDs.
+    preference_symbols: SymbolRegistry<PreferenceSymbolId>,
 
     // --- DEFINITIONS (Lifted Structure / Skeletons) ---
     /// List of typing definitions, including hierarchy (parent-child relations).
@@ -99,6 +101,8 @@ pub struct Problem {
     function_defs: Vec<AtomicFunctionSkeleton>,
     /// Signatures of all abstract tasks for HTN planning.
     task_defs: Vec<AtomicTaskSkeleton>,
+    /// List of preference definitions (the logical formula associated with a preference label).
+    preference_defs: Vec<Expr>,
 
     /// Index marking the boundary between domain constants and problem-specific objects.
     constant_offset: usize,
@@ -167,6 +171,8 @@ impl Problem {
             function_defs: Vec::new(),
             task_symbols: SymbolRegistry::new(),
             task_defs: Vec::new(),
+            preference_symbols: SymbolRegistry::new(),
+            preference_defs: Vec::new(),
             domain_constraints: Expr::empty_or(),
             derived_predicate_defs: Vec::new(),
             predicate_derivations: Vec::new(),
@@ -1064,6 +1070,92 @@ impl Problem {
     ) -> Result<&mut AtomicTaskSkeleton, LirError> {
         self.get_task_def_mut(id)
             .ok_or_else(|| LirError::task_definition_orphan(id))
+    }
+
+    /// Returns a read-only reference to the preference symbol table.
+    pub fn preference_symbols(&self) -> &SymbolRegistry<PreferenceSymbolId> {
+        &self.preference_symbols
+    }
+
+    /// Registers a new preference label and returns its internal ID.
+    pub fn add_preference_symbol(&mut self, symbol: SymbolId) -> PreferenceSymbolId {
+        self.preference_symbols.insert(symbol)
+    }
+
+    /// Takes ownership of the preference symbol table, leaving an empty one in its place.
+    pub fn take_preference_symbols(&mut self) -> SymbolRegistry<PreferenceSymbolId> {
+        std::mem::take(&mut self.preference_symbols)
+    }
+
+    /// Returns a slice of all preference definitions (logical expressions) in the problem.
+    pub fn preference_defs(&self) -> &[Expr] {
+        &self.preference_defs
+    }
+
+    /// Returns a mutable slice of all preference definitions.
+    pub fn preference_defs_mut(&mut self) -> &mut [Expr] {
+        &mut self.preference_defs
+    }
+
+    /// Checks if any preference definitions have been registered.
+    pub fn has_preference_defs(&self) -> bool {
+        !self.preference_defs.is_empty()
+    }
+
+    /// Adds a new preference definition associated with a specific label.
+    ///
+    /// Note: The `PreferenceSymbolId` should be obtained first via `add_preference_symbol`.
+    /// The definition is appended to the vector, maintaining the same index as the symbol.
+    pub fn add_preference_def(
+        &mut self,
+        symbol_id: PreferenceSymbolId,
+        condition: Expr,
+    ) -> PreferenceSymbolId {
+        // On s'assure que le vecteur de defs reste synchronisé avec le registre de symboles
+        // Idéalement, preference_defs[id] correspond au symbole d'ID 'id'.
+        let expected_id = self.preference_defs.len();
+
+        debug_assert_eq!(
+            symbol_id.as_usize(),
+            expected_id,
+            "Preference definitions must be added in the same order as their symbols to maintain alignment."
+        );
+
+        self.preference_defs.push(condition);
+        symbol_id
+    }
+
+    /// Takes ownership of the preference definitions, leaving an empty vector.
+    pub fn take_preference_defs(&mut self) -> Vec<Expr> {
+        std::mem::take(&mut self.preference_defs)
+    }
+
+    /// Returns a reference to a preference expression if it exists.
+    pub fn get_preference_def(&self, id: PreferenceSymbolId) -> Option<&Expr> {
+        self.preference_defs.get(id.as_usize())
+    }
+
+    /// Returns a mutable reference to a preference expression if it exists.
+    pub fn get_preference_def_mut(&mut self, id: PreferenceSymbolId) -> Option<&mut Expr> {
+        self.preference_defs.get_mut(id.as_usize())
+    }
+
+    /// Attempts to retrieve a preference definition or returns a specialized error.
+    ///
+    /// # Errors
+    /// Returns [`LirError::PreferenceDefinitionOrphan`] if the ID is invalid.
+    pub fn try_get_preference(&self, id: PreferenceSymbolId) -> Result<&Expr, LirError> {
+        self.get_preference_def(id)
+            .ok_or_else(|| LirError::preference_definition_orphan(id))
+    }
+
+    /// Attempts to retrieve a mutable preference definition or returns a specialized error.
+    pub fn try_get_preference_mut(
+        &mut self,
+        id: PreferenceSymbolId,
+    ) -> Result<&mut Expr, LirError> {
+        self.get_preference_def_mut(id)
+            .ok_or_else(|| LirError::preference_definition_orphan(id))
     }
 
     /// Returns a reference to the global domain constraints.

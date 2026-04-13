@@ -56,7 +56,9 @@ pub struct EncodingRegistry {
     variable_to_id: HashMap<NodeId, VariableId>,
     variable_id_to_symbol: Vec<SymbolId>,
 
+    /// Map un NodeId de déclaration vers un PreferenceSymbolId.
     preference_to_id: HashMap<NodeId, PreferenceSymbolId>,
+    preference_symbol_to_id: HashMap<SymbolId, PreferenceSymbolId>,
 
     task_label_to_id: HashMap<SymbolId, TaskLabelSymbolId>,
     task_label_id_to_symbol: Vec<SymbolId>,
@@ -102,6 +104,7 @@ impl EncodingRegistry {
             variable_to_id: HashMap::new(),
             variable_id_to_symbol: Vec::new(),
             preference_to_id: HashMap::new(),
+            preference_symbol_to_id: HashMap::new(),
             task_label_to_id: HashMap::new(),
             task_label_id_to_symbol: Vec::new(),
         }
@@ -360,8 +363,36 @@ impl EncodingRegistry {
         self.task_symbol_to_id.insert(symbol, id);
     }
 
-    pub fn register_preference(&mut self, symbol: NodeId, id: PreferenceSymbolId) {
-        self.preference_to_id.insert(symbol, id);
+    /// Enregistre ou récupère un ID de préférence à partir de son nom (SymbolId).
+    /// C'est la méthode "au fil de l'eau" (identique à register_task_label).
+    pub fn register_preference_symbol(&mut self, symbol: SymbolId) -> PreferenceSymbolId {
+        if let Some(&id) = self.preference_symbol_to_id.get(&symbol) {
+            return id;
+        }
+        let id = PreferenceSymbolId::new(self.preference_symbol_to_id.len());
+        self.preference_symbol_to_id.insert(symbol, id);
+        id
+    }
+
+    /// Lie un NodeId spécifique (celui du nœud Preference) à un PreferenceSymbolId.
+    /// Utilisé pendant la Phase 1 (Collection) pour marquer la définition.
+    pub fn register_preference(&mut self, node_id: NodeId, id: PreferenceSymbolId) {
+        self.preference_to_id.insert(node_id, id);
+    }
+
+    /// Résout un nom de préférence (utilisé dans les expressions is-violated).
+    pub fn resolve_preference_by_name(&self, symbol: SymbolId) -> Option<PreferenceSymbolId> {
+        self.preference_symbol_to_id.get(&symbol).copied()
+    }
+
+    /// Version avec erreur pour la résolution de nom dans les expressions.
+    pub fn try_resolve_preference_by_name(
+        &self,
+        symbol: SymbolId,
+    ) -> Result<PreferenceSymbolId, LirError> {
+        self.resolve_preference_by_name(symbol)
+            .ok_or_else(|| LirError::symbol_binding_failed(NodeId::default()))
+        // Note: On peut améliorer l'erreur si tu as un variant spécifique
     }
 
     pub fn register_task_label(&mut self, symbol: SymbolId) -> TaskLabelSymbolId {

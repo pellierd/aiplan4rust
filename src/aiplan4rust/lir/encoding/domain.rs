@@ -13,8 +13,8 @@ use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{Requirement, SymbolId, Type, TypeId, TypedList};
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::{
-    action, constants_def, derived_predicate, expr, functions_def, method, predicates_def, task,
-    types_def,
+    action, constants_def, constraints, derived_predicate, functions_def, method, predicates_def,
+    preference, task, types_def,
 };
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -108,6 +108,8 @@ fn collect_definitions(
             AstKind::TaskDef => task::encode(&subtree, registry, ir)?,
             AstKind::ActionDef => task::encode(&subtree, registry, ir)?,
             AstKind::DurativeActionDef => task::encode(&subtree, registry, ir)?,
+            AstKind::Preference => preference::encode(&subtree, registry, ir)?,
+
             _ => {}
         }
     }
@@ -150,7 +152,7 @@ fn encode_logic(
 
         match node.kind() {
             AstKind::Constraints => {
-                let constraints = expr::encode(&subtree, registry)?;
+                let constraints = constraints::encode(&subtree, registry)?;
                 ir.set_domain_constraints(constraints);
             }
             AstKind::ActionDef | AstKind::DurativeActionDef => {

@@ -47,10 +47,10 @@
 //! is unsupported.
 //!
 
-use std::fmt;
-use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::syntax::ast::AstKind;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
 pub enum Kind {
@@ -96,7 +96,7 @@ pub enum Kind {
     Parallel,
     Task,
     TaskLabel,
-    LabeledTask, // check
+    LabeledTask,            // check
     TaskOrderingConstraint, // check
 }
 
@@ -104,18 +104,18 @@ impl Kind {
     pub fn to_pddl_keyword(&self) -> &'static str {
         match self {
             // Leaves and terminals (content is handled by the Content module)
-            Kind::Object |
-            Kind::Variable |
-            Kind::FunctionSymbol |
-            Kind::PredicateSymbol |
-            Kind::TaskSymbol |
-            Kind::PrefName |
-            Kind::Function |
-            Kind::Number |
-            Kind::AtomicFormula |
-            Kind::Task |
-            Kind::TaskLabel |
-            Kind::LabeledTask => "",
+            Kind::Object
+            | Kind::Variable
+            | Kind::FunctionSymbol
+            | Kind::PredicateSymbol
+            | Kind::TaskSymbol
+            | Kind::PrefName
+            | Kind::Function
+            | Kind::Number
+            | Kind::AtomicFormula
+            | Kind::Task
+            | Kind::TaskLabel
+            | Kind::LabeledTask => "",
 
             // Logical Connectives
             Kind::And => "and",
@@ -132,8 +132,7 @@ impl Kind {
 
             // Numerical Comparisons and Operations
             // Note: Usually handled by Content (e.g., <, >, +, -)
-            Kind::Comparison |
-            Kind::Arithmetic => "",
+            Kind::Comparison | Kind::Arithmetic => "",
             Kind::Assignment => "",
 
             // Temporal (PDDL 2.1+)

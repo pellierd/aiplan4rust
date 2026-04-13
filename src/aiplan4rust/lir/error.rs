@@ -1,16 +1,19 @@
-use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, SymbolId, TaskSkeletonId, Type, TypeId};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
-use crate::aiplan4rust::lir::expr::ExprError;
+use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::lang::{
+    AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, PreferenceSymbolId, SymbolId,
+    TaskSkeletonId, Type, TypeId,
+};
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
-use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::problem::symbol_registry::IndexTableError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
+use thiserror::Error;
 
 /// Represents errors that can occur within the `lir` (Lifted Intermediate Representation) module.
 ///
@@ -30,8 +33,6 @@ use crate::aiplan4rust::tree::NodeId;
 /// - [`InternalError`]: Generic internal errors indicating unexpected or unrecoverable conditions.
 #[derive(Debug, Error)]
 pub enum LirError {
-
-
     /// An error originating from the expression system.
     #[error(transparent)]
     Logic(#[from] ExprOpError),
@@ -39,7 +40,7 @@ pub enum LirError {
     /// An error originating from the expression system.
     #[error(transparent)]
     Inertia(#[from] InertiaError),
-    
+
     #[error(transparent)]
     IndexTable(#[from] IndexTableError),
 
@@ -94,7 +95,6 @@ pub enum LirError {
     #[error("Missing typing in flattened hierarchy: {ty:?}")] // Changed {types:?} to {ty:?}
     MissingType { ty: Type<TypeId> },
 
-
     #[error("Failed to bind {symbol}")]
     SymbolBindingFailed { symbol: NodeId },
 
@@ -125,8 +125,10 @@ pub enum LirError {
     #[error("Task definition requested for an unregistered ID: {id:?}")]
     TaskDefinitionOrphan { id: TaskSkeletonId },
 
+    // Dans l'enum LirError
+    #[error("Preference definition requested for an unregistered ID: {id:?}")]
+    PreferenceDefinitionOrphan { id: PreferenceSymbolId },
 }
-
 
 impl LirError {
     /// Constructs a `LirError` from an [`ExprError`].
@@ -182,8 +184,6 @@ impl LirError {
         LirError::MissingType { ty }.trace()
     }
 
-
-
     /// Creates a new binding error.
     ///
     /// # Parameters
@@ -238,7 +238,10 @@ impl LirError {
         Self::TaskDefinitionOrphan { id }.trace()
     }
 
-
+    #[track_caller]
+    pub fn preference_definition_orphan(id: PreferenceSymbolId) -> Self {
+        Self::PreferenceDefinitionOrphan { id }.trace()
+    }
 }
 
 impl Traceable for LirError {}

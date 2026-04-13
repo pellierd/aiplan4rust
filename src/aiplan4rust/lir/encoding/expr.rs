@@ -478,6 +478,12 @@ fn encode_content(
             Ok(ExprContent::TaskLabelSymbol(task_label_id))
         }
 
+        AstKind::PrefName => {
+            let pref_name_symbol_id = ast_node.try_ident()?;
+            let pref_id = registry.register_preference_symbol(pref_name_symbol_id);
+            Ok(ExprContent::PreferenceSymbol(pref_id))
+        }
+
         // --- Leaf Nodes and Operators ---
         // If the Kind is not a complex symbol, we extract the raw primitive
         // value or the operator stored within the AST content.
@@ -556,6 +562,7 @@ fn encode_kind(kind: AstKind) -> Result<ExprKind, ExprError> {
         AstKind::TaskLabel => Ok(ExprKind::TaskLabel),
         AstKind::LabeledTask => Ok(ExprKind::LabeledTask),
         AstKind::TaskOrderingConstraint => Ok(ExprKind::TaskOrderingConstraint),
+        AstKind::Preference => Ok(ExprKind::Preference),
         other => Err(ExprError::invalid_ast_node(other)),
     }
 }
