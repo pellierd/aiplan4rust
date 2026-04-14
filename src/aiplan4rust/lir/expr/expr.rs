@@ -47,7 +47,7 @@ use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 /// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///
@@ -262,61 +262,57 @@ impl Expr {
         expr
     }
 
-    /// Returns the root node ID of the expression, if any.
+    /// Returns the identifier of the root node, if the tree is not empty.
     pub fn root_id(&self) -> Option<NodeId> {
         self.tree.root_id()
     }
 
+    /// Returns the identifier of the root node or an error if the tree is empty.
+    ///
+    /// # Errors
+    /// Returns [`SyntaxTreeError::RootNotFound`] if no root has been set.
     pub fn try_root_id(&self) -> Result<NodeId, SyntaxTreeError> {
         self.tree.try_root_id()
     }
 
+    /// Returns a reference to the root node, if the tree is not empty.
     pub fn root_node(&self) -> Option<&ExprNode> {
         self.tree.root_node()
     }
 
+    /// Returns a reference to the root node or an error if the tree is empty.
+    ///
+    /// # Errors
+    /// Returns [`SyntaxTreeError::RootNotFound`] if the tree is empty or the root ID is invalid.
     pub fn try_root_node(&self) -> Result<&ExprNode, SyntaxTreeError> {
         self.tree.try_node(self.try_root_id()?)
     }
 
-    /// Sets the root node ID of the expression.
+    /// Sets the root node of the expression.
+    ///
+    /// # Arguments
+    /// * `id` - The identifier of the node to be promoted to root.
+    ///
+    /// # Errors
+    /// Returns [`SyntaxTreeError::NodeNotFound`] if the provided `id` does not exist.
     pub fn set_root_id(&mut self, id: NodeId) -> Result<(), SyntaxTreeError> {
         self.tree.set_root_id(id)
     }
 
-    pub fn get_node_kind(&self, id: NodeId) -> Option<ExprKind> {
-        self.get_node(id).map(|node| node.kind())
-    }
-
-    pub fn try_node_kind(&self, id: NodeId) -> Result<ExprKind, ExprError> {
-        Ok(self.try_node(id)?.kind())
-    }
-
-    /// Returns the kind of the root node of the expression, if any.
-    pub fn kind(&self) -> Option<ExprKind> {
-        self.root_id().and_then(|id| self.get_node_kind(id))
-    }
-
-    /// Tries to return the kind of the root node, or an error if the root is not set.
-    pub fn try_kind(&self) -> Result<ExprKind, ExprError> {
-        self.try_node_kind(self.try_root_id()?)
-    }
-
-    /// Allocates a new node in the expression tree.
+    /// Allocates a new node in the expression tree and handles cache invalidation.
+    ///
+    /// If the node is allocated with a pre-defined parent ID, the parent's hash
+    /// cache (and its ancestors) is automatically invalidated to maintain consistency.
     ///
     /// # Arguments
-    /// * `node` - The expression node to be inserted.
+    /// * `node` - The [`ExprNode`] to be inserted.
     ///
     /// # Returns
     /// The unique [`NodeId`] assigned to the newly inserted node.
     pub fn alloc(&mut self, node: ExprNode) -> NodeId {
-        // Si le nœud qu'on alloue a déjà un ID de parent défini
         let parent_to_invalidate = node.parent();
-
         let new_id = self.tree.alloc(node);
 
-        // Si on l'insère alors qu'il est déjà lié à un parent,
-        // il faut dire au parent que sa structure a changé.
         if let Some(pid) = parent_to_invalidate {
             self.invalidate(pid);
         }
@@ -522,6 +518,28 @@ impl Expr {
         Ok(self.try_node(node_id)?.is_empty_and())
     }
 
+    /// Checks whether a node in the expression tree is an empty OR node `(or)`.
+    ///
+    /// An empty OR node has kind `ExprKind::Or` and no children.
+    /// In PDDL semantics, `(or)` represents a logical `false`.
+    ///
+    /// # Parameters
+    /// - `node_id`: The ID of the node to check.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if the node exists, is of kind `Or`, and has no children.
+    /// - `Ok(false)` if the node exists but is not an empty OR.
+    /// - `Err(ExprError)` if the node cannot be accessed.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let or_id = expr_builder.or(vec![]);
+    /// assert!(logic.is_empty_or(or_id)?);
+    /// ```
+    pub fn is_empty_or(&self, node_id: NodeId) -> Result<bool, ExprError> {
+        Ok(self.try_node(node_id)?.is_empty_or())
+    }
+
     /// Sets the node at `node_id` to an empty `(or)` node.
     ///
     /// # Arguments
@@ -544,26 +562,69 @@ impl Expr {
         Ok(())
     }
 
-    /// Checks whether a node in the expression tree is an empty OR node `(or)`.
+    /// Modifies a node's components and invalidates the hash cache up to the root.
     ///
-    /// An empty OR node has kind `ExprKind::Or` and no children.
-    /// In PDDL semantics, `(or)` represents a logical `false`.
+    /// This method ensures that the node and all its ancestors are marked as invalid,
+    /// forcing a hash recalculation on the next access to guarantee data integrity.
     ///
-    /// # Parameters
-    /// - `node_id`: The ID of the node to check.
+    /// # Arguments
+    /// * `id` - The identifier of the node to modify.
+    /// * `kind` - The new [`ExprKind`].
+    /// * `content` - The new [`Content`].
+    /// * `children` - The new vector of child [`NodeId`]s.
+    ///
+    /// # Errors
+    /// Returns [`SyntaxTreeError::NodeNotFound`] if the `id` is invalid.
+    pub fn set(
+        &mut self,
+        id: NodeId,
+        kind: ExprKind,
+        content: Content,
+        children: Vec<NodeId>,
+    ) -> Result<(), SyntaxTreeError> {
+        self.invalidate(id);
+        self.tree.set(id, kind, content, children)
+    }
+
+    /// Moves a subtree to a new parent and manages cache invalidation.
+    ///
+    /// Invalidates the hash for the old parent, the new parent, and the moved node
+    /// itself to ensure the expression's global hash remains consistent.
+    ///
+    /// # Arguments
+    /// * `id` - The identifier of the node to move.
+    /// * `new_parent` - The identifier of the target parent node.
+    ///
+    /// # Errors
+    /// Returns an error if `id` or `new_parent` are invalid, or if the move
+    /// would violate tree invariants (e.g., creating a cycle).
+    pub fn move_to(&mut self, id: NodeId, new_parent: NodeId) -> Result<(), SyntaxTreeError> {
+        if let Ok(node) = self.tree.try_node(id) {
+            if let Some(old_parent) = node.parent() {
+                self.invalidate(old_parent);
+            }
+        }
+        self.invalidate(new_parent);
+        self.invalidate(id);
+
+        self.tree.move_to(id, new_parent)
+    }
+
+    /// Performs a deep clone of a subtree.
+    ///
+    /// Cloned nodes are allocated with an empty hash cache. This operation
+    /// does not affect the validity of existing nodes' hashes.
+    ///
+    /// # Arguments
+    /// * `id` - The root of the subtree to clone.
     ///
     /// # Returns
-    /// - `Ok(true)` if the node exists, is of kind `Or`, and has no children.
-    /// - `Ok(false)` if the node exists but is not an empty OR.
-    /// - `Err(ExprError)` if the node cannot be accessed.
+    /// The [`NodeId`] of the newly created subtree root.
     ///
-    /// # Examples
-    /// ```ignore
-    /// let or_id = expr_builder.or(vec![]);
-    /// assert!(logic.is_empty_or(or_id)?);
-    /// ```
-    pub fn is_empty_or(&self, node_id: NodeId) -> Result<bool, ExprError> {
-        Ok(self.try_node(node_id)?.is_empty_or())
+    /// # Errors
+    /// Returns [`SyntaxTreeError::NodeNotFound`] if the source `id` does not exist.
+    pub fn clone_subtree(&mut self, id: NodeId) -> Result<NodeId, SyntaxTreeError> {
+        self.tree.clone_subtree(id)
     }
 }
 
@@ -579,19 +640,6 @@ impl Deref for Expr {
     /// A reference to the internal syntax tree.
     fn deref(&self) -> &Self::Target {
         &self.tree
-    }
-}
-
-impl DerefMut for Expr {
-    /// Mutable dereference to the underlying [`Tree`] of [`ExprNode`]s.
-    ///
-    /// Allows mutation of the expression tree structure.
-    ///
-    /// # Returns
-    ///
-    /// A mutable reference to the internal syntax tree.
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.tree
     }
 }
 
