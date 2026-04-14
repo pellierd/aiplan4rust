@@ -143,7 +143,7 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpE
         }
     }
 
-    expr.try_node_mut(node_id)?.set_children(flat);
+    expr.set_children(node_id, flat)?;
     Ok(true)
 }
 
@@ -253,50 +253,11 @@ pub fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool,
     }
 
     if deduped.len() < expr.try_node(node_id)?.children().len() {
-        expr.try_node_mut(node_id)?.set_children(deduped);
+        expr.set_children(node_id, deduped)?;
         return Ok(true);
     }
     Ok(false)
 }
-/*fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
-    // 1. On récupère les enfants actuels
-    let children = {
-        let node = expr.try_node(node_id)?;
-        let kind = node.kind();
-        debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
-
-        if node.children().len() <= 1 {
-            return Ok(false);
-        }
-        node.children().to_vec()
-    };
-
-    let mut deduped_children = Vec::with_capacity(children.len());
-    // On utilise les hashes (u64) pour filtrer les doublons instantanément
-    let mut seen_hashes = std::collections::HashSet::with_capacity(children.len());
-
-    for child_id in children {
-        let child_hash = expr.try_node(child_id)?.structure_hash();
-
-        // insert() renvoie false si le hash existe déjà dans le set
-        if seen_hashes.insert(child_hash) {
-            deduped_children.push(child_id);
-        }
-    }
-
-    // 2. Si on a supprimé des nœuds, on met à jour
-    if deduped_children.len() < expr.try_node(node_id)?.children().len() {
-        expr.try_node_mut(node_id)?.set_children(deduped_children);
-
-        // CRITIQUE : Puisque la liste des enfants a changé,
-        // le hash du parent doit être recalculé !
-        expr.update_node_hash(node_id)?;
-
-        return Ok(true);
-    }
-
-    Ok(false)
-}*/
 
 /// Checks for tautologies and contradictions in an AND/OR node using structural analysis
 /// and static fact evaluation.
@@ -627,48 +588,48 @@ pub fn collect_and_merge_when(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(Vec<NodeId>, Vec<(NodeId, Vec<NodeId>)>), ExprOpError> {
-    // 1. On récupère le nombre d'enfants et on relâche l'emprunt immédiatement
-    let num_children = expr.try_node(node_id)?.children().len();
-
-    let mut non_when: Vec<NodeId> = Vec::new();
+    let mut non_when = Vec::new();
     let mut merged_map: Vec<(NodeId, Vec<NodeId>)> = Vec::new();
 
-    // 2. Boucle par index pour éviter de garder 'node' ouvert
-    for i in 0..num_children {
-        // On récupère l'ID de l'enfant. L'emprunt de try_node s'arrête à la fin de cette ligne.
-        let child_id = expr.try_node(node_id)?.children()[i];
-        let child_kind = expr.try_node(child_id)?.kind();
+    // 1. On récupère la référence vers les enfants une seule fois.
+    // Pour pouvoir utiliser 'expr' mutablement plus tard (hash/deep_eq),
+    // on transforme les IDs en un itérateur ou on les copie localement.
+    let children_ids: Vec<NodeId> = expr.try_node(node_id)?.children().to_vec();
 
-        if child_kind != ExprKind::When {
+    for child_id in children_ids {
+        // node_kind est pub(crate) et ultra rapide
+        if expr.node_kind(child_id) != Some(ExprKind::When) {
             non_when.push(child_id);
-        } else {
-            // Accès sécurisé aux enfants du WHEN (condition et effet)
+            continue;
+        }
+
+        // 2. Extraction directe des composants du WHEN
+        let (cond_id, eff_id) = {
             let child_node = expr.try_node(child_id)?;
-            debug_assert!(
-                child_node.children().len() == 2,
-                "WHEN node must have exactly two children"
-            );
+            let c = child_node.children();
+            debug_assert_eq!(c.len(), 2, "WHEN node must have exactly 2 children");
+            (c[0], c[1])
+        };
 
-            let cond_id = child_node.children()[0];
-            let eff_id = child_node.children()[1];
+        // 3. Calcul du hash de l'effet (mémoïsé dans le nœud)
+        let eff_hash = expr.hash(eff_id);
 
-            let mut found = false;
-            // On utilise un index pour la boucle interne sur merged_map
-            // pour éviter tout conflit potentiel, bien que merged_map soit local
-            for j in 0..merged_map.len() {
-                let existing_eff_id = merged_map[j].0;
-
-                // Ici, expr est libre car aucun emprunt immuable n'est actif
-                if expr.deep_sub_expr_eq(existing_eff_id, eff_id)? {
-                    merged_map[j].1.push(cond_id);
+        // 4. Recherche du groupe existant
+        let mut found = false;
+        for (existing_eff_id, conditions) in &mut merged_map {
+            // Comparaison de hash (O(1) car déjà en cache maintenant)
+            if expr.hash(*existing_eff_id) == eff_hash {
+                // Comparaison profonde uniquement en cas de match du hash
+                if expr.deep_sub_expr_eq(*existing_eff_id, eff_id)? {
+                    conditions.push(cond_id);
                     found = true;
                     break;
                 }
             }
+        }
 
-            if !found {
-                merged_map.push((eff_id, vec![cond_id]));
-            }
+        if !found {
+            merged_map.push((eff_id, vec![cond_id]));
         }
     }
 
@@ -887,7 +848,7 @@ mod flatten_and_or_node_tests {
 
         // Verify children kinds
         for &child_id in root_node.children() {
-            assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+            assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
         }
 
         Ok(())
@@ -924,7 +885,7 @@ mod flatten_and_or_node_tests {
 
         // Verify all children are atoms
         for &child_id in root_node.children() {
-            assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+            assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
         }
 
         Ok(())
@@ -962,7 +923,7 @@ mod flatten_and_or_node_tests {
 
         // Verify all flattened children are atomic
         for &child_id in root_node.children() {
-            assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+            assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
         }
 
         Ok(())
@@ -996,7 +957,7 @@ mod flatten_and_or_node_tests {
 
         // Verify children are still the original atoms
         for &child_id in root_node.children() {
-            assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+            assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
         }
 
         Ok(())
@@ -1039,11 +1000,11 @@ mod deduplicate_and_or_node_tests {
 
         // Verify the unique children are what we expect
         assert_eq!(
-            expr.get_node_kind(root_node.children()[0]),
+            expr.node_kind(root_node.children()[0]),
             Some(ExprKind::AtomicFormula)
         );
         assert_eq!(
-            expr.get_node_kind(root_node.children()[1]),
+            expr.node_kind(root_node.children()[1]),
             Some(ExprKind::AtomicFormula)
         );
 
@@ -1080,7 +1041,7 @@ mod deduplicate_and_or_node_tests {
 
         // Verify individual children are atomic formulas
         for &child_id in root_node.children() {
-            assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+            assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
         }
 
         Ok(())
@@ -1114,11 +1075,11 @@ mod deduplicate_and_or_node_tests {
 
         // Verify original order/existence
         assert_eq!(
-            expr.get_node_kind(root_node.children()[0]),
+            expr.node_kind(root_node.children()[0]),
             Some(ExprKind::AtomicFormula)
         );
         assert_eq!(
-            expr.get_node_kind(root_node.children()[1]),
+            expr.node_kind(root_node.children()[1]),
             Some(ExprKind::AtomicFormula)
         );
 
@@ -1159,14 +1120,11 @@ mod deduplicate_and_or_node_tests {
 
         // Verify first child is the nested AND
         let first_child = root_node.children()[0];
-        assert_eq!(expr.get_node_kind(first_child), Some(ExprKind::And));
+        assert_eq!(expr.node_kind(first_child), Some(ExprKind::And));
 
         // Verify second child is the atomic formula C
         let second_child = root_node.children()[1];
-        assert_eq!(
-            expr.get_node_kind(second_child),
-            Some(ExprKind::AtomicFormula)
-        );
+        assert_eq!(expr.node_kind(second_child), Some(ExprKind::AtomicFormula));
 
         Ok(())
     }
@@ -1205,14 +1163,11 @@ mod deduplicate_and_or_node_tests {
 
         // Verify the first child is the remaining OR branch
         let first_child = root_node.children()[0];
-        assert_eq!(expr.get_node_kind(first_child), Some(ExprKind::Or));
+        assert_eq!(expr.node_kind(first_child), Some(ExprKind::Or));
 
         // Verify the second child is the atom C
         let second_child = root_node.children()[1];
-        assert_eq!(
-            expr.get_node_kind(second_child),
-            Some(ExprKind::AtomicFormula)
-        );
+        assert_eq!(expr.node_kind(second_child), Some(ExprKind::AtomicFormula));
 
         Ok(())
     }
@@ -1416,7 +1371,7 @@ mod reduce_single_and_or_node_tests {
         // But its child should now be the AtomicFormula directly
         assert_eq!(root_node.children().len(), 1);
         let child_id = root_node.children()[0];
-        assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+        assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
 
         Ok(())
     }
@@ -1476,7 +1431,7 @@ mod reduce_single_and_or_node_tests {
         // Its child should now be the AtomicFormula directly, bypassing the inner OR
         assert_eq!(root_node.children().len(), 1);
         let child_id = root_node.children()[0];
-        assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+        assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
 
         Ok(())
     }
@@ -1602,7 +1557,7 @@ mod simplify_empty_and_or_node_tests {
 
         // Verify children are still AtomicFormulas
         for &child_id in root_node.children() {
-            assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+            assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
         }
 
         Ok(())
@@ -1734,7 +1689,7 @@ mod simplify_empty_and_or_node_tests {
         assert_eq!(root_node.children().len(), 2);
 
         for &child_id in root_node.children() {
-            assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::AtomicFormula));
+            assert_eq!(expr.node_kind(child_id), Some(ExprKind::AtomicFormula));
         }
 
         Ok(())
@@ -1806,12 +1761,12 @@ mod simplify_empty_and_or_node_tests {
 
         // Child 0: The combined conditions (OR C1 C2)
         let cond_id = root_node.children()[0];
-        assert_eq!(expr.get_node_kind(cond_id), Some(ExprKind::Or));
+        assert_eq!(expr.node_kind(cond_id), Some(ExprKind::Or));
         assert_eq!(expr.try_node(cond_id)?.children().len(), 2);
 
         // Child 1: The factored effect E
         let eff_id = root_node.children()[1];
-        assert_eq!(expr.get_node_kind(eff_id), Some(ExprKind::AtomicFormula));
+        assert_eq!(expr.node_kind(eff_id), Some(ExprKind::AtomicFormula));
 
         Ok(())
     }
@@ -1847,7 +1802,7 @@ mod simplify_empty_and_or_node_tests {
         assert_eq!(root_node.children().len(), 2);
 
         for &child_id in root_node.children() {
-            assert_eq!(expr.get_node_kind(child_id), Some(ExprKind::When));
+            assert_eq!(expr.node_kind(child_id), Some(ExprKind::When));
         }
 
         Ok(())
@@ -1884,8 +1839,8 @@ mod simplify_empty_and_or_node_tests {
         let cond_id = root_node.children()[0];
         let eff_id = root_node.children()[1];
 
-        assert_eq!(expr.get_node_kind(cond_id), Some(ExprKind::AtomicFormula));
-        assert_eq!(expr.get_node_kind(eff_id), Some(ExprKind::AtomicFormula));
+        assert_eq!(expr.node_kind(cond_id), Some(ExprKind::AtomicFormula));
+        assert_eq!(expr.node_kind(eff_id), Some(ExprKind::AtomicFormula));
 
         Ok(())
     }
@@ -1919,11 +1874,11 @@ mod simplify_empty_and_or_node_tests {
 
         // The condition child must be the AtomicFormula directly (the OR was pruned)
         let cond_id = root_node.children()[0];
-        assert_eq!(expr.get_node_kind(cond_id), Some(ExprKind::AtomicFormula));
+        assert_eq!(expr.node_kind(cond_id), Some(ExprKind::AtomicFormula));
 
         // The effect child remains the AtomicFormula
         let eff_id = root_node.children()[1];
-        assert_eq!(expr.get_node_kind(eff_id), Some(ExprKind::AtomicFormula));
+        assert_eq!(expr.node_kind(eff_id), Some(ExprKind::AtomicFormula));
 
         Ok(())
     }

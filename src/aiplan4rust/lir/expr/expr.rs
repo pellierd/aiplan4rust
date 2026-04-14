@@ -86,6 +86,67 @@ impl Expr {
         }
     }
 
+    /// Creates an expression with a single root node of kind `Or` and no content.
+    ///
+    /// This is useful to represent an empty logical OR expression.
+    ///
+    /// # Returns
+    ///
+    /// An `Expr` with root `ExprNode` of kind `Or` and empty content.
+    pub fn empty_or() -> Self {
+        let mut empty_or = Expr::new();
+        let root = ExprNode::new(ExprKind::Or, ExprContent::None, None);
+        empty_or.alloc(root);
+        empty_or
+    }
+
+    /// Creates an expression with a single root node of kind `And` and no content.
+    ///
+    /// This is useful to represent an empty logical AND expression.
+    ///
+    /// # Returns
+    ///
+    /// An `Expr` with root `ExprNode` of kind `And` and empty content.
+    pub fn empty_and() -> Self {
+        let mut empty_and = Expr::new();
+        let root = ExprNode::new(ExprKind::And, ExprContent::None, None);
+        empty_and.alloc(root);
+        empty_and
+    }
+
+    /// Creates an expression representing a metric with no optimization directive.
+    ///
+    /// This creates an expression with a root node of kind `Metric` and content specifying
+    /// no optimization (`Optimization::None`).
+    ///
+    /// # Returns
+    ///
+    /// An `Expr` representing a metric expression with no optimization.
+    pub fn metric_none() -> Self {
+        let mut expr = Expr::new();
+        let root = ExprNode::new(
+            ExprKind::Metric,
+            ExprContent::OptimizationOp(OptimizationOp::None),
+            None,
+        );
+        expr.alloc(root);
+        expr
+    }
+
+    /// Creates an expression with a single root node of kind `Length` and no content.
+    ///
+    /// This can represent an empty length specification expression.
+    ///
+    /// # Returns
+    ///
+    /// An `Expr` with root `ExprNode` of kind `Length` and empty content.
+    pub fn empty_length_spec() -> Self {
+        let mut expr = Expr::new();
+        let root = ExprNode::new(ExprKind::Length, ExprContent::None, None);
+        expr.alloc(root);
+        expr
+    }
+
     /// Constructs a new `Expr` from an existing `SyntaxTree<ExprNode>`.
     ///
     /// This function is intended for internal or crate-level usage only
@@ -201,67 +262,6 @@ impl Expr {
         Ok(())
     }
 
-    /// Creates an expression with a single root node of kind `Or` and no content.
-    ///
-    /// This is useful to represent an empty logical OR expression.
-    ///
-    /// # Returns
-    ///
-    /// An `Expr` with root `ExprNode` of kind `Or` and empty content.
-    pub fn empty_or() -> Self {
-        let mut empty_or = Expr::new();
-        let root = ExprNode::new(ExprKind::Or, ExprContent::None, None);
-        empty_or.alloc(root);
-        empty_or
-    }
-
-    /// Creates an expression with a single root node of kind `And` and no content.
-    ///
-    /// This is useful to represent an empty logical AND expression.
-    ///
-    /// # Returns
-    ///
-    /// An `Expr` with root `ExprNode` of kind `And` and empty content.
-    pub fn empty_and() -> Self {
-        let mut empty_and = Expr::new();
-        let root = ExprNode::new(ExprKind::And, ExprContent::None, None);
-        empty_and.alloc(root);
-        empty_and
-    }
-
-    /// Creates an expression representing a metric with no optimization directive.
-    ///
-    /// This creates an expression with a root node of kind `Metric` and content specifying
-    /// no optimization (`Optimization::None`).
-    ///
-    /// # Returns
-    ///
-    /// An `Expr` representing a metric expression with no optimization.
-    pub fn metric_none() -> Self {
-        let mut expr = Expr::new();
-        let root = ExprNode::new(
-            ExprKind::Metric,
-            ExprContent::OptimizationOp(OptimizationOp::None),
-            None,
-        );
-        expr.alloc(root);
-        expr
-    }
-
-    /// Creates an expression with a single root node of kind `Length` and no content.
-    ///
-    /// This can represent an empty length specification expression.
-    ///
-    /// # Returns
-    ///
-    /// An `Expr` with root `ExprNode` of kind `Length` and empty content.
-    pub fn empty_length_spec() -> Self {
-        let mut expr = Expr::new();
-        let root = ExprNode::new(ExprKind::Length, ExprContent::None, None);
-        expr.alloc(root);
-        expr
-    }
-
     /// Returns the identifier of the root node, if the tree is not empty.
     pub fn root_id(&self) -> Option<NodeId> {
         self.tree.root_id()
@@ -297,6 +297,59 @@ impl Expr {
     /// Returns [`SyntaxTreeError::NodeNotFound`] if the provided `id` does not exist.
     pub fn set_root_id(&mut self, id: NodeId) -> Result<(), SyntaxTreeError> {
         self.tree.set_root_id(id)
+    }
+
+    /// Returns the kind of the node with the given ID.
+    ///
+    /// # Returns
+    /// - `Some(ExprKind)` if the node exists.
+    /// - `None` if the node is not found.
+    pub(crate) fn node_kind(&self, id: NodeId) -> Option<ExprKind> {
+        self.tree.get_node(id).map(|node| node.kind())
+    }
+
+    /// Tries to return the kind of the node with the given ID.
+    ///
+    /// # Errors
+    /// Returns [`ExprError`] if the node does not exist.
+    pub(crate) fn try_node_kind(&self, id: NodeId) -> Result<ExprKind, ExprError> {
+        Ok(self.tree.try_node(id)?.kind())
+    }
+
+    /// Returns the kind of the root node of the expression, if any.
+    pub(crate) fn kind(&self) -> Option<ExprKind> {
+        self.root_id().and_then(|id| self.node_kind(id))
+    }
+
+    /// Tries to return the kind of the root node, or an error if the root is not set.
+    ///
+    /// # Errors
+    /// Returns an error if the root is not found or the tree is empty.
+    pub(crate) fn try_kind(&self) -> Result<ExprKind, ExprError> {
+        self.try_node_kind(self.try_root_id()?)
+    }
+
+    /// Updates the children of a node and invalidates the hash cache.
+    ///
+    /// This method replaces the existing children of the specified node with a new set
+    /// of child identifiers. It automatically invalidates the hash of the node and
+    /// all its ancestors to ensure the cache remains consistent with the new structure.
+    ///
+    /// # Arguments
+    /// * `id` - The identifier of the node to update.
+    /// * `children` - A vector of [`NodeId`] representing the new children.
+    ///
+    /// # Errors
+    /// Returns [`SyntaxTreeError::NodeNotFound`] if the `id` is invalid.
+    pub fn set_children(
+        &mut self,
+        id: NodeId,
+        children: Vec<NodeId>,
+    ) -> Result<(), SyntaxTreeError> {
+        let node = self.tree.try_node_mut(id)?;
+        node.set_children(children);
+
+        Ok(())
     }
 
     /// Allocates a new node in the expression tree and handles cache invalidation.
