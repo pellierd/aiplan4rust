@@ -414,67 +414,43 @@ impl Expr {
         self.tree.postorder_from(root)
     }
 
-    /// Compare two subtrees of possibly different `Expr`s for deep equality.
+    /// Checks for deep structural equality between two sub-expressions.
     ///
-    /// # Parameters
-    /// - `other`: The other expression to compare with.
-    /// - `a`: NodeId of the root of the subtree in `self`.
-    /// - `b`: NodeId of the root of the subtree in `other`.
+    /// This method determines if two expression trees are semantically identical,
+    /// even if they are composed of nodes with different `NodeId`s (distinct physical identity).
+    ///
+    /// ### Algorithm and Performance
+    /// The implementation follows a "Hash-based structural equality" approach:
+    /// 1. **Physical Identity (O(1))**: If IDs are identical, the trees are guaranteed to be the same.
+    /// 2. **Hash Short-circuit (Amortized O(1))**: If hashes differ, the trees are guaranteed
+    ///    to be different. Thanks to hash caching, this step prevents unnecessary recursion.
+    /// 3. **Safety Validation & Recursion**: In case of identical hashes (potential collision
+    ///    or structural matching), it verifies node content and recursively traverses children.
+    ///
+    /// ### Use Case:
+    /// Essential for simplifying trivial equalities like `(= (f ?x) (f ?x))` where both
+    /// calls to `f` might originate from different branches of the AST and thus have different IDs.
+    ///
+    /// # Arguments
+    /// * `root_a` - Root ID of the first sub-expression.
+    /// * `root_b` - Root ID of the second sub-expression.
     ///
     /// # Returns
-    /// - `Ok(true)` if the subtrees are structurally and content-wise equal.
-    /// - `Ok(false)` otherwise.
-    ///
-    /// # Notes
-    /// - Children of the nodes **must be sorted** if you want this comparison to be
-    ///   independent of the order of children. Otherwise, the comparison is order-sensitive.
-    /// - This function compares recursively: node kind, content, and all children.
-    /// Compare two subtrees rooted at `a` in `self` and `b` in `other` for deep equality.
-    /// Children should already be sorted if order does not matter.
-    /*pub fn deep_sub_expr_eq(&self, root_a: NodeId, root_b: NodeId) -> Result<bool, ExprError> {
-        let iter1 = self.preorder_from(root_a).values();
-        let iter2 = self.preorder_from(root_b).values();
-
-        let mut i1 = iter1.peekable();
-        let mut i2 = iter2.peekable();
-
-        // Compare step-by-step
-        for (n1, n2) in i1.by_ref().zip(i2.by_ref()) {
-            if n1.kind() != n2.kind() {
-                return Ok(false);
-            }
-            if n1.content() != n2.content() {
-                return Ok(false);
-            }
-            if n1.children().len() != n2.children().len() {
-                return Ok(false);
-            }
-        }
-
-        // After the zip loop, check remaining nodes
-        let leftover1 = i1.peek().is_some();
-        let leftover2 = i2.peek().is_some();
-
-        if leftover1 || leftover2 {
-            return Ok(false); // different sizes => different structures
-        }
-
-        Ok(true)
-    }*/
-
+    /// * `Ok(true)` if expressions are structurally identical.
+    /// * `Err(ExprError)` if a NodeId is invalid during traversal.
     pub fn deep_sub_expr_eq(&self, root_a: NodeId, root_b: NodeId) -> Result<bool, ExprError> {
-        // 1. Identité physique (O(1))
+        // 1. Physical identity: if it's the same ID, it's the same node (O(1))
         if root_a == root_b {
             return Ok(true);
         }
 
-        // 2. Comparaison des hashes (C'est ICI que la magie opère)
-        // get_hash va soit lire le cache, soit recalculer uniquement le chemin "sale"
+        // 2. Hash filter: if hashes differ, they are definitely different.
+        // This is the key step that makes deep comparison highly efficient.
         if self.hash(root_a) != self.hash(root_b) {
             return Ok(false);
         }
 
-        // 3. Sécurité anti-collision (nécessaire si deux arbres différents ont le même hash)
+        // 3. Structural & Anti-collision safety check
         let n1 = self.try_node(root_a)?;
         let n2 = self.try_node(root_b)?;
 
@@ -482,10 +458,24 @@ impl Expr {
             return Ok(false);
         }
 
-        // 4. Comparaison des enfants
-        // Note : on compare les NodeId des enfants. Si les hashes sont identiques,
-        // il est très probable que les listes d'enfants soient identiques.
-        Ok(n1.children() == n2.children())
+        // 4. DEEP RECURSION
+        // We do not compare children IDs directly (==) because they could be
+        // structurally identical but physically distinct.
+        let c1 = n1.children();
+        let c2 = n2.children();
+
+        if c1.len() != c2.len() {
+            return Ok(false);
+        }
+
+        // Use deep_sub_expr_eq recursively instead of checking IDs equality
+        for (&child_a, &child_b) in c1.iter().zip(c2.iter()) {
+            if !self.deep_sub_expr_eq(child_a, child_b)? {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
     }
 
     /// Sets the node at `node_id` to an empty `(and)` node.
