@@ -1,13 +1,14 @@
-use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::{config, GroundingResult};
 use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaEvaluator;
-use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::grounding::passes::quantifier_expansion;
+use crate::aiplan4rust::grounding::error::GroundingError;
+use crate::aiplan4rust::grounding::passes::{positive_form_normalization, quantifier_expansion};
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
+use crate::aiplan4rust::grounding::problem::Problem;
+use crate::aiplan4rust::grounding::{config, GroundingResult};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 use crate::analysis::inertia::InertiaTable;
-use crate::DiagnosticManager;
+use crate::analysis::reachability::datalog::renderers::{action, fluent};
+use crate::{DatalogEngine, DiagnosticManager};
 
 /// The `Grounder` is responsible for converting a lifted planning problem
 /// into a fully grounded problem, instantiating all types, objects, predicates,
@@ -56,8 +57,6 @@ impl Grounder {
         &mut self,
         mut lifted_problem: LiftedProblem,
     ) -> Result<GroundingResult, GroundingError> {
-
-
         // 1. OBJECT FLUENT FLATTENING
         // TO DO
 
@@ -66,19 +65,13 @@ impl Grounder {
 
         // 3. VALUE REGISTRY CONSTRUCTION
         // We pass typing/object definitions separately and inject the initial size config.
-        let registry = ValueRegistry::build(
-            lifted_problem.type_defs(),
-            lifted_problem.object_defs(),
-        )?;
-
-
-
+        let registry =
+            ValueRegistry::build(lifted_problem.type_defs(), lifted_problem.object_defs())?;
 
         println!("{}", lifted_problem);
         println!("{}", registry);
 
-
-        /*let evaluator = InertiaEvaluator::build(
+        let evaluator = InertiaEvaluator::build(
             lifted_problem.predicate_defs(),
             lifted_problem.function_defs(),
             lifted_problem.init(),
@@ -94,14 +87,17 @@ impl Grounder {
         // 5. QUANTIFIER EXPANSION : On déploie les forall/exists.
         // Il doit arriver APRES le flattening des types pour que le forall
         // sache exactement sur quels objets itérer.
-        quantifier_expansion::problem::expand_with(&mut lifted_problem, &registry, Some(&evaluator))?;
+        quantifier_expansion::problem::expand_with(
+            &mut lifted_problem,
+            &registry,
+            Some(&evaluator),
+        )?;
 
         print!("{}", lifted_problem.domain_view().to_syntax_string());
         //print!("{}", lifted_problem.problem_view().to_syntax_string());
         //println!("{}", lifted_problem);
         // 6. PNF
-        panic!();*/
-        /*let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
+        let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
 
         let mut datalog = DatalogEngine::new();
         datalog.load_problem(&lifted_problem, &negated_predicates)?;
@@ -109,17 +105,11 @@ impl Grounder {
         datalog.run();
 
         // Calcul de l'atteignabilité
-        //let actions = datalog.get_reachable_actions();
-        //let fluents = datalog.get_reachable_fluents();
+        let actions = datalog.get_reachable_actions();
+        let fluents = datalog.get_reachable_fluents();
         let types = datalog.get_type_extensions();
 
-
-         */
-
-
-
-
-        /*let registry = lifted_problem.action_symbols();
+        let registry = lifted_problem.action_symbols();
 
         // APPEL DU DIAGNOSTIC ICI
         println!("--- DIAGNOSTIC DES ACTIONS ---");
@@ -133,114 +123,28 @@ impl Grounder {
         println!("Vérification Registry: taille = {}", registry.len());
 
         for action_tuple in datalog.get_reachable_actions() {
-            // 1. On récupère l'ActionDefId calculé par Datalog (ex: 5)
-            let action_def_id = action_tuple.symbol();
+            // Appel de la fonction render avec les paramètres inversés (tuple, problème)
+            // Elle renvoie directement une String "robuste"
+            let action_label = action::render(&action_tuple, &lifted_problem);
 
-            // 2. On récupère la définition de l'action dans le problème "Lifted"
-            // On utilise .get() pour être ultra sécurisé
-            if let Some(action_def) = lifted_problem.action_defs().get(action_def_id.as_usize()) {
+            println!("{}", action_label);
 
-                // 3. On extrait le NameID que l'action possède elle-même.
-                // C'est cet ID qui est synchronisé avec le Registry du LIR.
-                let action_name_id = action_def.name();
-
-                // 4. On demande au registre de traduire ce NameID précis.
-                // On utilise try_get_ident car c'est la méthode qui log l'erreur au lieu de paniquer.
-                let symbol_id = lifted_problem.action_symbols().try_get_ident(action_name_id)?;
-
-                // 5. On résout le nom final via l'interner
-                let action_name = lifted_problem.interner()
-                    .try_resolve_symbol(*symbol_id)
-                    .unwrap_or("Action_Inconnue");
-
-
-                // --- DÉBUT DU TRAITEMENT DES ARGUMENTS ---
-
-                // 1. On prépare un vecteur pour stocker les noms des objets
-                let mut arg_names = Vec::with_capacity(action_tuple.args().len());
-
-                // 2. On parcourt les ObjectIds contenus dans la tuple Datalog
-                for (i, &obj_id) in action_tuple.args().iter().enumerate() {
-
-                    // 3. Traduction : ObjectId (Datalog) -> SymbolId (Interner)
-                    // On utilise le registre des objets du problème
-                    let obj_symbol_id = match lifted_problem.object_symbol().try_get_ident(obj_id) {
-                        Ok(sym_id) => sym_id,
-                        Err(e) => {
-                            // Si on arrive ici, c'est que Datalog a trouvé un ID d'objet
-                            // qui n'existe pas dans le registre initial (très rare avec ton nouveau moteur)
-                            log::error!("Erreur d'argument pour {}: index {} introuvable", action_name, obj_id.as_usize());
-                            continue;
-                        }
-                    };
-
-                    // 4. Résolution : SymbolId -> String (ex: "ball1")
-                    let arg_name = lifted_problem.interner()
-                        .try_resolve_symbol(*obj_symbol_id)
-                        .unwrap_or("<objet_inconnu>");
-
-                    arg_names.push(arg_name.to_string());
-                }
-
-                // 5. Affichage final formaté
-                if arg_names.is_empty() {
-                    println!("{} (Action sans paramètres)", action_name);
-                } else {
-                    println!("{}({})", action_name, arg_names.join(", "));
-                }
-
-
-                // Continue ici ton traitement des arguments (action_tuple.args()...)
-            } else {
-                println!("Action inconnue avec ID {}", action_def_id.as_usize());
-            }
+            // Tu peux continuer ici ton traitement logique (BitSets, etc.)
+            // action_tuple est toujours disponible pour extraire les IDs
         }
-
 
         println!("--- DIAGNOSTIC DES FLUENTS ACCESSIBLES ---");
         let reachable_fluents = datalog.get_reachable_fluents();
         println!("Nombre de fluents trouvés : {}", reachable_fluents.len());
 
         for fluent in reachable_fluents {
-            // 1. Extraction de l'ID du prédicat (qui peut avoir le MSB à 1)
-            let sk_id = fluent.symbol(); // Supposons que cela retourne ton typing PredicateId
+            // Appel à ton nouveau module : datalog::renderers::fluent
+            let fluent_label = fluent::render(&fluent, &lifted_problem);
 
-            if let Some(predicat_def) = lifted_problem.predicate_defs().get(sk_id.as_usize()) {
-                let predicate_id = predicat_def.symbol();
-                let pred_name_symbol_id = lifted_problem.predicate_symbols().try_get_ident(predicate_id)?;
-                let pred_name = lifted_problem.interner().try_resolve_symbol(*pred_name_symbol_id)?;
-                if sk_id.is_negated() {
-                    format!("not {}", pred_name);
-                }
-
-                // 4. Traitement des arguments (ObjectIds -> Noms)
-                let mut arg_names = Vec::with_capacity(fluent.args().len());
-                for &obj_id in fluent.args() {
-                    let arg_name = if let Ok(sym_id) = lifted_problem.object_symbol().try_get_ident(obj_id) {
-                        lifted_problem.interner()
-                            .try_resolve_symbol(*sym_id)
-                            .unwrap_or("<objet_inconnu>")
-                    } else {
-                        "<id_objet_invalide>"
-                    };
-                    arg_names.push(arg_name);
-                }
-
-
-                if arg_names.is_empty() {
-                    println!("{}()", pred_name);
-                } else {
-                    println!("{}({})", pred_name, arg_names.join(", "));
-                }
-            } else {
-                println!("erreur: fluent inconnu avec ID {}", sk_id.as_usize());
-            }
+            println!("{}", fluent_label);
         }
 
-*/
         let problem = Problem::from(lifted_problem);
-
-
 
         Ok(GroundingResult::success(
             problem,
