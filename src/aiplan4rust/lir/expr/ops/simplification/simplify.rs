@@ -1,7 +1,8 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::expr::kind::Kind;
+use crate::aiplan4rust::lir::expr::ops::simplification::{
+    and_or, arithmetic, assign, comparison, not, quantifier, when,
+};
 use crate::aiplan4rust::lir::expr::ops::{ExprOpError, StaticEvaluator, StaticValue};
-use crate::aiplan4rust::lir::expr::ops::simplification::{and_or, arithmetic, assign, comparison, not, quantifier, when};
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a PDDL-like expression tree in a post-order traversal.
@@ -73,19 +74,14 @@ pub fn simplify_with(
     Ok(())
 }
 
-pub fn simplify(
-    expr: &mut Expr,
-) -> Result<(), ExprOpError> {
+pub fn simplify(expr: &mut Expr) -> Result<(), ExprOpError> {
     if let Some(root_id) = expr.root_id() {
         simplify_subexpr_with(expr, root_id, None)?;
     }
     Ok(())
 }
 
-pub fn simplify_subexpr(
-    expr: &mut Expr,
-    node_id: NodeId,
-) -> Result<(), ExprOpError> {
+pub fn simplify_subexpr(expr: &mut Expr, node_id: NodeId) -> Result<(), ExprOpError> {
     if let Some(root_id) = expr.root_id() {
         simplify_subexpr_with(expr, node_id, None)?;
     }
@@ -94,15 +90,16 @@ pub fn simplify_subexpr(
 
 /// Réduit uniquement un sous-arbre à partir d'un noeud spécifique.
 /// C'est cette variante que tu appelles dans ta boucle d'expansion.
-pub fn simplify_subexpr_with(
+/*pub fn simplify_subexpr_with(
     expr: &mut Expr,
     node_id: NodeId,
-    evaluator: Option<&dyn StaticEvaluator>
+    evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), ExprOpError> {
     let has_eval = evaluator.is_some();
 
     // 1. Collecte et filtrage (O(N))
-    let ids: Vec<NodeId> = expr.postorder_from(node_id)
+    let ids: Vec<NodeId> = expr
+        .postorder_from(node_id)
         .ids()
         .filter(|(_, node)| is_simplifiable(node.kind(), has_eval))
         .map(|(id, _)| id)
@@ -115,6 +112,140 @@ pub fn simplify_subexpr_with(
     }
 
     Ok(())
+}*/
+
+/*pub fn simplify_subexpr_with(
+    expr: &mut Expr,
+    node_id: NodeId,
+    evaluator: Option<&dyn StaticEvaluator>,
+) -> Result<(), ExprOpError> {
+    let has_eval = evaluator.is_some();
+
+    // 1. Collecte initiale (Post-order)
+    let ids: Vec<NodeId> = expr
+        .postorder_from(node_id)
+        .ids()
+        .map(|(id, _)| id)
+        .collect();
+
+    // 2. Traitement itératif
+    for id in ids {
+        // IMPORTANT : On vérifie si le nœud existe toujours avant de faire quoi que ce soit
+        let node_ref = match expr.get_node(id) {
+            Some(n) => n,
+            None => {
+                // Le nœud a été supprimé par la simplification d'un de ses ancêtres/frères
+                continue;
+            }
+        };
+
+        let kind_before = node_ref.kind();
+
+        // On ne simplifie que si nécessaire
+        if is_simplifiable(kind_before, has_eval) {
+            // --- CAPTURE DE L'ÉTAT RÉEL DU NŒUD COURANT (id, pas node_id) ---
+            let children_before = node_ref.children().to_vec();
+
+            // On lance la simplification
+            // Idéalement, simplify_node devrait retourner Ok(bool) pour savoir si ça a bougé
+            simplify_node(id, expr, evaluator)?;
+
+            // --- VÉRIFICATION DE L'ÉTAT APRÈS ---
+            match expr.get_node(id) {
+                Some(new_node) => {
+                    let kind_after = new_node.kind();
+                    let children_after = new_node.children();
+
+                    // On logue SI et seulement SI le nœud lui-même a changé
+                    if kind_after != kind_before || children_after != children_before {
+                        println!(
+                            "[SIMPLIFY-TRACE] Node #{}: {}({:?}) -> {}({:?})",
+                            id, kind_before, children_before, kind_after, children_after
+                        );
+                    }
+                }
+                None => {
+                    println!(
+                        "[SIMPLIFY-TRACE] Node #{}: {} a été SUPPRIMÉ ou fusionné",
+                        id, kind_before
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
+}*/
+
+enum Step {
+    Discover(NodeId),
+    Process(NodeId),
+}
+
+pub fn simplify_subexpr_with(
+    expr: &mut Expr,
+    node_id: NodeId,
+    evaluator: Option<&dyn StaticEvaluator>,
+) -> Result<(), ExprOpError> {
+    let has_eval = evaluator.is_some();
+
+    // Notre pile remplace l'itérateur statique
+    let mut stack = vec![Step::Discover(node_id)];
+
+    while let Some(step) = stack.pop() {
+        match step {
+            Step::Discover(id) => {
+                // On prévoit de traiter ce nœud APRES ses enfants (Post-order)
+                stack.push(Step::Process(id));
+
+                // On empile les enfants pour les découvrir
+                // On récupère les IDs via un emprunt court pour ne pas bloquer expr
+                if let Some(node) = expr.get_node(id) {
+                    // On empile à l'envers pour maintenir l'ordre visuel (facultatif)
+                    for &child_id in node.children().iter().rev() {
+                        stack.push(Step::Discover(child_id));
+                    }
+                }
+            }
+            Step::Process(id) => {
+                // --- C'EST ICI QUE LA MAGIE OPERE ---
+                // On vérifie l'état actuel du nœud dans l'Arena
+                let node_ref = match expr.get_node(id) {
+                    Some(n) => n,
+                    None => continue, // Le nœud a disparu (ex: absorbé par un move_to précédent)
+                };
+
+                let kind_before = node_ref.kind();
+
+                if is_simplifiable(kind_before, has_eval) {
+                    let children_before = node_ref.children().to_vec();
+
+                    // Mutation de l'expr (le Borrow Checker est ok car la stack ne contient que des IDs/Enums)
+                    simplify_node(id, expr, evaluator)?;
+
+                    // Trace optionnelle pour débugger ton domaine
+                    if let Some(new_node) = expr.get_node(id) {
+                        let kind_after = new_node.kind();
+                        let children_after = new_node.children();
+
+                        if kind_after != kind_before || children_after != children_before {
+                            println!(
+                                "[SIMPLIFY-TRACE] Node #{}: {}({:?}) -> {}({:?})",
+                                id, kind_before, children_before, kind_after, children_after
+                            );
+                        }
+                    } else {
+                        println!(
+                            "[SIMPLIFY-TRACE] Node #{}: {} a été ABSORBÉ",
+                            id, kind_before
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Détermine si un nœud nécessite un traitement par `simplify_node`.
@@ -124,10 +255,16 @@ pub fn simplify_subexpr_with(
 fn is_simplifiable(kind: ExprKind, has_evaluator: bool) -> bool {
     match kind {
         // Nœuds avec une logique de réduction active
-        ExprKind::And | ExprKind::Or | ExprKind::Not |
-        ExprKind::Forall | ExprKind::Exists | ExprKind::When |
-        ExprKind::Assignment | ExprKind::Comparison | ExprKind::Arithmetic |
-        ExprKind::Imply => true, // Most
+        ExprKind::And
+        | ExprKind::Or
+        | ExprKind::Not
+        | ExprKind::Forall
+        | ExprKind::Exists
+        | ExprKind::When
+        | ExprKind::Assignment
+        | ExprKind::Comparison
+        | ExprKind::Arithmetic
+        | ExprKind::Imply => true, // Most
 
         // Atomes (Prédicats/Fonctions) : seulement si on a un évaluateur
         ExprKind::AtomicFormula | ExprKind::Function => has_evaluator,
@@ -188,14 +325,21 @@ fn simplify_node(
             if let Some(eval) = evaluator {
                 // On utilise la méthode unique du trait
                 if let Some(static_val) = eval.evaluate(node_id, expr) {
+                    println!("[INERTIA-TRACE] Node {} évalué à {:?}", node_id, static_val);
                     match static_val {
-                        StaticValue::Boolean(is_true) => { expr.set_to_bool(node_id, is_true)?; },
-                        StaticValue::Number(num) => { expr.set_to_number(node_id, num)?; },
-                        StaticValue::Object(obj) => { expr.set_to_object(node_id, obj)?; },
+                        StaticValue::Boolean(is_true) => {
+                            expr.set_to_bool(node_id, is_true)?;
+                        }
+                        StaticValue::Number(num) => {
+                            expr.set_to_number(node_id, num)?;
+                        }
+                        StaticValue::Object(obj) => {
+                            expr.set_to_object(node_id, obj)?;
+                        }
                     }
                 }
             }
-        },
+        }
 
         _ => {}
     }

@@ -1,6 +1,6 @@
-use std::fmt;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::lang::AtomSkeletonId;
+use std::fmt;
 
 /// Represents a logical atom in a Datalog rule.
 ///
@@ -22,10 +22,9 @@ pub struct Atom {
 }
 
 impl Atom {
-
     // Zone des Built-ins décalée pour ne pas mordre sur le bit de signe (MSB)
     // 1 << 62 est une valeur immense, mais le bit 63 reste à 0.
-    pub const BUILTIN_ZONE_START: usize = 1 << 62  ;
+    pub const BUILTIN_ZONE_START: usize = 1 << 62;
 
     /// ID immuable pour l'égalité
     pub const EQUALITY_ID: usize = Self::BUILTIN_ZONE_START;
@@ -38,12 +37,14 @@ impl Atom {
     /// * `skeleton_id` - The identifier mapping to a specific predicate in the domain.
     /// * `terms` - The list of variables or constants associated with this predicate.
     pub fn new(skeleton_id: AtomSkeletonId, terms: Vec<Term>) -> Self {
-        Self {
-            skeleton_id,
-            terms,
-        }
+        Self { skeleton_id, terms }
     }
 
+    /// Creates a new equality atom representing `(= t1 t2)`.
+    ///
+    /// This uses the reserved [`EQUALITY_ID`] located in the built-in zone
+    /// of the predicate space. Equality atoms are handled specifically by
+    /// the Datalog engine during the grounding and unification process.
     pub fn equality(t1: Term, t2: Term) -> Self {
         Self {
             skeleton_id: AtomSkeletonId::from(Self::EQUALITY_ID),
@@ -51,8 +52,11 @@ impl Atom {
         }
     }
 
-    // Inverse l'état actuel de négation (Logique de toggle).
-    /// Remplace l'ancien `self.negated = !self.negated`.
+    /// Toggles the negation state of the atom.
+    ///
+    /// This method flips the Most Significant Bit (MSB) of the underlying
+    /// [`AtomSkeletonId`]. If the atom was positive, it becomes negated
+    /// (representing a Delete Effect or a negative precondition), and vice versa.
     pub fn negated(&mut self) {
         let new_state = !self.is_negated();
         self.skeleton_id.set_negated(new_state);
@@ -83,10 +87,29 @@ impl Atom {
         self.skeleton_id
     }
 
+    /// Updates the skeleton identifier (predicate ID).
+    ///
+    /// This is primarily used during the encoding phase to transform a base
+    /// predicate ID into a shifted ID (e.g., applying the `negation_offset`
+    /// to represent a delete effect in the Datalog engine).
+    #[inline]
+    pub fn set_skeleton_id(&mut self, new_id: AtomSkeletonId) {
+        self.skeleton_id = new_id;
+    }
+
     /// Returns a slice containing the terms of this atom.
     #[inline]
     pub fn terms(&self) -> &[Term] {
         &self.terms
+    }
+
+    /// Replaces the entire sequence of terms in the atom.
+    ///
+    /// While `terms_mut` is preferred for in-place updates (like aliasing),
+    /// this method allows for a full structural swap of the atom's arguments.
+    #[inline]
+    pub fn set_terms(&mut self, new_terms: Vec<Term>) {
+        self.terms = new_terms;
     }
 
     /// Returns a mutable slice of the atom's terms.

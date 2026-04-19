@@ -7,7 +7,6 @@ use crate::aiplan4rust::grounding::{config, GroundingResult};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 use crate::analysis::inertia::InertiaTable;
-use crate::analysis::reachability::datalog::renderers::{action, fluent};
 use crate::{DatalogEngine, DiagnosticManager};
 
 /// The `Grounder` is responsible for converting a lifted planning problem
@@ -99,20 +98,24 @@ impl Grounder {
         // 6. PNF
         let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
 
-        let mut datalog = DatalogEngine::new();
-        datalog.load_problem(&lifted_problem, &negated_predicates)?;
+        let mut datalog =
+            DatalogEngine::new(&lifted_problem, &registry, &table, &negated_predicates);
+        datalog.load_problem()?;
 
         datalog.run();
 
         // Calcul de l'atteignabilité
-        let actions = datalog.get_reachable_actions();
+        /*let actions = datalog.get_reachable_actions();
         let fluents = datalog.get_reachable_fluents();
         let types = datalog.get_type_extensions();
 
         let registry = lifted_problem.action_symbols();
 
         // APPEL DU DIAGNOSTIC ICI
-        println!("--- DIAGNOSTIC DES ACTIONS ---");
+        println!(
+            "--- DIAGNOSTIC DES ACTIONS ---{}",
+            datalog.get_reachable_actions().len()
+        );
         // 1. On récupère les définitions
         let action_defs = lifted_problem.action_defs();
 
@@ -120,29 +123,117 @@ impl Grounder {
         // (Cela devrait normalement reconstruire la table de correspondance)
         let registry = lifted_problem.action_symbols();
 
-        println!("Vérification Registry: taille = {}", registry.len());
-
+        ///println!("Vérification Registry: taille = {}", registry.len());
         for action_tuple in datalog.get_reachable_actions() {
-            // Appel de la fonction render avec les paramètres inversés (tuple, problème)
-            // Elle renvoie directement une String "robuste"
             let action_label = action::render(&action_tuple, &lifted_problem);
+            println!("Action: {}", action_label);
 
-            println!("{}", action_label);
+            let action_sk_id = datalog.action_id_to_skeleton(action_tuple.symbol());
 
-            // Tu peux continuer ici ton traitement logique (BitSets, etc.)
-            // action_tuple est toujours disponible pour extraire les IDs
+            // 1. On récupère maintenant des couples (Atom, Cause)
+            let effects_with_causes = datalog.get_effects_for_action(action_sk_id);
+
+            /*for (effect, cause) in effects_with_causes {
+                let prefix = if effect.is_negated() { "[-] " } else { "[+] " };
+                let type_label = if let Cause::Pivot(_) = cause {
+                    "[COND] "
+                } else {
+                    ""
+                };
+                let sk_id = effect.skeleton_id();
+                let raw_id = sk_id.as_usize();
+
+                // --- LOGIQUE DE DÉCODAGE ULTRA-SÉCURISÉE ---
+                let (name, is_aux) = if datalog.is_negated_fluent(sk_id) {
+                    let pos_id = datalog.pos_id_from_negated(sk_id);
+                    let pos_raw = pos_id.as_usize();
+                    if pos_raw < lifted_problem.predicate_defs().len() {
+                        (
+                            format!("not_{}", lifted_problem.predicate_defs()[pos_raw].symbol()),
+                            false,
+                        )
+                    } else {
+                        (format!("not_UNKNOWN_{}", pos_raw), false)
+                    }
+                } else if datalog.is_fluent(sk_id) {
+                    if raw_id < lifted_problem.predicate_defs().len() {
+                        (
+                            lifted_problem.predicate_defs()[raw_id].symbol().to_string(),
+                            false,
+                        )
+                    } else {
+                        (format!("FLUENT_OUT_OF_BOUNDS_{}", raw_id), false)
+                    }
+                } else if datalog.is_auxiliary(sk_id) {
+                    (format!("AUX_Piv_{}", raw_id), true)
+                } else {
+                    (format!("ID_{}", raw_id), false)
+                };
+
+                // --- ARGUMENTS AVEC FALLBACK ---
+                let args: Vec<String> = effect
+                    .terms()
+                    .iter()
+                    .map(|t| match t {
+                        Term::Constant(c) => format!("{:?}", c),
+                        Term::Variable(v) => action_tuple
+                            .args()
+                            .get(v.as_usize())
+                            .map(|obj| format!("{:?}", obj))
+                            .unwrap_or_else(|| format!("var_{}", v.as_usize())),
+                    })
+                    .collect();
+
+                println!(
+                    "  {}{}{} {}({}) [ID:{}]",
+                    prefix,
+                    type_label,
+                    if effect.is_negated() { "Del" } else { "Add" },
+                    name,
+                    args.join(", "),
+                    raw_id
+                );
+            }
+            println!("---");*/
+        }
+
+        println!("\n--- DIAGNOSTIC DES AUXILIAIRES (Pivots Logiques) ---");
+        let auxiliaries = datalog.get_reachable_auxiliaries();
+        for aux_tuple in auxiliaries {
+            // Utilisation de ta nouvelle fonction
+            let label = auxiliary::render(&aux_tuple, &lifted_problem);
+            println!("  {}", label);
         }
 
         println!("--- DIAGNOSTIC DES FLUENTS ACCESSIBLES ---");
         let reachable_fluents = datalog.get_reachable_fluents();
-        println!("Nombre de fluents trouvés : {}", reachable_fluents.len());
+        println!(
+            "Nombre total de faits accessibles (Datalog) : {}",
+            reachable_fluents.len()
+        );
+
+        let mut fluent_count = 0;
 
         for fluent in reachable_fluents {
-            // Appel à ton nouveau module : datalog::renderers::fluent
-            let fluent_label = fluent::render(&fluent, &lifted_problem);
-
-            println!("{}", fluent_label);
+            // Si c'est un fluent, on l'affiche et on le compte pour le futur BitVector
+            if evaluator.is_fluent(fluent.symbol()) {
+                fluent_count += 1;
+                let fluent_label = fluent::render(&fluent, &lifted_problem);
+                println!(
+                    "[DYNAMIC] Fluent ID {}: {}",
+                    fluent.symbol().as_usize(),
+                    fluent_label
+                );
+            } else {
+                // Optionnel : log pour vérifier ce qui est éliminé (Inerties ou IDs 10/13)
+                // println!("[STATIC] Fact ignored (Inertia/Synthetic): {:?}", fluent.symbol());
+            }
         }
+
+        println!(
+            "Nombre final de fluents indexés (BitVector size) : {}",
+            fluent_count
+        );*/
 
         let problem = Problem::from(lifted_problem);
 

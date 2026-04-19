@@ -34,7 +34,7 @@ pub fn render_args(args: &[ObjectId], lifted_problem: &LiftedProblem) -> String 
         .iter()
         .map(|&obj_id| {
             // Get the symbol ID for this object
-            let symbol_id = lifted_problem.object_symbol().try_get_ident(obj_id).ok();
+            let symbol_id = lifted_problem.object_symbols().try_get_ident(obj_id).ok();
 
             // Resolve the name, falling back to the raw ID index if resolution fails
             resolve_name(symbol_id, lifted_problem, &format!("{}", obj_id))

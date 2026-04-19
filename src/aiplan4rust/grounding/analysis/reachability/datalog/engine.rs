@@ -1,19 +1,25 @@
-use std::collections::HashMap;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::database::Database;
-use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::tuple::Tuple;
 use crate::aiplan4rust::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lang::{ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol, VariableId};
+use crate::aiplan4rust::lang::{
+    ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol, VariableId,
+};
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::ActionDef;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::ActionDef;
+use crate::analysis::inertia::InertiaTable;
+use crate::analysis::reachability::datalog::cause::Cause;
+use crate::analysis::reachability::datalog::renderers::{database, rules, RenderContext};
+use itertools::Itertools;
+use std::collections::HashMap;
+use toml::value::Index;
 
 /// Maximum number of variables (parameters) allowed per action or rule.
 ///
@@ -22,7 +28,11 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 pub const MAX_VARS: usize = 64;
 
 // pre requis les types doivent faltten et les quantfier remove pas d'imply
-pub struct DatalogEngine {
+pub struct DatalogEngine<'a> {
+    problem: &'a LiftedProblem,
+    value_registry: &'a ValueRegistry,
+    inertia_table: &'a InertiaTable,
+    negated_predicates: &'a Vec<AtomSkeletonId>,
     db: Database,
     rules: Vec<Rule>,
     current_env: [Option<ObjectId>; MAX_VARS],
@@ -36,6 +46,7 @@ pub struct DatalogEngine {
     fluence_threshold: usize,
     type_threshold: usize,
     type_segment_start: usize,
+    action_base_id: usize,
     action_threshold: usize,
     builtin_threshold: usize,
     /// Cache pour ne pas dupliquer les prédicats d'union.
@@ -43,11 +54,18 @@ pub struct DatalogEngine {
     union_cache: HashMap<Vec<TypeId>, AtomSkeletonId>,
 }
 
-impl DatalogEngine {
-
-
-    pub fn new() -> Self {
+impl<'a> DatalogEngine<'a> {
+    pub fn new(
+        problem: &'a LiftedProblem,
+        value_registry: &'a ValueRegistry,
+        inertia_table: &'a InertiaTable,
+        negated_predicates: &'a Vec<AtomSkeletonId>,
+    ) -> Self {
         Self {
+            problem,
+            value_registry,
+            inertia_table,
+            negated_predicates,
             db: Database::new(),
             rules: Vec::new(),
             current_env: [None; MAX_VARS],
@@ -55,9 +73,10 @@ impl DatalogEngine {
             discovered_facts: Vec::with_capacity(1024),
             type_to_skeleton: Vec::new(),
             head_buffer: Vec::with_capacity(16),
-            encoder: DatalogEncoder::new(0, 0),
+            encoder: DatalogEncoder::new(0, 0, 0, Vec::new()),
             fluence_threshold: 0,
             type_threshold: 0,
+            action_base_id: 0,
             action_threshold: 0,
             builtin_threshold: 0,
             type_segment_start: 0,
@@ -69,20 +88,15 @@ impl DatalogEngine {
         let mut fluents = Vec::new();
 
         // On parcourt les relations de la DB (le stockage Datalog)
-        for (&sk_id, rel) in self.db.relations().iter() {
-
+        for (&sk_id, rel) in self.db.stable_relations().iter() {
             // On ne garde que ce qui appartient aux Fluents (Prédicats)
             if self.is_fluent(sk_id) {
-
                 // Le sk_id est déjà notre AtomSkeletonId interne
                 let skeleton_id = AtomSkeletonId::from(sk_id);
 
                 for tuple_data in rel.iter() {
                     // On crée un Tuple pour chaque ligne de la relation
-                    fluents.push(Tuple::new(
-                        skeleton_id,
-                        tuple_data.to_vec()
-                    ));
+                    fluents.push(Tuple::new(skeleton_id, tuple_data.to_vec()));
                 }
             }
         }
@@ -90,9 +104,9 @@ impl DatalogEngine {
     }
 
     pub fn get_reachable_actions(&self) -> Vec<Tuple<ActionDefId>> {
-        let mut actions = Vec::with_capacity(self.db.relations().len());
+        let mut actions = Vec::with_capacity(self.db.stable_relations().len());
 
-        for (&sk_id, rel) in self.db.relations().iter() {
+        for (&sk_id, rel) in self.db.stable_relations().iter() {
             if self.is_action(sk_id) {
                 let action_def_id = self.atom_id_to_action_def_id(sk_id);
 
@@ -106,10 +120,7 @@ impl DatalogEngine {
                 } else {
                     // Pour l'arité > 0, on itère normalement sur les arguments
                     for tuple_data in rel.iter() {
-                        actions.push(Tuple::new(
-                            action_def_id,
-                            tuple_data.to_vec()
-                        ));
+                        actions.push(Tuple::new(action_def_id, tuple_data.to_vec()));
                     }
                 }
             }
@@ -117,64 +128,115 @@ impl DatalogEngine {
         actions
     }
 
+    pub fn get_reachable_auxiliaries(&self) -> Vec<Tuple<AtomSkeletonId>> {
+        let mut axioms = Vec::new();
+
+        for (&sk_id, rel) in self.db.stable_relations().iter() {
+            // On cible uniquement le segment des auxiliaires (pivots When, Derived, etc.)
+            if self.is_auxiliary(sk_id) {
+                let skeleton_id = AtomSkeletonId::from(sk_id);
+
+                for tuple_data in rel.iter() {
+                    axioms.push(Tuple::new(skeleton_id, tuple_data.to_vec()));
+                }
+            }
+        }
+        axioms
+    }
+
     pub fn get_type_extensions(&self) -> Vec<Tuple<TypeId>> {
         // On pré-alloue par rapport au nombre de relations, comme pour les actions
-        let mut types = Vec::with_capacity(self.db.relations().len());
+        let mut types = Vec::with_capacity(self.db.stable_relations().len());
 
-        for (&sk_id, rel) in self.db.relations().iter() {
+        for (&sk_id, rel) in self.db.stable_relations().iter() {
             let id_val = sk_id;
 
             // 1. Utilisation de la méthode de segment pour les Types
             if self.is_type(id_val) {
-
                 // 2. Traduction arithmétique inline (O(1))
                 // On soustrait le fluence_threshold pour retrouver l'index du typing
                 let type_id = self.atom_id_to_type_id(sk_id);
 
                 for tuple_data in rel.iter() {
                     // 3. Création du Tuple (souvent unaire pour les types)
-                    types.push(Tuple::new(
-                        type_id,
-                        tuple_data.to_vec()
-                    ));
+                    types.push(Tuple::new(type_id, tuple_data.to_vec()));
                 }
             }
         }
         types
     }
 
+    /// Récupère les effets (Add et Delete) et leur causalité associés à une action spécifique.
+    ///
+    /// L'identifiant fourni doit être celui de l'atome d'action produit
+    /// par le moteur Datalog.
+    ///
+    /// Retourne une tranche de couples (Atome d'effet, Cause de l'effet).
+    pub fn get_effects_for_action(&self, action_sk_id: AtomSkeletonId) -> &[(Atom, Cause)] {
+        // 1. On vérifie que c'est bien une action (via ton mécanisme de segmentation d'ID)
+        debug_assert!(self.is_action(action_sk_id));
+
+        // 2. On calcule l'index relatif pour accéder au Vec dense de l'encodeur
+        // Assure-toi que action_base_id correspond bien au premier ID alloué aux actions.
+        let action_index = action_sk_id.as_usize() - self.action_base_id;
+
+        // 3. On demande à l'encodeur de nous donner le segment correspondant (Vec<(Atom, Cause)>)
+        self.encoder.get_action_effects(action_index)
+    }
+
     pub fn get_rule_for_action(&self, action_index: usize) -> &Rule {
         // L'ID interne est calculé directement ici
         let target_sk_id = AtomSkeletonId::from(self.type_threshold + action_index);
 
-        self.rules.iter()
+        self.rules
+            .iter()
             .find(|r| r.head().skeleton_id() == target_sk_id)
             .expect("Aucune règle trouvée pour cet index d'action")
     }
 
-    pub fn load_problem(&mut self, problem: &LiftedProblem, negated_predicates: &Vec<AtomSkeletonId>) -> Result<(), DatalogError> {
+    pub fn get_rule_for_auxiliary(&self, sk_id: AtomSkeletonId) -> &Rule {
+        debug_assert!(self.is_auxiliary(sk_id));
+
+        self.rules
+            .iter()
+            .find(|r| r.head().skeleton_id() == sk_id)
+            .expect("Inconsistance : fait auxiliaire trouvé sans règle correspondante")
+    }
+
+    pub fn load_problem(&mut self) -> Result<(), DatalogError> {
         // 1. Internal State Reset
         // Reset the fact database and clear existing inference rules.
         self.db = Database::new();
         self.rules.clear();
+        self.union_cache.clear();
+        self.type_to_skeleton.clear();
 
         // Segment 1: PDDL Fluents
         // Define the first ID segment based on domain predicates.
-        self.fluence_threshold = problem.predicate_defs().len();
+        self.fluence_threshold = self.problem.predicate_defs().len();
 
         // 3. Calcul de la frontière (Dynamique)
         // Si la liste des négations est vide, les types commencent à N.
         // Sinon, on réserve le miroir et les types commencent à 2N.
-        self.type_segment_start = if negated_predicates.is_empty() {
+        self.type_segment_start = if self.negated_predicates.is_empty() {
             self.fluence_threshold
         } else {
             self.fluence_threshold * 2
         };
+        // 2. Initialisation d'un encodeur temporaire ou reset de l'existant
+        // pour qu'il commence au bon ID.
+        self.encoder.reset_with_start_id(self.type_segment_start);
 
-        self.encoder = DatalogEncoder::new(self.type_segment_start, self.fluence_threshold);
+        // 3. Déclaration des types (remplit type_to_skeleton avec les bons IDs)
+        self.declare_types_as_unary_predicates(self.problem.type_defs());
 
-        // Segment 2: Types & Hierarchy Auxiliaries
-        self.declare_types_as_unary_predicates(problem.type_defs());
+        // 4. MAINTENANT, on crée l'encodeur définitif avec le vecteur rempli
+        self.encoder = DatalogEncoder::new(
+            self.type_segment_start,
+            self.problem.action_defs().len(),
+            self.fluence_threshold,
+            self.type_to_skeleton.clone(), // Le vecteur est maintenant peuplé
+        );
 
         // We now use self.encoder.current_id() instead of manual length calculation.
         //
@@ -184,11 +246,15 @@ impl DatalogEngine {
         // current_id() captures the REAL end of this segment in the encoder.
         self.type_threshold = self.encoder.current_id();
 
+        // On fixe la base AVANT de déclarer les actions pour que l'ID de la
+        // première action (index 0) corresponde exactement à cette base.
+        self.action_base_id = self.type_threshold;
+
         // 3. Action Signature Declaration
         // Segment 3: Reserve IDs for action atoms.
         // This freezes the boundary for any future auxiliary predicates.
         // We declare actions first, then capture the new ID state.
-        self.declare_action_as_predicates(problem.action_defs());
+        self.declare_action_as_predicates(self.problem.action_defs());
         self.action_threshold = self.encoder.current_id();
 
         // 4. Seuil des Auxiliaires (Nouveau & Simplifié)
@@ -204,15 +270,18 @@ impl DatalogEngine {
         // Populate the Database with concrete facts.
 
         // 4.1. Type Instantiation (Facts: Type(Object))
-        self.fill_db_from_objects(problem.object_defs(), problem.type_defs())?;
+        self.fill_db_from_objects(self.problem.object_defs(), self.problem.type_defs())?;
 
         // 4.2. Initial State Instantiation (Facts: Predicate(Objects))
-        self.fill_db_from_init(problem.init())?;
+        self.fill_db_from_init(self.problem.init())?;
 
+        self.dump_database();
         // 5. Domain Logic Compilation
         // Generate Datalog rules (Preconditions -> Action -> Effects).
         // Any dynamically created predicates (auxiliaries) will have IDs >= action_threshold.
-        self.compile_domain_actions_as_rules(problem.action_defs())?;
+        self.compile_domain_actions_as_rules(self.problem.action_defs())?;
+
+        self.dump_rules();
 
         // On synchronise le seuil sur la réalité de ce que l'encodeur a produit
         // après la génération des règles (qui peut avoir créé de nouveaux auxiliaires).
@@ -279,6 +348,18 @@ impl DatalogEngine {
         ActionDefId::from(id_val - self.type_threshold)
     }
 
+    /// Convertit un ActionDefId (public) en AtomSkeletonId (interne).
+    pub fn action_def_id_to_atom_id(&self, def_id: ActionDefId) -> AtomSkeletonId {
+        AtomSkeletonId::from(def_id.as_usize() + self.action_base_id)
+    }
+
+    /// Convertit un ActionDefId (public) en l'ID interne (AtomSkeletonId)
+    /// utilisé par le moteur Datalog.
+    pub fn action_id_to_skeleton(&self, action_id: ActionDefId) -> AtomSkeletonId {
+        // On utilise le même calcul que ton atom_id_to_action_def_id mais à l'envers
+        AtomSkeletonId::from(action_id.as_usize() + self.type_threshold)
+    }
+
     #[inline]
     pub fn is_builtin(&self, id: AtomSkeletonId) -> bool {
         id.as_usize() >= Atom::BUILTIN_ZONE_START
@@ -334,22 +415,31 @@ impl DatalogEngine {
 
         for object in object_defs {
             let obj_id = object.symbol();
-
+            //println!("DEBUG: Processing object ID={:?}", obj_id);
             // 1. On l'insère dans la sentinelle ROOT (ton garde-fou universel)
-            self.db.insert_delta_fact(root_sk_id, &[obj_id]);
+            self.db.insert_stable_fact(root_sk_id, &[obj_id]);
+
+            let types = object.ty();
+            //println!("  |_ Types found: {:?}", types); // <--- EST-CE QUE C'EST VIDE ?
 
             // 2. Pour chaque typing déclaré de l'objet (ex: [ball])
             for &type_id in object.ty() {
                 // On l'insère dans le typing lui-même
                 let sk_id = self.type_to_skeleton[type_id.as_usize()];
-                self.db.insert_delta_fact(sk_id, &[obj_id]);
+                /*println!(
+
+                    "  |_ Inserting into type_id={}, sk_id={}",
+                    type_id.as_usize(),
+                    sk_id.as_usize()
+                );*/
+                self.db.insert_stable_fact(sk_id, &[obj_id]);
 
                 // 3. On l'insère dans TOUS les parents/membres identifiés par le flattener
                 // Si members() est vide, cette boucle ne fait rien (c'est correct, ROOT suffit)
                 if let Some(ty_def) = type_defs.get(type_id.as_usize()) {
                     for &parent_id in ty_def.ty().members() {
                         let parent_sk_id = self.type_to_skeleton[parent_id.as_usize()];
-                        self.db.insert_delta_fact(parent_sk_id, &[obj_id]);
+                        self.db.insert_stable_fact(parent_sk_id, &[obj_id]);
                     }
                 }
             }
@@ -401,42 +491,6 @@ impl DatalogEngine {
         Ok(())
     }
 
-
-
-    /*pub fn complete_negative_mirrors(
-        &mut self,
-        negated_predicates: &[AtomSkeletonId],
-        predicate_defs: &[AtomicFormulaSkeleton], // On ne passe que les définitions nécessaires
-        value_registry: &ValueRegistry
-    ) -> Result<(), DatalogError> {
-
-        for &pos_sk_id in negated_predicates {
-            // 1. Accès direct via l'ID (qui sert d'index dans predicate_defs)
-            let predicate_def = predicate_defs.get(pos_sk_id.as_usize())
-                .ok_or_else(|| DatalogError::undefined_predicate(pos_sk_id))?;
-
-            let parameters = predicate_def.parameters();
-
-            // 2. Réutilisation de ton BindingsIterator
-            let mut iterator = BindingsIterator::new(parameters, value_registry)?;
-
-            // 3. Calcul de l'ID miroir
-            let neg_sk_id = AtomSkeletonId::from(pos_sk_id.as_usize() + self.fluence_threshold);
-
-            // 4. Boucle de complétion
-            while let Some(bindings) = iterator.next() {
-                // 'bindings' est un Vec<ObjectId> ou similaire généré par l'itérateur
-
-                // On vérifie l'absence du fait positif
-                if !self.db.has_fact(pos_sk_id, &bindings) {
-                    // On insère le fait négatif correspondant
-                    self.db.insert_delta_fact(neg_sk_id, &bindings);
-                }
-            }
-        }
-        Ok(())
-    }*/
-
     /// Crée les squelettes de prédicats pour chaque action du problème.
     /// Cela permet de fixer les IDs des actions avant de générer les auxiliaires.
     fn declare_action_as_predicates(&mut self, action_defs: &[ActionDef]) {
@@ -449,7 +503,7 @@ impl DatalogEngine {
 
     fn compile_domain_actions_as_rules(
         &mut self,
-        action_defs: &[ActionDef] // On ne passe que les définitions d'actions
+        action_defs: &[ActionDef], // On ne passe que les définitions d'actions
     ) -> Result<(), DatalogError> {
         for (id, action) in action_defs.iter().enumerate() {
             // L'ID est toujours basé sur le threshold + l'index dans la liste
@@ -465,13 +519,39 @@ impl DatalogEngine {
     fn compile_action_as_rules(
         &mut self,
         action: &ActionDef,
-        action_sk_id: AtomSkeletonId
+        action_sk_id: AtomSkeletonId,
     ) -> Result<(), DatalogError> {
+        let action_index = action_sk_id.as_usize() - self.action_base_id;
+
+        // --- LOG DE DEBUG ---
+        /*println!(
+            "CHECK COMPILATION: Action '{}' (ID: {})",
+            action.name(),
+            action_sk_id.as_usize()
+        );*/
+
         // A. Générer l'atome de nom (Pivot : action(?p1, ?p2...))
         let action_atom = self.compile_action_name_as_rules(action, action_sk_id);
 
         // B. Générer la règle de déclenchement (Preconditions -> Action)
         self.compile_action_body_as_rules(action, action_atom.clone())?;
+
+        // --- LOG DE DEBUG FINALISATION ---
+        if let Some(rule) = self.rules.last() {
+            /*print!(
+                "  |_ Règle générée pour {}: Aux_SK_{:?} :- ",
+                action.name(),
+                rule.head().skeleton_id().as_usize()
+            );*/
+            for atom in rule.body() {
+                /*print!(
+                    "Aux_SK_{:?}(arity:{}) ",
+                    atom.skeleton_id().as_usize(),
+                    atom.terms().len()
+                );*/
+            }
+            println!();
+        }
 
         // --- LE BOOTSTRAP EST ICI ---
         // On vérifie la règle de déclenchement qu'on vient de pousser
@@ -488,7 +568,8 @@ impl DatalogEngine {
             action.effect(),
             &action_atom,
             &mut self.rules,
-            action.parameters()
+            action.parameters(),
+            action_index,
         )?;
 
         Ok(())
@@ -509,8 +590,210 @@ impl DatalogEngine {
         Atom::new(action_sk_id, head_terms)
     }
 
-    /// Compile la règle : Action :- Types, Preconditions.
     fn compile_action_body_as_rules(
+        &mut self,
+        action: &ActionDef,
+        head: Atom,
+    ) -> Result<(), DatalogError> {
+        // 1. On aplatit les préconditions
+        let precond_opt = self.encoder.encode_preconditions(
+            action.precondition(),
+            &mut self.rules,
+            action.parameters(),
+        )?;
+
+        // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
+        let mut final_action_body = Vec::new();
+        let mut anchor_elements = Vec::new();
+        let mut covered_vars = std::collections::HashSet::new();
+
+        // --- LOGIQUE FD : Utiliser l'inertie pour lier les variables ---
+
+        // 1. On crée l'itérateur sur les IDs de squelettes
+        let precondition = action.precondition();
+        let atoms = precondition
+            .postorder()
+            .values()
+            .filter(|&node| node.kind() == ExprKind::AtomicFormula);
+
+        for atom_node in atoms {
+            let skel_id = atom_node.content().try_atom_skeleton()?;
+
+            // On récupère l'ID "propre" (sans bit de négation) pour ne pas faire
+            // planter la table d'inertie avec une valeur géante.
+            let positive_id = skel_id.strip_negation();
+
+            if self
+                .inertia_table
+                .is_predicate_positive_negative_inertia(positive_id)?
+            {
+                let children = atom_node.children();
+                let mut terms = Vec::with_capacity(children.len());
+
+                // On itère sur tous les enfants (arguments de l'atome)
+                for &term_id in children.iter().skip(1) {
+                    let term_node = action.precondition().try_node(term_id)?;
+                    let term = match term_node.kind() {
+                        ExprKind::Variable => {
+                            let var_id = term_node.content().try_variable()?;
+                            // IMPORTANT : On note que cette variable est couverte par un fait statique
+                            covered_vars.insert(var_id);
+                            Term::Variable(var_id)
+                        }
+                        ExprKind::Object => Term::Constant(term_node.content().try_object()?),
+                        _ => {
+                            // C'est ici que ça coince ! On affiche le Kind et le contenu pour comprendre
+                            println!(
+                                "DEBUG: NodeId {:?} has unexpected Kind {:?} and Content {:?}",
+                                term_id,
+                                term_node.kind(),
+                                term_node.content()
+                            );
+                            panic!()
+                        }
+                    };
+                    terms.push(term);
+                }
+
+                // 3. ON STOCK l'atome dans les éléments de l'ancre
+                let static_atom = Atom::new(skel_id, terms);
+                anchor_elements.push(static_atom);
+            }
+        }
+
+        // ==========================================================
+        // ICI : TON BLOC DE SÉCURITÉ (TYPE GUARD)
+        // ==========================================================
+        for (i, param) in action.parameters().iter().enumerate() {
+            let var_id = VariableId::from(i);
+            if !covered_vars.contains(&var_id) {
+                let var_term = Term::Variable(var_id);
+                let type_id = param.ty().members()[0].as_usize();
+                let type_sk = self.type_to_skeleton[type_id];
+
+                // 1. AJOUT PHYSIQUE À L'ANCRE
+                anchor_elements.push(Atom::new(type_sk, vec![var_term]));
+
+                // 2. MARQUAGE LOGIQUE (Indispensable pour le Datalog)
+                covered_vars.insert(var_id);
+
+                /*println!(
+                    "DEBUG: Sécurisation de {:?} avec type {:?}",
+                    var_id, type_sk
+                );*/
+            }
+        }
+        // ==========================================================
+
+        // 4. Génération de l'Ancre et de la règle finale
+        if !anchor_elements.is_empty() {
+            // On crée l'atome de tête de l'ancre (ex: anchor_move(?r, ?l))
+            let anchor_head =
+                self.encoder
+                    .generate_anchor_atom(action.name(), action.parameters(), &head);
+
+            // Règle : anchor_move(...) :- at-rob(?r, ?l), is-robot(?r)...
+            self.push_rule(Rule::new(anchor_head.clone(), anchor_elements));
+
+            // L'action dépend maintenant de son ancre
+            final_action_body.push(anchor_head);
+        }
+
+        // 5. On ajoute la partie dynamique (les Aux_N générés par encode_preconditions)
+        if let Some(p_atom) = precond_opt {
+            final_action_body.push(p_atom);
+        }
+
+        // Règle finale : move(...) :- anchor_move(...), aux_precond(...)
+        self.push_rule(Rule::new(head, final_action_body));
+
+        Ok(())
+    }
+
+    /*fn compile_action_body_as_rules(
+        &mut self,
+        action: &ActionDef,
+        head: Atom,
+    ) -> Result<(), DatalogError> {
+        // 1. Aplatissement des préconditions
+        // Génère les prédicats auxiliaires (Aux_N) et l'ancre potentielle
+        let precond_opt = self.encoder.encode_preconditions(
+            action.precondition(),
+            &mut self.rules,
+            action.parameters(),
+            head.skeleton_id(),
+        )?;
+
+        // On clone l'ancre pour libérer l'emprunt (borrow) sur self.encoder
+        let anchor_opt = self.encoder.action_anchor().cloned();
+
+        // 2. Initialisation du corps de la règle finale de l'action
+        let mut final_action_body = Vec::new();
+
+        // 3. Gestion de l'ANCRE ou des TYPE GUARDS directes
+        if let Some(anchor) = anchor_opt {
+            let mut anchor_definition_body = Vec::new();
+
+            // Définition de l'ancre par les types des paramètres
+            for (i, param) in action.parameters().iter().enumerate() {
+                let var_term = head.terms()[i].clone();
+                let members = param.ty().members();
+
+                let type_sk = if members.is_empty() {
+                    // Cas Type Racine (Root)
+                    self.type_to_skeleton
+                        .last()
+                        .copied()
+                        .ok_or_else(|| DatalogError::internal_state("Root Type skeleton missing"))?
+                } else if members.len() == 1 {
+                    // Cas Type simple
+                    self.type_to_skeleton[members[0].as_usize()]
+                } else {
+                    // Cas Union de types (nécessite self mutable)
+                    self.get_or_create_union_predicate(members)
+                };
+                anchor_definition_body.push(Atom::new(type_sk, vec![var_term]));
+            }
+
+            // Règle : Ancre(?params) :- Type(?params)
+            // On clone anchor ici car on va l'ajouter à final_action_body juste après
+            self.push_rule(Rule::new(anchor.clone(), anchor_definition_body));
+
+            // L'action dépend de son ancre
+            final_action_body.push(anchor);
+        } else {
+            // Si l'action n'a pas d'ancre (ex: pas de préconditions ou paramètres simples),
+            // on injecte les Type Guards directement dans le corps de l'action.
+            for (i, param) in action.parameters().iter().enumerate() {
+                let var_term = head.terms()[i].clone();
+                let members = param.ty().members();
+
+                let type_sk = if members.is_empty() {
+                    self.type_to_skeleton.last().copied().unwrap()
+                } else if members.len() == 1 {
+                    self.type_to_skeleton[members[0].as_usize()]
+                } else {
+                    self.get_or_create_union_predicate(members)
+                };
+                final_action_body.push(Atom::new(type_sk, vec![var_term]));
+            }
+        }
+
+        // 4. Ajout de l'atome de précondition (résultat de l'aplatissement)
+        if let Some(p_atom) = precond_opt {
+            final_action_body.push(p_atom);
+        }
+
+        // 5. Règle finale de l'action
+        // Exemple : assemble(?x, ?y) :- action_anchor_assemble(?x, ?y), aux_precond_1(?x, ?y)
+        // 'head' est déplacé (moved) ici dans sa règle finale.
+        self.push_rule(Rule::new(head, final_action_body));
+
+        Ok(())
+    }*/
+
+    /// Compile la règle : Action :- Types, Preconditions.
+    /*fn compile_action_body_as_rules(
         &mut self,
         action: &ActionDef,
         head: Atom,
@@ -519,17 +802,18 @@ impl DatalogEngine {
         let precond_opt = self.encoder.encode_preconditions(
             action.precondition(),
             &mut self.rules,
-            action.parameters()
+            action.parameters(),
+            head.skeleton_id(),
         )?;
 
         // 2. Préparer le corps avec les TYPE GUARDS
         let mut body = Vec::new();
         // On utilise le constructeur statique .internal_state() pour générer l'erreur avec la trace
-        let root_type_sk_id = self.type_to_skeleton.last()
-            .copied()
-            .ok_or_else(|| DatalogError::internal_state(
-                "DatalogEngine must have at least a Root Type skeleton before compiling actions"
-            ))?;
+        let root_type_sk_id = self.type_to_skeleton.last().copied().ok_or_else(|| {
+            DatalogError::internal_state(
+                "DatalogEngine must have at least a Root Type skeleton before compiling actions",
+            )
+        })?;
 
         for (i, param) in action.parameters().iter().enumerate() {
             let var_term = head.terms()[i].clone();
@@ -564,7 +848,7 @@ impl DatalogEngine {
         self.push_rule(Rule::new(head, body));
 
         Ok(())
-    }
+    }*/
 
     /// Récupère ou crée un prédicat unaire auxiliaire qui représente
     /// l'union de plusieurs types primitifs.
@@ -599,28 +883,164 @@ impl DatalogEngine {
         union_sk_id
     }
 
-
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // FONCTIONS FOR RUNNING THE ENGINE
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     /// Lance le calcul de l'atteignabilité (Interface publique)
     pub fn run(&mut self) {
-        // On pourrait imaginer ici des étapes de pré-calcul
-        // avant de lancer la saturation proprement dite.
+        // --- STRATE 0 : Le Positif ---
+        // On calcule tout ce qui est "vrai" physiquement (at, part_of, etc.)
         self.saturate_semi_naive();
+
+        // --- STRATE 1 : Le Pivot (Négation) ---
+        // On utilise le ValueRegistry pour combler les trous.
+        // Cette fonction va remplir le Delta avec les "not_incorporated".
+        self.materialize_negations();
+
+        // --- STRATE 2 : Les Actions conditionnelles ---
+        // On relance. Maintenant, le moteur voit les faits négatifs
+        // et peut enfin activer Aux_34 et Aux_35 pour l'Action 22.
+        self.saturate_semi_naive();
+
+        /*println!("--- DIAGNOSTIC POST-SATURATION (Action 22) ---");
+        let dep_1 = AtomSkeletonId::from(35);
+        let dep_2 = AtomSkeletonId::from(34);
+
+        // 1. Vérification rapide
+        println!(
+            "  - Aux_35 (Partie A) est présent ? {}",
+            self.db.relations().contains_key(&dep_1)
+        );
+        println!(
+            "  - Aux_34 (Partie B) est présent ? {}",
+            self.db.relations().contains_key(&dep_2)
+        );
+
+        // 2. Autopsie récursive pour comprendre QUEL fait manque
+        println!("\n--- AUTOPSIE DE L'ÉCHEC POUR ASSEMBLE ---");
+        if !self.db.relations().contains_key(&dep_1) {
+            println!("Analyse de la branche 35 :");
+            self.debug_recursive_rule(dep_1, 1);
+        }
+        if !self.db.relations().contains_key(&dep_2) {
+            println!("Analyse de la branche 34 :");
+            self.debug_recursive_rule(dep_2, 1);
+        }*/
+    }
+
+    fn materialize_negations(&mut self) {
+        let offset = self.fluence_threshold;
+
+        // 1. On itère par référence sur le vecteur pointé par la référence
+        // On utilise .iter() pour obtenir chaque AtomSkeletonId
+        for neg_id in self.negated_predicates.iter() {
+            let pos_id = AtomSkeletonId::from(neg_id.strip_negation().as_usize());
+            let pred_def = &self.problem.predicate_defs()[pos_id.as_usize()];
+            let params = pred_def.parameters();
+
+            // 2. On crée l'itérateur de combinaisons
+            let mut iter = BindingsIterator::new(params, self.value_registry).unwrap();
+
+            while let Some(bindings) = iter.next() {
+                self.head_buffer.clear();
+
+                // Pour chaque paramètre du prédicat (ex: ?p puis ?a)
+                for param in params {
+                    // On demande au dictionnaire : "C'est quoi l'ID de l'objet pour ?p ?"
+                    if let Some(obj_id) = bindings.get(&param.symbol()) {
+                        // On l'ajoute au buffer : [10, 50]
+                        self.head_buffer.push(obj_id);
+                    }
+                }
+
+                // 3. CLOSED WORLD ASSUMPTION
+                // Si le fait positif n'est pas dans le STABLE, l'absence est VRAIE
+                if !self.db.has_fact(pos_id, &self.head_buffer) {
+                    let storage_id = AtomSkeletonId::from(pos_id.as_usize() + offset);
+                    // On insère le fait négatif dans le Delta pour la Strate 1
+                    self.db.insert_delta_fact(storage_id, &self.head_buffer);
+                }
+            }
+        }
+    }
+
+    pub fn debug_recursive_rule(&self, target_id: AtomSkeletonId, depth: usize) {
+        let indent = "  ".repeat(depth);
+        let target_raw = target_id.as_usize();
+
+        // 1. On récupère TOUTES les règles qui ont cet ID en tête (gestion du OR)
+        let matching_rules: Vec<_> = self
+            .rules
+            .iter()
+            .filter(|r| r.head().skeleton_id() == target_id)
+            .collect();
+
+        if matching_rules.is_empty() {
+            // Si aucune règle, on regarde si c'est un fait de base (Segment 0, 1 ou Types)
+            if let Some(rel) = self.db.stable_relations().get(&target_id) {
+                println!(
+                    "{}|_ [LEAF FACT] ID {}: {} tuples présents",
+                    indent,
+                    target_raw,
+                    rel.len()
+                );
+                for (i, tuple) in rel.iter().take(3).enumerate() {
+                    println!("{}   f#{}: {:?}", indent, i, tuple);
+                }
+            } else {
+                println!("{}|_ ID {} : VIDE (Ni règle, ni fait)", indent, target_raw);
+            }
+            return;
+        }
+
+        for (branch_idx, rule) in matching_rules.iter().enumerate() {
+            println!("{}|_ Branch #{} for ID {}:", indent, branch_idx, target_raw);
+
+            for atom in rule.body() {
+                let sub_id = atom.skeleton_id();
+                let sub_raw = sub_id.as_usize();
+
+                if self.is_auxiliary(sub_id) {
+                    // Descente récursive pour les pivots (Aux_34, Aux_35, etc.)
+                    self.debug_recursive_rule(sub_id, depth + 1);
+                } else {
+                    // On interroge la Database via ton API Relation
+                    if let Some(rel) = self.db.stable_relations().get(&sub_id) {
+                        println!(
+                            "{}  [CHECK] Predicate {} ({:?}) -> PRESENT ({} faits)",
+                            indent,
+                            sub_raw,
+                            atom.terms(),
+                            rel.len()
+                        );
+
+                        // On affiche les 5 premiers tuples pour vérifier les ObjectId
+                        for (i, tuple) in rel.iter().take(5).enumerate() {
+                            println!("{}     tuple#{}: {:?}", indent, i, tuple);
+                        }
+                    } else {
+                        println!(
+                            "{}  [CHECK] Predicate {} ({:?}) -> ABSENT",
+                            indent,
+                            sub_raw,
+                            atom.terms()
+                        );
+                    }
+                }
+            }
+        }
     }
 
     fn saturate_semi_naive(&mut self) {
         // 1. BOOTSTRAP : On ne déplace vers delta que si le delta est vide
         // et qu'on a des choses en stable (cas d'un moteur qu'on relancerait).
-        if self.db.is_delta_empty() && !self.db.relations().is_empty() {
+        if self.db.is_delta_empty() && !self.db.stable_relations().is_empty() {
             self.db.move_all_to_delta();
         }
 
         // 2. BOUCLE PRINCIPALE
         while !self.db.is_delta_empty() {
-
             // On récupère les règles pour éviter les problèmes de borrow checker
             let rules = std::mem::take(&mut self.rules);
 
@@ -640,8 +1060,6 @@ impl DatalogEngine {
             // On remet les règles en place
             self.rules = rules;
 
-
-
             // 1. On stabilise ce qui a servi de PIVOT durant ce tour
             // (Le delta du tour N devient le stable du tour N+1)
             self.db.commit_delta();
@@ -655,10 +1073,7 @@ impl DatalogEngine {
 
             // La boucle continue si insert_delta_fact a ajouté de nouveaux éléments au Delta
         }
-
     }
-
-
 
     // Note : db est maintenant &Database (immutable)
     fn process_incremental(&mut self, rule: &Rule, body_idx: usize, pivot_idx: usize) {
@@ -697,44 +1112,44 @@ impl DatalogEngine {
         }
     }
 
-    fn execute_filter(&self, atom: &Atom) -> bool {
-        let sk_id = atom.skeleton_id();
+    fn execute_filter(&mut self, atom: &Atom) -> bool {
+        let sk_id = atom.skeleton_id(); // C'est un AtomSkeletonId
 
-        // 1. GESTION DES BUILT-INS (Identité inchangée)
+        // 1. GESTION DES BUILT-INS
         if self.is_builtin(sk_id) {
             return self.eval_equality(atom);
         }
 
         // 2. GESTION DE LA NÉGATION LAZY
-        // On vérifie les deux signaux de négation possibles :
-        // a) Le bit MSB (atom.is_negated())
-        // b) L'ID dans le segment miroir (sk_id >= fluence_threshold && sk_id < type_segment_start)
-        let is_neg_id = sk_id.as_usize() >= self.fluence_threshold && sk_id.as_usize() < self.type_segment_start;
+        // On vérifie le bit MSB via ton interface et ton segment miroir
+        let is_neg_id = sk_id.as_usize() >= self.fluence_threshold
+            && sk_id.as_usize() < self.type_segment_start;
 
-        if atom.is_negated() || is_neg_id {
-            let mut tuple_to_check = Vec::with_capacity(atom.arity());
+        if sk_id.is_negated() || is_neg_id {
+            // --- Utilisation du buffer interne du moteur ---
+            self.head_buffer.clear();
 
-            // POssibilité d'utiksre un buffer pour optimioser et évuer l'allocation a chaque iteration
             for term in atom.terms() {
                 if let Some(val) = self.get_term_value(term) {
-                    tuple_to_check.push(val);
+                    self.head_buffer.push(val);
                 } else {
-                    // Si une variable n'est pas liée, le filtre échoue (Safety Datalog)
-                    return false;
+                    return false; // Variable non liée (Safety Datalog)
                 }
             }
 
             // --- DÉTERMINATION DE L'ID POSITIF ---
-            let pos_sk_id = if atom.is_negated() {
-                // C'est un bit MSB : l'ID stocké est déjà l'ID positif.
-                sk_id
+            let pos_sk_id = if sk_id.is_negated() {
+                // Utilisation de ta méthode d'interface pour "nettoyer" l'ID
+                sk_id.strip_negation()
             } else {
-                // C'est un ID de segment [N..2N[ : on le ramène dans [0..N[
+                // Pour le segment miroir [N..2N[, on utilise ton calcul de décalage
                 self.pos_id_from_negated(sk_id)
             };
 
-            // On demande à la DB si le fait POSITIF existe (Stable + Delta)
-            return !self.db.has_fact(pos_sk_id, &tuple_to_check);
+            // --- LOGIQUE NAF (Negation as Failure) ---
+            // On renvoie VRAI si le fait POSITIF est ABSENT de la base
+            // C'est ici que l'action 'assemble' se débloque !
+            return !self.db.has_fact(pos_sk_id, &self.head_buffer);
         }
 
         true
@@ -772,22 +1187,43 @@ impl DatalogEngine {
         }
     }
 
-    fn match_relation(&mut self, rule: &Rule, body_idx: usize, pivot_idx: usize, sk_id: AtomSkeletonId, use_delta: bool) {
+    fn match_relation(
+        &mut self,
+        rule: &Rule,
+        body_idx: usize,
+        pivot_idx: usize,
+        sk_id: AtomSkeletonId,
+        use_delta: bool,
+    ) {
         let atom = &rule.body()[body_idx];
         let terms = atom.terms();
 
-        let Some((total_len, arity)) = self.db.get_layout(sk_id, use_delta) else { return; };
+        let Some((total_len, arity)) = self.db.get_layout(sk_id, use_delta) else {
+            return;
+        };
         let mut tuple_buffer = [ObjectId::from(0); MAX_VARS];
 
         // 1. CAS ARITÉ 0 : On traite la proposition si elle est présente dans la table demandée
         if arity == 0 {
             // Si total_len est 0 mais que la table (Delta ou Stable selon use_delta)
             // contient la proposition, on déclenche l'unification une fois.
-            let is_present = if use_delta { self.db.contains_delta(sk_id, &[]) }
-            else { self.db.contains_stable(sk_id, &[]) };
+            let is_present = if use_delta {
+                self.db.contains_delta(sk_id, &[])
+            } else {
+                self.db.contains_stable(sk_id, &[])
+            };
 
             if is_present {
-                self.process_tuple(rule, body_idx, pivot_idx, sk_id, use_delta, 0, 0, &mut tuple_buffer);
+                self.process_tuple(
+                    rule,
+                    body_idx,
+                    pivot_idx,
+                    sk_id,
+                    use_delta,
+                    0,
+                    0,
+                    &mut tuple_buffer,
+                );
             }
             return;
         }
@@ -802,20 +1238,48 @@ impl DatalogEngine {
             // MODE INDEXÉ
             if let Some(offsets) = self.db.lookup_index(sk_id, use_delta, obj_id) {
                 for start in offsets {
-                    self.process_tuple(rule, body_idx, pivot_idx, sk_id, use_delta, start, arity, &mut tuple_buffer);
+                    self.process_tuple(
+                        rule,
+                        body_idx,
+                        pivot_idx,
+                        sk_id,
+                        use_delta,
+                        start,
+                        arity,
+                        &mut tuple_buffer,
+                    );
                 }
             }
         } else {
             // MODE SCAN COMPLET
             // step_by(arity) avec arity > 0 est sûr ici.
             for start in (0..total_len).step_by(arity) {
-                self.process_tuple(rule, body_idx, pivot_idx, sk_id, use_delta, start, arity, &mut tuple_buffer);
+                self.process_tuple(
+                    rule,
+                    body_idx,
+                    pivot_idx,
+                    sk_id,
+                    use_delta,
+                    start,
+                    arity,
+                    &mut tuple_buffer,
+                );
             }
         }
     }
 
     // Petite fonction utilitaire pour éviter la duplication de code
-    fn process_tuple(&mut self, rule: &Rule, body_idx: usize, pivot_idx: usize, sk_id: AtomSkeletonId, use_delta: bool, start: usize, arity: usize, buffer: &mut [ObjectId; MAX_VARS]) {
+    fn process_tuple(
+        &mut self,
+        rule: &Rule,
+        body_idx: usize,
+        pivot_idx: usize,
+        sk_id: AtomSkeletonId,
+        use_delta: bool,
+        start: usize,
+        arity: usize,
+        buffer: &mut [ObjectId; MAX_VARS],
+    ) {
         self.db.read_tuple(sk_id, use_delta, start, arity, buffer);
 
         // On n'utilise PLUS prev_env (trop lent). On utilise le rollback sélectif.
@@ -843,9 +1307,12 @@ impl DatalogEngine {
             match term {
                 Term::Constant(c) => self.head_buffer.push(*c),
                 Term::Variable(v) => {
-                    // Si ton grounding est correct, toute variable en tête doit être liée dans le corps
-                    let val = self.current_env[v.as_usize()]
-                        .ok_or_else(|| DatalogError::unbound_variable(*v))?;
+                    let val = self.current_env[v.as_usize()].ok_or_else(|| {
+                        println!("CRASH: Variable {} is unbound!", v.as_usize());
+                        println!("Current Env: {:?}", self.current_env);
+                        println!("Rule Head: {:?}", head);
+                        DatalogError::unbound_variable(*v)
+                    })?;
                     self.head_buffer.push(val);
                 }
             }
@@ -853,20 +1320,23 @@ impl DatalogEngine {
 
         // 2. FILTRAGE : On ne veut pas stocker de doublons.
         // On vérifie dans la DB (Stable + Delta)
-        if self.db.contains_stable(head_sk, &self.head_buffer) ||
-            self.db.contains_delta(head_sk, &self.head_buffer) {
+        if self.db.contains_stable(head_sk, &self.head_buffer)
+            || self.db.contains_delta(head_sk, &self.head_buffer)
+        {
             return Ok(());
         }
 
         // 3. On vérifie aussi dans les découvertes du pivot en cours
         // pour éviter de cloner inutilement si le même fait est trouvé 100 fois de suite.
-        let is_already_in_buffer = self.discovered_facts
+        let is_already_in_buffer = self
+            .discovered_facts
             .iter()
             .any(|(sk, args)| *sk == head_sk && args == &self.head_buffer);
 
         if !is_already_in_buffer {
             // Le clone n'arrive qu'ici, au dernier moment possible.
-            self.discovered_facts.push((head_sk, self.head_buffer.clone()));
+            self.discovered_facts
+                .push((head_sk, self.head_buffer.clone()));
         }
         Ok(())
     }
@@ -921,44 +1391,50 @@ impl DatalogEngine {
         }
     }
 
-
     fn optimize_body(&self, body: &mut Vec<Atom>) {
-        if body.len() <= 1 { return; }
+        if body.len() <= 1 {
+            return;
+        }
 
         let mut optimized = Vec::with_capacity(body.len());
         let mut bound_vars_mask: u64 = 0;
         let mut remaining = std::mem::take(body);
 
         while !remaining.is_empty() {
-            let best_idx = remaining.iter().enumerate().min_by_key(|(_, atom)| {
-                let sk_id = atom.skeleton_id();
+            let best_idx = remaining
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, atom)| {
+                    let sk_id = atom.skeleton_id();
 
-                // 1. Calcul des variables déjà liées (Indispensable pour éviter les produits cartésiens)
-                let mut bound_count = 0;
-                for term in atom.terms() {
-                    match term {
-                        Term::Constant(_) => bound_count += 1,
-                        Term::Variable(v) => {
-                            let v_idx = v.as_usize();
-                            if v_idx < 64 && (bound_vars_mask & (1 << v_idx)) != 0 {
-                                bound_count += 1;
+                    // 1. Calcul des variables déjà liées (Indispensable pour éviter les produits cartésiens)
+                    let mut bound_count = 0;
+                    for term in atom.terms() {
+                        match term {
+                            Term::Constant(_) => bound_count += 1,
+                            Term::Variable(v) => {
+                                let v_idx = v.as_usize();
+                                if v_idx < 64 && (bound_vars_mask & (1 << v_idx)) != 0 {
+                                    bound_count += 1;
+                                }
                             }
                         }
                     }
-                }
 
-                // 2. Taille réelle des données dans la DB
-                let rel_size = self.db.get_relation_size(sk_id);
+                    // 2. Taille réelle des données dans la DB
+                    let rel_size = self.db.get_relation_size(sk_id);
 
-                // 3. Catégorie sémantique (Type, Fluent, etc.)
-                let priority = self.get_predicate_priority(sk_id);
+                    // 3. Catégorie sémantique (Type, Fluent, etc.)
+                    let priority = self.get_predicate_priority(atom);
 
-                // L'ORDRE DU TUPLE EST CRUCIAL :
-                // a) On maximise bound_count (d'où le signe moins)
-                // b) On minimise rel_size (pour traiter le moins de faits possible)
-                // c) On minimise priority (Types < Fluents < Actions)
-                (-(bound_count as i32), rel_size, priority)
-            }).map(|(idx, _)| idx).unwrap();
+                    // L'ORDRE DU TUPLE EST CRUCIAL :
+                    // a) On maximise bound_count (d'où le signe moins)
+                    // b) On minimise rel_size (pour traiter le moins de faits possible)
+                    // c) On minimise priority (Types < Fluents < Actions)
+                    (-(bound_count as i32), rel_size, priority)
+                })
+                .map(|(idx, _)| idx)
+                .unwrap();
 
             let best_atom = remaining.remove(best_idx);
 
@@ -977,22 +1453,77 @@ impl DatalogEngine {
     }
 
     #[inline(always)]
-    pub fn get_predicate_priority(&self, id: AtomSkeletonId) -> u8 {
-        if self.is_type(id) {
-            0 // 1er : Les types (unaires, très restrictifs)
-        } else if self.is_negated_fluent(id) {
-            2 // 3ème : Les négations (doivent attendre que les variables soient liées)
-        } else if self.is_fluent(id) {
-            1 // 2ème : Les fluents positifs
-        } else if self.is_action(id) {
-            3 // 4ème : Les actions
-        } else if self.is_auxiliary(id) {
-            4 // 5ème : Les auxiliaires
-        } else {
-            5 // 6ème : Les built-ins (Égalité, etc.)
+    pub fn get_predicate_priority(&self, atom: &Atom) -> u8 {
+        let id = atom.skeleton_id();
+
+        // 1. Égalité positive (Affectation) : priorité absolue
+        if atom.is_equality() && !atom.is_negated() {
+            return 0;
         }
+
+        // 2. Types : très restrictifs, servent de base au filtrage
+        if self.is_type(id) {
+            return 0;
+        }
+
+        // 3. Fluents positifs : recherche dans l'état actuel
+        if self.is_fluent(id) {
+            return 1;
+        }
+
+        // 4. Anchor : l'action elle-même (lie les paramètres restants)
+        if self.is_action(id) {
+            return 2;
+        }
+
+        // 5. Auxiliaires : prédicats générés pour la logique AND/OR
+        if self.is_auxiliary(id) {
+            return 3;
+        }
+
+        // 6. Négations et Inégalités : ne lient rien, donc on attend la fin
+        if atom.is_negated() {
+            return 250;
+        }
+
+        // 7. Cas par défaut (Built-ins, etc.)
+        255
     }
 
+    // Pour vérifier l'état (lecture seule)
+    #[cfg(test)]
+    pub fn encoder(&self) -> &DatalogEncoder {
+        &self.encoder
+    }
+
+    #[cfg(test)]
+    pub fn encoder_mut(&mut self) -> &mut DatalogEncoder {
+        &mut self.encoder
+    }
+    pub fn dump_database(&self) {
+        // 1. On crée le Snapshot de données (le contexte)
+        let ctx = self.render_context();
+
+        // 2. On appelle le renderer spécialisé
+        database::render(&ctx, &self.db);
+    }
+
+    // Affiche la logique compilée (Rules)
+    // On ne prend plus de paramètres, on utilise self.rules
+    pub fn dump_rules(&self) {
+        let ctx = self.render_context();
+        rules::render(&ctx, &self.rules);
+    }
+
+    fn render_context(&self) -> RenderContext {
+        RenderContext::new(
+            self.problem,
+            &self.type_to_skeleton,
+            self.fluence_threshold,
+            self.action_base_id,
+            self.action_threshold,
+        )
+    }
 }
 
 #[cfg(test)]

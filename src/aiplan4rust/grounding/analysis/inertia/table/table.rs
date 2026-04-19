@@ -4,14 +4,14 @@
 //! for the results of an inertia analysis. It maps every predicate and numeric
 //! function in the problem to its respective [`Inertia`] category.
 
+use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
+use crate::aiplan4rust::grounding::analysis::inertia::table::builder::build;
+use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use serde::{Serialize, Deserialize};
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
-use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
-use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::grounding::analysis::inertia::table::builder::build;
 
 /// A lookup table for inertia, covering both Predicates and Numeric Functions.
 ///
@@ -30,7 +30,6 @@ pub struct InertiaTable {
 }
 
 impl InertiaTable {
-
     /// Builds the inertia table by analyzing the provided problem.
     ///
     /// This is the standard entry point for determining which predicates
@@ -87,7 +86,10 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`InertiaTableError::MissingFunctionInertia`] if the index is not in the table.
-    pub fn try_get_function(&self, index: FunctionSkeletonId) -> Result<Inertia, InertiaTableError> {
+    pub fn try_get_function(
+        &self,
+        index: FunctionSkeletonId,
+    ) -> Result<Inertia, InertiaTableError> {
         self.functions
             .get(&index)
             .copied()
@@ -128,7 +130,10 @@ impl InertiaTable {
     /// * `Ok(true)` if the predicate is never present in any action's `add` effect.
     /// * `Ok(false)` if the predicate can be added by at least one action.
     /// * `Err(InertiaTableError)` if the index is out of bounds or invalid.
-    pub fn is_predicate_positive_inertia(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
+    pub fn is_predicate_positive_inertia(
+        &self,
+        index: AtomSkeletonId,
+    ) -> Result<bool, InertiaTableError> {
         Ok(self.try_get_predicate(index)?.is_positive())
     }
 
@@ -141,7 +146,10 @@ impl InertiaTable {
     /// * `Ok(true)` if the predicate is never present in any action's `delete` effect.
     /// * `Ok(false)` if the predicate can be removed by at least one action.
     /// * `Err(InertiaTableError)` if the index is out of bounds or invalid.
-    pub fn is_predicate_negative_inertia(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
+    pub fn is_predicate_negative_inertia(
+        &self,
+        index: AtomSkeletonId,
+    ) -> Result<bool, InertiaTableError> {
         Ok(self.try_get_predicate(index)?.is_negative())
     }
 
@@ -154,7 +162,10 @@ impl InertiaTable {
     /// * `Ok(true)` if the predicate is both positive-inert and negative-inert (it remains constant).
     /// * `Ok(false)` if the predicate is a fluent (can be added or deleted).
     /// * `Err(InertiaTableError)` if the index is out of bounds or invalid.
-    pub fn is_predicate_positive_negative_inertia(&self, index: AtomSkeletonId) -> Result<bool, InertiaTableError> {
+    pub fn is_predicate_positive_negative_inertia(
+        &self,
+        index: AtomSkeletonId,
+    ) -> Result<bool, InertiaTableError> {
         Ok(self.try_get_predicate(index)?.is_positive_negative())
     }
 
@@ -168,7 +179,10 @@ impl InertiaTable {
     /// # Returns
     /// * `Ok(true)` if the function's value is never increased or assigned by an action.
     /// * `Err(InertiaTableError)` if the index is invalid.
-    pub fn is_function_positive_inertia(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
+    pub fn is_function_positive_inertia(
+        &self,
+        index: FunctionSkeletonId,
+    ) -> Result<bool, InertiaTableError> {
         Ok(self.try_get_function(index)?.is_positive())
     }
 
@@ -180,7 +194,10 @@ impl InertiaTable {
     /// # Returns
     /// * `Ok(true)` if the function's value is never decreased or assigned by an action.
     /// * `Err(InertiaTableError)` if the index is invalid.
-    pub fn is_function_negative_inertia(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
+    pub fn is_function_negative_inertia(
+        &self,
+        index: FunctionSkeletonId,
+    ) -> Result<bool, InertiaTableError> {
         Ok(self.try_get_function(index)?.is_negative())
     }
 
@@ -192,7 +209,10 @@ impl InertiaTable {
     /// # Returns
     /// * `Ok(true)` if the function value remains constant throughout the entire plan execution.
     /// * `Err(InertiaTableError)` if the index is invalid.
-    pub fn is_function_positive_negative_inertia(&self, index: FunctionSkeletonId) -> Result<bool, InertiaTableError> {
+    pub fn is_function_positive_negative_inertia(
+        &self,
+        index: FunctionSkeletonId,
+    ) -> Result<bool, InertiaTableError> {
         Ok(self.try_get_function(index)?.is_positive_negative())
     }
 }

@@ -2,7 +2,7 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-use crate::aiplan4rust::lang::CompareOp;
+use crate::aiplan4rust::lang::{ActionSymbolId, CompareOp};
 use crate::aiplan4rust::lang::{
     AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
 };
@@ -10,8 +10,8 @@ use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
+use crate::analysis::reachability::datalog::cause::Cause;
 use std::collections::HashMap;
-
 ////// ATENTION JE NE GERE PAS les AXIOMS
 
 /// A transformation engine that encodes complex PDDL formulas into Datalog rules.
@@ -59,7 +59,13 @@ pub struct DatalogEncoder {
     // On utilise un champ membre pour éviter de le passer partout
     current_aliases: HashMap<VariableId, Term>,
 
+    /// Table de causalité : associe chaque effet à son origine (Action ou Pivot).
+    action_effects: Vec<Vec<(Atom, Cause)>>,
+
+    action_anchor: Option<Atom>,
+
     negation_offset: usize,
+    type_to_skeleton: Vec<AtomSkeletonId>,
 }
 
 impl DatalogEncoder {
@@ -70,6 +76,9 @@ impl DatalogEncoder {
     /// * `base_id` - The starting index for auxiliary predicates. This should
     ///   begin after the last standard predicate ID in the PDDL domain to
     ///   avoid ID collisions.
+    /// * `action_count` - The total number of actions in the domain. Used to
+    ///   pre-allocate the causality table.
+    /// * `negation_offset` - The offset used to derive negated fluent IDs.
     ///
     /// # Process
     ///
@@ -78,14 +87,27 @@ impl DatalogEncoder {
     ///    original domain symbols resolved via the global interner.
     /// 2. **Auxiliary Predicates**: IDs starting from `base_id`, which are
     ///    generated during the encoding process (e.g., for actions, types, or
-    ///    skolemized formulas).
+    ///    logical connectives).
+    ///
+    /// # Causality Tracking
+    ///
+    /// The `action_effects` table is initialized as a dense `Vec` of size `action_count`.
+    /// Since `ActionDefId`s are contiguous and zero-based, this allows for **O(1)
+    /// mapping** between a derived action atom and its original lifted effects
+    /// during the grounding phase, avoiding expensive hash lookups.
     ///
     /// # Performance
     ///
-    /// This constructor pre-allocates space for 256 auxiliary definitions and
-    /// cache entries. This heuristic strategy minimizes heap reallocations
-    /// during the initial encoding phase of typical PDDL problems.
-    pub fn new(base_id: usize, negation_offset: usize) -> Self {
+    /// This constructor pre-allocates space for auxiliary definitions, the structural
+    /// cache, and the causality table. This strategy minimizes heap reallocations
+    /// and ensures that causality data is stored in a cache-friendly, contiguous
+    /// memory layout.
+    pub fn new(
+        base_id: usize,
+        action_count: usize,
+        negation_offset: usize,
+        type_to_skeleton: Vec<AtomSkeletonId>,
+    ) -> Self {
         Self {
             base_aux_id: base_id,
             next_aux_id: base_id,
@@ -93,8 +115,20 @@ impl DatalogEncoder {
             aux_defs: Vec::with_capacity(256),
             cache: HashMap::with_capacity(256),
             current_aliases: HashMap::with_capacity(256),
+            // Dense table for O(1) causality lookups
+            action_effects: vec![Vec::new(); action_count],
+            action_anchor: None,
             negation_offset,
+            type_to_skeleton,
         }
+    }
+
+    /// Retourne la tranche (slice) d'effets pour l'index d'action donné.
+    pub fn get_action_effects(&self, action_index: usize) -> &[(Atom, Cause)] {
+        self.action_effects
+            .get(action_index)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     pub fn reset_with_start_id(&mut self, start_id: usize) {
@@ -243,6 +277,7 @@ impl DatalogEncoder {
         action_atom: &Atom,
         rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
+        action_index: usize,
     ) -> Result<(), DatalogError> {
         // --- MODIFICATION : ALIASING SUR L'ACTION RACINE ---
         // On doit appliquer resolve_var sur l'atome d'action initial pour que
@@ -254,6 +289,9 @@ impl DatalogEncoder {
             }
         }
 
+        // 2. ON SAUVEGARDE L'ID ICI (il est Copy, donc pas de souci)
+        let root_cause_id = root_cause.skeleton_id();
+
         // Work stack: (Node ID, Current Cause)
         let mut work_stack = vec![(root_effect.try_root_id()?, root_cause)];
 
@@ -262,18 +300,27 @@ impl DatalogEncoder {
             let kind = node.kind();
 
             match kind {
-                // 1. Fact Production: Create the rule Effect :- Cause
                 ExprKind::AtomicFormula => {
                     let mut effect_atom = self.extract_atom(root_effect, node)?;
-                    // --- AJOUT POUR L'ALIASING ---
+
+                    // 1. Canonisation (Aliasing)
                     for term in effect_atom.terms_mut() {
                         if let Term::Variable(v) = *term {
                             *term = self.resolve_var(v);
                         }
                     }
-                    // -----------------------------
-                    // MODIFICATION : .clone() nécessaire pour l'usage dans la boucle
-                    rules_sink.push(Rule::new(effect_atom, vec![current_cause]));
+
+                    // 2. Traçabilité (Causalité)
+                    let cause = if current_cause.skeleton_id() == root_cause_id {
+                        Cause::Action
+                    } else {
+                        Cause::Pivot(current_cause.clone())
+                    };
+                    self.action_effects[action_index].push((effect_atom.clone(), cause));
+
+                    // 3. Règle Datalog : Effet :- Cause
+                    // Simple, efficace, et préserve les variables.
+                    rules_sink.push(Rule::new(effect_atom, vec![current_cause.clone()]));
                 }
 
                 // 2. Conjunction: Propagate the cause to all sub-effects
@@ -284,47 +331,46 @@ impl DatalogEncoder {
                 }
 
                 // 3. Conditional Effect: Create a pivot between Action and Condition
+                // 3. Conditional Effect: Create a pivot between Action and Condition
                 ExprKind::When => {
                     let children = node.children();
                     let condition_id = children[0];
                     let sub_effect_id = children[1];
 
+                    // On encode la condition (peut renvoyer un atome auxiliaire ou un atome simple)
                     if let Some(cond_atom) =
                         self.encode_expr(root_effect, condition_id, rules_sink, parameters)?
                     {
-                        // 1. Les variables qu'on A (Cause + Condition)
-                        let available_mask =
-                            self.collect_mask(&[current_cause.clone(), cond_atom.clone()]);
-
-                        // 2. Les variables dont on a BESOIN (le futur de l'effet)
-                        let required_mask =
-                            self.scan_required_terms_mask(root_effect, sub_effect_id);
-
-                        // 3. LA PROJECTION : Intersection bit à bit
-                        let final_mask = available_mask & required_mask;
-
-                        // 4. On transforme le mask en Vec via ton code optimisé
-                        let filtered_vars = self.mask_to_vars(final_mask);
-
-                        // --- Logique de cache ---
-                        let mut combined_body = vec![current_cause.clone(), cond_atom];
+                        // 1. Corps de la règle : on lie la cause actuelle ET la condition.
+                        // C'est ce qui assure que toutes les variables sont "bindées".
+                        let mut combined_body = vec![current_cause.clone(), cond_atom.clone()];
                         combined_body.sort_by_key(|a| a.skeleton_id());
 
-                        let aux_when_atom =
-                            if let Some(existing_head) = self.cache.get(&combined_body) {
-                                existing_head.clone()
-                            } else {
-                                let head = self.create_aux_atom(filtered_vars, parameters);
-                                rules_sink.push(Rule::new(head.clone(), combined_body.clone()));
-                                self.cache.insert(combined_body, head.clone());
-                                head
-                            };
+                        let aux_when_atom = if let Some(existing_head) =
+                            self.cache.get(&combined_body)
+                        {
+                            existing_head.clone()
+                        } else {
+                            // --- LA MAGIE EST ICI ---
+                            // 2. Tête de la règle : on ne projette QUE les variables de la condition.
+                            // Cela transforme l'arité 2 en 1 si seule ?v1 est utilisée dans la condition.
+                            let head = self.encode_new_aux_predicate(&[cond_atom], parameters)?;
 
+                            /*println!(
+                                "  |_ Création pivot optimisé (arité réduite) : {:?}",
+                                head.0.skeleton_id()
+                            );*/
+
+                            // 3. On enregistre la règle avec la tête légère et le corps complet.
+                            rules_sink.push(Rule::new(head.0.clone(), combined_body.clone()));
+                            self.cache.insert(combined_body, head.0.clone());
+                            head.0
+                        };
+
+                        // On continue la propagation avec le nouveau pivot
                         work_stack.push((sub_effect_id, aux_when_atom));
                     } else {
-                        // --- AJOUT : GESTION DU CAS TRIVIAL ---
-                        // Si la condition est None (ex: (= ?x ?x)), on propage
-                        // simplement la cause actuelle au sous-effet.
+                        // Condition triviale : on passe directement la cause aux sous-effets
                         work_stack.push((sub_effect_id, current_cause));
                     }
                 }
@@ -338,8 +384,45 @@ impl DatalogEncoder {
 
                 // 5. Explicitly Ignored Nodes (Numerical / Metrics)
                 // --- MODIFICATION : AJOUT DE NOT ET COMPARISON ---
-                ExprKind::Assignment | ExprKind::Arithmetic | ExprKind::Not => {
+                ExprKind::Assignment | ExprKind::Arithmetic => {
                     continue;
+                }
+
+                // --- MODIFICATION PRÉCISE : BRANCH NOT ---
+                // --- BRANCH NOT DANS encode_effects ---
+                ExprKind::Not => {
+                    let children = node.children();
+                    if let Some(&child_id) = children.first() {
+                        let child_node = root_effect.try_node(child_id)?;
+                        if child_node.kind() == ExprKind::AtomicFormula {
+                            let mut del_atom = self.extract_atom(root_effect, child_node)?;
+
+                            for term in del_atom.terms_mut() {
+                                if let Term::Variable(v) = *term {
+                                    *term = self.resolve_var(v);
+                                }
+                            }
+
+                            del_atom.set_negated(true);
+                            let raw_id: usize = del_atom.skeleton_id().into();
+                            del_atom.set_skeleton_id(AtomSkeletonId::from(
+                                raw_id + self.negation_offset,
+                            ));
+
+                            let cause = if current_cause.skeleton_id() == root_cause_id {
+                                Cause::Action
+                            } else {
+                                Cause::Pivot(current_cause.clone())
+                            };
+
+                            // ON GARDE ÇA : Utile pour ton Datalogologue/BitVector final
+                            self.action_effects[action_index].push((del_atom.clone(), cause));
+
+                            // ON SUPPRIME ÇA (ou on commente) :
+                            // C'est ça qui crée la règle en trop dans le rules_sink !
+                            //rules_sink.push(Rule::new(del_atom, vec![current_cause.clone()]));
+                        }
+                    }
                 }
 
                 // --- FEATURES (VALIDE PDDL MAIS NÉCESSITE PREPROCESSING) ---
@@ -386,22 +469,43 @@ impl DatalogEncoder {
         rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
     ) -> Result<Option<Atom>, DatalogError> {
-        // 1. On nettoie les alias de l'action précédente pour repartir à neuf
-        self.current_aliases.clear();
-
-        // 2. On extrait la fermeture transitive des égalités (= ?x ?y)
-        // Cette fonction (que tu as ajoutée) remplit la HashMap interne.
+        // 1. Nettoyage et préparation des alias (pour gérer les ?x = ?y)
         self.current_aliases = self.extract_variable_aliases(expr)?;
 
-        // 3. On récupère la racine de l'expression
+        // 2. Encodage récursif/itératif de l'expression
+        // On retourne simplement l'atome racine (souvent un Aux_N)
         if let Some(root_id) = expr.root_id() {
-            // 4. On lance l'encodage récursif.
-            // Note : encode_expr va maintenant utiliser self.current_aliases
-            // via la méthode resolve_var() que nous allons intégrer.
             self.encode_expr(expr, root_id, rules_sink, parameters)
         } else {
             Ok(None)
         }
+    }
+
+    /// Génère un atome d'ancre unique pour une action.
+    /// Cet atome sert de pivot statique (Facts inertes + Type Guards).
+    pub fn generate_anchor_atom(
+        &mut self,
+        _action_id: ActionSymbolId, // Utile pour le debug/nommage futur
+        _parameters: &TypedList<VariableId, TypeId>,
+        action_head: &Atom,
+    ) -> Atom {
+        // 1. On alloue un nouvel ID auxiliaire via la méthode existante
+        // L'arité de l'ancre est exactement celle de l'action
+        let arity = action_head.terms().len();
+
+        // On n'utilise pas encode_auxiliary_predicate ici car on veut
+        // une gestion propre de l'ID sans forcément recréer une définition complexe
+        let anchor_id = self.next_aux_id;
+        self.next_aux_id += 1;
+
+        let sk_id = AtomSkeletonId::from(anchor_id);
+
+        // 2. On récupère les termes (variables) de l'atome de tête.
+        // On les clone pour que l'ancre porte EXACTEMENT les mêmes variables.
+        let terms = action_head.terms().to_vec();
+
+        // 3. On crée l'atome d'ancre
+        Atom::new(sk_id, terms)
     }
 
     /// Encodes a sub-expression starting from a specific node into Datalog atoms and rules.
@@ -507,6 +611,15 @@ impl DatalogEncoder {
                                 *term = self.resolve_var(v); // Utilise la version récursive !
                             }
                         }
+                        // 2. GESTION DE LA NÉGATION
+                        // Si le nœud PDDL est marqué comme négatif (via NNF ou ton flag)
+                        // On doit activer le bit MSB ici pour que le AND/OR parent le sache.
+                        if node.try_atom_skeleton()?.is_negated() {
+                            // Ou la condition que tu utilises pour détecter 'not'
+                            let mut sk = atom.skeleton_id();
+                            sk.set_negated(true);
+                            atom.set_skeleton_id(sk);
+                        }
                         Some(atom)
                     }
 
@@ -538,7 +651,7 @@ impl DatalogEncoder {
                         let child_results: Vec<Option<Atom>> =
                             results_stack.drain(start_idx..).collect();
 
-                        // 1. Propagation du None : si une branche est fausse, tout le AND est faux.
+                        // 1. Si un enfant est None (branche impossible), le AND est None
                         if child_results.iter().any(|r| r.is_none()) {
                             None
                         } else {
@@ -547,44 +660,43 @@ impl DatalogEncoder {
                                 if a.is_equality() {
                                     let terms = a.terms();
                                     if a.is_negated() {
-                                        // --- SÉCURITÉ : Contradiction (ex: ?v0 != ?v0) ---
                                         if terms[0] == terms[1] {
                                             return Ok(None);
-                                        }
+                                        } // Contradiction: ?x != ?x
                                         atoms.push(a);
                                     } else {
-                                        // --- FILTRAGE : Tautologie (on ignore ?v0 = ?v0) ---
                                         if terms[0] != terms[1] {
-                                            atoms.push(a); // On garde ?v0 = ?v1 ou ?v0 = constante
-                                        }
+                                            atoms.push(a);
+                                        } // On garde ?x = constante
                                     }
                                 } else {
                                     atoms.push(a);
                                 }
                             }
 
-                            // 2. Synthèse du résultat après filtrage
+                            // 2. Synthèse
                             if atoms.is_empty() {
-                                // Le AND est "vrai" mais vide (ex: AND(1=1)).
-                                // On renvoie une tautologie témoin.
-                                let v = VariableId::from(0);
-                                Some(Atom::equality(Term::Variable(v), Term::Variable(v)))
+                                // Tautologie (1=1), on renvoie un témoin
+                                Some(Atom::equality(
+                                    Term::Variable(VariableId::from(0)),
+                                    Term::Variable(VariableId::from(0)),
+                                ))
                             } else if atoms.len() == 1 {
-                                // Un seul atome restant : pas besoin de règle auxiliaire.
                                 Some(atoms[0].clone())
                             } else {
-                                // 3. Plusieurs atomes : on crée (ou récupère) un prédicat auxiliaire.
-                                // Tri pour garantir que l'ordre des atomes n'affecte pas le cache.
+                                // 3. Cache & Auxiliaires
                                 atoms.sort_by_key(|a| a.skeleton_id());
-
                                 if let Some(existing_head) = self.cache.get(&atoms) {
                                     Some(existing_head.clone())
                                 } else {
-                                    // Génération de la tête : aux_N(?vars)
-                                    let head = self.encode_new_aux_predicate(&atoms, parameters)?;
-                                    // Création de la règle : aux_N(?vars) :- Atomes...
-                                    rules_sink.push(Rule::new(head.clone(), atoms.clone()));
-                                    // Mise en cache pour éviter les doublons structurels
+                                    // On récupère la tête ET le corps sécurisé (avec les Type Guards)
+                                    let (head, secured_body) =
+                                        self.encode_new_aux_predicate(&atoms, parameters)?;
+
+                                    // CRUCIAL : On pousse la version sécurisée dans le moteur Datalog
+                                    rules_sink.push(Rule::new(head.clone(), secured_body));
+
+                                    // On garde les 'atoms' originaux comme clé de cache
                                     self.cache.insert(atoms, head.clone());
                                     Some(head)
                                 }
@@ -594,30 +706,70 @@ impl DatalogEncoder {
 
                     ExprKind::Or => {
                         let start_idx = results_stack.len() - num_children;
-                        // Le OR ignore (flatten) les None, car ils représentent des branches impossibles.
                         let mut atoms: Vec<Atom> =
                             results_stack.drain(start_idx..).flatten().collect();
 
                         if atoms.is_empty() {
-                            // Si toutes les branches ont renvoyé None (échec), le OR est mort.
-                            // C'est ce qui valide test_empty_or_ignored_logic.
                             None
                         } else if atoms.len() == 1 {
-                            // Une seule branche valide
                             Some(atoms[0].clone())
                         } else {
-                            // Plusieurs branches valides -> Création des règles Datalog : Head :- Body.
                             atoms.sort_by_key(|a| a.skeleton_id());
                             atoms.dedup();
 
                             if let Some(existing_head) = self.cache.get(&atoms) {
                                 Some(existing_head.clone())
                             } else {
-                                let head = self.encode_new_aux_predicate(&atoms, parameters)?;
+                                // 1. On récupère la tête (on ignore le secured_body global car le OR
+                                // nécessite une sécurisation par branche).
+                                let (head, _) =
+                                    self.encode_new_aux_predicate(&atoms, parameters)?;
+
                                 for atom in &atoms {
-                                    // Chaque branche du OR devient une règle séparée pointant vers la même Head
-                                    rules_sink.push(Rule::new(head.clone(), vec![atom.clone()]));
+                                    /*println!(
+                                        "DEBUG OR BRANCH: Head {:?} <- Atom {:?} (negated: {})",
+                                        head.skeleton_id(),
+                                        atom.skeleton_id(),
+                                        atom.is_negated()
+                                    );*/
+                                    // Chaque règle du OR est : Aux_Or(?x) :- Branche_N(?x)
+                                    let mut branch_body = vec![atom.clone()];
+
+                                    // --- SÉCURISATION DE LA BRANCHE ---
+                                    // On vérifie quelles variables de la tête sont couvertes par CETTE branche précise
+                                    let mut covered_vars = std::collections::HashSet::new();
+                                    if !atom.is_negated() {
+                                        for term in atom.terms() {
+                                            if let Term::Variable(v) = term {
+                                                covered_vars.insert(*v);
+                                            }
+                                        }
+                                    }
+
+                                    // Pour chaque variable de la tête, si elle est "orpheline" dans cette branche,
+                                    // on injecte son Type Guard.
+                                    for term in head.terms() {
+                                        if let Term::Variable(v) = term {
+                                            if !covered_vars.contains(v) {
+                                                let type_id =
+                                                    parameters[v.as_usize()].ty().members()[0]
+                                                        .as_usize();
+                                                let type_sk = self.type_to_skeleton[type_id];
+
+                                                // Ajout du Type Guard spécifique à la branche
+                                                branch_body.push(Atom::new(
+                                                    type_sk,
+                                                    vec![Term::Variable(*v)],
+                                                ));
+                                                covered_vars.insert(*v);
+                                            }
+                                        }
+                                    }
+
+                                    // On enregistre la règle de la branche sécurisée
+                                    rules_sink.push(Rule::new(head.clone(), branch_body));
                                 }
+
                                 self.cache.insert(atoms, head.clone());
                                 Some(head)
                             }
@@ -752,16 +904,101 @@ impl DatalogEncoder {
     /// # Errors
     /// Returns a [`DatalogError`] if variable collection fails or if there is an
     /// inconsistency in the typed list.
+    ///
     fn encode_new_aux_predicate(
         &mut self,
         atoms: &[Atom],
         parameters: &TypedList<VariableId, TypeId>,
-    ) -> Result<Atom, DatalogError> {
-        // Collect unique variables to define the new predicate's signature
-        let vars = self.collect_variables(atoms)?;
-        // Generate the unique auxiliary atom
-        Ok(self.create_aux_atom(vars, parameters))
+    ) -> Result<(Atom, Vec<Atom>), DatalogError> {
+        // <--- Retourne le tuple (Tête, Corps Sécurisé)
+        // 1. Collecte et résolution des variables
+        let used_vars = self.collect_variables(atoms)?;
+        let mut resolved_terms: Vec<Term> = used_vars
+            .into_iter()
+            .map(|v_id| self.resolve_var(v_id))
+            .collect();
+
+        resolved_terms.sort();
+        resolved_terms.dedup();
+
+        let final_vars: Vec<VariableId> = resolved_terms
+            .iter()
+            .filter_map(|t| {
+                if let Term::Variable(v) = t {
+                    Some(*v)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // --- 2. LA RÉPARATION (Type Guard Injection) ---
+        let mut covered_vars = std::collections::HashSet::new();
+        for atom in atoms {
+            if !atom.is_negated() {
+                for term in atom.terms() {
+                    if let Term::Variable(v) = term {
+                        covered_vars.insert(*v);
+                    }
+                }
+            }
+        }
+
+        let mut secured_body = atoms.to_vec();
+
+        for v_id in &final_vars {
+            if !covered_vars.contains(v_id) {
+                // Récupération sécurisée du type
+                let type_id = parameters[v_id.as_usize()].ty().members()[0].as_usize();
+                let type_sk = self.type_to_skeleton[type_id];
+
+                // On injecte l'atome de type pour lier la variable (v#1)
+                secured_body.push(Atom::new(type_sk, vec![Term::Variable(*v_id)]));
+                covered_vars.insert(*v_id);
+            }
+        }
+
+        // 3. Création de l'atome de tête
+        // Note : on passe final_vars et resolved_terms qui sont déjà minimalistes
+        let head = self.create_aux_atom(final_vars, resolved_terms, parameters);
+
+        Ok((head, secured_body)) // <--- On renvoie les deux !
     }
+    /*fn encode_new_aux_predicate(
+        &mut self,
+        atoms: &[Atom],
+        parameters: &TypedList<VariableId, TypeId>,
+    ) -> Result<Atom, DatalogError> {
+        // 1. On collecte les variables REELLEMENT présentes dans les atomes enfants
+        // Cela garantit que l'arité est minimale (fixe les erreurs d'arité 3 vs 1)
+        let mut used_vars = self.collect_variables(atoms)?;
+
+        // 2. On transforme les variables selon les alias et on déduplique
+        // C'est l'étape CRUCIALE pour le test d'aliasing (?v0 = ?v1 => ?v0)
+        let mut resolved_terms: Vec<Term> = used_vars
+            .into_iter()
+            .map(|v_id| self.resolve_var(v_id))
+            .collect();
+
+        // On trie et déduplique les Termes (pas les VariableId)
+        resolved_terms.sort();
+        resolved_terms.dedup();
+
+        // 3. On extrait les VariableId restants après déduplication pour créer le squelette
+        let final_vars: Vec<VariableId> = resolved_terms
+            .iter()
+            .filter_map(|t| {
+                if let Term::Variable(v) = t {
+                    Some(*v)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // 4. On crée l'atome avec cette signature minimale
+        Ok(self.create_aux_atom(final_vars, resolved_terms, parameters))
+    }*/
 
     /// Creates a new auxiliary atom and registers its skeleton locally.
     ///
@@ -783,32 +1020,59 @@ impl DatalogEncoder {
     /// - **Allocation**: Performs one allocation for the `aux_defs` storage and one for the `Atom` terms.
     fn create_aux_atom(
         &mut self,
-        vars: Vec<VariableId>,
+        skeleton_vars: Vec<VariableId>,
+        resolved_terms: Vec<Term>,
         parameters: &TypedList<VariableId, TypeId>,
     ) -> Atom {
         let id = self.next_aux_id;
         self.next_aux_id += 1;
 
-        // 1. Construct the signature (types) by mapping variables to their types
         let mut aux_params = TypedList::new();
-        for &v_id in &vars {
-            // O(1) direct access as VariableIds are used as indices
+        for &v_id in &skeleton_vars {
             let ty = parameters[v_id.as_usize()].ty();
             aux_params.push(TypedSymbol::new(v_id, ty.clone()));
         }
 
-        // 2. Create the PredicateSymbolId (virtual ID, no interning required here)
-        let predicate_id = PredicateSymbolId::from(id);
+        self.aux_defs.push(AtomicFormulaSkeleton::new(
+            PredicateSymbolId::from(id),
+            aux_params,
+        ));
+        Atom::new(AtomSkeletonId::from(id), resolved_terms)
+    }
 
-        // 3. Register the definition in the local auxiliary list
-        self.aux_defs
-            .push(AtomicFormulaSkeleton::new(predicate_id, aux_params));
+    fn secure_aux_rule(
+        &self,
+        body: &mut Vec<Atom>,
+        head: &Atom,
+        parameters: &TypedList<VariableId, TypeId>,
+    ) {
+        let mut covered_vars = std::collections::HashSet::new();
 
-        // 4. Create the Atom for the Datalog engine
-        let skeleton_id = AtomSkeletonId::from(id);
-        let terms: Vec<Term> = vars.into_iter().map(Term::Variable).collect();
+        // 1. On regarde quelles variables sont déjà liées par des atomes POSITIFS
+        for atom in body.iter() {
+            if !atom.is_negated() {
+                for term in atom.terms() {
+                    if let Term::Variable(v) = term {
+                        covered_vars.insert(*v);
+                    }
+                }
+            }
+        }
 
-        Atom::new(skeleton_id, terms)
+        // 2. Pour chaque variable de la tête, si elle n'est pas couverte, on injecte le Type Guard
+        for term in head.terms() {
+            if let Term::Variable(v_id) = term {
+                if !covered_vars.contains(v_id) {
+                    // On récupère le skeleton du type (aplatit)
+                    let type_id = parameters[v_id.as_usize()].ty().members()[0].as_usize();
+                    let type_sk = self.type_to_skeleton[type_id];
+
+                    // On ajoute l'atome de type au corps de la règle
+                    body.push(Atom::new(type_sk, vec![Term::Variable(*v_id)]));
+                    covered_vars.insert(*v_id);
+                }
+            }
+        }
     }
 
     /// Collects all unique variables from a slice of atoms and returns them as a sorted vector.
@@ -850,6 +1114,16 @@ impl DatalogEncoder {
         Ok(self.mask_to_vars(mask))
     }
 
+    fn mask_to_vars(&self, mut mask: u64) -> Vec<VariableId> {
+        let mut vars = Vec::with_capacity(mask.count_ones() as usize);
+        while mask != 0 {
+            let bit = mask.trailing_zeros();
+            vars.push(VariableId::from(bit as usize));
+            mask &= mask - 1;
+        }
+        vars
+    }
+
     fn scan_required_terms_mask(&self, expr: &Expr, start_node_id: NodeId) -> u64 {
         let mut mask: u64 = 0;
         let mut stack = vec![start_node_id];
@@ -857,21 +1131,18 @@ impl DatalogEncoder {
         while let Some(node_id) = stack.pop() {
             if let Ok(node) = expr.try_node(node_id) {
                 match node.kind() {
+                    // On scanne directement les enfants pour trouver les variables
                     ExprKind::AtomicFormula | ExprKind::Comparison => {
-                        if let Ok(atom) = self.extract_atom(expr, node) {
-                            for term in atom.terms() {
-                                // On résout le terme immédiatement
-                                let resolved_term = match term {
-                                    Term::Variable(v) => self.resolve_var(*v),
-                                    Term::Constant(_) => term.clone(),
-                                };
-
-                                // On ne marque le masque QUE si c'est encore une variable
-                                if let Term::Variable(v) = resolved_term {
-                                    mask |= 1 << v.as_usize();
+                        for &child_id in node.children().iter().skip(1) {
+                            if let Ok(child_node) = expr.try_node(child_id) {
+                                if child_node.kind() == ExprKind::Variable {
+                                    if let Ok(v) = child_node.content().try_variable() {
+                                        // Résolution ici aussi
+                                        if let Term::Variable(rv) = self.resolve_var(v) {
+                                            mask |= 1 << rv.as_usize();
+                                        }
+                                    }
                                 }
-                                // Si c'est une Constant, on ne fait rien :
-                                // elle ne compte plus dans l'arité de la règle !
                             }
                         }
                     }
@@ -896,22 +1167,18 @@ impl DatalogEncoder {
         let mut mask: u64 = 0;
         for atom in atoms {
             for term in atom.terms() {
-                if let Term::Variable(v) = term {
+                // AJOUT : Résolution systématique
+                let resolved_term = match term {
+                    Term::Variable(v) => self.resolve_var(*v),
+                    Term::Constant(_) => term.clone(),
+                };
+
+                if let Term::Variable(v) = resolved_term {
                     mask |= 1 << v.as_usize();
                 }
             }
         }
         mask
-    }
-
-    fn mask_to_vars(&self, mut mask: u64) -> Vec<VariableId> {
-        let mut vars = Vec::with_capacity(mask.count_ones() as usize);
-        while mask != 0 {
-            let bit = mask.trailing_zeros();
-            vars.push(VariableId::from(bit as usize));
-            mask &= mask - 1;
-        }
-        vars
     }
 
     /// Résout une variable vers son représentant canonique (le plus petit ID du groupe d'égalité)
@@ -1025,6 +1292,16 @@ impl DatalogEncoder {
                 *alias = current_term;
             }
         }
+    }
+
+    //---------------------------- API for tests only  ----------------------------//
+    #[cfg(test)]
+    pub fn set_action_anchor(&mut self, anchor: Atom) {
+        self.action_anchor = Some(anchor);
+    }
+
+    pub fn action_anchor(&self) -> Option<&Atom> {
+        self.action_anchor.as_ref()
     }
 }
 

@@ -1,5 +1,8 @@
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{ActionSymbolId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, SymbolId, TaskSymbolId, TypeId};
+use crate::aiplan4rust::lang::{
+    ActionSymbolId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, SymbolId,
+    TaskSymbolId, TypeId,
+};
 use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolRegistry};
 
 pub struct RenderContext<'a> {
@@ -20,7 +23,7 @@ impl<'a> RenderContext<'a> {
             type_symbols: &problem.type_symbols(),
             predicate_symbols: &problem.predicate_symbols(),
             functor_symbols: &problem.function_symbols(),
-            object_symbols: &problem.object_symbol(),
+            object_symbols: &problem.object_symbols(),
             task_symbols: &problem.task_symbols(),
             action_symbols: &problem.action_symbols(),
             method_symbols: &problem.method_symbols(), // Aj
@@ -28,17 +31,33 @@ impl<'a> RenderContext<'a> {
     }
 
     // --- Accesseurs directs aux tables ---
-    pub fn types(&self) -> &SymbolRegistry<TypeId> { self.type_symbols }
-    pub fn predicates(&self) -> &SymbolRegistry<PredicateSymbolId> { self.predicate_symbols }
-    pub fn functors(&self) -> &SymbolRegistry<FunctionSymbolId> { self.functor_symbols }
-    pub fn objects(&self) -> &SymbolRegistry<ObjectId> { self.object_symbols }
-    pub fn task_symbols(&self) -> &SymbolRegistry<TaskSymbolId> { self.task_symbols }
+    pub fn types(&self) -> &SymbolRegistry<TypeId> {
+        self.type_symbols
+    }
+    pub fn predicates(&self) -> &SymbolRegistry<PredicateSymbolId> {
+        self.predicate_symbols
+    }
+    pub fn functors(&self) -> &SymbolRegistry<FunctionSymbolId> {
+        self.functor_symbols
+    }
+    pub fn objects(&self) -> &SymbolRegistry<ObjectId> {
+        self.object_symbols
+    }
+    pub fn task_symbols(&self) -> &SymbolRegistry<TaskSymbolId> {
+        self.task_symbols
+    }
 
-    pub fn action_symbols(&self) -> &SymbolRegistry<ActionSymbolId> { self.action_symbols }
+    pub fn action_symbols(&self) -> &SymbolRegistry<ActionSymbolId> {
+        self.action_symbols
+    }
 
-    pub fn method_symbols(&self) -> &SymbolRegistry<MethodSymbolId> { self.method_symbols }
+    pub fn method_symbols(&self) -> &SymbolRegistry<MethodSymbolId> {
+        self.method_symbols
+    }
 
-    pub fn interner(&self) -> &SymbolInterner { self.interner }
+    pub fn interner(&self) -> &SymbolInterner {
+        self.interner
+    }
 
     // --- Résolution de noms via les SymbolTables ---
 
@@ -96,5 +115,4 @@ impl<'a> RenderContext<'a> {
             .map(|&s_id| self.resolve_symbol(s_id))
             .unwrap_or("<unknown_method>")
     }
-
 }

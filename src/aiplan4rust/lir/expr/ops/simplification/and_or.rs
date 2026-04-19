@@ -1,5 +1,6 @@
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
+use crate::aiplan4rust::lir::expr::ops::simplification::when;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::NodeId;
 use std::collections::HashSet;
@@ -57,7 +58,7 @@ use std::collections::HashSet;
 /// normalize(node_id, &mut logic)?;
 /// // After simplification, the expression becomes: (and A B C (when (or X Z) Y))
 /// ```
-pub fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
+/*pub fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     // Step 1: Flatten nested AND/OR nodes of the same kind
     flatten_and_or_node(node_id, expr)?;
 
@@ -68,7 +69,9 @@ pub fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     deduplicate_and_or_node(node_id, expr)?;
 
     // Step 4: Merge WHEN logic
-    merge_when(node_id, expr)?; // merge WHEN logic grouped by effect
+    if expr.node_kind(node_id) == Some(ExprKind::And) {
+        merge_when(node_id, expr)?;
+    }
 
     // Step 5: Simplify tautologies and contradictions
     if simplify_tautologies_and_contradictions(node_id, expr)? {
@@ -82,6 +85,49 @@ pub fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
 
     // Step 7: Simplify empty nodes
     simplify_empty_and_or_node(node_id, expr)?;
+
+    Ok(())
+}*/
+
+pub fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
+    // 1. Mise à plat : indispensable pour voir les doublons et neutres cachés
+    flatten_and_or_node(node_id, expr)?;
+
+    // 2. Premier ménage : on réduit la taille de la liste avant de trier
+    if simplify_empty_and_or_node(node_id, expr)? {
+        if expr.try_node(node_id)?.children().is_empty() {
+            return Ok(());
+        }
+    }
+
+    let kind = expr.node_kind(node_id);
+    if kind != Some(ExprKind::And) && kind != Some(ExprKind::Or) {
+        return Ok(());
+    }
+
+    // 3. Canonisation : on trie pour que la déduplication soit fiable et rapide
+    canonicalize_and_or_node(node_id, expr)?;
+
+    // 4. Déduplication : on retire les doublons (maintenant que c'est trié)
+    deduplicate_and_or_node(node_id, expr)?;
+
+    // 5. Logique : peut générer de nouveaux nœuds vides (ex: A et non A -> False)
+    if simplify_tautologies_and_contradictions(node_id, expr)? {
+        // Si le nœud entier est devenu True ou False, on stoppe ici.
+        return Ok(());
+    }
+
+    // 6. Nettoyage de sécurité : on traite les vides créés par l'étape 5
+    if simplify_empty_and_or_node(node_id, expr)? {
+        if expr.try_node(node_id)?.children().is_empty() {
+            return Ok(());
+        }
+    }
+
+    // 7. WHEN : Spécifique PDDL, à faire sur un nœud stabilisé
+    if expr.node_kind(node_id) == Some(ExprKind::And) {
+        merge_when(node_id, expr)?;
+    }
 
     Ok(())
 }
@@ -444,7 +490,7 @@ fn reduce_single_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, E
 ///   - `(and)` with no children → `true`
 ///   - `(or)` with no children → `false`
 ///   - No explicit `true` or `false` constants are introduced.
-fn simplify_empty_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
+/*fn simplify_empty_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     // 1. On récupère les infos nécessaires sans bloquer l'arène
     let (node_kind, children) = {
         let node = expr.try_node(node_id)?;
@@ -488,8 +534,51 @@ fn simplify_empty_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, 
     }
 
     Ok(modified)
-}
+}*/
 
+fn simplify_empty_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
+    let (node_kind, children) = {
+        let node = expr.try_node(node_id)?;
+        (node.kind(), node.children().to_vec())
+    };
+
+    let mut new_children = Vec::with_capacity(children.len());
+    let mut modified_by_empty = false;
+
+    for child_id in children {
+        let child = expr.try_node(child_id)?;
+
+        if child.children().is_empty() {
+            let child_kind = child.kind();
+
+            // CAS 1 : Absorption (ex: and + false)
+            if (node_kind == ExprKind::And && child_kind == ExprKind::Or)
+                || (node_kind == ExprKind::Or && child_kind == ExprKind::And)
+            {
+                expr.move_to(child_id, node_id)?;
+                return Ok(true);
+            }
+
+            // CAS 2 : Élément Neutre (ex: and + true)
+            if child_kind == node_kind {
+                modified_by_empty = true;
+                continue;
+            }
+        }
+        new_children.push(child_id);
+    }
+
+    // Si on a retiré des éléments neutres, on met à jour le nœud
+    if modified_by_empty {
+        expr.set_children(node_id, new_children)?;
+    }
+
+    // APPEL SYSTÉMATIQUE À TA FONCTION
+    // On réduit (and A) -> A, qu'on vienne de supprimer un neutre ou pas.
+    let reduced = reduce_single_and_or_node(node_id, expr)?;
+
+    Ok(modified_by_empty || reduced)
+}
 /// Main function that merges `When` logic under an `And` or `Or` node
 /// and updates the node in-place.
 ///
@@ -529,6 +618,9 @@ pub fn merge_when(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError>
 
     // Rebuild the node's children and get whether a fusion occurred
     let fusion_occurred = rebuild_children_with_merged_when(node_id, non_when, merged_map, expr)?;
+
+    // ON RÉDUIT ICI
+    reduce_single_and_or_node(node_id, expr)?;
 
     // Return the fusion flag
     Ok(fusion_occurred)
@@ -722,7 +814,7 @@ fn rebuild_children_with_merged_when(
             ExprNode::new(ExprKind::When, Content::None, None),
             vec![cond_node, eff_id],
         );
-
+        when::simplify(when_node, expr)?;
         // Append the WHEN node to the new children vector
         new_children.push(when_node);
     }

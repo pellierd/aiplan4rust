@@ -10,9 +10,9 @@
 //! - Efficient joins via first-argument indexing.
 //! - Minimal memory overhead using raw tuple buffers.
 
-use std::collections::HashMap;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::relation::Relation;
 use crate::aiplan4rust::lang::{AtomSkeletonId, ObjectId};
+use std::collections::HashMap;
 
 /// A two-tier relational database for Datalog facts.
 ///
@@ -106,8 +106,17 @@ impl Database {
     /// This is primarily used by the saturation algorithm to iterate over the
     /// current knowledge base and evaluate rules during the fixed-point calculation.
     #[inline]
-    pub fn relations(&self) -> &HashMap<AtomSkeletonId, Relation> {
+    pub fn stable_relations(&self) -> &HashMap<AtomSkeletonId, Relation> {
         &self.stable
+    }
+
+    /// Returns a reference to the internal map of delta relations.
+    ///
+    /// This is crucial for the Semi-Naive algorithm to identify
+    /// the "newly discovered" facts that trigger rules.
+    #[inline]
+    pub fn delta_relations(&self) -> &HashMap<AtomSkeletonId, Relation> {
+        &self.delta
     }
 
     /// Calculates the total number of unique facts across all stable relations.
@@ -125,10 +134,7 @@ impl Database {
     /// information was discovered or if a **fixed-point** (saturation) has
     /// been reached.
     pub fn total_facts_count(&self) -> usize {
-        self.stable
-            .values()
-            .map(|rel| rel.len())
-            .sum()
+        self.stable.values().map(|rel| rel.len()).sum()
     }
 
     /// Clears all facts from the stable storage.
@@ -146,7 +152,8 @@ impl Database {
     pub fn commit_delta(&mut self) {
         for (sk_id, delta_rel) in self.delta.drain() {
             let arity = delta_rel.arity();
-            let rel = self.stable
+            let rel = self
+                .stable
                 .entry(sk_id)
                 .or_insert_with(|| Relation::new(arity));
 
@@ -228,7 +235,11 @@ impl Database {
     /// # Returns
     /// An `Option` containing a tuple of `(raw_buffer_length, arity)`.
     pub fn get_layout(&self, sk_id: AtomSkeletonId, use_delta: bool) -> Option<(usize, usize)> {
-        let rel = if use_delta { self.delta.get(&sk_id) } else { self.stable.get(&sk_id) };
+        let rel = if use_delta {
+            self.delta.get(&sk_id)
+        } else {
+            self.stable.get(&sk_id)
+        };
         rel.map(|r| (r.data().len(), r.arity()))
     }
 
@@ -238,8 +249,19 @@ impl Database {
     /// * `start` - The memory offset where the tuple begins.
     /// * `arity` - The number of elements to read.
     /// * `out` - The destination buffer (must be at least `arity` long).
-    pub fn read_tuple(&self, sk_id: AtomSkeletonId, use_delta: bool, start: usize, arity: usize, out: &mut [ObjectId]) {
-        let rel_opt = if use_delta { self.delta.get(&sk_id) } else { self.stable.get(&sk_id) };
+    pub fn read_tuple(
+        &self,
+        sk_id: AtomSkeletonId,
+        use_delta: bool,
+        start: usize,
+        arity: usize,
+        out: &mut [ObjectId],
+    ) {
+        let rel_opt = if use_delta {
+            self.delta.get(&sk_id)
+        } else {
+            self.stable.get(&sk_id)
+        };
         if let Some(rel) = rel_opt {
             let data = rel.data();
             // Vérification de sécurité pour éviter le out-of-bounds
@@ -253,8 +275,17 @@ impl Database {
     ///
     /// # Returns
     /// A vector of memory offsets where matching tuples can be found.
-    pub fn lookup_index(&self, sk_id: AtomSkeletonId, use_delta: bool, first_arg: ObjectId) -> Option<Vec<usize>> {
-        let rel = if use_delta { self.delta.get(&sk_id) } else { self.stable.get(&sk_id) };
+    pub fn lookup_index(
+        &self,
+        sk_id: AtomSkeletonId,
+        use_delta: bool,
+        first_arg: ObjectId,
+    ) -> Option<Vec<usize>> {
+        let rel = if use_delta {
+            self.delta.get(&sk_id)
+        } else {
+            self.stable.get(&sk_id)
+        };
         // On clone le petit vecteur d'offsets (pas les données des faits)
         rel.and_then(|r| r.index_by_first_arg().get(&first_arg).cloned())
     }

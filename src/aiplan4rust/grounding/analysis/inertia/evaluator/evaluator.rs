@@ -121,7 +121,10 @@ impl<'a> InertiaEvaluator<'a> {
             // --- LE LOG DE VÉRITÉ ---
             // Si ce log n'apparaît pas pour les IDs 2, 5, 7, 8, 9,
             // alors la table reste vide et l'évaluateur renverra toujours False.
-            println!("[INIT-REGISTRY] Succès : Predicate {:?} | Args: {:?}", skeleton_id, args);
+            println!(
+                "[INIT-REGISTRY] Succès : Predicate {:?} | Args: {:?}",
+                skeleton_id, args
+            );
 
             self.generate_predicate_masks(skeleton_id, arity, &args);
         }
@@ -179,9 +182,19 @@ impl<'a> InertiaEvaluator<'a> {
         let node = expr.try_node(node_id)?;
         let pred_id = node.try_atom_skeleton()?;
 
+        // --- MODIFICATION 1 : Sécurité ID (Correction IDs 10/13) ---
+        // Si l'ID est supérieur au nombre de définitions, c'est un prédicat
+        // généré (égalité, etc.). On ne le simplifie pas ici.
+        if pred_id.as_usize() >= self.predicate_defs.len() {
+            return Ok(None);
+        }
+
+        // --- MODIFICATION 2 : Détection des Fluents (Section 3.4) ---
         let is_negative = self.inertia.is_predicate_negative_inertia(pred_id)?;
         let is_positive = self.inertia.is_predicate_positive_inertia(pred_id)?;
 
+        // Si le prédicat n'est PAS inerte, c'est un Fluent.
+        // On doit retourner None pour qu'il soit conservé dans le BitVector.
         if !is_negative && !is_positive {
             return Ok(None);
         }
@@ -207,7 +220,9 @@ impl<'a> InertiaEvaluator<'a> {
             println!("  -> Args in Buffer: {:?}", lookup_slice);
 
             // Test manuel : Est-ce que le prédicat existe avec ce masque ?
-            let has_mask = self.counting_predicates.get(&pred_id)
+            let has_mask = self
+                .counting_predicates
+                .get(&pred_id)
                 .map(|m| m.contains_key(&mask))
                 .unwrap_or(false);
             println!("  -> Mask exists in table? {}", has_mask);
@@ -220,31 +235,42 @@ impl<'a> InertiaEvaluator<'a> {
             .and_then(|entries| entries.get(lookup_slice))
             .copied();
 
-        // --- ÉTAPE B : Application des règles ---
-
-        /// --- ÉTAPE B : Application des règles ---
+        // --- ÉTAPE B : Application rigoureuse de la Définition 6 ---
         let n_val = n_p_a.unwrap_or(0);
         let grounded = self.all_args_grounded(node, expr);
 
-        // 1. Cas de l'Inertie Positive (Statique : jamais ajouté, jamais supprimé)
+        // Règle 1 : Positive Inertia (ex: requires, part-of)
         if is_positive {
-            // Si n_val > 0, il existe au moins une assignation qui rend le fait vrai.
-            // Si c'est grounded, n_val sera 1 (Vrai) ou 0 (Faux).
-            // Si ce n'est pas grounded, n_val > 0 signifie "possiblement vrai".
-            return Ok(Some(n_val > 0));
-        }
-
-        // 2. Cas de l'Inertie Négative (Semi-statique : présent au début, peut seulement être supprimé)
-        if is_negative {
-            // S'il n'était pas là au début (n_val == 0), il ne sera jamais là (Faux permanent)
             if n_val == 0 {
+                // "If p is a positive inertia and N(p, a) = 0 then simplified to FALSE"
                 return Ok(Some(false));
             }
-            // S'il est là ET qu'il est totalement instantié (grounded),
-            // comme il ne peut pas être supprimé (Inertie Négative), il est Vrai permanent.
-            if grounded {
+
+            // Cas particulier : si c'est totalement instancié (grounded)
+            // et que n_val > 0, alors c'est forcément 1 (Vrai).
+            if grounded && n_val > 0 {
                 return Ok(Some(true));
             }
+
+            // "In all other cases (p, a) cannot (yet) be simplified"
+            // (Cela inclut le cas N > 0 avec des variables)
+            return Ok(None);
+        }
+
+        // Règle 2 : Negative Inertia (ex: complete)
+        if is_negative {
+            let max_val = self.calculate_max_instances(node, expr)?;
+
+            if n_val == max_val {
+                // "If p is a negative inertia and N(p, a) = MAX(p, a) then simplified to TRUE"
+                return Ok(Some(true));
+            }
+
+            if grounded && n_val == 0 {
+                return Ok(Some(false));
+            }
+
+            return Ok(None);
         }
 
         // Si on arrive ici, on ne peut pas conclure avec certitude (ex: Inerte Négatif non-grounded)
@@ -254,7 +280,11 @@ impl<'a> InertiaEvaluator<'a> {
     /// Calcule MAX(p, ~a) selon la Définition 5 du papier IPP.
     /// MAX est le nombre de toutes les instances terrestres (ground instances)
     /// cohérentes avec les types qui unifient avec le vecteur d'arguments ~a.
-    fn calculate_max_instances(&self, node: &ExprNode, expr: &Expr) -> Result<usize, InertiaRegistryError> {
+    fn calculate_max_instances(
+        &self,
+        node: &ExprNode,
+        expr: &Expr,
+    ) -> Result<usize, InertiaRegistryError> {
         let mut max_val: usize = 1;
         let children = node.children();
 
@@ -272,8 +302,7 @@ impl<'a> InertiaEvaluator<'a> {
                         // Pour chaque i appartenant à V(~a), on multiplie par |dom(Ti)|.
                         if child_node.kind() == ExprKind::Variable {
                             let type_id = arg_types[i].ty();
-                            let domain_size =
-                                self.value_registry.get_type_domain(type_id)?.len();
+                            let domain_size = self.value_registry.get_type_domain(type_id)?.len();
                             max_val *= domain_size;
                         }
                     }
@@ -536,6 +565,33 @@ impl<'a> InertiaEvaluator<'a> {
                 entries.insert(Box::from(combo.as_slice()), val);
             }
         }
+    }
+
+    /// Retourne true si le fait doit être inclus dans le BitVector d'état.
+    ///
+    /// Selon la section 3.4 du papier IPP, un fait est un **fluent** s'il n'est PAS une inertie.
+    /// Si cette fonction renvoie `false`, le fait est considéré comme une constante
+    /// (toujours vrai ou toujours faux) et ne doit pas consommer de bit dans l'état.
+    pub fn is_fluent(&self, pred_id: AtomSkeletonId) -> bool {
+        // 1. Sécurité : Si l'ID est hors des définitions connues, ce n'est pas un fluent
+        // géré par le domaine (ex: prédicats synthétiques, égalités).
+        if pred_id.as_usize() >= self.predicate_defs.len() {
+            return false;
+        }
+
+        // 2. Un prédicat est statique (inertie) s'il est marqué dans la table d'inertie.
+        // On récupère les deux types d'inertie (positve et négative).
+        let is_static = self
+            .inertia
+            .is_predicate_positive_inertia(pred_id)
+            .unwrap_or(false)
+            || self
+                .inertia
+                .is_predicate_negative_inertia(pred_id)
+                .unwrap_or(false);
+
+        // 3. Si ce n'est pas statique, c'est un fluent (dynamique).
+        !is_static
     }
 }
 

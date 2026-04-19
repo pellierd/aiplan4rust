@@ -5,8 +5,9 @@ pub mod engine;
 pub mod error;
 mod relation;
 mod rule;
-mod term;
+pub mod term;
 
+pub mod cause;
 pub mod renderers;
 pub mod tuple;
 

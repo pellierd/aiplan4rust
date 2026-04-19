@@ -1,9 +1,10 @@
-use thiserror::Error;
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::error::Traceable;
+use crate::analysis::inertia::table::InertiaTableError;
+use thiserror::Error;
 
 /// Errors encountered during the Datalog grounding and flattening process.
 ///
@@ -11,7 +12,6 @@ use crate::aiplan4rust::error::Traceable;
 /// unsupported PDDL/LIR constructs, and capacity limits.
 #[derive(Error, Debug)]
 pub enum DatalogError {
-
     /// Ajout : Le prédicat référencé par son ID n'existe pas dans les définitions.
     #[error("Undefined predicate with ID: {0:?}")]
     UndefinedPredicate(AtomSkeletonId), // Ou l'ID spécifique utilisé (ex: PredicateId)
@@ -22,24 +22,22 @@ pub enum DatalogError {
     /// This typically applies to complex negations, implications, or quantifiers
     /// that require an explicit Preprocessing step (like Positive Normal Form
     /// or Quantifier Expansion).
-    #[error("Feature not supported: {feature} at node {node_id:?}. \
-             This ADL construct requires additional preprocessing or a more advanced encoder.")]
-    FeatureNotSupported {
-        feature: String,
-        node_id: NodeId,
-    },
+    #[error(
+        "Feature not supported: {feature} at node {node_id:?}. \
+             This ADL construct requires additional preprocessing or a more advanced encoder."
+    )]
+    FeatureNotSupported { feature: String, node_id: NodeId },
 
     /// The node encountered is fundamentally incompatible with Datalog grounding.
     ///
     /// This happens when the expression tree contains elements that cannot be
     /// mapped to Horn logic, such as HTN tasks, preferences, or internal
     /// compiler artifacts.
-    #[error("Incompatible node: {kind:?} at node {node_id:?}. \
-             This element cannot be grounded into Datalog rules.")]
-    IncompatibleNode {
-        kind: ExprKind,
-        node_id: NodeId,
-    },
+    #[error(
+        "Incompatible node: {kind:?} at node {node_id:?}. \
+             This element cannot be grounded into Datalog rules."
+    )]
+    IncompatibleNode { kind: ExprKind, node_id: NodeId },
 
     /// Raised when a variable in the rule head is not bound by any atom in the body.
     #[error("Unbound variable '{0:?}' in rule head. All variables in the head must appear in the positive body.")]
@@ -61,6 +59,9 @@ pub enum DatalogError {
     /// Errors propagated from the Low-level Intermediate Representation (LIR) layer.
     #[error(transparent)]
     Expr(#[from] ExprError),
+
+    #[error(transparent)]
+    InertiaTable(#[from] InertiaTableError),
 }
 
 impl Traceable for DatalogError {}
@@ -78,7 +79,8 @@ impl DatalogError {
         DatalogError::FeatureNotSupported {
             feature: feature.into(),
             node_id,
-        }.trace()
+        }
+        .trace()
     }
 
     /// Creates an `IncompatibleNode` error for nodes that don't belong in a Datalog pipeline.

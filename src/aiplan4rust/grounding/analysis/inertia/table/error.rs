@@ -1,6 +1,7 @@
-use thiserror::Error;
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use thiserror::Error;
 
 /// Errors encountered while interacting with the inertia analysis table.
 ///
@@ -8,7 +9,6 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 /// and the pre-computed inertia analysis, often due to an incomplete scanning pass.
 #[derive(Error, Debug)]
 pub enum InertiaTableError {
-
     /// An error originating from the syntax tree system.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
@@ -17,14 +17,14 @@ pub enum InertiaTableError {
     #[error("Inertia missing for predicate: {id:?}")]
     MissingPredicateInertia {
         /// The unique identifier of the predicate that was not found.
-        id: AtomSkeletonId
+        id: AtomSkeletonId,
     },
 
     /// Inertia information for a specific function is missing from the table.
     #[error("Inertia missing for function: {id:?}")]
     MissingFunctionInertia {
         /// The unique identifier of the function that was not found.
-        id: FunctionSkeletonId
+        id: FunctionSkeletonId,
     },
 }
 
@@ -44,7 +44,7 @@ impl InertiaTableError {
     ///
     /// A variant of `InertiaTableError` containing the predicate ID.
     pub fn missing_predicate_inertia(id: AtomSkeletonId) -> Self {
-        Self::MissingPredicateInertia { id }
+        Self::MissingPredicateInertia { id }.trace()
     }
 
     /// Creates a new [`InertiaTableError::MissingFunctionInertia`] error.
@@ -61,6 +61,8 @@ impl InertiaTableError {
     ///
     /// A variant of `InertiaTableError` containing the function ID.
     pub fn missing_function_inertia(id: FunctionSkeletonId) -> Self {
-        Self::MissingFunctionInertia { id }
+        Self::MissingFunctionInertia { id }.trace()
     }
 }
+
+impl Traceable for InertiaTableError {}

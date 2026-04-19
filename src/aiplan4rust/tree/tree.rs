@@ -16,14 +16,14 @@
 //! - Identifier remapping
 //! - Syntax-aware formatting with interner support
 
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
-use crate::aiplan4rust::arena::{ArenaTree, NodeId, NodeRef};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::arena::node_ref::NodeRefMut;
-use crate::aiplan4rust::tree::{SyntaxContent, Node};
+use crate::aiplan4rust::arena::{ArenaTree, NodeId, NodeRef};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::{Node, SyntaxContent};
 
 /// High-level syntax tree built on top of [`ArenaTree`], specialized for syntax node manipulation.
 ///
@@ -353,7 +353,6 @@ where
         self.arena.depth(root)
     }
 
-
     /// Returns `true` if the syntax tree’s underlying arena forms a valid tree.
     ///
     /// This method checks that:
@@ -390,7 +389,7 @@ where
         Ok(())
     }
 
-   /// Moves the kind, content, and children from a source node into a target node.
+    /// Moves the kind, content, and children from a source node into a target node.
     ///
     /// # Arguments
     ///
@@ -408,7 +407,7 @@ where
     /// ```rust
     /// tree.move_node_to(source_id, target_id)?;
     /// ```
-    pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), SyntaxTreeError> {
+    /*pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), SyntaxTreeError> {
         let (kind, content, children) = {
             let source = self.try_node_mut(source_id)?;
             (
@@ -418,6 +417,30 @@ where
             )
         };
         self.set(target_id, kind, content, children)?;
+
+        Ok(())
+    }*/
+    pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), SyntaxTreeError> {
+        let (kind, content, mut children) = {
+            // Note le 'mut' ici
+            let source = self.try_node_mut(source_id)?;
+            (
+                source.kind(),
+                std::mem::take(source.content_mut()),
+                std::mem::take(source.children_mut()),
+            )
+        };
+
+        // On met à jour les parents AVANT de perdre la propriété du vecteur
+        for &child_id in &children {
+            if let Ok(child_node) = self.try_node_mut(child_id) {
+                child_node.set_parent(Some(target_id));
+            }
+        }
+
+        // Maintenant on peut "donner" children à set sans clone
+        self.set(target_id, kind, content, children)?;
+
         Ok(())
     }
 
@@ -438,16 +461,12 @@ where
     ///
     /// # Errors
     /// - `SyntaxTreeError::NodeNotFound` if `root_id` does not exist.
-    pub fn clone_subtree(
-        &mut self,
-        root_id: NodeId,
-    ) -> Result<NodeId, SyntaxTreeError> {
-
+    pub fn clone_subtree(&mut self, root_id: NodeId) -> Result<NodeId, SyntaxTreeError> {
         // --- Clone root node (shallow, children are empty) ---
-        let root_node = self.try_node(root_id)?;                 // read original root
-        let children = root_node.children().to_vec();            // capture children before cloning
+        let root_node = self.try_node(root_id)?; // read original root
+        let children = root_node.children().to_vec(); // capture children before cloning
         let new_root_id = self.alloc(root_node.clone_shallow()); // use clone_shallow/clone_swallow
-        self.try_node_mut(new_root_id)?.set_parent(None);        // cloned root has no parent
+        self.try_node_mut(new_root_id)?.set_parent(None); // cloned root has no parent
 
         // Stack holds nodes to clone: (old_node_id, new_parent_id)
         let mut stack: Vec<(NodeId, NodeId)> = Vec::new();
@@ -459,10 +478,10 @@ where
 
         // --- Iterative DFS clone ---
         while let Some((old_id, new_parent_id)) = stack.pop() {
-            let old_node = self.try_node(old_id)?;               // original node
-            let children = old_node.children().to_vec();         // capture children before cloning
+            let old_node = self.try_node(old_id)?; // original node
+            let children = old_node.children().to_vec(); // capture children before cloning
 
-            let new_id = self.alloc(old_node.clone_shallow());   // clone node shallowly (clone_swallow)
+            let new_id = self.alloc(old_node.clone_shallow()); // clone node shallowly (clone_swallow)
 
             // Attach cloned node to its new parent
             self.try_node_mut(new_parent_id)?.add_child(new_id);

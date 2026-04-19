@@ -499,7 +499,7 @@ impl Problem {
     }
 
     /// Returns a read-only reference to the object symbol table.
-    pub fn object_symbol(&self) -> &SymbolRegistry<ObjectId> {
+    pub fn object_symbols(&self) -> &SymbolRegistry<ObjectId> {
         &self.object_symbols
     }
 

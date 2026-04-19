@@ -1,5 +1,5 @@
-use std::fmt;
 use crate::aiplan4rust::lang::{ObjectId, VariableId};
+use std::fmt;
 
 /// Represents a term within a Datalog atom.
 ///
@@ -43,11 +43,11 @@ impl fmt::Display for Term {
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            // PDDL Convention: variables start with '?'
-            Term::Variable(id) => write!(f, "?v{}", id),
+            // On utilise .as_usize() pour ne pas déclencher le "v#" de VariableId
+            Term::Variable(id) => write!(f, "?{}", id),
 
-            // Constants (ObjectId) prefixed with 'c' for clarity
-            Term::Constant(id) => write!(f, "c{}", id),
+            // On utilise .as_usize() pour ne pas déclencher le "o#" de ObjectId (ou "co")
+            Term::Constant(id) => write!(f, "{}", id),
         }
     }
 }
