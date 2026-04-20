@@ -45,19 +45,20 @@
 pub mod encoder;
 pub mod expr;
 
-pub mod result;
+pub mod encoding;
 pub mod error;
+mod passes;
 pub mod problem;
 pub mod renderers;
-pub mod encoding;
-mod passes;
+pub mod result;
+mod store;
 
 pub use encoder::LirEncoder;
-pub use result::Result as LirEncoderResult;
 pub use error::LirError;
-use problem::{action, atomic_skeleton, initial_task_network, method, task_network};
 pub use problem::action::Action as ActionDef;
 pub use problem::derived_predicate::DerivedPredicate as DerivedPredicateDef;
+pub use problem::initial_task_network::InitialTaskNetwork;
 pub use problem::method::Method as MethodDef;
 pub use problem::task_network::TaskNetwork;
-pub use problem::initial_task_network::InitialTaskNetwork;
+use problem::{action, atomic_skeleton, initial_task_network, method, task_network};
+pub use result::Result as LirEncoderResult;

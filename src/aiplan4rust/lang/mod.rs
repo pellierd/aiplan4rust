@@ -36,25 +36,25 @@
 //!
 //! This centralization improves consistency and makes the language model easier to evolve.
 
-pub mod ty;
-pub mod typed_symbol;
-pub mod typed_list;
-pub mod requirement;
 pub mod arithmetic_op;
 pub mod assign_op;
 pub mod compare_op;
-pub mod optimization_op;
 pub mod error;
 pub mod ids;
+pub mod optimization_op;
+pub mod requirement;
+pub mod ty;
+pub mod typed_list;
+pub mod typed_symbol;
 
-pub use ty::Type;
-pub use typed_symbol::TypedSymbol;
-pub use typed_list::TypedList;
-pub use requirement::Requirement;
+pub use crate::aiplan4rust::interner::remap_symbol::RemapSymbol;
 pub use arithmetic_op::ArithmeticOp;
 pub use assign_op::AssignOp;
 pub use compare_op::CompareOp;
-pub use optimization_op::OptimizationOp;
 pub use error::LangError;
-pub use crate::aiplan4rust::interner::remap_symbol::RemapSymbol;
 pub use ids::*;
+pub use optimization_op::OptimizationOp;
+pub use requirement::Requirement;
+pub use ty::Type;
+pub use typed_list::TypedList;
+pub use typed_symbol::TypedSymbol;
