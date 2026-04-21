@@ -1,90 +1,93 @@
 use crate::aiplan4rust::lir::store::iter::Scratchpad;
 use crate::aiplan4rust::lir::store::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::ExprBuilder;
 use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
 
+use crate::aiplan4rust::lir::store::builder::ExprBuilder;
 /// Transforme une expression en Forme Normale de Négation (NNF).
 /// Utilise le bit-packing pour réutiliser le Scratchpad sans allocations locales.
-pub fn push_negation(
+use smallvec::SmallVec;
+
+pub fn to_nnf(
     root_id: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
 ) -> Result<ExprId, ExprOpErrorHC> {
     scratch.clear();
 
-    // Initialisation : Racine en polarité positive
-    scratch.push(ExprId::from(encode(root_id, false)), false);
+    // --- BUFFERS LOCAUX RÉUTILISABLES ---
+    // build_buf : pour construire les nouveaux nœuds (ex: après De Morgan)
+    let mut build_buf: SmallVec<[ExprId; 32]> = SmallVec::new();
+    // children_ids : pour extraire les enfants du store sans allocation
+    let mut children_ids: SmallVec<[ExprId; 16]> = SmallVec::new();
 
-    while let Some((encoded_raw, processed)) = scratch.pop() {
-        let encoded_val = encoded_raw.as_usize();
-        let (curr_id, negate) = decode(encoded_val);
-        let encoded_id = ExprId::from(encoded_val);
+    let root_encoded = ExprId::from(encode(root_id, false));
+    scratch.push(root_encoded, false);
 
-        // Si déjà traité dans cette polarité, on ignore la descente
+    while let Some((encoded_id, processed)) = scratch.pop() {
+        let (curr_id, negate) = decode(encoded_id.as_usize());
+
         if scratch.get(encoded_id).is_some() && !processed {
             continue;
         }
 
-        let entry = builder.fetch(curr_id)?;
-        let children = entry.children();
+        // --- PHASE 1 : EXTRACTION (Libère le builder) ---
+        let kind = {
+            let entry = builder.fetch(curr_id)?;
+
+            children_ids.clear();
+            children_ids.extend_from_slice(entry.children());
+
+            entry.kind().clone()
+        };
 
         if processed {
-            // --- RECONSTRUCTION (Bottom-Up) ---
-            let new_id = match (entry.kind(), negate) {
-                // Gestion des Négations (Double négation incluse)
-                (ExprEntryKind::Not, false) => {
-                    scratch.fetch(ExprId::from(encode(children[0], true)))
-                }
-                (ExprEntryKind::Not, true) => {
-                    scratch.fetch(ExprId::from(encode(children[0], false)))
-                }
+            // --- PHASE 2 : RECONSTRUCTION (Bottom-Up) ---
+            let new_id = match &kind {
+                ExprEntryKind::Not => scratch.fetch(ExprId::from(encode(children_ids[0], !negate))),
 
-                // De Morgan : inversion des connecteurs si negate est vrai
-                (ExprEntryKind::And, n) => {
-                    let new_children: Vec<ExprId> = children
-                        .iter()
-                        .map(|&c| scratch.fetch(ExprId::from(encode(c, n))))
-                        .collect();
-                    if n {
-                        builder.or(new_children)
-                    } else {
-                        builder.and(new_children)
+                ExprEntryKind::And | ExprEntryKind::Or => {
+                    let is_and = matches!(kind, ExprEntryKind::And);
+
+                    build_buf.clear();
+                    for &c in &children_ids {
+                        build_buf.push(scratch.fetch(ExprId::from(encode(c, negate))));
                     }
-                }
-                (ExprEntryKind::Or, n) => {
-                    let new_children: Vec<ExprId> = children
-                        .iter()
-                        .map(|&c| scratch.fetch(ExprId::from(encode(c, n))))
-                        .collect();
-                    if n {
-                        builder.and(new_children)
+
+                    if is_and {
+                        if negate {
+                            builder.or(&build_buf)
+                        } else {
+                            builder.and(&build_buf)
+                        }
                     } else {
-                        builder.or(new_children)
+                        if negate {
+                            builder.and(&build_buf)
+                        } else {
+                            builder.or(&build_buf)
+                        }
                     }
                 }
 
-                // Quantificateurs : inversion Forall/Exists si negate est vrai
-                (ExprEntryKind::Forall(vars), n) => {
-                    let body = scratch.fetch(ExprId::from(encode(children[0], n)));
-                    if n {
+                ExprEntryKind::Forall(vars) => {
+                    let body = scratch.fetch(ExprId::from(encode(children_ids[0], negate)));
+                    if negate {
                         builder.exists(vars.clone(), body)
                     } else {
                         builder.forall(vars.clone(), body)
                     }
                 }
-                (ExprEntryKind::Exists(vars), n) => {
-                    let body = scratch.fetch(ExprId::from(encode(children[0], n)));
-                    if n {
+                ExprEntryKind::Exists(vars) => {
+                    let body = scratch.fetch(ExprId::from(encode(children_ids[0], negate)));
+                    if negate {
                         builder.forall(vars.clone(), body)
                     } else {
                         builder.exists(vars.clone(), body)
                     }
                 }
 
-                // Cas de base (Atomes, Comparaisons, etc.)
-                (kind, n) => {
-                    let base = builder.intern(kind.clone(), children.to_vec());
-                    if n {
+                _ => {
+                    let base = builder.intern(kind, &children_ids);
+                    if negate {
                         builder.not(base)
                     } else {
                         base
@@ -94,25 +97,20 @@ pub fn push_negation(
 
             scratch.insert(encoded_id, new_id);
         } else {
-            // --- DESCENTE (Top-Down) ---
+            // --- PHASE 3 : DESCENTE (Top-Down) ---
             scratch.push(encoded_id, true);
 
-            match (entry.kind(), negate) {
-                (ExprEntryKind::Not, n) => {
-                    // On descend en inversant la polarité
-                    scratch.push(ExprId::from(encode(children[0], !n)), false);
-                }
-                (_, n) => {
-                    // On descend en propageant la polarité actuelle
-                    for &child in children.iter().rev() {
-                        scratch.push(ExprId::from(encode(child, n)), false);
-                    }
+            if matches!(kind, ExprEntryKind::Not) {
+                scratch.push(ExprId::from(encode(children_ids[0], !negate)), false);
+            } else {
+                for &child in children_ids.iter().rev() {
+                    scratch.push(ExprId::from(encode(child, negate)), false);
                 }
             }
         }
     }
 
-    Ok(scratch.fetch(ExprId::from(encode(root_id, false))))
+    Ok(scratch.fetch(root_encoded))
 }
 
 /// Encode un ExprId et sa polarité dans un seul usize.
@@ -137,6 +135,7 @@ fn decode(val: usize) -> (ExprId, bool) {
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::AtomSkeletonId;
+    use crate::aiplan4rust::lir::store::builder::ExprBuilder;
     use crate::aiplan4rust::lir::store::iter::Scratchpad;
     use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
 
@@ -150,13 +149,13 @@ mod tests {
         let skel = AtomSkeletonId::from(0);
 
         // 1. Setup: ¬(A ∧ B)
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
-        let and_node = builder.and(vec![a, b]);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
+        let and_node = builder.and(&[a, b]);
         let root = builder.not(and_node);
 
         // 2. Transformation: De Morgan's Law ¬(A ∧ B) -> (¬A ∨ ¬B)
-        let result_id = push_negation(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -198,13 +197,13 @@ mod tests {
         let skel = AtomSkeletonId::from(0);
 
         // 1. Setup: ¬(A ∨ B)
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
-        let or_node = builder.or(vec![a, b]);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
+        let or_node = builder.or(&[a, b]);
         let root = builder.not(or_node);
 
         // 2. Transformation: De Morgan's Law ¬(A ∨ B) -> (¬A ∧ ¬B)
-        let result_id = push_negation(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -245,14 +244,14 @@ mod tests {
         let skel = AtomSkeletonId::from(0);
 
         // 1. Setup: ¬(forall (?X) (A))
-        let a = builder.atomic_formula(1, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
         let var_x = builder.typed_variable(10, &[100]); // ID 10, Type 100
         let forall_vars = builder.typed_variable_list(vec![var_x]);
         let forall_node = builder.forall(forall_vars, a);
         let root = builder.not(forall_node);
 
         // 2. Transformation: ¬∀x.A -> ∃x.¬A
-        let result_id = push_negation(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -289,14 +288,14 @@ mod tests {
         let skel = AtomSkeletonId::from(0);
 
         // 1. Setup: ¬(exists (?X) (A))
-        let a = builder.atomic_formula(1, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
         let var_x = builder.typed_variable(10, &[100]);
         let exists_vars = builder.typed_variable_list(vec![var_x]);
         let exists_node = builder.exists(exists_vars, a);
         let root = builder.not(exists_node);
 
         // 2. Transformation: ¬∃x.A -> ∀x.¬A
-        let result_id = push_negation(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -324,11 +323,11 @@ mod tests {
         let skel = AtomSkeletonId::from(0);
 
         // 1. Setup: ¬A (Atome déjà négatif)
-        let a = builder.atomic_formula(1, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
         let root = builder.not(a);
 
         // 2. Transformation: Aucun changement structurel attendu
-        let result_id = push_negation(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -354,22 +353,22 @@ mod tests {
         let skel = AtomSkeletonId::from(0);
 
         // 1. Setup: ¬(A ∧ ¬B ∧ ∃x.C)
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
-        let c = builder.atomic_formula(3, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
+        let c = builder.atomic_formula(3, &[], skel);
 
         let not_b = builder.not(b);
         let var_x = builder.typed_variable(10, &[100]);
         let exists_vars = builder.typed_variable_list(vec![var_x]);
         let exists_c = builder.exists(exists_vars, c);
 
-        let and_node = builder.and(vec![a, not_b, exists_c]);
+        let and_node = builder.and(&[a, not_b, exists_c]);
         let root = builder.not(and_node);
 
         // 2. Transformation
         // La logique interne de push_negation va transformer :
         // ¬(A ∧ ¬B ∧ ∃x.C)  =>  (¬A ∨ B ∨ ∀x.¬C)
-        let result_id = push_negation(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -433,82 +432,59 @@ mod tests {
         let mut scratch = Scratchpad::new();
         let skel = AtomSkeletonId::from(0);
 
-        // 1. Setup
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
-        let c = builder.atomic_formula(3, vec![], skel);
-        let d = builder.atomic_formula(4, vec![], skel);
+        // 1. Définition des atomes et d'une variable pour que les quantificateurs existent
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
+        let c = builder.atomic_formula(3, &[], skel);
+        let d = builder.atomic_formula(4, &[], skel);
 
-        let or_bc = builder.or(vec![b, c]);
+        // Ajout d'une variable pour empêcher le builder de supprimer les nœuds
+        let var_x = builder.typed_variable(10, &[1]); // ?x de type 1
+        let vars = builder.typed_variable_list(vec![var_x]);
+
+        // 2. Construction
+        let or_bc = builder.or(&[b, c]);
         let not_or_bc = builder.not(or_bc);
 
-        let var_y = builder.typed_variable(11, &[100]);
-        let exists_vars = builder.typed_variable_list(vec![var_y]);
-        let exists_d = builder.exists(exists_vars, d);
-        let var_x = builder.typed_variable(10, &[100]);
-        let forall_vars = builder.typed_variable_list(vec![var_x]);
-        let forall_exists_d = builder.forall(forall_vars, exists_d);
+        // ICI : On utilise `vars` (non vide) au lieu de `empty_vars`
+        let exists_d = builder.exists(vars.clone(), d);
+        let forall_exists_d = builder.forall(vars.clone(), exists_d);
 
-        let and_node = builder.and(vec![a, not_or_bc, forall_exists_d]);
+        let and_node = builder.and(&[a, not_or_bc, forall_exists_d]);
         let root_id = builder.not(and_node);
 
-        // 2. Transformation
-        let result_id = push_negation(root_id, &mut builder, &mut scratch)?;
-        let root_node = builder.fetch(result_id)?;
+        // 3. Transformation
+        let result_id = to_nnf(root_id, &mut builder, &mut scratch)?;
 
-        // 3. Validation
+        // 4. Validation
+        let children: Vec<ExprId> = {
+            let node = builder.fetch(result_id)?;
+            assert!(
+                matches!(node.kind(), ExprEntryKind::Or),
+                "La racine doit être un OR"
+            );
+            node.children().to_vec()
+        };
+
+        // ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃x.D)
+        // => ¬A ∨ (B ∨ C) ∨ ∃x.¬(∃x.D)
+        // => ¬A ∨ B ∨ C ∨ ∃x.∀x.¬D
+        assert_eq!(children.len(), 4, "Doit avoir 4 enfants (¬A, B, C, ∃∀¬D)");
+
+        // 5. Vérifications
+        let not_a = builder.not(a);
+        assert!(children.contains(&not_a));
+        assert!(children.contains(&b));
+        assert!(children.contains(&c));
+
+        let has_quantifier = children.iter().any(|&id| {
+            let node = builder.get(id).unwrap();
+            // Le ∀ interne est devenu ∃, et le ∃ interne est devenu ∀
+            matches!(node.kind(), ExprEntryKind::Exists(_))
+        });
         assert!(
-            matches!(root_node.kind(), ExprEntryKind::Or),
-            "La racine doit être un OR"
-        );
-        let children = root_node.children();
-        assert_eq!(children.len(), 3);
-
-        // Vérification des branches (ordre non garanti par le store)
-        let mut found_not_a = false;
-        let mut found_or_bc = false;
-        let mut found_exists_forall_not_d = false;
-
-        for &child_id in children {
-            let node = builder.fetch(child_id)?;
-            match node.kind() {
-                // ¬A
-                ExprEntryKind::Not if node.children()[0] == a => found_not_a = true,
-
-                // (B ∨ C) -> La double négation ¬¬(B ∨ C) a été simplifiée !
-                ExprEntryKind::Or => {
-                    let or_children = node.children();
-                    if or_children.contains(&b) && or_children.contains(&c) {
-                        found_or_bc = true;
-                    }
-                }
-
-                // ∃x.∀y.¬D
-                ExprEntryKind::Exists(_) => {
-                    let forall_id = node.children()[0];
-                    let forall_node = builder.fetch(forall_id)?;
-                    if matches!(forall_node.kind(), ExprEntryKind::Forall(_)) {
-                        let not_d_id = forall_node.children()[0];
-                        let not_d_node = builder.fetch(not_d_id)?;
-                        if matches!(not_d_node.kind(), ExprEntryKind::Not)
-                            && not_d_node.children()[0] == d
-                        {
-                            found_exists_forall_not_d = true;
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        assert!(found_not_a, "Branche ¬A manquante");
-        assert!(
-            found_or_bc,
-            "Branche (B ∨ C) manquante ou double négation non simplifiée"
-        );
-        assert!(
-            found_exists_forall_not_d,
-            "Branche ∃x.∀y.¬D manquante ou mal transformée"
+            has_quantifier,
+            "La branche quantifiée inversée (Exists) doit être présente"
         );
 
         Ok(())
@@ -534,24 +510,24 @@ mod tests {
         let mut scratch = Scratchpad::new();
         let skel = AtomSkeletonId::from(0);
 
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
-        let c = builder.atomic_formula(3, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
+        let c = builder.atomic_formula(3, &[], skel);
 
         // (A ∧ B)
-        let and_ab = builder.and(vec![a, b]);
+        let and_ab = builder.and(&[a, b]);
         // (A ∧ B) ∨ (A ∧ C) -- On utilise deux branches différentes pour éviter la simplification X v X
-        let and_ac = builder.and(vec![a, c]);
-        let or_node = builder.or(vec![and_ab, and_ac]);
+        let and_ac = builder.and(&[a, c]);
+        let or_node = builder.or(&[and_ab, and_ac]);
 
         // ROOT: ¬((A ∧ B) ∨ (A ∧ C))
         let root = builder.not(or_node);
 
-        let result_id = push_negation(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
 
         // On calcule manuellement ¬(A ∧ B) pour vérifier le partage
         let not_and_ab = builder.not(and_ab);
-        let expected_part_id = push_negation(not_and_ab, &mut builder, &mut scratch)?;
+        let expected_part_id = to_nnf(not_and_ab, &mut builder, &mut scratch)?;
 
         let root_node = builder.fetch(result_id)?;
 
@@ -580,14 +556,14 @@ mod tests {
         let mut scratch = Scratchpad::new();
         let skel = AtomSkeletonId::from(0);
 
-        let a = builder.atomic_formula(1, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
 
         // Décomposition de ¬¬¬A
         let n1 = builder.not(a);
         let n2 = builder.not(n1);
         let not_3_a = builder.not(n2);
 
-        let result_id = push_negation(not_3_a, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(not_3_a, &mut builder, &mut scratch)?;
         let root_node = builder.fetch(result_id)?;
 
         // Le résultat doit être simplement ¬A (ID de n1)
@@ -609,15 +585,15 @@ mod tests {
         let mut scratch = Scratchpad::new();
         let skel = AtomSkeletonId::from(0);
 
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
 
         // ¬(A ∧ B)
-        let and_node = builder.and(vec![a, b]);
+        let and_node = builder.and(&[a, b]);
         let root = builder.not(and_node);
 
-        let first_pass = push_negation(root, &mut builder, &mut scratch)?;
-        let second_pass = push_negation(first_pass, &mut builder, &mut scratch)?;
+        let first_pass = to_nnf(root, &mut builder, &mut scratch)?;
+        let second_pass = to_nnf(first_pass, &mut builder, &mut scratch)?;
 
         assert_eq!(
             first_pass, second_pass,

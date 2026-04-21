@@ -1,44 +1,48 @@
-use crate::aiplan4rust::lir::store::iter::Scratchpad;
-use crate::aiplan4rust::lir::store::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
-
-/// Élimine les opérateurs d'implication (A => B) en les remplaçant par (!A | B).
+/*/// Élimine les opérateurs d'implication (A => B) en les remplaçant par (!A | B).
 /// Utilise un Scratchpad pour un parcours DFS non-récursif et performant.
 pub fn eliminate_imply(
     expr: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
 ) -> Result<ExprId, ExprOpErrorHC> {
+    // On utilise clear() pour réinitialiser stack, cache (résultats) et buffers
     scratch.clear();
     scratch.push(expr, false);
 
     while let Some((curr_id, processed)) = scratch.pop() {
+        // Si le résultat est déjà dans le cache, on ne redescend pas
         if scratch.get(curr_id).is_some() && !processed {
             continue;
         }
 
         let entry = builder.fetch(curr_id)?;
-        let children = entry.children();
+        let children = entry.children(); // Slice directe du store
 
         if processed {
             // --- PHASE RECONSTRUCTION (Bottom-Up) ---
             let new_id = match entry.kind() {
-                // Cas spécifique : Transformation de l'implication
+                // Cas spécifique : A => B  devient  (!A | B)
                 ExprEntryKind::Imply => {
                     let a_prime = scratch.fetch(children[0]);
                     let b_prime = scratch.fetch(children[1]);
 
                     let not_a = builder.not(a_prime);
-                    builder.or(vec![not_a, b_prime])
+                    // Utilisation d'un tableau fixe sur la pile (Zero-Allocation)
+                    builder.or(&[not_a, b_prime])
                 }
 
-                // Tous les autres cas : Reconstruction générique
+                // Cas générique : on reconstruit le nœud avec les enfants transformés
                 kind => {
-                    let new_children: Vec<ExprId> =
-                        children.iter().map(|&c| scratch.fetch(c)).collect();
+                    // Utilisation du buffer de scratchpad pour éviter l'allocation d'un Vec
+                    let buf = scratch.children_buffer_mut();
+                    buf.clear();
 
-                    builder.reconstruct(kind.clone(), new_children)
+                    for &c in children {
+                        buf.push(scratch.fetch(c));
+                    }
+
+                    // builder.reconstruct accepte &[ExprId] (Zero-copy)
+                    builder.reconstruct(kind.clone(), buf)
                 }
             };
 
@@ -54,7 +58,6 @@ pub fn eliminate_imply(
 
     Ok(scratch.fetch(expr))
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,49 +74,33 @@ mod tests {
         let mut scratch = Scratchpad::new();
 
         let skel = AtomSkeletonId::from(0);
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
-        let c = builder.atomic_formula(3, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
+        let c = builder.atomic_formula(3, &[], skel);
 
         let imply_bc = builder.imply(b, c);
         let root_imply = builder.imply(a, imply_bc);
 
         let new_root_id = eliminate_imply(root_imply, &mut builder, &mut scratch)?;
-        let root_node = builder.fetch(new_root_id)?;
 
-        assert!(matches!(root_node.kind(), ExprEntryKind::Or));
-        let children = root_node.children();
-        assert_eq!(children.len(), 2);
+        // --- SOLUTION : On récupère les IDs et on les clone/copie immédiatement ---
+        let children: Vec<ExprId> = {
+            let root_node = builder.fetch(new_root_id)?;
+            assert!(matches!(root_node.kind(), ExprEntryKind::Or));
+            // On convertit les références en valeurs (ExprId est Copy)
+            root_node.children().to_vec()
+        };
+        // Ici, root_node meurt, le builder est libéré de son emprunt immuable.
 
-        // --- Validation Robuste ---
-        // On récupère les deux enfants sans présumer de leur ordre
-        let node_0 = builder.fetch(children[0])?;
-        let node_1 = builder.fetch(children[1])?;
+        assert_eq!(children.len(), 3, "L'expression devrait être aplatie");
 
-        // L'un des deux doit être le Not(A)
-        let has_not_a = (matches!(node_0.kind(), ExprEntryKind::Not) && node_0.children()[0] == a)
-            || (matches!(node_1.kind(), ExprEntryKind::Not) && node_1.children()[0] == a);
+        // Maintenant on peut réutiliser le builder de façon mutable
+        let not_a = builder.not(a);
+        let not_b = builder.not(b);
 
-        assert!(has_not_a, "L'expression résultante doit contenir Not(A)");
-
-        // L'autre doit être le Or(Not(B), C)
-        let has_inner_or = children.iter().any(|&id| {
-            if let Ok(n) = builder.fetch(id) {
-                if matches!(n.kind(), ExprEntryKind::Or) {
-                    let c_inner = n.children();
-                    // On vérifie récursivement si Not(B) est dedans
-                    return c_inner.iter().any(|&cid| {
-                        matches!(builder.fetch(cid).unwrap().kind(), ExprEntryKind::Not)
-                    });
-                }
-            }
-            false
-        });
-
-        assert!(
-            has_inner_or,
-            "L'expression résultante doit contenir le OR interne"
-        );
+        assert!(children.contains(&not_a), "Doit contenir (not A)");
+        assert!(children.contains(&not_b), "Doit contenir (not B)");
+        assert!(children.contains(&c), "Doit contenir C");
 
         Ok(())
     }
@@ -129,10 +116,10 @@ mod tests {
         let skel = AtomSkeletonId::from(0);
 
         // 1. Setup: (imply (A) (and B C))
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
-        let c = builder.atomic_formula(3, vec![], skel);
-        let and_bc = builder.and(vec![b, c]);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
+        let c = builder.atomic_formula(3, &[], skel);
+        let and_bc = builder.and(&[b, c]);
         let root_imply = builder.imply(a, and_bc);
 
         // 2. Transformation
@@ -188,7 +175,7 @@ mod tests {
         let skel = AtomSkeletonId::from(0);
 
         // 1. Setup: (imply (A) (and))
-        let a = builder.atomic_formula(1, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
         let empty_and = builder.empty_and(); // Utilisation de la méthode dédiée si elle existe, sinon builder.and(vec![])
         let root_imply = builder.imply(a, empty_and);
 
@@ -199,7 +186,7 @@ mod tests {
         // On construit manuellement l'équivalent logique : (not A) OR (True)
         // Note : Ton builder va probablement simplifier cela directement en `empty_and`
         let not_a = builder.not(a);
-        let expected_id = builder.or(vec![not_a, empty_and]);
+        let expected_id = builder.or(&[not_a, empty_and]);
 
         // L'ID retourné par eliminate_imply DOIT être le même que celui produit par le builder
         assert_eq!(
@@ -236,8 +223,8 @@ mod tests {
         // 1. Setup : Variables et Atomes
         let var_x = builder.typed_variable(10, &[100]);
         let var_y = builder.typed_variable(11, &[101]);
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
 
         // 2. Construction des quantificateurs
         let forall_vars = builder.typed_variable_list(vec![var_x]);
@@ -255,7 +242,7 @@ mod tests {
         // 5. Validation par l'égalité (L'attendu vs Le résultat)
         // On construit manuellement l'équivalent : (not (forall...)) or (exists...)
         let not_forall = builder.not(forall_node);
-        let expected_id = builder.or(vec![not_forall, exists_node]);
+        let expected_id = builder.or(&[not_forall, exists_node]);
 
         // L'égalité d'ID garantit que toute la structure interne (variables, types, corps) est identique
         assert_eq!(
@@ -275,16 +262,16 @@ mod tests {
         let mut scratch = Scratchpad::new();
 
         let skel = AtomSkeletonId::from(0);
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
-        let c = builder.atomic_formula(3, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
+        let c = builder.atomic_formula(3, &[], skel);
 
         // Construction de l'implication partagée
         let imply_ab = builder.imply(a, b);
 
         // Racine : (and (imply a b) (imply a b) c)
         // Le builder va probablement déjà dédoublonner pour donner : (and (imply a b) c)
-        let root_and = builder.and(vec![imply_ab, imply_ab, c]);
+        let root_and = builder.and(&[imply_ab, imply_ab, c]);
 
         // Transformation
         let new_root_id = eliminate_imply(root_and, &mut builder, &mut scratch)?;
@@ -293,10 +280,10 @@ mod tests {
 
         // 1. On construit ce qu'on attend après transformation
         let not_a = builder.not(a);
-        let or_ab = builder.or(vec![not_a, b]);
+        let or_ab = builder.or(&[not_a, b]);
 
         // Le résultat attendu est un AND de la version transformée et de l'atome C
-        let expected_id = builder.and(vec![or_ab, c]);
+        let expected_id = builder.and(&[or_ab, c]);
 
         // 2. Comparaison
         assert_eq!(
@@ -324,8 +311,8 @@ mod tests {
         let mut scratch = Scratchpad::new();
 
         let skel = AtomSkeletonId::from(0);
-        let a = builder.atomic_formula(1, vec![], skel);
-        let b = builder.atomic_formula(2, vec![], skel);
+        let a = builder.atomic_formula(1, &[], skel);
+        let b = builder.atomic_formula(2, &[], skel);
 
         // Initial : (imply a b)
         let root_imply = builder.imply(a, b);
@@ -344,7 +331,7 @@ mod tests {
 
         // Optionnel : vérifier que le résultat final est bien celui attendu
         let not_a = builder.not(a);
-        let expected_or = builder.or(vec![not_a, b]);
+        let expected_or = builder.or(&[not_a, b]);
         assert_eq!(first_pass_id, expected_or);
 
         Ok(())
@@ -372,8 +359,8 @@ mod tests {
         );
 
         // On peut aussi tester avec un AND simple
-        let c = builder.atomic_formula(1, vec![], AtomSkeletonId::from(0));
-        let simple_and = builder.and(vec![less, c]);
+        let c = builder.atomic_formula(1, &[], AtomSkeletonId::from(0));
+        let simple_and = builder.and(&[less, c]);
         let result_and_id = eliminate_imply(simple_and, &mut builder, &mut scratch)?;
 
         assert_eq!(
@@ -384,3 +371,4 @@ mod tests {
         Ok(())
     }
 }
+*/

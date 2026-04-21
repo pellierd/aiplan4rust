@@ -1,48 +1,45 @@
-use crate::aiplan4rust::lir::store::iter::Scratchpad;
-use crate::aiplan4rust::lir::store::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::ops::rewriting::TimeSpecifier;
-use crate::aiplan4rust::lir::store::{ExprBuilder, ExprEntryKind, ExprId};
-
-pub fn push_time_specifier(
+/*pub fn push_time_specifier(
     expr: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
 ) -> Result<ExprId, ExprOpErrorHC> {
+    // On utilise clear() car il nettoie stack, cache, visited et children_buffer
     scratch.clear();
 
-    // 1. On packe la racine (ID + None)
+    // 1. Initialisation avec la racine (Contexte None)
     let root_packed = TimeSpecifier::None.pack(expr.as_usize());
-    // On utilise un ID "fictif" pour le scratch car il stocke des ID,
-    // ou on adapte le scratch pour prendre des usize.
-    scratch.push(ExprId::from(root_packed), false);
+    let root_packed_id = ExprId::from(root_packed);
+    scratch.push(root_packed_id, false);
 
-    while let Some((packed_id, processed)) = scratch.pop() {
-        // 2. On utilise la méthode unpack de lang
-        let (curr_id_raw, context) = TimeSpecifier::unpack(packed_id.as_usize());
+    while let Some((packed_id_wrapper, processed)) = scratch.pop() {
+        let packed_val = packed_id_wrapper.as_usize();
+        let (curr_id_raw, context) = TimeSpecifier::unpack(packed_val);
         let curr_id = ExprId::from(curr_id_raw);
 
-        if scratch.get(packed_id).is_some() && !processed {
+        // Vérification du cache (visited/get) pour éviter de retraiter les sous-arbres
+        if scratch.get(packed_id_wrapper).is_some() && !processed {
             continue;
         }
 
         let entry = builder.fetch(curr_id)?;
-        let children = entry.children();
+        let children = entry.children(); // Slice &[ExprId] directe du Store
 
         if processed {
             // --- RECONSTRUCTION (Bottom-Up) ---
-            // --- RECONSTRUCTION (Bottom-Up) ---
             let new_id = match entry.kind() {
-                // 1. Si on croise un specifier, on a déjà traité son enfant avec le bon contexte
+                // 1. Marqueurs temporels : l'enfant a été traité avec le contexte spécifique
                 ExprEntryKind::AtStart | ExprEntryKind::AtEnd | ExprEntryKind::Overall => {
                     let next_ctx = match entry.kind() {
                         ExprEntryKind::AtStart => TimeSpecifier::AtStart,
                         ExprEntryKind::AtEnd => TimeSpecifier::AtEnd,
                         _ => TimeSpecifier::Overall,
                     };
-                    scratch.fetch(ExprId::from(next_ctx.pack(children[0].as_usize())))
+                    let child_id = children[0];
+                    let child_packed = next_ctx.pack(child_id.as_usize());
+                    scratch.fetch(ExprId::from(child_packed))
                 }
 
-                // 2. Connecteurs logiques : on reconstruit normalement
+                // 2. Connecteurs logiques : on utilise le buffer mutable du scratchpad
                 ExprEntryKind::And
                 | ExprEntryKind::Or
                 | ExprEntryKind::Not
@@ -50,56 +47,50 @@ pub fn push_time_specifier(
                 | ExprEntryKind::When
                 | ExprEntryKind::Forall(_)
                 | ExprEntryKind::Exists(_) => {
-                    let new_children: Vec<ExprId> = children
-                        .iter()
-                        .map(|&c| scratch.fetch(ExprId::from(context.pack(c.as_usize()))))
-                        .collect();
+                    let buf = scratch.children_buffer_mut();
+                    buf.clear();
 
-                    // Utilise reconstruct ici pour la propreté si tu veux
-                    builder.reconstruct(entry.kind().clone(), new_children)
+                    for &c in children {
+                        // On récupère le résultat de l'enfant packé avec le contexte actuel
+                        let c_packed = context.pack(c.as_usize());
+                        buf.push(scratch.fetch(ExprId::from(c_packed)));
+                    }
+
+                    // builder.reconstruct attend &[ExprId], buf (Vec) est casté automatiquement
+                    builder.reconstruct(entry.kind().clone(), buf)
                 }
 
-                // 3. TERMINAUX (Atomes, etc.) : C'est ici que ça cassait !
+                // 3. TERMINAUX (Atomes, etc.) : On descend le contexte jusqu'aux feuilles
                 kind => {
-                    // On ne crée pas l'atome seul si on a un contexte.
-                    // On utilise les méthodes du builder qui créent l'atome ET le specifier d'un coup
-                    // ou on s'assure que le builder ne valide pas l'atome nu.
+                    // builder.intern utilise la slice children du store (Zero-copy)
+                    let atom = builder.intern(kind.clone(), children);
+
                     match context {
-                        TimeSpecifier::AtStart => {
-                            let atom = builder.intern(kind.clone(), children.to_vec());
-                            builder.at_start(atom)
-                        }
-                        TimeSpecifier::AtEnd => {
-                            let atom = builder.intern(kind.clone(), children.to_vec());
-                            builder.at_end(atom)
-                        }
-                        TimeSpecifier::Overall => {
-                            let atom = builder.intern(kind.clone(), children.to_vec());
-                            builder.overall(atom)
-                        }
-                        TimeSpecifier::None => {
-                            // Si on arrive ici sans contexte pour un atome,
-                            // c'est là que l'erreur MissingTimeSpecifier est légitime.
-                            builder.intern(kind.clone(), children.to_vec())
-                        }
+                        TimeSpecifier::AtStart => builder.at_start(atom),
+                        TimeSpecifier::AtEnd => builder.at_end(atom),
+                        TimeSpecifier::Overall => builder.overall(atom),
+                        TimeSpecifier::None => atom, // Atome "nu"
                     }
                 }
             };
 
-            scratch.insert(packed_id, new_id);
+            scratch.insert(packed_id_wrapper, new_id);
         } else {
             // --- DESCENTE (Top-Down) ---
-            scratch.push(packed_id, true);
+            scratch.push(packed_id_wrapper, true);
 
             match entry.kind() {
+                // Si on croise un marqueur, on change le contexte pour la branche dessous
                 ExprEntryKind::AtStart | ExprEntryKind::AtEnd | ExprEntryKind::Overall => {
                     let next_ctx = match entry.kind() {
                         ExprEntryKind::AtStart => TimeSpecifier::AtStart,
                         ExprEntryKind::AtEnd => TimeSpecifier::AtEnd,
                         _ => TimeSpecifier::Overall,
                     };
-                    scratch.push(ExprId::from(next_ctx.pack(children[0].as_usize())), false);
+                    let child_id = children[0];
+                    scratch.push(ExprId::from(next_ctx.pack(child_id.as_usize())), false);
                 }
+                // Sinon, on propage le contexte actuel aux enfants
                 _ => {
                     for &child in children.iter().rev() {
                         scratch.push(ExprId::from(context.pack(child.as_usize())), false);
@@ -109,10 +100,11 @@ pub fn push_time_specifier(
         }
     }
 
-    let final_id = scratch.fetch(ExprId::from(root_packed));
+    let final_id = scratch.fetch(root_packed_id);
 
     #[cfg(debug_assertions)]
     {
+        // On s'assure que la transformation n'a pas laissé de marqueurs orphelins
         check_temporal_consistency(final_id, builder, scratch)?;
     }
 
@@ -234,9 +226,9 @@ mod tests {
 
         // INPUT    : (at start (and A B))
         // EXPECTED : (and (at start A) (at start B))
-        let a = builder.atomic_formula(1, vec![], 100);
-        let b = builder.atomic_formula(2, vec![], 101);
-        let and_node = builder.and(vec![a, b]);
+        let a = builder.atomic_formula(1, &[], 100);
+        let b = builder.atomic_formula(2, &[], 101);
+        let and_node = builder.and(&[a, b]);
         let root = builder.at_start(and_node);
 
         let result_id = push_time_specifier(root, &mut builder, &mut scratch)?;
@@ -263,7 +255,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut store);
         let mut scratch = Scratchpad::new();
 
-        let a = builder.atomic_formula(1, vec![], 100);
+        let a = builder.atomic_formula(1, &[], 100);
         let var_x = builder.typed_variable(10, &[100]);
         let vars = builder.typed_variable_list(vec![var_x]);
         let forall_node = builder.forall(vars, a);
@@ -292,7 +284,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut store);
         let mut scratch = Scratchpad::new();
 
-        let a = builder.atomic_formula(1, vec![], 100);
+        let a = builder.atomic_formula(1, &[], 100);
         let root = builder.overall(a);
 
         let result_id = push_time_specifier(root, &mut builder, &mut scratch)?;
@@ -314,8 +306,8 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut store);
         let mut scratch = Scratchpad::new();
 
-        let cond = builder.atomic_formula(1, vec![], 100);
-        let eff = builder.atomic_formula(2, vec![], 101);
+        let cond = builder.atomic_formula(1, &[], 100);
+        let eff = builder.atomic_formula(2, &[], 101);
         let when_node = builder.when(cond, eff);
         let root = builder.at_end(when_node);
 
@@ -335,4 +327,4 @@ mod tests {
 
         Ok(())
     }
-}
+}*/

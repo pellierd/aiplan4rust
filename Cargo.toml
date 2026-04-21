@@ -2,7 +2,7 @@
 name = "aiplan4rust"
 version = "0.1.0"
 authors = ["Damien Pellier <damien.pellier@imag.fr>"]
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 edition = "2021"
 
 [dependencies]
@@ -36,6 +36,7 @@ indexmap = { version = "2.1.0", features = ["serde"] }
 rustc-hash = "2.1.2"
 memchr = "2.8.0"
 fxhash = "0.2.1"
+hashbrown = { version = "0.17", features = ["raw-entry"] }
 
 [build-dependencies]
 lalrpop = { version = "0.22.2", default-features = false }

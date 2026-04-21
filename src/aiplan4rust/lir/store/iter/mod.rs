@@ -1,7 +1,6 @@
 pub mod postorder;
 pub mod preorder;
-pub mod scratchpad;
 
+pub use crate::aiplan4rust::lir::store::ops::scratchpad::Scratchpad;
 pub use postorder::PostorderIter;
 pub use preorder::PreorderIter;
-pub use scratchpad::Scratchpad;
