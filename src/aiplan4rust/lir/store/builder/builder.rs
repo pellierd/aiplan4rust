@@ -4,13 +4,19 @@ use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId, ExprNodeRef, ExprSto
 /// Le Builder sert de façade ergonomique au-dessus du ExprStore.
 /// Il facilite la création d'expressions tout en garantissant le Hash-Consing.
 pub struct ExprBuilder<'a> {
-    store: &'a mut ExprStore,
+    pub(crate) store: &'a mut ExprStore,
+    pub(crate) primary_buffer: Vec<ExprId>,
+    pub(crate) secondary_buffer: Vec<ExprId>,
 }
 
 impl<'a> ExprBuilder<'a> {
     /// Crée un nouveau builder lié à une référence mutable du store.
     pub fn new(store: &'a mut ExprStore) -> Self {
-        Self { store }
+        Self {
+            store,
+            primary_buffer: Vec::with_capacity(32),
+            secondary_buffer: Vec::with_capacity(32),
+        }
     }
 
     /// Donne accès au store interne si une manipulation directe est requise.
