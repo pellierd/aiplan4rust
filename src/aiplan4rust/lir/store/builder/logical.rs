@@ -131,7 +131,7 @@ impl<'a> ExprBuilder<'a> {
             return self.primary_buffer[0];
         }
 
-        self.sort_buffer_by_id(len);
+        Self::sort_buffer_by_id(&mut self.primary_buffer, len);
         self.primary_buffer.dedup();
 
         // --- STEP 3: Final Analysis & Interning ---
@@ -151,63 +151,6 @@ impl<'a> ExprBuilder<'a> {
         collected.clear();
         self.primary_buffer = collected;
         result
-    }
-
-    /// Sorts the entire primary buffer by `ExprId` to enable deduplication and canonicalization.
-    ///
-    /// This is a specialized implementation of the Heapsort algorithm. Sorting operands
-    /// by their unique internal identifiers ensures that logical expressions are stored
-    /// in a consistent (canonical) order, which is a prerequisite for efficient
-    /// Hash-Consing.
-    ///
-    /// # Arguments
-    /// * `len` - The number of elements in `primary_buffer` to sort.
-    ///
-    /// # Complexity
-    /// - **Time**: O(n log n) in all cases.
-    /// - **Space**: O(1), as the sort is performed in-place.
-    fn sort_buffer_by_id(&mut self, len: usize) {
-        // Phase 1: Build a max-heap from the IDs
-        for start in (0..len / 2).rev() {
-            self.sift_down_by_id(start, len);
-        }
-
-        // Phase 2: Extract elements from the heap to build the sorted array
-        for end in (1..len).rev() {
-            // Swap the current maximum (at index 0) with the last unsorted element
-            self.primary_buffer.swap(0, end);
-            // Restore the heap property for the remaining unsorted portion
-            self.sift_down_by_id(0, end);
-        }
-    }
-
-    /// Restores the max-heap property for the buffer based on raw `ExprId` values.
-    ///
-    /// This helper pushes a value down the binary tree until it is greater than
-    /// or equal to its children. It uses raw ID comparisons, making it significantly
-    /// faster than sorting by complex node properties.
-    ///
-    /// # Arguments
-    /// * `root` - The index of the element to start sifting down.
-    /// * `end` - The upper bound of the current heap segment.
-    fn sift_down_by_id(&mut self, mut root: usize, end: usize) {
-        while root * 2 + 1 < end {
-            let mut child = root * 2 + 1; // Left child index
-
-            // If right child exists and is greater than left child, move to right child
-            if child + 1 < end && self.primary_buffer[child] < self.primary_buffer[child + 1] {
-                child += 1;
-            }
-
-            // If the root is smaller than the largest child, swap and continue sifting
-            if self.primary_buffer[root] < self.primary_buffer[child] {
-                self.primary_buffer.swap(root, child);
-                root = child;
-            } else {
-                // Heap property is satisfied
-                break;
-            }
-        }
     }
 
     /// Orchestrates the advanced simplification of an `AND` node by merging compatible `When` effects.

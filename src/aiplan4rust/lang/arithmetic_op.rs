@@ -58,6 +58,20 @@ pub enum ArithmeticOp {
     Mul,
 }
 
+impl ArithmeticOp {
+    /// Retourne vrai si l'ordre des opérandes n'importe pas : (a + b) == (b + a).
+    /// Permet d'activer le tri canonique dans le buffer.
+    pub fn is_commutative(&self) -> bool {
+        matches!(self, ArithmeticOp::Add | ArithmeticOp::Mul)
+    }
+
+    /// Retourne vrai si le groupement n'importe pas : ((a + b) + c) == (a + (b + c)).
+    /// Permet d'activer l'aplatissement (flattening) dans le buffer.
+    pub fn is_associative(&self) -> bool {
+        // En arithmétique standard, Add et Mul sont associatifs.
+        matches!(self, ArithmeticOp::Add | ArithmeticOp::Mul)
+    }
+}
 /// Implements the `fmt::Display` trait for the `ArithmeticOp` enum.
 ///
 /// This implementation enables `ArithmeticOp` values to be formatted as strings

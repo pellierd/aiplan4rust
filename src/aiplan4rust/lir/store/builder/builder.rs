@@ -109,4 +109,48 @@ impl<'a> ExprBuilder<'a> {
             leaf_kind => self.intern(leaf_kind, &[]),
         }
     }
+
+    /// Sorts a given buffer by `ExprId` to enable deduplication and canonicalization.
+    ///
+    /// This is a specialized implementation of the Heapsort algorithm. Sorting operands
+    /// by their unique internal identifiers ensures that expressions are stored
+    /// in a consistent (canonical) order.
+    ///
+    /// # Arguments
+    /// * `buffer` - A mutable reference to the buffer to sort (primary or secondary).
+    /// * `len` - The number of elements in the buffer to sort.
+    pub(crate) fn sort_buffer_by_id(buffer: &mut Vec<ExprId>, len: usize) {
+        if len <= 1 {
+            return;
+        }
+
+        // Phase 1: Build a max-heap
+        for start in (0..len / 2).rev() {
+            Self::sift_down_by_id(buffer, start, len);
+        }
+
+        // Phase 2: Extract elements
+        for end in (1..len).rev() {
+            buffer.swap(0, end);
+            Self::sift_down_by_id(buffer, 0, end);
+        }
+    }
+
+    /// Restores the max-heap property for a specific buffer.
+    fn sift_down_by_id(buffer: &mut Vec<ExprId>, mut root: usize, end: usize) {
+        while root * 2 + 1 < end {
+            let mut child = root * 2 + 1;
+
+            if child + 1 < end && buffer[child] < buffer[child + 1] {
+                child += 1;
+            }
+
+            if buffer[root] < buffer[child] {
+                buffer.swap(root, child);
+                root = child;
+            } else {
+                break;
+            }
+        }
+    }
 }

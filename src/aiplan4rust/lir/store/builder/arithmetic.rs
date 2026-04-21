@@ -2,34 +2,39 @@ use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::lir::store::builder::ExprBuilder;
 use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
 use ordered_float::OrderedFloat;
-use smallvec::SmallVec;
-
-/// The threshold for stack-based operand storage.
-///
-/// Expressions with fewer than 16 operands are handled without heap allocation,
-/// which covers the vast majority of PDDL expressions and significantly improves
-/// performance by reducing pressure on the allocator and improving cache locality.
-const INITIAL_OPERAND_STACK_CAPACITY: usize = 16;
-
-/// A specialized vector for expression IDs, optimized for small amounts of operands.
-///
-/// It stays on the stack if the number of IDs is <= `INITIAL_OPERAND_STACK_CAPACITY`,
-/// and transparently spills to the heap if the expression is larger.
-type OperandStack = SmallVec<[ExprId; INITIAL_OPERAND_STACK_CAPACITY]>;
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs an optimized arithmetic expression: `(op operands...)`.
     ///
     /// This function orchestrates a multi-step pipeline to ensure the resulting
     /// [`ExprId`] points to the most simplified and canonical form of the expression.
+    /// By utilizing *Hash-Consing*, semantically equivalent expressions (e.g., `x + y`
+    /// and `y + x`) will always share the same unique [`ExprId`].
     ///
-    /// # Pipeline Steps
+    /// # Pipeline Phases
     ///
-    /// 1. **Early Fold**: Immediate resolution of trivial cases like `NaN`, division by zero,
-    ///    or symbolic identities (e.g., `x - x`).
-    /// 2. **Flatten**: Structural normalization of associative operations (`Add`, `Mul`).
-    /// 3. **Constant Folding**: Numerical reduction of all literal constants.
-    /// 4. **Finalize**: Sorting of commutative operands and interning into the store.
+    /// 1. **Early Fold (Fast Path)**: Immediate resolution without buffer usage.
+    ///    It intercepts error cases (`NaN`, division by zero) and complex symbolic
+    ///    identities (e.g., `x - x` results in `0.0`, `x + 0` results in `x`).
+    ///
+    /// 2. **Collection & Flattening**: Structural normalization. Associative operations
+    ///    (`Add`, `Mul`) are flattened into the `primary_buffer`.
+    ///    *Example: `(+ (+ a b) c)` becomes `(+ a b c)`.*
+    ///
+    /// 3. **In-place Constant Folding**: Aggressive numerical reduction. Iterates through
+    ///    the buffer to aggregate literals and handle absorbing elements (e.g., `0 * x`
+    ///    results in `0`). It strictly maintains operand order for non-commutative
+    ///    operations (`Sub`, `Div`).
+    ///
+    /// 4. **Finalization & Interning**:
+    ///    - Handles unary reduction (e.g., `(+ x)` simplifies to `x`).
+    ///    - Applies a sorting algorithm (Heapsort) on the buffer for commutative operations.
+    ///    - Deduplicates the final expression in the store via `intern`.
+    ///
+    /// # Performance
+    ///
+    /// The pipeline is designed to be **Zero-Alloc**. It reuses the `ExprBuilder` internal
+    /// buffers to avoid dynamic `Vec` allocations on the heap during transformation phases.
     ///
     /// # Arguments
     ///
@@ -40,8 +45,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// * `ExprId` - The unique identifier of the simplified expression in the store.
     pub fn arithmetic(&mut self, op: ArithmeticOp, operands: &[ExprId]) -> ExprId {
-        // --- PHASE 1: EARLY FOLDING ---
-        // Intercept trivial or propagative cases before any heavy processing.
+        // --- PHASE 1: FAST PATH (Identities & Errors) ---
         if let Some(id) = self.early_fold_nan(operands) {
             return id;
         }
@@ -52,20 +56,16 @@ impl<'a> ExprBuilder<'a> {
             return id;
         }
 
-        // --- PHASE 2: FLATTENING ---
-        // Structural transformation: `(+ (+ a b) c) => (+ a b c)`
-        let flat_ops = self.flatten_operands(op, operands);
+        // --- PHASE 2: COLLECTION & FLATTENING ---
+        self.flatten_operands(op, operands);
 
-        // --- PHASE 3: CONSTANT FOLDING ---
-        // Aggregate all numerical constants into a single value.
-        let mut fold_ops = OperandStack::with_capacity(flat_ops.len());
-        if let Some(reduced_id) = self.fold_constants(op, &flat_ops, &mut fold_ops) {
-            return reduced_id;
+        // --- PHASE 3: NUMERICAL REDUCTION ---
+        if let Some(id) = self.fold_constants(op) {
+            return id;
         }
 
-        // --- PHASE 4: FINALIZATION ---
-        // Sort commutative operands and intern the final result.
-        self.finalize(op, fold_ops)
+        // --- PHASE 4: FINALIZATION (Sorting & Interning) ---
+        self.finalize(op)
     }
 
     /// Checks if any operand is a `NaN` (Not-a-Number) and returns its ID.
@@ -124,21 +124,34 @@ impl<'a> ExprBuilder<'a> {
         None
     }
 
-    /// Simplifies symbolic identities where the result is known regardless of the variable's value.
+    /// Simplifies symbolic and algebraic identities where the result is independent of variable values.
     ///
-    /// This handles cases like `x - x` which always equals `0.0`, and `x / x` which
-    /// always equals `1.0` (assuming `x` is not zero, though PDDL often simplifies this).
+    /// This method acts as a "fast path" to reduce expressions based on mathematical properties
+    /// before they enter the more expensive flattening and interning phases. It handles two
+    /// main categories of simplifications:
+    ///
+    /// ### 1. Symbolic Identities (Self-Identity)
+    /// When both operands are identical (sharing the same [`ExprId`] via Hash-Consing):
+    /// - `x - x => 0.0`
+    /// - `x / x => 1.0`
+    ///
+    /// ### 2. Algebraic Identities (Neutral & Absorbing Elements)
+    /// When one operand is a numeric literal that simplifies the operation:
+    /// - **Neutral Elements**: `x + 0 => x`, `x * 1 => x`, `x - 0 => x`, `x / 1 => x`.
+    /// - **Absorbing Elements**: `x * 0 => 0.0`, `0 / x => 0.0`.
     ///
     /// # Arguments
     ///
-    /// * `op` - The [`ArithmeticOp`] to check for identity simplification.
-    /// * `operands` - A slice of [`ExprId`] representing the two operands.
+    /// * `op` - The [`ArithmeticOp`] to evaluate.
+    /// * `operands` - A slice of [`ExprId`] representing the operation's children.
     ///
     /// # Returns
     ///
-    /// * `Some(ExprId)` - An ID pointing to the simplified constant (`0.0` or `1.0`).
-    /// * `None` - If no symbolic identity is found.
+    /// * `Some(ExprId)` - The ID of the simplified expression (either an existing operand or a new constant).
+    /// * `None` - If no identities are applicable, allowing the pipeline to continue.
     fn early_fold_identities(&mut self, op: ArithmeticOp, operands: &[ExprId]) -> Option<ExprId> {
+        // --- CASE 1: SYMBOLIC IDENTITIES (x op x) ---
+        // Leverages Hash-Consing: if IDs are equal, the underlying expressions are identical.
         if operands.len() == 2 && operands[0] == operands[1] {
             match op {
                 ArithmeticOp::Sub => return Some(self.number(0.0)),
@@ -146,134 +159,210 @@ impl<'a> ExprBuilder<'a> {
                 _ => {}
             }
         }
+
+        // --- CASE 2: NEUTRAL AND ABSORBING ELEMENTS ---
+        // Specifically targets binary operations involving at least one constant literal.
+        if operands.len() == 2 {
+            let left = operands[0];
+            let right = operands[1];
+            let val_left = self.get_number(left);
+            let val_right = self.get_number(right);
+
+            match op {
+                ArithmeticOp::Add => {
+                    if val_left == Some(0.0) {
+                        return Some(right);
+                    }
+                    if val_right == Some(0.0) {
+                        return Some(left);
+                    }
+                }
+                ArithmeticOp::Sub => {
+                    if val_right == Some(0.0) {
+                        return Some(left);
+                    }
+                    // Note: 0 - x is preserved as the canonical form for negation.
+                }
+                ArithmeticOp::Mul => {
+                    if val_left == Some(1.0) {
+                        return Some(right);
+                    }
+                    if val_right == Some(1.0) {
+                        return Some(left);
+                    }
+                    if val_left == Some(0.0) || val_right == Some(0.0) {
+                        return Some(self.number(0.0));
+                    }
+                }
+                ArithmeticOp::Div => {
+                    if val_right == Some(1.0) {
+                        return Some(left);
+                    }
+                    // 0 / x -> 0.0 (Division by zero is pre-handled by early_fold_div_by_zero)
+                    if val_left == Some(0.0) {
+                        return Some(self.number(0.0));
+                    }
+                }
+            }
+        }
         None
     }
 
-    /// Parcourt les opérandes et les aplatit si ce sont des opérations identiques
-    /// et associatives (Add ou Mul).
-    fn flatten_operands(&self, op: ArithmeticOp, operands: &[ExprId]) -> OperandStack {
-        // 1. Si pas associatif, on rend les opérandes tels quels dans la SmallVec
-        if !matches!(op, ArithmeticOp::Add | ArithmeticOp::Mul) {
-            return OperandStack::from_slice(operands);
+    /// Flattens nested associative operations and collects operands into the primary buffer.
+    ///
+    /// This method implements structural normalization for associative operators (specifically
+    /// `Add` and `Mul`). If an operand's operator matches the parent's operator, its children
+    /// are hoisted directly into the parent, transforming nested structures like `(a + (b + c))`
+    /// into a flat form `(+ a b c)`.
+    ///
+    /// # Normalization Logic
+    ///
+    /// - **Unary Subtraction**: If a `Sub` operation is provided with a single operand `(- x)`,
+    ///   it is preemptively transformed into a binary subtraction `(0.0 - x)`. This ensures
+    ///   that negation is correctly handled by the constant folder and the interner.
+    /// - **Associative Operations**: For `Add` and `Mul`, the method performs a single-level
+    ///   flattening by inspecting child nodes.
+    /// - **Non-Associative Operations**: For `Sub` (binary) and `Div`, operands are copied
+    ///   as-is to preserve mathematical order.
+    ///
+    /// # Memory Management
+    ///
+    /// To maintain a **Zero-Alloc** profile, this method utilizes the builder's internal
+    /// `primary_buffer` and `secondary_buffer`. This prevents dynamic heap allocations
+    /// during tree traversal.
+    ///
+    /// # Arguments
+    ///
+    /// * `op` - The current [`ArithmeticOp`] being processed.
+    /// * `operands` - The initial slice of [`ExprId`] to be flattened and collected.
+    fn flatten_operands(&mut self, op: ArithmeticOp, operands: &[ExprId]) {
+        self.primary_buffer.clear();
+
+        // Preemptive normalization of Unary Subtraction
+        // Converts (- x) into (0.0 - x) to ensure consistent folding and evaluation.
+        if op == ArithmeticOp::Sub && operands.len() == 1 {
+            let zero = self.number(0.0);
+            self.primary_buffer.push(zero);
+            self.primary_buffer.push(operands[0]);
+            return;
         }
 
-        // 2. On vérifie s'il y a vraiment besoin d'aplatir
-        let needs_flattening = operands.iter().any(|&id| {
-            self.get(id).map_or(false, |node| {
-                matches!(node.kind(), ExprEntryKind::Arithmetic(child_op) if *child_op == op)
-            })
-        });
-
-        // 3. Si c'est déjà plat, on évite la logique complexe
-        if !needs_flattening {
-            return OperandStack::from_slice(operands);
+        // If the operation is not associative (e.g., Sub, Div),
+        // flattening is mathematically invalid; perform a simple copy.
+        if !op.is_associative() {
+            self.primary_buffer.extend_from_slice(operands);
+            return;
         }
 
-        // 4. Aplatissement réel
-        let mut flat = OperandStack::with_capacity(operands.len());
         for &id in operands {
-            if let Some(node) = self.get(id) {
+            if let Some(node) = self.store.get(id) {
                 if let ExprEntryKind::Arithmetic(child_op) = node.kind() {
                     if *child_op == op {
-                        flat.extend_from_slice(node.children());
+                        self.secondary_buffer.clear();
+                        self.secondary_buffer.extend_from_slice(node.children());
+                        self.primary_buffer
+                            .extend_from_slice(&self.secondary_buffer);
                         continue;
                     }
                 }
             }
-            flat.push(id);
+            self.primary_buffer.push(id);
         }
-        flat
     }
 
-    /// Numerically reduces constants within a flattened list of operands.
+    /// Numerically reduces constant literals within the primary buffer using an in-place linear pass.
     ///
-    /// This function performs a linear pass over the operands to aggregate literal numbers.
-    /// It handles propagative cases (like `NaN` or `0 * x`) and delegates specific algebraic
-    /// rules to `apply_folding_rule`. Operands that cannot be reduced (variables) are
-    /// pushed to the `final_ops` stack.
+    /// This method aggregates all literal numbers found in the flattened operand list into a single
+    /// constant value where mathematically possible. It employs a "write pointer" strategy to
+    /// update the `primary_buffer` in-place, filtering out folded literals while preserving
+    /// irreducible expressions (variables).
     ///
-    /// # Workflow
-    /// 1. **Extraction**: Attempts to resolve each [`ExprId`] into a concrete `f64`.
-    /// 2. **Short-circuiting**: Immediately returns if a `NaN` is found or if a
-    ///    multiplication by zero occurs.
-    /// 3. **Folding**: Applies operator-specific rules to accumulate constants.
-    /// 4. **Variable Tracking**: Flags when a variable is encountered to prevent
-    ///    incorrect folding in non-commutative operations (`Sub`, `Div`).
-    /// 5. **Reinsertion**: After the loop, any accumulated constant is placed back
-    ///    into the operand stack.
+    /// # Optimization Logic
+    ///
+    /// 1. **Short-Circuiting**: Immediately returns a result if a "poisonous" value is encountered
+    ///    (e.g., `NaN` propagates upward, or `0.0` in a multiplication absorbs all other terms).
+    /// 2. **Commutative Folding**: For `Add` and `Mul`, all constants are aggregated regardless
+    ///    of their position relative to variables.
+    /// 3. **Positional Folding**: For `Sub` and `Div`, constants are only folded if they appear
+    ///    at the head of the expression and are not interrupted by variables. This ensures
+    ///    mathematical correctness (e.g., `(10 - x) - 2` cannot be folded into `8 - x` without
+    ///    further algebraic reassociation).
+    /// 4. **Neutral Element Elimination**: Identity values (like adding `0` or multiplying by `1`)
+    ///    are effectively removed from the operand list during the pass.
+    ///
+    /// # Memory Management
+    ///
+    /// The operation is performed **in-place** within the `primary_buffer`. By using a `write_idx`
+    /// and subsequent `truncate`, the method avoids allocating a new vector for the reduced
+    /// operand list.
     ///
     /// # Arguments
     ///
-    /// * `op` - The current [`ArithmeticOp`] (Add, Sub, Mul, Div).
-    /// * `flat_ops` - A slice of [`ExprId`] that has already been structurally flattened.
-    /// * `final_ops` - A mutable reference to the [`OperandStack`] where non-reducible
-    ///   operands are collected.
+    /// * `op` - The [`ArithmeticOp`] determining the folding rules (Add, Sub, Mul, Div).
     ///
     /// # Returns
     ///
-    /// * `Some(ExprId)` - If the expression is reduced to a single value via short-circuit
-    ///   (e.g., `0.0` for multiplication or an existing `NaN`).
-    /// * `None` - If the folding process completed normally (even if no reduction was possible).
-    /// Numerically reduces constants within the expression.
-    ///
-    /// This function performs a linear pass to aggregate literal numbers. It handles
-    /// algebraic rules directly to avoid excessive parameter passing while maintaining
-    /// precise control over non-commutative operations.
-    fn fold_constants(
-        &mut self,
-        op: ArithmeticOp,
-        flat_ops: &[ExprId],
-        fold_ops: &mut OperandStack,
-    ) -> Option<ExprId> {
+    /// * `Some(ExprId)` - If the entire expression simplifies to a single constant or error state
+    ///   via short-circuiting.
+    /// * `None` - If the folding process completes normally, leaving the remaining operands
+    ///   in the truncated `primary_buffer`.
+    fn fold_constants(&mut self, op: ArithmeticOp) -> Option<ExprId> {
         let mut constant_part: Option<f64> = None;
         let mut has_variable = false;
+        let mut write_idx = 0;
 
-        for (i, &id) in flat_ops.iter().enumerate() {
+        let len = self.primary_buffer.len();
+
+        for i in 0..len {
+            let id = self.primary_buffer[i];
             match self.get_number(id) {
                 Some(v) => {
-                    // --- CASE: NUMBER ---
+                    // NaN Propagation
                     if v.is_nan() {
                         return Some(id);
                     }
+                    // Multiplication Absorption
                     if op == ArithmeticOp::Mul && v == 0.0 {
                         return Some(self.number(0.0));
                     }
 
                     match (op, constant_part) {
-                        // Commutative: aggregate everything
+                        // Commutative aggregation
                         (ArithmeticOp::Add, c) => constant_part = Some(c.unwrap_or(0.0) + v),
                         (ArithmeticOp::Mul, c) => constant_part = Some(c.unwrap_or(1.0) * v),
 
-                        // Positional (Sub/Div): set the base if it's the first element
+                        // Non-commutative positional folding
                         (ArithmeticOp::Sub | ArithmeticOp::Div, None) if i == 0 => {
                             constant_part = Some(v);
                         }
-
-                        // Sequential folding: only before any variable appears
                         (ArithmeticOp::Sub, Some(c)) if !has_variable => {
-                            constant_part = Some(c - v);
+                            constant_part = Some(c - v)
                         }
                         (ArithmeticOp::Div, Some(c)) if !has_variable => {
                             if v == 0.0 {
-                                return Some(self.number(f64::NAN));
+                                return Some(self.number(f64::NAN)); // Division by zero
                             }
                             constant_part = Some(c / v);
                         }
 
-                        // Identity: skip x - 0 or x / 1
+                        // Identity values (0 or 1) that do not advance the write pointer
                         (ArithmeticOp::Sub, _) if v == 0.0 => {}
                         (ArithmeticOp::Div, _) if v == 1.0 => {}
 
-                        // Fallback: cannot fold (e.g., after a variable)
-                        _ => fold_ops.push(id),
+                        // Literal cannot be folded at this position (e.g., constant after a variable in Sub)
+                        _ => {
+                            self.primary_buffer[write_idx] = id;
+                            write_idx += 1;
+                        }
                     }
                 }
                 None => {
-                    // --- CASE: VARIABLE ---
-                    fold_ops.push(id);
+                    // Irreducible operand (Variable or complex sub-expression)
+                    self.primary_buffer[write_idx] = id;
+                    write_idx += 1;
                     has_variable = true;
 
-                    // Optimization: 0 / variable -> 0
+                    // Special case: 0 / x => 0.0
                     if op == ArithmeticOp::Div && constant_part == Some(0.0) {
                         return Some(self.number(0.0));
                     }
@@ -281,7 +370,11 @@ impl<'a> ExprBuilder<'a> {
             }
         }
 
-        self.reinsert_constant(op, constant_part, fold_ops);
+        // Truncate the buffer to remove operands that were folded into the constant_part
+        self.primary_buffer.truncate(write_idx);
+
+        // Re-insert the aggregated constant into the buffer (handling neutral elements)
+        self.reinsert_constant_in_buffer(op, constant_part);
         None
     }
 
@@ -308,95 +401,123 @@ impl<'a> ExprBuilder<'a> {
         })
     }
 
-    /// Re-inserts the accumulated constant into the operand stack at the correct position.
+    /// Re-inserts the accumulated numeric constant into the primary buffer at the mathematically correct position.
     ///
-    /// This is the final step of the constant folding process. It decides whether the
-    /// accumulated constant is significant enough to be added to the expression
-    /// or if it can be omitted (in the case of neutral elements).
+    /// This is the final step of the constant folding phase. It determines whether the
+    /// accumulated constant is significant enough to be included in the final expression
+    /// or if it can be safely omitted as a neutral element (identity).
     ///
     /// # Positioning Logic
     ///
-    /// * **Commutative (Add, Mul)**: The constant is simply pushed to the end of the stack.
-    /// * **Positional (Sub, Div)**: The constant represents the base value (the minuend
-    ///   or dividend) and must be inserted at the very beginning (index 0) to maintain
-    ///   the correct order of operations (e.g., `10 - x - y`).
+    /// The placement of the constant is vital for non-commutative operations:
+    /// - **Commutative (`Add`, `Mul`)**: The constant is simply pushed to the end of the buffer.
+    ///   Canonical sorting in the next phase will ensure a consistent order for Hash-Consing.
+    /// - **Positional (`Sub`, `Div`)**: The accumulated constant represents the base value
+    ///   (the *minuend* or *dividend*). It must be inserted at **index 0** to maintain the
+    ///   correct order of operations (e.g., `10 - x - y` vs `x - y - 10`).
+    ///
+    /// # Identity Elimination
+    ///
+    /// To keep the expression tree lean, neutral elements are discarded unless the buffer is
+    /// otherwise empty:
+    /// - In `Add`, `0.0` is omitted.
+    /// - In `Mul`, `1.0` is omitted.
+    /// - If the buffer is empty, the neutral element is kept to represent the identity
+    ///   value of the operation (e.g., `(+)` results in `0.0`).
     ///
     /// # Arguments
     ///
-    /// * `op` - The [`ArithmeticOp`] currently being finalized.
-    /// * `constant_part` - The optional accumulated `f64` result from the folding phase.
-    /// * `final_ops` - A mutable reference to the [`OperandStack`] where the constant will be inserted.
-    fn reinsert_constant(
-        &mut self,
-        op: ArithmeticOp,
-        constant_part: Option<f64>,
-        final_ops: &mut OperandStack,
-    ) {
+    /// * `op` - The [`ArithmeticOp`] determining the positioning and neutral element rules.
+    /// * `constant_part` - The optional accumulated `f64` result from the folding pass.
+    fn reinsert_constant_in_buffer(&mut self, op: ArithmeticOp, constant_part: Option<f64>) {
         if let Some(c) = constant_part {
-            // Check if the constant is a neutral element (0.0 for Add, 1.0 for Mul).
-            // Neutral elements can be discarded unless the expression would be empty.
+            // Identify if the constant is a neutral element (identity)
             let is_neutral = match op {
                 ArithmeticOp::Add => c == 0.0,
                 ArithmeticOp::Mul => c == 1.0,
                 _ => false,
             };
 
-            // We re-insert if:
-            // 1. The value is not neutral (it changes the result).
-            // 2. The stack is empty (we need at least one value, even if neutral).
-            if !is_neutral || final_ops.is_empty() {
+            // Re-insert if it's significant, or if it's the only remaining value in the expression
+            if !is_neutral || self.primary_buffer.is_empty() {
                 let const_id = self.number(c);
-                if matches!(op, ArithmeticOp::Add | ArithmeticOp::Mul) {
-                    final_ops.push(const_id);
+
+                if op.is_commutative() {
+                    // Commutative: append to the end (will be sorted later)
+                    self.primary_buffer.push(const_id);
                 } else {
-                    // For Sub/Div, the constant part always represents the starting value.
-                    final_ops.insert(0, const_id);
+                    // Positional: insert at the head to act as the base term (minuend/dividend)
+                    self.primary_buffer.insert(0, const_id);
                 }
             }
         }
     }
 
-    /// Finalizes the arithmetic expression by normalizing operands and interning the result.
+    /// Finalizes the arithmetic expression by performing canonicalization and interning the result.
     ///
-    /// This function handles the last stage of the construction pipeline:
-    /// 1. **Identity Resolution**: Returns a neutral constant if no operands remain.
-    /// 2. **Simplification**: Returns the single operand directly if no operation is needed.
-    /// 3. **Canonicalization**: Sorts operands for commutative operations (`Add`, `Mul`)
-    ///    to ensure that different orderings result in the same [`ExprId`].
-    /// 4. **Interning**: Deduplicates the final expression in the store.
+    /// This is the final stage of the arithmetic pipeline. It ensures that the expression
+    /// is in its simplest form and that its representation is unique within the [`ExprStore`].
+    ///
+    /// # Finalization Steps
+    ///
+    /// 1. **Empty Case (Identity Resolution)**: If no operands remain after folding (e.g.,
+    ///    neutral elements were eliminated), it returns the mathematical identity for the
+    ///    operator (`0.0` for addition/subtraction, `1.0` for multiplication/division).
+    ///
+    /// 2. **Unary Reduction**: Simplifies expressions with a single operand. For example,
+    ///    `(+ x)` is reduced directly to `x`. Note that for non-commutative operations
+    ///    like `Sub`, a single operand `(- x)` is preserved as a negation.
+    ///
+    /// 3. **Canonicalization (Sorting)**: For commutative operations (`Add`, `Mul`),
+    ///    operands are sorted by their [`ExprId`]. This ensures that `(x + y)` and `(y + x)`
+    ///    result in the same structural representation, enabling perfect deduplication.
+    ///
+    /// 4. **Interning & Buffer Recovery**: The finalized operand list is interned into the
+    ///    store. To maintain efficiency, the `primary_buffer` is temporarily moved to
+    ///    avoid cloning, then cleared and returned to the builder to be reused for
+    ///    future operations.
     ///
     /// # Arguments
     ///
-    /// * `op` - The [`ArithmeticOp`] of the expression.
-    /// * `ops` - The [`OperandStack`] containing the final, folded operands.
+    /// * `op` - The [`ArithmeticOp`] characterizing the expression.
     ///
     /// # Returns
     ///
-    /// * `ExprId` - The unique identifier for this expression.
-    fn finalize(&mut self, op: ArithmeticOp, mut ops: OperandStack) -> ExprId {
-        // 1. Empty case: Return neutral element for the given operation.
-        // e.g., (+) -> 0.0, (*) -> 1.0
-        if ops.is_empty() {
-            return self.number(match op {
+    /// * `ExprId` - The unique identifier for the interned expression.
+    fn finalize(&mut self, op: ArithmeticOp) -> ExprId {
+        let len = self.primary_buffer.len();
+
+        // 1. Handle empty operand lists by returning the operator's default identity value.
+        if len == 0 {
+            let val = match op {
                 ArithmeticOp::Add | ArithmeticOp::Sub => 0.0,
                 ArithmeticOp::Mul | ArithmeticOp::Div => 1.0,
-            });
+            };
+            return self.number(val);
         }
 
-        // 2. Single operand case: (+ x) is just x.
-        if ops.len() == 1 {
-            return ops[0];
+        // 2. Unary reduction: If only one operand exists, return it directly (e.g., +x -> x).
+        // Note: Non-commutative operators like Sub/Div usually require special
+        // handling or are preserved as unary operations.
+        if len == 1 {
+            return self.primary_buffer[0];
         }
 
-        // 3. Normalization for interning:
-        // By sorting commutative operations, we ensure that (+ a b) and (+ b a)
-        // are recognized as the same structural expression, maximizing cache hits.
-        if matches!(op, ArithmeticOp::Add | ArithmeticOp::Mul) {
-            ops.sort_unstable();
+        // 3. Canonicalize commutative operations to ensure structural uniqueness.
+        if op.is_commutative() {
+            Self::sort_buffer_by_id(&mut self.primary_buffer, len);
         }
 
-        // 4. Final interning: Create or retrieve the ID from the store.
-        self.intern(ExprEntryKind::Arithmetic(op), &ops)
+        // 4. Intern the final expression.
+        // We use `std::mem::take` to move the buffer content without allocation.
+        let mut data = std::mem::take(&mut self.primary_buffer);
+        let id = self.intern(ExprEntryKind::Arithmetic(op), &data);
+
+        // Clear and restore the buffer to the builder for reuse (zero-alloc strategy).
+        data.clear();
+        self.primary_buffer = data;
+
+        id
     }
 
     /// Creates a numeric literal node with mandatory NaN normalization.
@@ -439,12 +560,34 @@ impl<'a> ExprBuilder<'a> {
 
     /// Creates a subtraction expression: `(- a b c ...)` which evaluates to `a - b - c`.
     ///
-    /// # Note
+    /// This method ensures that all subtractions are represented in a binary or n-ary
+    /// format. To maintain mathematical consistency with PDDL and other languages,
+    /// it automatically handles unary negation.
     ///
-    /// Subtraction is **non-commutative**. The order of operands is strictly
-    /// preserved to maintain mathematical correctness.
+    /// # Unary Negation Handling
+    ///
+    /// If a single operand is provided (e.g., `(- x)`), it is automatically transformed
+    /// into a binary subtraction `(0.0 - x)`. This normalization allows the constant
+    /// folding and flattening phases to treat negation as a standard arithmetic
+    /// operation, ensuring that expressions like `(- 10)` are correctly reduced
+    /// to `-10.0` during the construction pipeline.
+    ///
+    /// # Arguments
+    ///
+    /// * `operands` - A slice of [`ExprId`] representing the terms.
+    ///
+    /// # Returns
+    ///
+    /// * `ExprId` - The unique identifier for the normalized subtraction.
     pub fn sub(&mut self, operands: &[ExprId]) -> ExprId {
-        self.arithmetic(ArithmeticOp::Sub, operands)
+        if operands.len() == 1 {
+            // Transform unary negation into binary subtraction (0.0 - x)
+            // This ensures consistent constant folding and canonical representation.
+            let zero = self.number(0.0);
+            self.arithmetic(ArithmeticOp::Sub, &[zero, operands[0]])
+        } else {
+            self.arithmetic(ArithmeticOp::Sub, operands)
+        }
     }
 
     /// Creates a multiplication expression: `(* operands...)`.
