@@ -15,6 +15,12 @@
 use crate::aiplan4rust::lir::store::id::ExprId;
 use crate::aiplan4rust::lir::store::ExprEntryKind;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
+
+/// La capacité "inline" de notre SmallVec.
+/// On choisit 4 pour que l'entrée `ExprEntry` occupe exactement 64 octets,
+/// ce qui correspond à la taille d'une ligne de cache L1 sur les CPU modernes (M2, x86_64).
+pub const INLINE_CAPACITY: usize = 4;
 
 /// An immutable entry within the [`ExprStore`].
 ///
@@ -32,7 +38,7 @@ pub struct ExprEntry {
     kind: ExprEntryKind,
 
     /// The list of children identifiers pointing back into the [`ExprStore`].
-    children: Vec<ExprId>,
+    children: SmallVec<[ExprId; INLINE_CAPACITY]>,
 }
 
 impl ExprEntry {
@@ -40,8 +46,11 @@ impl ExprEntry {
     ///
     /// Note: Usually, you should use `ExprStore::intern` rather than creating
     /// entries manually to ensure uniqueness.
-    pub fn new(kind: ExprEntryKind, children: Vec<ExprId>) -> Self {
-        Self { kind, children }
+    pub fn new(kind: ExprEntryKind, children_slice: &[ExprId]) -> Self {
+        Self {
+            kind,
+            children: SmallVec::from_slice(children_slice),
+        }
     }
 
     /// Returns a shared slice of the child IDs.

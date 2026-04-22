@@ -56,7 +56,7 @@ impl<'a> ExprBuilder<'a> {
             ExprEntryKind::Imply => self.imply(children[0], children[1]),
             ExprEntryKind::When => self.when(children[0], children[1]),
             ExprEntryKind::Comparison(op) => self.comparison(op, children[0], children[1]),
-            ExprEntryKind::Assignment(op) => self.assign_expr(op, children[0], children[1]),
+            ExprEntryKind::Assignment(op) => self.assignment(op, children[0], children[1]),
 
             // TaskOrderingConstraint n'a pas de helper public direct prenant 2 IDs,
             // on utilise l'internement direct comme dans ton API.
@@ -152,5 +152,28 @@ impl<'a> ExprBuilder<'a> {
                 break;
             }
         }
+    }
+
+    /// Extracts a literal floating-point value from an expression ID if it points to a number.
+    ///
+    /// This is a convenience helper that traverses the `ExprStore` to check if a specific
+    /// [`ExprId`] corresponds to a [`ExprEntryKind::Number`].
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The [`ExprId`] of the expression to inspect.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(f64)` - The inner value if the expression is a numeric literal.
+    /// * `None` - If the expression does not exist or is not a number (e.g., it's a variable or another operation).
+    pub(crate) fn get_number(&self, id: ExprId) -> Option<f64> {
+        self.get(id).and_then(|n| {
+            if let ExprEntryKind::Number(v) = n.kind() {
+                Some(v.into_inner())
+            } else {
+                None
+            }
+        })
     }
 }

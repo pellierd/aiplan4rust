@@ -1,3 +1,44 @@
+//! # Arithmetic Module: Construction and Optimization Pipeline
+//!
+//! This module provides a high-performance API for creating arithmetic expressions
+//! within the LIR (Linear Intermediate Representation) store. It transforms raw
+//! operations into simplified, canonical forms.
+//!
+//! ## Design Philosophy
+//!
+//! ### 1. Zero-Allocation (Heap Stability)
+//! The builder is engineered to avoid heap allocations during the construction phase.
+//! It utilizes two persistent internal buffers (`primary_buffer` and `secondary_buffer`)
+//! which are reused across every `arithmetic` call. This eliminates "heap churn"
+//! and ensures predictable performance under heavy workloads.
+//!
+//! ### 2. Hash-Consing & Uniqueness
+//! Every generated expression is unique within the store. If two different code paths
+//! create the same semantic expression (e.g., `(+ 1 2 x)` and `(+ x 3)`), they will
+//! receive the exact same [`ExprId`]. This drastically reduces the memory footprint
+//! and accelerates subsequent comparisons (O(1) pointer equality).
+//!
+//! ### 3. Four-Phase Transformation Pipeline
+//!
+//! The construction engine follows a rigorous pipeline to ensure optimality:
+//!
+//! | Phase | Name | Role |
+//! | :--- | :--- | :--- |
+//! | **1** | **Early Fold** | Intercepts errors (`NaN`, `/0`) and symbolic identities (`x-x`, `x*0`) without using buffers. |
+//! | **2** | **Flattening** | Flattens associative operations. `(a + (b + c))` becomes `(+ a b c)`. Also handles PDDL unary negation. |
+//! | **3** | **Constant Folding** | In-place numerical reduction. Merges all constant literals into a single value. |
+//! | **4** | **Finalization** | Sorts operands (commutative canonization), reduces unary forms, and performs final interning. |
+//!
+//! ## Transformation Example
+//!
+//! ```ignore
+//! // Input: arithmetic(Add, &[x, arithmetic(Add, &[2, 3])])
+//! // 1. Phase 2 (Flattening) : [x, 2, 3]
+//! // 2. Phase 3 (Folding)    : [x, 5.0]
+//! // 3. Phase 4 (Sorting)    : [5.0, x] (based on internal IDs)
+//! // Result: ExprId pointing to (+ 5.0 x)
+//! ```
+
 use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::lir::store::builder::ExprBuilder;
 use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
@@ -378,29 +419,6 @@ impl<'a> ExprBuilder<'a> {
         None
     }
 
-    /// Extracts a literal floating-point value from an expression ID if it points to a number.
-    ///
-    /// This is a convenience helper that traverses the `ExprStore` to check if a specific
-    /// [`ExprId`] corresponds to a [`ExprEntryKind::Number`].
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The [`ExprId`] of the expression to inspect.
-    ///
-    /// # Returns
-    ///
-    /// * `Some(f64)` - The inner value if the expression is a numeric literal.
-    /// * `None` - If the expression does not exist or is not a number (e.g., it's a variable or another operation).
-    fn get_number(&self, id: ExprId) -> Option<f64> {
-        self.get(id).and_then(|n| {
-            if let ExprEntryKind::Number(v) = n.kind() {
-                Some(v.into_inner())
-            } else {
-                None
-            }
-        })
-    }
-
     /// Re-inserts the accumulated numeric constant into the primary buffer at the mathematically correct position.
     ///
     /// This is the final step of the constant folding phase. It determines whether the
@@ -520,18 +538,27 @@ impl<'a> ExprBuilder<'a> {
         id
     }
 
-    /// Creates a numeric literal node with mandatory NaN normalization.
+    /// Creates a numeric literal node with mandatory NaN and Zero normalization.
     ///
-    /// To ensure perfect deduplication (hash-consing), this function normalizes all
-    /// variations of `NaN` into a single canonical representation. Without this,
-    /// different bit patterns of `NaN` (e.g., quiet vs. signaling) would result
-    /// in different [`ExprId`]s, breaking the store's invariants.
+    /// To ensure perfect deduplication (hash-consing), this function normalizes
+    /// floating-point values that have multiple binary representations but
+    /// identical semantic meaning:
+    ///
+    /// 1. **NaN Normalization**: All variations of `NaN` (quiet, signaling, etc.)
+    ///    are collapsed into a single canonical representation.
+    /// 2. **Zero Normalization**: Both positive zero (`0.0`) and negative zero
+    ///    (`-0.0`) are normalized to `0.0`.
+    ///
+    /// Without these steps, bit-wise different patterns for numerically equal
+    /// values would result in different [`ExprId`]s, breaking the store's
+    /// "pointer equality" invariant (O(1) comparison).
     ///
     /// # Performance Note
     ///
-    /// The normalization check (`is_nan`) is extremely cheap (a simple bitmask
-    /// on the exponent) and is preferred here rather than inside the generic `intern`
-    /// method to keep the main interning loop as fast as possible.
+    /// The normalization checks (`is_nan` and `value == 0.0`) are extremely cheap
+    /// bitwise/mask operations. Performing them here ensures that the internal
+    /// hashing logic of the store remains predictable and collision-free for
+    /// numeric constants.
     ///
     /// # Arguments
     ///
@@ -539,11 +566,14 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     ///
-    /// * `ExprId` - The unique identifier for this numeric constant.
+    /// * `ExprId` - The unique identifier for this normalized numeric constant.
     pub fn number(&mut self, value: f64) -> ExprId {
         let val = if value.is_nan() {
             // Normalize to a single canonical NaN representation
             OrderedFloat(f64::NAN)
+        } else if value == 0.0 {
+            // Normalize -0.0 to 0.0 to ensure uniqueness in the hash-map
+            OrderedFloat(0.0)
         } else {
             OrderedFloat(value)
         };

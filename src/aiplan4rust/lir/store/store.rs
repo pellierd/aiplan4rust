@@ -9,7 +9,7 @@ use std::hash::{Hash, Hasher};
 
 /// Structure de recherche temporaire pour le Zero-Copy.
 /// Elle permet de chercher dans la HashMap avec des références sans allouer de Vec.
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct ExprLookup<'a> {
     kind: &'a ExprEntryKind,
     children: &'a [ExprId],
@@ -19,11 +19,14 @@ struct ExprLookup<'a> {
 /// avec les entrées stockées.
 impl<'a> hashbrown::Equivalent<ExprEntry> for ExprLookup<'a> {
     fn equivalent(&self, key: &ExprEntry) -> bool {
+        // On compare les types (Enums)
+        // Puis on compare les slices d'IDs.
+        // Note : SmallVec implémente la comparaison avec les slices de manière très efficace.
         key.kind() == self.kind && key.children() == self.children
     }
 }
 
-#[derive(Default, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ExprStore {
     /// Stockage contigu des données (Arène)
     entries: Vec<ExprEntry>,
@@ -34,6 +37,20 @@ pub struct ExprStore {
     lookup: HashMap<ExprEntry, ExprId, FxBuildHasher>,
 }
 
+impl Default for ExprStore {
+    fn default() -> Self {
+        Self {
+            entries: Vec::with_capacity(1024),
+            // On utilise with_capacity_and_hasher pour correspondre au type attendu
+            lookup: hashbrown::HashMap::with_capacity_and_hasher(
+                1024,
+                // Initialise le FxHasher par défaut
+                core::hash::BuildHasherDefault::<fxhash::FxHasher>::default(),
+            ),
+        }
+    }
+}
+
 impl ExprStore {
     pub fn new() -> Self {
         Self::default()
@@ -42,7 +59,8 @@ impl ExprStore {
     /// La méthode centrale : récupère l'ID existant ou crée une nouvelle entrée.
     /// Garanti Zero-Allocation si l'expression existe déjà.
     pub fn intern(&mut self, kind: ExprEntryKind, children: &[ExprId]) -> ExprId {
-        // RECHERCHE ZERO-COPY (Directe et rapide)
+        // 1. RECHERCHE ZERO-COPY
+        // On ne crée rien, on regarde juste si ça existe
         let query = ExprLookup {
             kind: &kind,
             children,
@@ -52,12 +70,19 @@ impl ExprStore {
             return id;
         }
 
-        // CRÉATION
+        // 2. CRÉATION DE L'ID
         let id = ExprId::new(self.entries.len());
-        let entry = ExprEntry::new(kind, children.to_vec());
 
-        self.entries.push(entry.clone());
-        self.lookup.insert(entry, id);
+        // 3. STOCKAGE DÉFINITIF
+        // On crée l'entry (Zéro-alloc si <= 4 enfants)
+        let entry = ExprEntry::new(kind, children);
+
+        // On insère dans le lookup en premier (on doit cloner ici car la table de hash
+        // a besoin de posséder sa propre clé pour rester valide)
+        self.lookup.insert(entry.clone(), id);
+
+        // On déplace l'entrée originale dans le vecteur (Zéro-copie, juste un move)
+        self.entries.push(entry);
 
         id
     }

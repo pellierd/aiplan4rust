@@ -1,12 +1,10 @@
-use crate::aiplan4rust::lang::{
-    FunctionSymbolId, ObjectId, PredicateSymbolId, VariableId,
-};
+use crate::aiplan4rust::lang::{FunctionSymbolId, ObjectId, PredicateSymbolId, VariableId};
 use crate::aiplan4rust::lir::store::builder::ExprBuilder;
 use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Crée un nœud constante (objet) à partir d'un identifiant.
-    pub fn constant<I: Into<ObjectId>>(&mut self, id: I) -> ExprId {
+    pub fn object<I: Into<ObjectId>>(&mut self, id: I) -> ExprId {
         let val: usize = id.into().into();
         self.intern(ExprEntryKind::Object(ObjectId::from(val)), &[])
     }
