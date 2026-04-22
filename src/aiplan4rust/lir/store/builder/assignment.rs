@@ -47,26 +47,27 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// This method handles various assignment types (e.g., `assign`, `increase`, `scale-up`)
     /// and applies preemptive optimizations to elide redundant operations and simplify
-    /// algebraic edge cases before they reach the store.
+    /// algebraic edge cases using epsilon-aware floating-point logic.
     ///
     /// # Optimizations
     ///
     /// 1. **Identity Elision (No-Op)**:
-    ///    The function detects operations that have no effect on the state and replaces them
-    ///    with a neutral `True` node (empty conjunction).
-    ///    - `increase` or `decrease` by `0.0`.
-    ///    - `scale-up` or `scale-down` by `1.0`.
+    ///    Detects operations that have no significant effect on the state (within epsilon)
+    ///    and replaces them with a neutral `True` node (empty conjunction).
+    ///    - `increase` or `decrease` by a value that `is_zero`.
+    ///    - `scale-up` or `scale-down` by a value that `is_eq` to `1.0`.
     ///
     /// 2. **Algebraic Reduction & Totalization**:
-    ///    - **Zero Scaling**: Scaling a fluent by `0.0` (`ScaleUp`) is re-encoded
+    ///    - **Zero Scaling**: Scaling a fluent by ~`0.0` (`ScaleUp`) is re-encoded
     ///      as a direct `Assign` of `0.0`.
-    ///    - **Error Propagation**: Dividing a fluent by `0.0` (`ScaleDown`) is
-    ///      re-encoded as an `Assign` of `NaN`. This ensures that invalid operations
-    ///      are caught early and handled consistently across the pipeline.
+    ///    - **Safety (Zero Division)**: Dividing a fluent by ~`0.0` (`ScaleDown`) is
+    ///      re-encoded as an `Assign` of `NaN`. This prevents numerical explosions
+    ///      and ensures consistent error propagation.
     ///
-    /// 3. **Zero-Alloc Lookups**:
-    ///    Uses `get_number` to inspect the value literal without allocating
-    ///    intermediate node references, ensuring high throughput during construction.
+    /// 3. **Numerical Robustness**:
+    ///    By using `is_zero` and `is_eq`, the builder avoids creating thousands of
+    ///    redundant nodes for micro-increments (e.g., `1e-18`) that exceed the
+    ///    precision limits of the solver.
     ///
     /// # Arguments
     ///
@@ -81,12 +82,12 @@ impl<'a> ExprBuilder<'a> {
     pub fn assignment(&mut self, op: AssignOp, target: ExprId, value: ExprId) -> ExprId {
         // 1. Fast path for numeric literals
         if let Some(val) = self.get_number(value) {
-            // 2. Identify No-Op operations (neutral elements)
+            // 2. Identify No-Op operations using robust epsilon-aware helpers
             let is_no_op = match op {
-                // Adding/Subtracting 0.0 results in no change
-                AssignOp::Increase | AssignOp::Decrease => val == 0.0,
-                // Multiplying/Dividing by 1.0 results in no change
-                AssignOp::ScaleUp | AssignOp::ScaleDown => val == 1.0,
+                // Adding/Subtracting nearly 0.0 results in no change
+                AssignOp::Increase | AssignOp::Decrease => self.is_zero(val),
+                // Multiplying/Dividing by nearly 1.0 results in no change
+                AssignOp::ScaleUp | AssignOp::ScaleDown => self.is_eq(val, 1.0),
                 AssignOp::Assign => false,
             };
 
@@ -95,16 +96,16 @@ impl<'a> ExprBuilder<'a> {
                 return self.empty_and();
             }
 
-            // 3. Algebraic optimization & Safety (Handling 0.0)
-            if val == 0.0 {
+            // 3. Algebraic optimization & Safety (Handling near-zero values)
+            if self.is_zero(val) {
                 match op {
-                    // Multiplier is 0.0: f = f * 0  => f = 0
+                    // Multiplier is nearly 0.0: f = f * 0  => f = 0
                     AssignOp::ScaleUp => {
                         let zero = self.number(0.0);
                         return self
                             .intern(ExprEntryKind::Assignment(AssignOp::Assign), &[target, zero]);
                     }
-                    // Divisor is 0.0: f = f / 0  => f = NaN (Safe Totalization)
+                    // Divisor is nearly 0.0: f = f / 0  => f = NaN (Safe Totalization)
                     AssignOp::ScaleDown => {
                         let nan = self.number(f64::NAN);
                         return self

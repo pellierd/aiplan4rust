@@ -1,6 +1,8 @@
 use crate::aiplan4rust::lir::store::error::StorerError;
 use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId, ExprNodeRef, ExprStore};
 
+const EPSILON: f64 = 1e-10;
+
 /// Le Builder sert de façade ergonomique au-dessus du ExprStore.
 /// Il facilite la création d'expressions tout en garantissant le Hash-Consing.
 pub struct ExprBuilder<'a> {
@@ -108,6 +110,48 @@ impl<'a> ExprBuilder<'a> {
             // Object, Variable, symbols, Number, TotalTime...
             leaf_kind => self.intern(leaf_kind, &[]),
         }
+    }
+
+    /// (==) Returns true if two values are nearly equal.
+    #[inline]
+    pub fn is_eq(&self, a: f64, b: f64) -> bool {
+        (a - b).abs() <= f64::EPSILON
+    }
+
+    /// (>) Returns true if `a` is significantly greater than `b`.
+    #[inline]
+    pub fn is_gt(&self, a: f64, b: f64) -> bool {
+        a > b + f64::EPSILON
+    }
+
+    /// (<) Returns true if `a` is significantly less than `b`.
+    #[inline]
+    pub fn is_lt(&self, a: f64, b: f64) -> bool {
+        a < b - f64::EPSILON
+    }
+
+    /// (>=) Returns true if `a` is greater than or nearly equal to `b`.
+    #[inline]
+    pub fn is_ge(&self, a: f64, b: f64) -> bool {
+        a >= b - f64::EPSILON
+    }
+
+    /// (<=) Returns true if `a` is less than or nearly equal to `b`.
+    #[inline]
+    pub fn is_le(&self, a: f64, b: f64) -> bool {
+        a <= b + f64::EPSILON
+    }
+
+    /// (== 0) Special check for zero-equivalence.
+    #[inline]
+    pub fn is_zero(&self, a: f64) -> bool {
+        a.abs() <= f64::EPSILON
+    }
+
+    /// (< 0) Check if significantly negative.
+    #[inline]
+    pub fn is_neg(&self, a: f64) -> bool {
+        a < -f64::EPSILON
     }
 
     /// Sorts a given buffer by `ExprId` to enable deduplication and canonicalization.

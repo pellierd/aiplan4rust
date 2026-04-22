@@ -138,8 +138,13 @@ impl<'a> ExprBuilder<'a> {
 
     /// Handles division by zero during the early construction phase.
     ///
-    /// If the operation is a division and the divisor is a literal `0.0`,
-    /// it immediately returns a `NaN` constant to prevent invalid runtime calculations.
+    /// If the operation is a division and the divisor is a numeric literal that
+    /// evaluates to nearly `0.0` (within epsilon), it immediately returns a `NaN`
+    /// constant.
+    ///
+    /// This prevents invalid runtime calculations and protects the solver against
+    /// numerical explosions (overflows) caused by dividing by extremely small
+    /// values that are physically insignificant in the model.
     ///
     /// # Arguments
     ///
@@ -148,17 +153,17 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     ///
-    /// * `Some(ExprId)` - An ID pointing to a `NaN` constant if a division by zero is detected.
-    /// * `None` - If no division by zero is found, allowing the pipeline to proceed.
+    /// * `Some(ExprId)` - An ID pointing to a canonical `NaN` constant if a
+    ///   near-zero divisor is detected.
+    /// * `None` - If the divisor is not zero or not a literal, allowing the pipeline to proceed.
     fn early_fold_div_by_zero(&mut self, op: ArithmeticOp, operands: &[ExprId]) -> Option<ExprId> {
         if op == ArithmeticOp::Div && operands.len() == 2 {
-            // We only check the second operand (the divisor)
+            // We only check the second operand (the divisor).
             let divisor_id = operands[1];
-            if let Some(node) = self.get(divisor_id) {
-                if let ExprEntryKind::Number(n) = node.kind() {
-                    if n.into_inner() == 0.0 {
-                        return Some(self.number(f64::NAN));
-                    }
+            if let Some(val) = self.get_number(divisor_id) {
+                // Use epsilon-aware check to catch -0.0, 0.0, and infinitesimal residues.
+                if self.is_zero(val) {
+                    return Some(self.number(f64::NAN));
                 }
             }
         }
@@ -167,19 +172,20 @@ impl<'a> ExprBuilder<'a> {
 
     /// Simplifies symbolic and algebraic identities where the result is independent of variable values.
     ///
-    /// This method acts as a "fast path" to reduce expressions based on mathematical properties
-    /// before they enter the more expensive flattening and interning phases. It handles two
-    /// main categories of simplifications:
+    /// This method acts as an epsilon-aware "fast path" to reduce expressions based on
+    /// mathematical properties before they enter the more expensive flattening and
+    /// interning phases.
     ///
     /// ### 1. Symbolic Identities (Self-Identity)
-    /// When both operands are identical (sharing the same [`ExprId`] via Hash-Consing):
+    /// Leverages **Hash-Consing**: if two operands share the same [`ExprId`], they are
+    /// structurally identical.
     /// - `x - x => 0.0`
-    /// - `x / x => 1.0`
+    /// - `x / x => 1.0` (Note: Division by zero is pre-handled)
     ///
-    /// ### 2. Algebraic Identities (Neutral & Absorbing Elements)
-    /// When one operand is a numeric literal that simplifies the operation:
-    /// - **Neutral Elements**: `x + 0 => x`, `x * 1 => x`, `x - 0 => x`, `x / 1 => x`.
-    /// - **Absorbing Elements**: `x * 0 => 0.0`, `0 / x => 0.0`.
+    /// ### 2. Algebraic Identities (Epsilon-aware)
+    /// Uses robust comparison helpers (`is_zero`, `is_eq`) to handle floating-point residues:
+    /// - **Neutral Elements**: `x + ~0 => x`, `x * ~1 => x`, `x - ~0 => x`, `x / ~1 => x`.
+    /// - **Absorbing Elements**: `x * ~0 => 0.0`, `~0 / x => 0.0`.
     ///
     /// # Arguments
     ///
@@ -188,11 +194,11 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     ///
-    /// * `Some(ExprId)` - The ID of the simplified expression (either an existing operand or a new constant).
+    /// * `Some(ExprId)` - The ID of the simplified expression.
     /// * `None` - If no identities are applicable, allowing the pipeline to continue.
     fn early_fold_identities(&mut self, op: ArithmeticOp, operands: &[ExprId]) -> Option<ExprId> {
         // --- CASE 1: SYMBOLIC IDENTITIES (x op x) ---
-        // Leverages Hash-Consing: if IDs are equal, the underlying expressions are identical.
+        // Pointer equality on IDs guarantees structural identity.
         if operands.len() == 2 && operands[0] == operands[1] {
             match op {
                 ArithmeticOp::Sub => return Some(self.number(0.0)),
@@ -202,7 +208,7 @@ impl<'a> ExprBuilder<'a> {
         }
 
         // --- CASE 2: NEUTRAL AND ABSORBING ELEMENTS ---
-        // Specifically targets binary operations involving at least one constant literal.
+        // Targets binary operations involving at least one epsilon-equivalent literal.
         if operands.len() == 2 {
             let left = operands[0];
             let right = operands[1];
@@ -211,37 +217,52 @@ impl<'a> ExprBuilder<'a> {
 
             match op {
                 ArithmeticOp::Add => {
-                    if val_left == Some(0.0) {
-                        return Some(right);
+                    if let Some(v) = val_left {
+                        if self.is_zero(v) {
+                            return Some(right);
+                        }
                     }
-                    if val_right == Some(0.0) {
-                        return Some(left);
+                    if let Some(v) = val_right {
+                        if self.is_zero(v) {
+                            return Some(left);
+                        }
                     }
                 }
                 ArithmeticOp::Sub => {
-                    if val_right == Some(0.0) {
-                        return Some(left);
+                    if let Some(v) = val_right {
+                        if self.is_zero(v) {
+                            return Some(left);
+                        }
                     }
-                    // Note: 0 - x is preserved as the canonical form for negation.
                 }
                 ArithmeticOp::Mul => {
-                    if val_left == Some(1.0) {
-                        return Some(right);
+                    if let Some(v) = val_left {
+                        if self.is_eq(v, 1.0) {
+                            return Some(right);
+                        }
+                        if self.is_zero(v) {
+                            return Some(self.number(0.0));
+                        }
                     }
-                    if val_right == Some(1.0) {
-                        return Some(left);
-                    }
-                    if val_left == Some(0.0) || val_right == Some(0.0) {
-                        return Some(self.number(0.0));
+                    if let Some(v) = val_right {
+                        if self.is_eq(v, 1.0) {
+                            return Some(left);
+                        }
+                        if self.is_zero(v) {
+                            return Some(self.number(0.0));
+                        }
                     }
                 }
                 ArithmeticOp::Div => {
-                    if val_right == Some(1.0) {
-                        return Some(left);
+                    if let Some(v) = val_right {
+                        if self.is_eq(v, 1.0) {
+                            return Some(left);
+                        }
                     }
-                    // 0 / x -> 0.0 (Division by zero is pre-handled by early_fold_div_by_zero)
-                    if val_left == Some(0.0) {
-                        return Some(self.number(0.0));
+                    if let Some(v) = val_left {
+                        if self.is_zero(v) {
+                            return Some(self.number(0.0));
+                        }
                     }
                 }
             }
@@ -313,40 +334,30 @@ impl<'a> ExprBuilder<'a> {
 
     /// Numerically reduces constant literals within the primary buffer using an in-place linear pass.
     ///
-    /// This method aggregates all literal numbers found in the flattened operand list into a single
-    /// constant value where mathematically possible. It employs a "write pointer" strategy to
-    /// update the `primary_buffer` in-place, filtering out folded literals while preserving
-    /// irreducible expressions (variables).
+    /// This method aggregates literal numbers into a single constant where mathematically possible,
+    /// using epsilon-aware logic to handle floating-point imprecision. It employs a "write pointer"
+    /// strategy to update the `primary_buffer` in-place, avoiding heap allocations.
     ///
     /// # Optimization Logic
     ///
-    /// 1. **Short-Circuiting**: Immediately returns a result if a "poisonous" value is encountered
-    ///    (e.g., `NaN` propagates upward, or `0.0` in a multiplication absorbs all other terms).
-    /// 2. **Commutative Folding**: For `Add` and `Mul`, all constants are aggregated regardless
-    ///    of their position relative to variables.
-    /// 3. **Positional Folding**: For `Sub` and `Div`, constants are only folded if they appear
-    ///    at the head of the expression and are not interrupted by variables. This ensures
-    ///    mathematical correctness (e.g., `(10 - x) - 2` cannot be folded into `8 - x` without
-    ///    further algebraic reassociation).
-    /// 4. **Neutral Element Elimination**: Identity values (like adding `0` or multiplying by `1`)
-    ///    are effectively removed from the operand list during the pass.
-    ///
-    /// # Memory Management
-    ///
-    /// The operation is performed **in-place** within the `primary_buffer`. By using a `write_idx`
-    /// and subsequent `truncate`, the method avoids allocating a new vector for the reduced
-    /// operand list.
+    /// 1. **Short-Circuiting**: Immediately returns if a "poisonous" or "absorbing" value is
+    ///    encountered (e.g., `NaN` propagates, or `~0.0` in `Mul` absorbs the expression).
+    /// 2. **Commutative Folding**: For `Add` and `Mul`, all constants are aggregated
+    ///    regardless of position.
+    /// 3. **Positional Folding**: For `Sub` and `Div`, folding only occurs at the head
+    ///    before any variables are encountered, ensuring `(10 - x) - 2` isn't incorrectly
+    ///    folded without reassociation.
+    /// 4. **Epsilon Robustness**: Uses `is_zero` and `is_eq` to prevent micro-residues
+    ///    (e.g., `1e-17`) from surviving as independent nodes, keeping the expression tree clean.
     ///
     /// # Arguments
     ///
-    /// * `op` - The [`ArithmeticOp`] determining the folding rules (Add, Sub, Mul, Div).
+    /// * `op` - The [`ArithmeticOp`] determining the folding rules.
     ///
     /// # Returns
     ///
-    /// * `Some(ExprId)` - If the entire expression simplifies to a single constant or error state
-    ///   via short-circuiting.
-    /// * `None` - If the folding process completes normally, leaving the remaining operands
-    ///   in the truncated `primary_buffer`.
+    /// * `Some(ExprId)` - If the expression simplifies to a single constant or error (NaN).
+    /// * `None` - If folding completes, leaving remaining operands in the `primary_buffer`.
     fn fold_constants(&mut self, op: ArithmeticOp) -> Option<ExprId> {
         let mut constant_part: Option<f64> = None;
         let mut has_variable = false;
@@ -358,21 +369,22 @@ impl<'a> ExprBuilder<'a> {
             let id = self.primary_buffer[i];
             match self.get_number(id) {
                 Some(v) => {
-                    // NaN Propagation
+                    // Phase 3.1: NaN Propagation
                     if v.is_nan() {
                         return Some(id);
                     }
-                    // Multiplication Absorption
-                    if op == ArithmeticOp::Mul && v == 0.0 {
+
+                    // Phase 3.2: Absorption (Multiplication by ~0.0)
+                    if op == ArithmeticOp::Mul && self.is_zero(v) {
                         return Some(self.number(0.0));
                     }
 
                     match (op, constant_part) {
-                        // Commutative aggregation
+                        // Commutative aggregation (Add, Mul)
                         (ArithmeticOp::Add, c) => constant_part = Some(c.unwrap_or(0.0) + v),
                         (ArithmeticOp::Mul, c) => constant_part = Some(c.unwrap_or(1.0) * v),
 
-                        // Non-commutative positional folding
+                        // Non-commutative positional folding (Sub, Div)
                         (ArithmeticOp::Sub | ArithmeticOp::Div, None) if i == 0 => {
                             constant_part = Some(v);
                         }
@@ -380,17 +392,18 @@ impl<'a> ExprBuilder<'a> {
                             constant_part = Some(c - v)
                         }
                         (ArithmeticOp::Div, Some(c)) if !has_variable => {
-                            if v == 0.0 {
-                                return Some(self.number(f64::NAN)); // Division by zero
+                            // Robust division by zero check
+                            if self.is_zero(v) {
+                                return Some(self.number(f64::NAN));
                             }
                             constant_part = Some(c / v);
                         }
 
-                        // Identity values (0 or 1) that do not advance the write pointer
-                        (ArithmeticOp::Sub, _) if v == 0.0 => {}
-                        (ArithmeticOp::Div, _) if v == 1.0 => {}
+                        // Identity values (nearly 0 or 1) that do not advance the write pointer
+                        (ArithmeticOp::Sub, _) if self.is_zero(v) => {}
+                        (ArithmeticOp::Div, _) if self.is_eq(v, 1.0) => {}
 
-                        // Literal cannot be folded at this position (e.g., constant after a variable in Sub)
+                        // Literal cannot be folded at this position
                         _ => {
                             self.primary_buffer[write_idx] = id;
                             write_idx += 1;
@@ -398,23 +411,21 @@ impl<'a> ExprBuilder<'a> {
                     }
                 }
                 None => {
-                    // Irreducible operand (Variable or complex sub-expression)
+                    // Irreducible operand (Variable or sub-expression)
                     self.primary_buffer[write_idx] = id;
                     write_idx += 1;
                     has_variable = true;
 
-                    // Special case: 0 / x => 0.0
-                    if op == ArithmeticOp::Div && constant_part == Some(0.0) {
+                    // Special case: ~0 / x => 0.0
+                    if op == ArithmeticOp::Div && constant_part.map_or(false, |c| self.is_zero(c)) {
                         return Some(self.number(0.0));
                     }
                 }
             }
         }
 
-        // Truncate the buffer to remove operands that were folded into the constant_part
+        // Truncate and re-insert the aggregated constant
         self.primary_buffer.truncate(write_idx);
-
-        // Re-insert the aggregated constant into the buffer (handling neutral elements)
         self.reinsert_constant_in_buffer(op, constant_part);
         None
     }
@@ -422,26 +433,22 @@ impl<'a> ExprBuilder<'a> {
     /// Re-inserts the accumulated numeric constant into the primary buffer at the mathematically correct position.
     ///
     /// This is the final step of the constant folding phase. It determines whether the
-    /// accumulated constant is significant enough to be included in the final expression
-    /// or if it can be safely omitted as a neutral element (identity).
+    /// accumulated constant is significant enough (outside epsilon) to be included in the
+    /// final expression or if it can be safely omitted as a neutral element.
     ///
     /// # Positioning Logic
     ///
-    /// The placement of the constant is vital for non-commutative operations:
-    /// - **Commutative (`Add`, `Mul`)**: The constant is simply pushed to the end of the buffer.
-    ///   Canonical sorting in the next phase will ensure a consistent order for Hash-Consing.
+    /// The placement of the constant is vital for maintaining semantic correctness:
+    /// - **Commutative (`Add`, `Mul`)**: The constant is appended. A subsequent sorting
+    ///   phase ensures a canonical order for Hash-Consing.
     /// - **Positional (`Sub`, `Div`)**: The accumulated constant represents the base value
-    ///   (the *minuend* or *dividend*). It must be inserted at **index 0** to maintain the
-    ///   correct order of operations (e.g., `10 - x - y` vs `x - y - 10`).
+    ///   (minuend or dividend) and is inserted at **index 0**.
     ///
     /// # Identity Elimination
     ///
-    /// To keep the expression tree lean, neutral elements are discarded unless the buffer is
-    /// otherwise empty:
-    /// - In `Add`, `0.0` is omitted.
-    /// - In `Mul`, `1.0` is omitted.
-    /// - If the buffer is empty, the neutral element is kept to represent the identity
-    ///   value of the operation (e.g., `(+)` results in `0.0`).
+    /// To keep the expression tree lean, neutral elements (e.g., `+ ~0.0`, `* ~1.0`) are
+    /// discarded unless the buffer is otherwise empty. In the case of an empty buffer,
+    /// the neutral element is kept to represent the operation's identity (e.g., `(+) -> 0.0`).
     ///
     /// # Arguments
     ///
@@ -449,19 +456,20 @@ impl<'a> ExprBuilder<'a> {
     /// * `constant_part` - The optional accumulated `f64` result from the folding pass.
     fn reinsert_constant_in_buffer(&mut self, op: ArithmeticOp, constant_part: Option<f64>) {
         if let Some(c) = constant_part {
-            // Identify if the constant is a neutral element (identity)
+            // Identify if the constant is an epsilon-aware neutral element (identity)
             let is_neutral = match op {
-                ArithmeticOp::Add => c == 0.0,
-                ArithmeticOp::Mul => c == 1.0,
+                ArithmeticOp::Add => self.is_zero(c),
+                ArithmeticOp::Mul => self.is_eq(c, 1.0),
                 _ => false,
             };
 
-            // Re-insert if it's significant, or if it's the only remaining value in the expression
+            // Re-insert if it's significant, or if it's the only remaining value.
+            // Keeping it when the buffer is empty ensures (+ ) -> 0.0 or (* ) -> 1.0.
             if !is_neutral || self.primary_buffer.is_empty() {
                 let const_id = self.number(c);
 
                 if op.is_commutative() {
-                    // Commutative: append to the end (will be sorted later)
+                    // Commutative: append to the end (canonical sorting follows in finalize)
                     self.primary_buffer.push(const_id);
                 } else {
                     // Positional: insert at the head to act as the base term (minuend/dividend)

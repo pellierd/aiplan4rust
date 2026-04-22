@@ -196,42 +196,25 @@ impl<'a> ExprBuilder<'a> {
     /// Attempt to resolve the comparison at construction time if both operands are numeric constants.
     ///
     /// This method implements **Phase 3 (Constant Folding)** of the comparison pipeline.
-    /// By evaluating expressions involving literal numbers during the build phase, it
-    /// reduces the total number of nodes in the [`ExprStore`] and simplifies
-    /// downstream logical analysis.
+    /// It utilizes epsilon-aware floating-point helpers to ensure that micro-imprecisions
+    /// do not prevent logical simplifications.
     ///
     /// # Parameters
     ///
-    /// * `op` - The [`CompareOp`] to evaluate. Note: This operator is expected to be
-    ///   canonicalized (i.e., `Greater` should have been converted to `Less` previously).
+    /// * `op` - The [`CompareOp`] to evaluate (canonicalized).
     /// * `l` - [`ExprId`] of the left-hand side operand.
     /// * `r` - [`ExprId`] of the right-hand side operand.
     ///
     /// # Return Value
     ///
-    /// * `Some(ExprId)` - Returns a logical constant:
-    ///     - [`self.empty_and()`] (True) if the comparison evaluates to true.
-    ///     - [`self.empty_or()`] (False) if the comparison evaluates to false.
-    /// * `None` - Indicates that folding was not possible or skipped. This occurs if:
-    ///     - At least one operand is a variable or a complex sub-expression.
-    ///     - One of the numeric constants is a **NaN** (Not-a-Number).
+    /// * `Some(ExprId)` - Returns [`self.empty_and()`] (True) or [`self.empty_or()`] (False).
+    /// * `None` - If operands are not numeric literals or involve **NaN**.
     ///
-    /// # Floating-Point Safety (NaN Handling)
+    /// # Floating-Point Robustness
     ///
-    /// Following the IEEE-754 standard, comparisons involving `NaN` are technically
-    /// unordered. To avoid losing semantic information or making premature logical
-    /// assumptions during the build phase, this function **explicitly refuses** to
-    /// fold any operation containing a `NaN`.
-    ///
-    /// Instead, it returns `None`, forcing the pipeline to intern a physical
-    /// [`ExprEntryKind::Comparison`] node. This preserves the "poisoned" state
-    /// for the runtime evaluator to handle according to specific PDDL or solver logic.
-    ///
-    /// # Safety
-    ///
-    /// This function uses `std::hint::unreachable_unchecked()` for non-canonical
-    /// operators (Greater, GreaterEq). It is the caller's responsibility to ensure
-    /// that `canonicalize_comparison` has been executed prior to calling this method.
+    /// Unlike standard Rust comparisons, this method uses `is_eq`, `is_lt`, and `is_le`.
+    /// This ensures that `x == y` resolves to `True` if the values differ by less than
+    /// [`f64::EPSILON`], maintaining consistency with temporal constraints (e.g., `hold_during`).
     #[inline]
     fn fold_comparison(&mut self, op: CompareOp, l: ExprId, r: ExprId) -> Option<ExprId> {
         let l_node = self.get(l)?;
@@ -247,10 +230,11 @@ impl<'a> ExprBuilder<'a> {
                 return None;
             }
 
+            // Phase 3 Evaluation: Using robust epsilon-aware helpers.
             let truth = match op {
-                CompareOp::Equal => l_val == r_val,
-                CompareOp::Less => l_val < r_val,
-                CompareOp::LessEq => l_val <= r_val,
+                CompareOp::Equal => self.is_eq(l_val, r_val),
+                CompareOp::Less => self.is_lt(l_val, r_val),
+                CompareOp::LessEq => self.is_le(l_val, r_val),
                 // Safety: Greater and GreaterEq are handled by canonicalization phase.
                 _ => unsafe { std::hint::unreachable_unchecked() },
             };
