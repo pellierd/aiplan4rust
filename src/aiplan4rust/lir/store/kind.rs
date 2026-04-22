@@ -51,6 +51,7 @@ pub enum ExprEntryKind {
     TimedInitialLiteral,
     Metric(OptimizationOp),
     TotalTime,
+    TotalCost,
     IsViolated,
     Length,
     Serial,
@@ -116,6 +117,7 @@ impl ExprEntryKind {
             ExprEntryKind::TimedInitialLiteral => "at",
             ExprEntryKind::Metric(_) => "metric",
             ExprEntryKind::TotalTime => "total-time",
+            ExprEntryKind::TotalCost => "total-cost",
 
             // HTN and specific extensions
             ExprEntryKind::TaskOrderingConstraint(_) => "ordering",
@@ -180,6 +182,7 @@ impl fmt::Display for ExprEntryKind {
             ExprEntryKind::TimedInitialLiteral => write!(f, "TimedInitialLiteral"),
             ExprEntryKind::Metric(_) => write!(f, "Metric"),
             ExprEntryKind::TotalTime => write!(f, "TotalTime"),
+            ExprEntryKind::TotalCost => write!(f, "TotalCost"),
             ExprEntryKind::IsViolated => write!(f, "IsViolated"),
             ExprEntryKind::Length => write!(f, "Length"),
             ExprEntryKind::Serial => write!(f, "Serial"),

@@ -1,8 +1,6 @@
 use crate::aiplan4rust::lir::store::error::StorerError;
 use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId, ExprNodeRef, ExprStore};
 
-const EPSILON: f64 = 1e-10;
-
 /// Le Builder sert de façade ergonomique au-dessus du ExprStore.
 /// Il facilite la création d'expressions tout en garantissant le Hash-Consing.
 pub struct ExprBuilder<'a> {
@@ -12,6 +10,7 @@ pub struct ExprBuilder<'a> {
 }
 
 impl<'a> ExprBuilder<'a> {
+    pub const EPSILON: f64 = 1e-9;
     /// Crée un nouveau builder lié à une référence mutable du store.
     pub fn new(store: &'a mut ExprStore) -> Self {
         Self {
@@ -112,46 +111,47 @@ impl<'a> ExprBuilder<'a> {
         }
     }
 
-    /// (==) Returns true if two values are nearly equal.
+    /// Returns true if two values are nearly equal within [Self::EPSILON].
     #[inline]
     pub fn is_eq(&self, a: f64, b: f64) -> bool {
-        (a - b).abs() <= f64::EPSILON
+        (a - b).abs() <= Self::EPSILON
     }
 
-    /// (>) Returns true if `a` is significantly greater than `b`.
+    /// Returns true if `a` is significantly greater than `b` (beyond [Self::EPSILON]).
     #[inline]
     pub fn is_gt(&self, a: f64, b: f64) -> bool {
-        a > b + f64::EPSILON
+        a > b + Self::EPSILON
     }
 
-    /// (<) Returns true if `a` is significantly less than `b`.
+    /// Returns true if `a` is significantly less than `b` (beyond [Self::EPSILON]).
     #[inline]
     pub fn is_lt(&self, a: f64, b: f64) -> bool {
-        a < b - f64::EPSILON
+        a < b - Self::EPSILON
     }
 
-    /// (>=) Returns true if `a` is greater than or nearly equal to `b`.
+    /// Returns true if `a` is greater than or nearly equal to `b`.
     #[inline]
     pub fn is_ge(&self, a: f64, b: f64) -> bool {
-        a >= b - f64::EPSILON
+        a >= b - Self::EPSILON
     }
 
-    /// (<=) Returns true if `a` is less than or nearly equal to `b`.
+    /// Returns true if `a` is less than or nearly equal to `b`.
     #[inline]
     pub fn is_le(&self, a: f64, b: f64) -> bool {
-        a <= b + f64::EPSILON
+        a <= b + Self::EPSILON
     }
 
-    /// (== 0) Special check for zero-equivalence.
+    /// Special check for zero-equivalence within [Self::EPSILON].
     #[inline]
     pub fn is_zero(&self, a: f64) -> bool {
-        a.abs() <= f64::EPSILON
+        a.abs() <= Self::EPSILON
     }
 
-    /// (< 0) Check if significantly negative.
+    /// Checks if a value is significantly negative (less than -[Self::EPSILON]).
+    /// Values between -1e-9 and 0.0 are considered non-negative (zero).
     #[inline]
     pub fn is_neg(&self, a: f64) -> bool {
-        a < -f64::EPSILON
+        a < -Self::EPSILON
     }
 
     /// Sorts a given buffer by `ExprId` to enable deduplication and canonicalization.

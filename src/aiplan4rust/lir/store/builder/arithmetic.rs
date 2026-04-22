@@ -546,27 +546,18 @@ impl<'a> ExprBuilder<'a> {
         id
     }
 
-    /// Creates a numeric literal node with mandatory NaN and Zero normalization.
+    /// Creates a numeric literal node with mandatory NaN and Epsilon-aware Zero normalization.
     ///
-    /// To ensure perfect deduplication (hash-consing), this function normalizes
-    /// floating-point values that have multiple binary representations but
-    /// identical semantic meaning:
+    /// To ensure perfect deduplication (hash-consing) and numerical stability, this
+    /// function normalizes floating-point values into canonical representations:
     ///
-    /// 1. **NaN Normalization**: All variations of `NaN` (quiet, signaling, etc.)
-    ///    are collapsed into a single canonical representation.
-    /// 2. **Zero Normalization**: Both positive zero (`0.0`) and negative zero
-    ///    (`-0.0`) are normalized to `0.0`.
+    /// 1. **NaN Normalization**: All variations of `NaN` are collapsed into a single representation.
+    /// 2. **Epsilon-aware Zero Normalization**: Any value within the builder's epsilon
+    ///    range (e.g., -1e-9 to 1e-9) is snapped to exactly `0.0`. This includes `-0.0`.
     ///
-    /// Without these steps, bit-wise different patterns for numerically equal
-    /// values would result in different [`ExprId`]s, breaking the store's
-    /// "pointer equality" invariant (O(1) comparison).
-    ///
-    /// # Performance Note
-    ///
-    /// The normalization checks (`is_nan` and `value == 0.0`) are extremely cheap
-    /// bitwise/mask operations. Performing them here ensures that the internal
-    /// hashing logic of the store remains predictable and collision-free for
-    /// numeric constants.
+    /// This normalization is critical. Without it, infinitesimal residues (floating-point noise)
+    /// would create unique [`ExprId`]s, polluting the store and breaking structural
+    /// equality checks between semantically identical expressions.
     ///
     /// # Arguments
     ///
@@ -579,8 +570,9 @@ impl<'a> ExprBuilder<'a> {
         let val = if value.is_nan() {
             // Normalize to a single canonical NaN representation
             OrderedFloat(f64::NAN)
-        } else if value == 0.0 {
-            // Normalize -0.0 to 0.0 to ensure uniqueness in the hash-map
+        } else if self.is_zero(value) {
+            // Snap near-zero values (within 1e-9) to 0.0 to ensure
+            // uniqueness and eliminate floating-point noise.
             OrderedFloat(0.0)
         } else {
             OrderedFloat(value)
@@ -746,15 +738,18 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut store);
 
         let n10 = builder.number(10.0);
-        let n0 = builder.number(0.0);
+        let tiny = builder.number(1e-12); // Snappe à 0.0
 
-        let root = builder.div(&[n10, n0]);
+        let root = builder.div(&[n10, tiny]); // Devient 10 / 0.0
 
         let node = builder.get(root).expect("Node should exist");
         if let ExprEntryKind::Number(n) = node.kind() {
-            assert!(n.into_inner().is_nan(), "Should result in a NaN constant");
+            assert!(
+                n.into_inner().is_nan(),
+                "Division by near-zero should result in NaN"
+            );
         } else {
-            panic!("Expected a Number(NaN) kind");
+            panic!("Expected a Number(NaN) node");
         }
     }
 
@@ -1399,5 +1394,153 @@ mod tests {
 
         let node = builder.get(root).unwrap();
         assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0));
+    }
+
+    /// Test: (+ x 1e-12) -> x
+    /// Verifies that "noisy" neutral elements (near zero) are eliminated during folding.
+    #[test]
+    fn test_arithmetic_epsilon_neutral_addition() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let x = builder.variable(VariableId::new(1));
+        let tiny = builder.number(1e-12); // Snappe à 0.0 ici
+
+        let root = builder.add(&[x, tiny]);
+
+        assert_eq!(root, x, "Addition with near-zero should be simplified to x");
+    }
+
+    /// Test: (* x 0.999999999999) -> x
+    /// Verifies that multiplication by a value near 1.0 is simplified.
+    #[test]
+    fn test_arithmetic_epsilon_neutral_multiplication() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let x = builder.variable(VariableId::new(1));
+        let near_one = builder.number(1.0 - 1e-12); // Proche de 1.0
+
+        let root = builder.mul(&[x, near_one]);
+
+        assert_eq!(
+            root, x,
+            "Multiplication by near-one should be simplified to x"
+        );
+    }
+
+    /// Test: (* x 1e-12) -> 0.0
+    /// Verifies that multiplication by a near-zero value absorbs the expression.
+    #[test]
+    fn test_arithmetic_epsilon_absorption() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let x = builder.variable(VariableId::new(1));
+        let near_zero = builder.number(1e-12);
+
+        let root = builder.mul(&[x, near_zero]);
+
+        let node = builder.fetch(root).unwrap();
+        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0));
+    }
+
+    /// Test: (- x x) -> 0.0
+    /// Verifies symbolic identity (x - x) enabled by Hash-Consing.
+    #[test]
+    fn test_symbolic_identity_subtraction() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let x = builder.variable(VariableId::new(1));
+        let root = builder.sub(&[x, x]);
+
+        let node = builder.fetch(root).unwrap();
+        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0));
+    }
+
+    /// Verifies that accumulated noise below epsilon is discarded when a variable
+    /// is present, preventing expression pollution.
+    #[test]
+    fn test_constant_folding_accumulation() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let tiny = builder.number(1e-11);
+        let ops = vec![tiny; 10]; // Somme de 10 * 1e-11 = 1e-10
+
+        let root = builder.add(&ops);
+        let node = builder.fetch(root).unwrap();
+
+        assert!(
+            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0),
+            "Expected 0.0, found {:?}",
+            node.kind()
+        );
+    }
+
+    /// Verifies that pure constant noise (no variables) results in exactly 0.0.
+    #[test]
+    fn test_constant_folding_pure_noise() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let tiny = builder.number(1e-11);
+        let ops = vec![tiny; 10]; // 10 * 1e-11 = 1e-10
+
+        let root = builder.add(&ops);
+
+        // Fetch and verify in a single match arm
+        let node = builder.fetch(root).unwrap();
+        assert!(
+            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0),
+            "Expected 0.0, found {:?}",
+            node.kind()
+        );
+    }
+
+    /// Test: (+ x y) == (+ y x)
+    /// Verifies that commutative operations are sorted to ensure unique Hash-Consing.
+    #[test]
+    fn test_commutative_canonical_sorting() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let x = builder.variable(VariableId::new(1));
+        let y = builder.variable(VariableId::new(2));
+
+        let sum1 = builder.add(&[x, y]);
+        let sum2 = builder.add(&[y, x]);
+
+        assert_eq!(
+            sum1, sum2,
+            "Commutative operands must be sorted to produce identical IDs"
+        );
+    }
+
+    /// Test: Hash-Consing & Epsilon
+    /// Verifies that the interning mechanism (Hash-Consing) unifies constants
+    /// considered zero-equivalent according to the epsilon (1e-9).
+    ///
+    /// Without "snapping" inside `builder.number()`, 0.0 and 1e-15 would have
+    /// different IDs, breaking structural $O(1)$ equality.
+    #[test]
+    fn test_epsilon_hash_consing() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        // Create a pure zero
+        let n_zero = builder.number(0.0);
+
+        // Create a value well below the epsilon (1e-15 < 1e-9)
+        let n_tiny = builder.number(1e-15);
+
+        // Both must return exactly the same ExprId.
+        // This ensures that (+ x 0.0) and (+ x 1e-15) are simplified
+        // to the same state, optimizing memory and future comparisons.
+        assert_eq!(
+            n_zero, n_tiny,
+            "0.0 and 1e-15 must be unified to the same ExprId by the epsilon-aware builder"
+        );
     }
 }
