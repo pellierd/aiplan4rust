@@ -141,6 +141,10 @@ mod tests {
     };
     use crate::aiplan4rust::lir::store::builder::ExprBuilder;
     use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
+
+    /// Objective: Verify that identical atomic formulas are deduplicated via Hash-Consing.
+    /// Input: Calling builder.atomic_formula twice with identical predicate, arguments, and skeleton.
+    /// Output: Both calls must return the exact same ExprId.
     #[test]
     fn test_atomic_formula_deduplication() {
         let mut store = ExprStore::new();
@@ -151,16 +155,18 @@ mod tests {
         let arg1 = builder.variable(VariableId::from(1));
         let arg2 = builder.variable(VariableId::from(2));
 
-        // Premier appel
         let f1 = builder.atomic_formula(sym, &[arg1, arg2], skel);
-        // Deuxième appel identique
         let f2 = builder.atomic_formula(sym, &[arg1, arg2], skel);
 
         assert_eq!(
             f1, f2,
-            "Identical atomic formulas must share the same ExprId"
+            "Identical atomic formulas must share the same ExprId via Hash-Consing"
         );
     }
+
+    /// Objective: Ensure function terms correctly store the symbol as the first child followed by arguments.
+    /// Input: A function term with one numeric argument.
+    /// Output: A Function node where children[0] is the FunctionSymbol and children[1] is the argument.
     #[test]
     fn test_function_term_structure() {
         let mut store = ExprStore::new();
@@ -171,37 +177,51 @@ mod tests {
         let arg = builder.number(10.0);
 
         let f_id = builder.function_term(sym_id, &[arg], skel);
-        let node = builder.get(f_id).unwrap();
+        let node = builder.get(f_id).expect("Function node must exist");
 
-        // Vérification du type de nœud
+        // Verify the node kind matches the skeleton
         assert!(matches!(node.kind(), ExprEntryKind::Function(s) if s == &skel));
 
-        // Vérification de l'ordre : [Symbole, Arg1, ...]
+        // Verify the structure: [SymbolNode, ArgumentNode]
         let children = node.children();
-        assert_eq!(children.len(), 2);
+        assert_eq!(
+            children.len(),
+            2,
+            "Function term must have 2 children (symbol + 1 arg)"
+        );
 
-        // Le premier enfant doit être le nœud "FunctionSymbol"
-        let sym_node = builder.get(children[0]).unwrap();
+        // First child must be the FunctionSymbol metadata node
+        let sym_node = builder.get(children[0]).expect("Symbol node must exist");
         assert!(matches!(sym_node.kind(), ExprEntryKind::FunctionSymbol(s) if s == &sym_id));
-        assert_eq!(children[1], arg);
+
+        // Second child is the actual argument
+        assert_eq!(
+            children[1], arg,
+            "Second child must be the numeric argument"
+        );
     }
 
+    /// Objective: Verify that Timed Initial Literals (TIL) normalize time values.
+    /// Input: Creating TILs with 0.0 and -0.0.
+    /// Output: Identical ExprIds because number interning normalizes floating-point zero signs.
     #[test]
     fn test_timed_literal_normalization() {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
         let atom = builder.variable(VariableId::from(1));
 
-        // Création avec 0.0 et -0.0
         let til1 = builder.timed_initial_literal(0.0, atom);
         let til2 = builder.timed_initial_literal(-0.0, atom);
 
         assert_eq!(
             til1, til2,
-            "TIL with 0.0 and -0.0 must be identical due to number normalization"
+            "TIL with 0.0 and -0.0 must be identical due to internal number normalization"
         );
     }
 
+    /// Objective: Ensure the internal builder buffer is correctly cleared between unrelated calls.
+    /// Input: Constructing two different atomic formulas sequentially.
+    /// Output: Nodes must not leak data from one another; children[0] (symbols) must differ.
     #[test]
     fn test_buffer_integrity_across_calls() {
         let mut store = ExprStore::new();
@@ -210,21 +230,22 @@ mod tests {
         let sym1 = PredicateSymbolId::from(1);
         let sym2 = PredicateSymbolId::from(2);
 
-        // Création de deux formules différentes à la suite
         let f1 = builder.atomic_formula(sym1, &[], AtomSkeletonId::from(1));
         let f2 = builder.atomic_formula(sym2, &[], AtomSkeletonId::from(2));
 
         let node1 = builder.get(f1).unwrap();
         let node2 = builder.get(f2).unwrap();
 
-        // Si le buffer n'était pas vidé, node2 pourrait contenir des restes de node1
         assert_ne!(
             node1.children()[0],
             node2.children()[0],
-            "Symbols must be different"
+            "Symbols must be different; internal buffer contamination detected if equal"
         );
     }
 
+    /// Objective: Verify handling of mixed argument types (Variables and Numbers) in formulas.
+    /// Input: Atomic formula with a VariableId and a literal Number.
+    /// Output: A node with 3 children: [PredicateSymbol, Variable, Number].
     #[test]
     fn test_mixed_arguments_formula() {
         let mut store = ExprStore::new();
@@ -232,14 +253,23 @@ mod tests {
 
         let var = builder.variable(VariableId::from(1));
         let val = builder.number(42.0);
+        let sym = PredicateSymbolId::from(1);
 
-        let formula = builder.atomic_formula(
-            PredicateSymbolId::from(1),
-            &[var, val],
-            AtomSkeletonId::from(1),
+        let formula = builder.atomic_formula(sym, &[var, val], AtomSkeletonId::from(1));
+
+        let node = builder.get(formula).expect("Formula node must exist");
+        let children = node.children();
+
+        assert_eq!(
+            children.len(),
+            3,
+            "Should have 3 children: Symbol + Var + Val"
         );
 
-        let node = builder.get(formula).unwrap();
-        assert_eq!(node.children().len(), 3); // Symbole + Var + Val
+        // Detailed structure check
+        let sym_node = builder.get(children[0]).unwrap();
+        assert!(matches!(sym_node.kind(), ExprEntryKind::PredicateSymbol(s) if s == &sym));
+        assert_eq!(children[1], var);
+        assert_eq!(children[2], val);
     }
 }
