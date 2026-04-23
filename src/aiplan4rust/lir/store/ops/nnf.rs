@@ -432,59 +432,79 @@ mod tests {
         let mut scratch = Scratchpad::new();
         let skel = AtomSkeletonId::from(0);
 
-        // 1. Définition des atomes et d'une variable pour que les quantificateurs existent
+        // 1. Define Variable IDs and TypedVariables
+        let var_x_id = VariableId::from(10);
+        let var_y_id = VariableId::from(11);
+
+        let var_x = builder.typed_variable(10, &[1]);
+        let var_y = builder.typed_variable(11, &[1]);
+
+        let vars_x = builder.typed_variable_list(vec![var_x]);
+        let vars_y = builder.typed_variable_list(vec![var_y]);
+
+        // 2. Define Atomic Formulas using the variables
+        // CRITICAL: We must use the variables as arguments, otherwise the
+        // ExprBuilder's optimization will prune the quantifiers (vacuous quantification).
+        let arg_x = builder.variable(var_x_id);
+        let arg_y = builder.variable(var_y_id);
+
         let a = builder.atomic_formula(1, &[], skel);
         let b = builder.atomic_formula(2, &[], skel);
         let c = builder.atomic_formula(3, &[], skel);
-        let d = builder.atomic_formula(4, &[], skel);
+        // D uses 'y' to justify the existence of the 'exists y' quantifier
+        let d = builder.atomic_formula(4, &[arg_y], skel);
 
-        // Ajout d'une variable pour empêcher le builder de supprimer les nœuds
-        let var_x = builder.typed_variable(10, &[1]); // ?x de type 1
-        let vars = builder.typed_variable_list(vec![var_x]);
-
-        // 2. Construction
+        // 3. Construct the nested structure: ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃y.D)
         let or_bc = builder.or(&[b, c]);
         let not_or_bc = builder.not(or_bc);
 
-        // ICI : On utilise `vars` (non vide) au lieu de `empty_vars`
-        let exists_d = builder.exists(vars.clone(), d)?;
-        let forall_exists_d = builder.forall(vars.clone(), exists_d)?;
+        // (exists y. D(y))
+        let exists_d = builder.exists(vars_y, d)?;
+        // (forall x. (exists y. D(y)))
+        // Note: if x is not used in the body, the builder might still prune it.
+        // If that happens, add arg_x to the atomic_formula 'd' above.
+        let forall_exists_d = builder.forall(vars_x, exists_d)?;
 
         let and_node = builder.and(&[a, not_or_bc, forall_exists_d]);
         let root_id = builder.not(and_node);
 
-        // 3. Transformation
+        // 4. Perform NNF Transformation
         let result_id = to_nnf(root_id, &mut builder, &mut scratch)?;
 
-        // 4. Validation
+        // 5. Validation phase
         let children: Vec<ExprId> = {
             let node = builder.fetch(result_id)?;
             assert!(
                 matches!(node.kind(), ExprEntryKind::Or),
-                "La racine doit être un OR"
+                "Root must be an OR node (De Morgan: ¬(A ∧ B) -> ¬A ∨ ¬B)"
             );
             node.children().to_vec()
         };
 
-        // ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃x.D)
-        // => ¬A ∨ (B ∨ C) ∨ ∃x.¬(∃x.D)
-        // => ¬A ∨ B ∨ C ∨ ∃x.∀x.¬D
-        assert_eq!(children.len(), 4, "Doit avoir 4 enfants (¬A, B, C, ∃∀¬D)");
+        // Expected: ¬A ∨ (B ∨ C) ∨ ∃x.∀y.¬D
+        // The builder flattens the OR, so we expect 4 children: [¬A, B, C, ∃x.∀y.¬D]
+        assert_eq!(
+            children.len(),
+            4,
+            "Should have 4 children (¬A, B, C, ∃x.∀y.¬D)"
+        );
 
-        // 5. Vérifications
+        // 6. Verify simple members
         let not_a = builder.not(a);
-        assert!(children.contains(&not_a));
-        assert!(children.contains(&b));
-        assert!(children.contains(&c));
+        assert!(children.contains(&not_a), "¬A is missing");
+        assert!(children.contains(&b), "B is missing");
+        assert!(children.contains(&c), "C is missing");
 
-        let has_quantifier = children.iter().any(|&id| {
+        // 7. Verify the inverted quantifier exists in the children
+        let has_exists = children.iter().any(|&id| {
             let node = builder.get(id).unwrap();
-            // Le ∀ interne est devenu ∃, et le ∃ interne est devenu ∀
+            // After pushing negation: ¬(∀x.∃y.D) becomes ∃x.∀y.¬D
             matches!(node.kind(), ExprEntryKind::Exists(_))
         });
+
         assert!(
-            has_quantifier,
-            "La branche quantifiée inversée (Exists) doit être présente"
+            has_exists,
+            "The inverted quantified branch (Exists x) must be present"
         );
 
         Ok(())
