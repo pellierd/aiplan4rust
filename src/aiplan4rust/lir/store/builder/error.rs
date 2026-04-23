@@ -10,6 +10,9 @@ pub enum ExprBuilderError {
     DuplicateVariable(VariableId),
 
     /// Violation of PDDL temporal syntax: temporal operators cannot be nested.
+    #[error(
+        "PDDL Semantic Error: cannot wrap {attempted_kind:?} around an existing {existing_kind:?}"
+    )]
     InvalidTemporalInvariant {
         /// The operator already present in the sub-expression.
         existing_kind: ExprEntryKind,

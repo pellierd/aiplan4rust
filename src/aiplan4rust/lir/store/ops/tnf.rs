@@ -102,7 +102,11 @@ pub fn to_tnf(
     let root_key = TimeSpecifier::None.pack(root.as_usize());
     let (s, e, o) = scratch.get_temporal_decomposition(root_key);
 
-    let nodes = [builder.at_start(s), builder.at_end(e), builder.overall(o)];
+    let nodes = [
+        builder.at_start(s)?,
+        builder.at_end(e)?,
+        builder.overall(o)?,
+    ];
     Ok(builder.and(&nodes))
 }
 

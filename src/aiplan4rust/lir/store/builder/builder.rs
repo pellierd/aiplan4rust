@@ -75,9 +75,9 @@ impl<'a> ExprBuilder<'a> {
 
             // --- 3. Opérateurs Unaires (1 enfant) ---
             ExprEntryKind::Not => self.not(children[0]),
-            ExprEntryKind::AtStart => self.at_start(children[0]),
-            ExprEntryKind::AtEnd => self.at_end(children[0]),
-            ExprEntryKind::Overall => self.overall(children[0]),
+            ExprEntryKind::AtStart => self.at_start(children[0])?,
+            ExprEntryKind::AtEnd => self.at_end(children[0])?,
+            ExprEntryKind::Overall => self.overall(children[0])?,
 
             // Pour Preference, IsViolated et Metric, l'API utilise des helpers
             // qui créent des feuilles (symboles). Ici, children contient déjà les IDs.

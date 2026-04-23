@@ -223,24 +223,34 @@ mod tests {
     #[test]
     fn test_temporal_consistency_after_rebuild() {
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
-        let p = builder.predicate(1);
-        let start_p = builder.at_start(p).unwrap();
+        let p;
+        let start_p;
 
-        // Trigger a cache rebuild
+        // 1. First scope: Create builder, intern nodes, then drop builder
+        {
+            let mut builder = ExprBuilder::new(&mut store);
+            p = builder.predicate(1);
+            start_p = builder.at_start(p).unwrap();
+        } // builder is dropped here, releasing the borrow on store
+
+        // 2. Now store is free to be borrowed mutably again
         store.rebuild_caches();
 
-        // Interning the same thing again should still return the same ID
-        let start_p_post = builder.at_start(p).unwrap();
-        assert_eq!(
-            start_p, start_p_post,
-            "Hash-consing must persist across cache rebuilds"
-        );
+        // 3. Second scope: Create a new builder to verify consistency
+        {
+            let mut builder = ExprBuilder::new(&mut store);
+            let start_p_post = builder.at_start(p).unwrap();
+
+            assert_eq!(
+                start_p, start_p_post,
+                "Hash-consing must persist across cache rebuilds"
+            );
+        }
     }
 
     /// Verifies that logical operators can contain predicates but not other temporal operators.
     #[test]
-    fn test_deep_logical_nesting_validity() {
+    fn test_deep_logical_nesting_val231lidity() {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
         let p = builder.predicate(1);
