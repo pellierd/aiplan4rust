@@ -162,7 +162,19 @@ impl<ID: Id> Type<ID> {
 }
 
 impl<ID: Id> FromIterator<ID> for Type<ID> {
+    /// Creates a `Type` by collecting an iterator of identifiers.
+    ///
+    /// # Implementation Details
+    /// This operation is optimized to collect elements directly into the
+    /// internal `SmallVec`.
+    /// - If the iterator's size is within `OPTIMAL_TYPE_CAPACITY`,
+    ///   the resulting `Type` will be stack-allocated.
+    /// - If the number of elements exceeds the inline capacity,
+    ///   it will automatically spill to a single heap allocation.
+    #[inline]
     fn from_iter<I: IntoIterator<Item = ID>>(iter: I) -> Self {
+        // SmallVec::from_iter est optimisé pour utiliser size_hint()
+        // de l'itérateur et éviter les réallocations inutiles.
         let members = SmallVec::from_iter(iter);
 
         Self { members }
@@ -300,6 +312,7 @@ impl RemapSymbol for Type<SymbolId> {
     /// # Performance
     /// Operates in-place. If the type is stored on the stack (<= 2 members),
     /// this avoids all heap traffic.
+    #[inline]
     fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         for ident in &mut self.members {
             // In-place mutation of the SmallVec elements
