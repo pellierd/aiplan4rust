@@ -37,29 +37,40 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     ///
     /// * `ExprId` - The unique identifier of the interned atomic formula in the store.
+    /// Constructs an atomic formula (predicate application).
+    ///
+    /// # Performance
+    /// - **Zero-Allocation**: Reuses `primary_buffer` to store children.
+    /// - **Inline Expansion**: Marked `#[inline]` to allow the compiler to optimize
+    ///   the buffer swap logic directly into the caller.
+    #[inline]
     pub fn atomic_formula<PID, SID>(&mut self, sym_id: PID, args: &[ExprId], skel_id: SID) -> ExprId
     where
         PID: Into<PredicateSymbolId>,
         SID: Into<AtomSkeletonId>,
     {
-        // 1. Resolve metadata (Symbol node and Skeleton ID)
-        let sym_node = self.predicate(sym_id.into());
+        // 1. Resolve Symbol (Inlined call)
+        let sym_node = self.predicate(sym_id);
         let skel = skel_id.into();
 
-        // 2. Prepare the buffer (Zero-Alloc path)
-        self.primary_buffer.clear();
-        self.primary_buffer.push(sym_node);
-        self.primary_buffer.extend_from_slice(args);
+        // 2. Buffer Management
+        // We use a temporary swap to satisfy the borrow checker during `self.intern`.
+        let mut buffer = std::mem::take(&mut self.primary_buffer);
 
-        // 3. Intern the formula
-        // We temporarily "take" the buffer to avoid borrow-checker conflicts between
-        // the buffer slice and the mutable call to `self.intern`.
-        let mut data = std::mem::take(&mut self.primary_buffer);
-        let id = self.intern(ExprEntryKind::AtomicFormula(skel), &data);
+        buffer.clear();
+        // Pre-reserve to avoid incremental reallocations if the buffer was small
+        if buffer.capacity() < args.len() + 1 {
+            buffer.reserve(args.len() + 1);
+        }
 
-        // 4. Cleanup and restore the buffer to the builder for future use
-        data.clear();
-        self.primary_buffer = data;
+        buffer.push(sym_node);
+        buffer.extend_from_slice(args);
+
+        // 3. Interning
+        let id = self.intern(ExprEntryKind::AtomicFormula(skel), &buffer);
+
+        // 4. Return the buffer to the pool
+        self.primary_buffer = buffer;
 
         id
     }
@@ -83,28 +94,45 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     ///
     /// * `ExprId` - The unique identifier of the interned functional term.
+    /// Constructs a functional term (function application).
+    ///
+    /// # Arguments
+    /// * `sym_id` - The symbol identifier for the function.
+    /// * `args` - The arguments (terms) of the function.
+    /// * `skel_id` - The structural skeleton for this function application.
+    ///
+    /// # Performance
+    /// - **Zero-Allocation**: Reuses the `primary_buffer` to avoid `Vec` allocations.
+    /// - **Cache Local**: The buffer swap technique keeps data on the stack during interning.
+    #[inline]
     pub fn function_term<FID, SID>(&mut self, sym_id: FID, args: &[ExprId], skel_id: SID) -> ExprId
     where
         FID: Into<FunctionSymbolId>,
         SID: Into<FunctionSkeletonId>,
     {
-        // 1. Resolve symbol node and skeleton
-        let sym_node = self.function_symbol(sym_id.into());
+        // 1. Resolve Symbol (Inlined call)
+        let sym_node = self.function_symbol(sym_id);
         let skel = skel_id.into();
 
-        // 2. Populate the scratchpad buffer
-        self.primary_buffer.clear();
-        self.primary_buffer.push(sym_node);
-        self.primary_buffer.extend_from_slice(args);
+        // 2. Buffer Management (Swap pattern)
+        // We take the buffer to gain owned access, satisfying the borrow checker.
+        let mut buffer = std::mem::take(&mut self.primary_buffer);
 
-        // 3. Perform interning with deduplication
-        // Swap technique to satisfy the borrow checker while maintaining the zero-alloc profile.
-        let mut data = std::mem::take(&mut self.primary_buffer);
-        let id = self.intern(ExprEntryKind::Function(skel), &data);
+        buffer.clear();
+        // Defensive reserve: ensures a single potential reallocation for large arities.
+        if buffer.capacity() < args.len() + 1 {
+            buffer.reserve(args.len() + 1);
+        }
 
-        // 4. Cleanup and restore buffer
-        data.clear();
-        self.primary_buffer = data;
+        buffer.push(sym_node);
+        buffer.extend_from_slice(args);
+
+        // 3. Interning
+        let id = self.intern(ExprEntryKind::Function(skel), &buffer);
+
+        // 4. Restoration
+        // We return the buffer to the pool for the next call.
+        self.primary_buffer = buffer;
 
         id
     }
