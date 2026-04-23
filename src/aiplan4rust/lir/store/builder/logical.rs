@@ -31,8 +31,9 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     /// The canonical `ExprId` for the constant "True".
+    #[inline]
     pub fn empty_and(&mut self) -> ExprId {
-        self.intern(ExprEntryKind::And, &[])
+        self.store.empty_and()
     }
 
     /// Creates a logical `OR` node with one or more children.
@@ -57,8 +58,9 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     /// The canonical `ExprId` for the constant "False".
+    #[inline]
     pub fn empty_or(&mut self) -> ExprId {
-        self.intern(ExprEntryKind::Or, &[])
+        self.store.empty_or()
     }
 
     /// Reduces a logical expression by applying flattening, constant folding,

@@ -40,20 +40,31 @@ pub struct ExprStore {
     /// Cache des variables libres, synchronisé avec `entries`.
     /// free_vars[i] contient les variables libres de entries[i].
     free_vars: Vec<VariableSet>,
+
+    // --- Cache des constantes fréquentes ---
+    const_true: ExprId,  // Représente ExprEntryKind::And avec 0 enfants
+    const_false: ExprId, // Représente ExprEntryKind::Or avec 0 enfants
 }
 
 impl Default for ExprStore {
     fn default() -> Self {
-        Self {
+        let mut store = Self {
             entries: Vec::with_capacity(1024),
-            // On utilise with_capacity_and_hasher pour correspondre au type attendu
             lookup: hashbrown::HashMap::with_capacity_and_hasher(
                 1024,
-                // Initialise le FxHasher par défaut
                 core::hash::BuildHasherDefault::<fxhash::FxHasher>::default(),
             ),
             free_vars: Vec::with_capacity(1024),
-        }
+            // Initialisés temporairement, seront fixés par intern_initial_constants
+            const_true: ExprId::default(),
+            const_false: ExprId::default(),
+        };
+
+        // On interne immédiatement les constantes pour fixer leurs IDs (souvent 0 et 1)
+        store.const_true = store.intern(ExprEntryKind::And, &[]);
+        store.const_false = store.intern(ExprEntryKind::Or, &[]);
+
+        store
     }
 }
 
@@ -94,6 +105,18 @@ impl ExprStore {
         self.entries.push(entry);
 
         id
+    }
+
+    /// Retourne l'ID de l'expression (and), représentant la constante TRUE.
+    #[inline]
+    pub fn empty_and(&self) -> ExprId {
+        self.const_true
+    }
+
+    /// Retourne l'ID de l'expression (or), représentant la constante FALSE.
+    #[inline]
+    pub fn empty_or(&self) -> ExprId {
+        self.const_false
     }
 
     /// Accès direct au masque (utile pour les unions dans intern)
@@ -142,6 +165,8 @@ impl ExprStore {
     pub fn clear(&mut self) {
         self.entries.clear();
         self.lookup.clear();
+        self.const_true = self.intern(ExprEntryKind::And, &[]);
+        self.const_false = self.intern(ExprEntryKind::Or, &[]);
     }
 
     pub fn rebuild_caches(&mut self) {
@@ -231,6 +256,8 @@ impl<'de> Deserialize<'de> for ExprStore {
             // On initialise le cache avec la même capacité que les entrées
             free_vars: Vec::with_capacity(count),
             lookup: HashMap::with_capacity_and_hasher(count, FxBuildHasher::default()),
+            const_true: ExprId::default(),
+            const_false: ExprId::default(),
         };
 
         // Important : Reconstruire à la fois le Hash-Consing (lookup)

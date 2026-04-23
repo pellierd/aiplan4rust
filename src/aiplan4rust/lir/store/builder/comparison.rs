@@ -551,9 +551,17 @@ mod tests {
         }
 
         store.clear();
-        assert_eq!(store.len(), 0, "Store must be empty after clear");
+
+        // CHANGEMENT ICI : Le store contient TRUE et FALSE par défaut
+        assert_eq!(
+            store.len(),
+            2,
+            "Store must contain the 2 default constants (TRUE/FALSE) after clear"
+        );
 
         let mut builder = ExprBuilder::new(&mut store);
+
+        // Ces IDs seront probablement 2 et 3
         let n1 = builder.number(1.0);
         let n2 = builder.number(2.0);
 
