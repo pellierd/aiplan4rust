@@ -227,7 +227,7 @@ impl<'a> ExprBuilder<'a> {
     /// equal to the defined epsilon.
     #[inline]
     pub fn is_eq(&self, val: f64, other: f64) -> bool {
-        (val - other).abs() <= Self::EPSILON
+        (val - other).abs() <= EPSILON
     }
 
     /// Returns true if `val` is significantly greater than `other` (beyond [`Self::EPSILON`]).
@@ -240,7 +240,7 @@ impl<'a> ExprBuilder<'a> {
     /// `true` if `val` exceeds `other` by more than epsilon.
     #[inline]
     pub fn is_gt(&self, val: f64, other: f64) -> bool {
-        val > other + Self::EPSILON
+        val > other + EPSILON
     }
 
     /// Returns true if `val` is significantly less than `other` (beyond [`Self::EPSILON`]).
@@ -253,7 +253,7 @@ impl<'a> ExprBuilder<'a> {
     /// `true` if `val` is lower than `other` by more than epsilon.
     #[inline]
     pub fn is_lt(&self, val: f64, other: f64) -> bool {
-        val < other - Self::EPSILON
+        val < other - EPSILON
     }
 
     /// Returns true if `val` is greater than or nearly equal to `other`.
@@ -266,7 +266,7 @@ impl<'a> ExprBuilder<'a> {
     /// `true` if `val` is greater than `other` or within epsilon of it.
     #[inline]
     pub fn is_ge(&self, val: f64, other: f64) -> bool {
-        val >= other - Self::EPSILON
+        val >= other - EPSILON
     }
 
     /// Returns true if `val` is less than or nearly equal to `other`.
@@ -279,7 +279,7 @@ impl<'a> ExprBuilder<'a> {
     /// `true` if `val` is less than `other` or within epsilon of it.
     #[inline]
     pub fn is_le(&self, val: f64, other: f64) -> bool {
-        val <= other + Self::EPSILON
+        val <= other + EPSILON
     }
 
     /// Special check for zero-equivalence within [`Self::EPSILON`].
@@ -291,7 +291,7 @@ impl<'a> ExprBuilder<'a> {
     /// `true` if the absolute value of `val` is within epsilon of 0.0.
     #[inline]
     pub fn is_zero(&self, val: f64) -> bool {
-        val.abs() <= Self::EPSILON
+        val.abs() <= EPSILON
     }
 
     /// Checks if a value is significantly negative (less than -[`Self::EPSILON`]).
@@ -304,7 +304,7 @@ impl<'a> ExprBuilder<'a> {
     /// -epsilon and 0.0 are considered non-negative (zero).
     #[inline]
     pub fn is_neg(&self, val: f64) -> bool {
-        val < -Self::EPSILON
+        val < -EPSILON
     }
 
     /// Sorts a given buffer by `ExprId` to enable deduplication and canonicalization.

@@ -166,6 +166,7 @@ impl<'a> ExprBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::aiplan4rust::lir::store::builder::builder::EPSILON;
     use crate::aiplan4rust::lir::store::ExprStore;
 
     /// Verifies that special PDDL variables (total-time, total-cost) are
@@ -262,7 +263,7 @@ mod tests {
 
         if let ExprEntryKind::Number(val) = num_val.kind() {
             // On vérifie que la valeur est dans la zone de tolérance
-            assert!(val.into_inner() >= -ExprBuilder::EPSILON);
+            assert!(val.into_inner() >= -EPSILON);
         } else {
             panic!("Expected a number node");
         }
