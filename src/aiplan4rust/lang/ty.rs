@@ -3,22 +3,29 @@ use crate::aiplan4rust::lang::{Id, RemapSymbol, SymbolId, TypeId};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use core::borrow::Borrow;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+
+/// La taille optimale pour le stockage "inline" des types en PDDL.
+/// 95% des objets n'ont qu'un seul type, 2 permet de couvrir les hiérarchies
+/// simples (ex: [Truck, Vehicle]) sans allocation sur le Heap.
+pub const OPTIMAL_TYPE_CAPACITY: usize = 2;
 
 /// Représente un typing PDDL générique (atomique ou union via `either`).
 /// `ID` peut être un `StringID` (phase syntaxique) ou un `TypeID` (phase sémantique).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Type<ID: Id> {
     /// Liste non vide des identifiants atomiques composant ce typing.
-    members: Vec<ID>,
+    members: SmallVec<[ID; OPTIMAL_TYPE_CAPACITY]>,
 }
 
 impl<ID: Id> Default for Type<ID> {
     fn default() -> Self {
         Self {
-            members: Vec::new(),
+            // Utilise SmallVec::new() au lieu de Vec::new()
+            members: SmallVec::new(),
         }
     }
 }
@@ -27,9 +34,7 @@ impl<ID: Id> Default for Type<ID> {
 
 impl<ID: Id> Type<ID> {
     pub fn new() -> Self {
-        Self {
-            members: Vec::new(),
-        }
+        Self::default()
     }
 
     pub fn root() -> Self {
@@ -37,12 +42,20 @@ impl<ID: Id> Type<ID> {
     }
 
     pub fn primitive(id: ID) -> Self {
-        Self { members: vec![id] }
+        Self {
+            members: smallvec::smallvec![id],
+        }
     }
 
+    /// Crée un type composé (union via 'either').
     pub fn either(ids: Vec<ID>) -> Self {
         assert!(!ids.is_empty(), "Un type 'either' ne peut pas être vide.");
-        Self { members: ids }
+
+        Self {
+            // SmallVec::from_vec est très efficace : il évite une nouvelle
+            // allocation si le Vec d'origine dépasse la capacité inline.
+            members: SmallVec::from_vec(ids),
+        }
     }
 
     pub fn add_type(&mut self, member: ID) {
@@ -52,7 +65,7 @@ impl<ID: Id> Type<ID> {
     pub fn members(&self) -> &[ID] {
         &self.members
     }
-    pub fn members_mut(&mut self) -> &mut Vec<ID> {
+    pub fn members_mut(&mut self) -> &mut SmallVec<[ID; OPTIMAL_TYPE_CAPACITY]> {
         &mut self.members
     }
     pub fn len(&self) -> usize {
@@ -104,7 +117,11 @@ impl<ID: Id> Borrow<[ID]> for Type<ID> {
 
 impl<ID: Id> From<Vec<ID>> for Type<ID> {
     fn from(members: Vec<ID>) -> Self {
-        Self { members }
+        Self {
+            // On utilise from_vec pour récupérer l'allocation existante
+            // si le nombre d'éléments dépasse OPTIMAL_TYPE_CAPACITY.
+            members: SmallVec::from_vec(members),
+        }
     }
 }
 
