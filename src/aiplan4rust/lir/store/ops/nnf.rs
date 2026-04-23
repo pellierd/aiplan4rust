@@ -134,7 +134,7 @@ fn decode(val: usize) -> (ExprId, bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::AtomSkeletonId;
+    use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
     use crate::aiplan4rust::lir::store::builder::ExprBuilder;
     use crate::aiplan4rust::lir::store::iter::Scratchpad;
     use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
@@ -235,7 +235,7 @@ mod tests {
     }
 
     /// Test pushing negation through a Forall quantifier.
-    /// Input: (not (forall x (A))) -> (exists x (not (A)))
+    /// Input: (not (forall x (A(x)))) -> (exists x (not (A(x))))
     #[test]
     fn test_push_negation_forall() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
@@ -243,10 +243,16 @@ mod tests {
         let mut scratch = Scratchpad::new();
         let skel = AtomSkeletonId::from(0);
 
-        // 1. Setup: ¬(forall (?X) (A))
-        let a = builder.atomic_formula(1, &[], skel);
+        // 1. Setup: ¬(forall (?X) (A(?X)))
+        let var_id = VariableId::from(10);
         let var_x = builder.typed_variable(10, &[100]); // ID 10, Type 100
         let forall_vars = builder.typed_variable_list(vec![var_x]);
+
+        // FIX: Create a variable argument and use it in the atomic formula
+        // to prevent the builder from pruning the "unused" quantifier.
+        let arg_x = builder.variable(var_id);
+        let a = builder.atomic_formula(1, &[arg_x], skel);
+
         let forall_node = builder.forall(forall_vars, a)?;
         let root = builder.not(forall_node);
 
@@ -255,31 +261,32 @@ mod tests {
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
-        // Le Forall sous négation doit être devenu un Exists
-        assert!(matches!(root_node.kind(), ExprEntryKind::Exists(_)));
+        // The Forall under negation must have become an Exists
+        assert!(
+            matches!(root_node.kind(), ExprEntryKind::Exists(_)),
+            "Expected Exists node, but the quantifier was likely pruned. Got: {:?}",
+            root_node.kind()
+        );
 
-        // On vérifie que les variables sont conservées (même liste)
+        // Verify that variables are preserved
         if let ExprEntryKind::Exists(ref vars) = root_node.kind() {
             assert_eq!(vars.len(), 1);
-            // On pourrait vérifier l'ID de la variable ici si nécessaire
+            assert_eq!(vars[0].symbol(), var_id);
         }
 
-        // Le corps de l'Exists doit être ¬A
+        // The body of the Exists must be ¬A
         let body_id = root_node.children()[0];
         let body_node = builder.fetch(body_id)?;
         assert!(matches!(body_node.kind(), ExprEntryKind::Not));
 
         let inner_atom_id = body_node.children()[0];
-        assert_eq!(
-            inner_atom_id, a,
-            "L'atome à l'intérieur de la négation a été altéré"
-        );
+        assert_eq!(inner_atom_id, a, "The atom inside the negation was altered");
 
         Ok(())
     }
 
     /// Test pushing negation through an Exists quantifier.
-    /// Input: (not (exists x (A))) -> (forall x (not (A)))
+    /// Input: (not (exists x (A(x)))) -> (forall x (not (A(x))))
     #[test]
     fn test_push_negation_exists() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
@@ -287,10 +294,15 @@ mod tests {
         let mut scratch = Scratchpad::new();
         let skel = AtomSkeletonId::from(0);
 
-        // 1. Setup: ¬(exists (?X) (A))
-        let a = builder.atomic_formula(1, &[], skel);
+        // 1. Setup: ¬(exists (?X) (A(?X)))
+        let var_id = VariableId::from(10);
         let var_x = builder.typed_variable(10, &[100]);
         let exists_vars = builder.typed_variable_list(vec![var_x]);
+
+        // FIX: Link the variable to the atomic formula to prevent pruning
+        let arg_x = builder.variable(var_id);
+        let a = builder.atomic_formula(1, &[arg_x], skel);
+
         let exists_node = builder.exists(exists_vars, a)?;
         let root = builder.not(exists_node);
 
@@ -299,16 +311,20 @@ mod tests {
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
-        // L'Exists sous négation doit être devenu un Forall
-        assert!(matches!(root_node.kind(), ExprEntryKind::Forall(_)));
+        // The Exists under negation must have become a Forall
+        assert!(
+            matches!(root_node.kind(), ExprEntryKind::Forall(_)),
+            "Expected Forall node, but it was likely pruned because the variable was unused. Got: {:?}",
+            root_node.kind()
+        );
 
-        // Vérification du corps : ¬A
+        // Verify the body: ¬A
         let body_id = root_node.children()[0];
         let body_node = builder.fetch(body_id)?;
         assert!(matches!(body_node.kind(), ExprEntryKind::Not));
 
         let inner_atom_id = body_node.children()[0];
-        assert_eq!(inner_atom_id, a, "L'atome interne a été perdu ou modifié");
+        assert_eq!(inner_atom_id, a, "The inner atom was lost or modified");
 
         Ok(())
     }
@@ -344,7 +360,9 @@ mod tests {
     /// Test pushing negation through a nested expression.
     /// Input: ¬(A ∧ ¬B ∧ ∃x.C)
     /// Expected: (¬A ∨ B ∨ ∀x.¬C)  <-- Note que ¬¬B est devenu B !
-    #[test]
+    /// Test pushing negation through a nested expression.
+    /// Input: ¬(A ∧ ¬B ∧ ∃x.C(x))
+    /// Expected: (¬A ∨ B ∨ ∀x.¬C(x))  <-- Note that ¬¬B becomes B!
     #[test]
     fn test_push_negation_nested() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
@@ -352,10 +370,14 @@ mod tests {
         let mut scratch = Scratchpad::new();
         let skel = AtomSkeletonId::from(0);
 
-        // 1. Setup: ¬(A ∧ ¬B ∧ ∃x.C)
+        // 1. Setup: ¬(A ∧ ¬B ∧ ∃x.C(x))
+        let var_id = VariableId::from(10);
+        let arg_x = builder.variable(var_id);
+
         let a = builder.atomic_formula(1, &[], skel);
         let b = builder.atomic_formula(2, &[], skel);
-        let c = builder.atomic_formula(3, &[], skel);
+        // FIX: Include arg_x in C to prevent the builder from pruning the quantifier
+        let c = builder.atomic_formula(3, &[arg_x], skel);
 
         let not_b = builder.not(b);
         let var_x = builder.typed_variable(10, &[100]);
@@ -366,7 +388,7 @@ mod tests {
         let root = builder.not(and_node);
 
         // 2. Transformation
-        // La logique interne de push_negation va transformer :
+        // Internal push_negation logic transforms:
         // ¬(A ∧ ¬B ∧ ∃x.C)  =>  (¬A ∨ B ∨ ∀x.¬C)
         let result_id = to_nnf(root, &mut builder, &mut scratch)?;
         let root_node = builder.fetch(result_id)?;
@@ -374,17 +396,21 @@ mod tests {
         // 3. Validation
         assert!(
             matches!(root_node.kind(), ExprEntryKind::Or),
-            "La racine doit être un OR"
+            "Root must be an OR node"
         );
         let children = root_node.children();
-        assert_eq!(children.len(), 3);
+        assert_eq!(
+            children.len(),
+            3,
+            "Expected 3 children after De Morgan expansion"
+        );
 
         let mut found_not_a = false;
         let mut found_b_simplified = false;
         let mut found_forall_not_c = false;
 
         for &child_id in children {
-            // Comparaison directe par ID (très performant grâce au Hash-Consing)
+            // Direct comparison by ID (highly efficient due to Hash-Consing)
             if child_id == b {
                 found_b_simplified = true;
                 continue;
@@ -392,16 +418,16 @@ mod tests {
 
             let node = builder.fetch(child_id)?;
             match node.kind() {
-                // Cas ¬A
+                // Case ¬A
                 ExprEntryKind::Not if node.children()[0] == a => {
                     found_not_a = true;
                 }
 
-                // Cas ∀x.¬C
+                // Case ∀x.¬C
                 ExprEntryKind::Forall(_) => {
                     let body_id = node.children()[0];
                     let body_node = builder.fetch(body_id)?;
-                    // On vérifie que le corps du Forall est bien Not(C)
+                    // Verify that the Forall body is Not(C)
                     if matches!(body_node.kind(), ExprEntryKind::Not)
                         && body_node.children()[0] == c
                     {
@@ -412,19 +438,24 @@ mod tests {
             }
         }
 
-        assert!(found_not_a, "¬A est manquant ou mal formé");
+        assert!(found_not_a, "¬A is missing or malformed");
         assert!(
             found_b_simplified,
-            "B aurait dû être simplifié (¬¬B -> B) et identifié par son ID"
+            "B should have been simplified (¬¬B -> B) and identified by its ID"
         );
-        assert!(found_forall_not_c, "∀x.¬C est manquant ou mal formé");
+        assert!(found_forall_not_c, "∀x.¬C is missing or malformed");
 
         Ok(())
     }
 
     /// Test pushing negation through deep nested structures.
-    /// Input: ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃y.D)
-    /// Expected: (¬A ∨ (B ∨ C) ∨ ∃x.∀y.¬D)
+    ///
+    /// Input: ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃y.D(x, y))
+    /// Expected: (¬A ∨ (B ∨ C) ∨ ∃x.∀y.¬D(x, y))
+    ///
+    /// Note: The atomic formula D must explicitly use both variables x and y
+    /// as arguments. Otherwise, the ExprBuilder's optimization would detect
+    /// vacuous quantification and prune the Forall/Exists nodes.
     #[test]
     fn test_push_negation_deep_nested() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
@@ -443,26 +474,24 @@ mod tests {
         let vars_y = builder.typed_variable_list(vec![var_y]);
 
         // 2. Define Atomic Formulas using the variables
-        // CRITICAL: We must use the variables as arguments, otherwise the
-        // ExprBuilder's optimization will prune the quantifiers (vacuous quantification).
         let arg_x = builder.variable(var_x_id);
         let arg_y = builder.variable(var_y_id);
 
         let a = builder.atomic_formula(1, &[], skel);
         let b = builder.atomic_formula(2, &[], skel);
         let c = builder.atomic_formula(3, &[], skel);
-        // D uses 'y' to justify the existence of the 'exists y' quantifier
-        let d = builder.atomic_formula(4, &[arg_y], skel);
 
-        // 3. Construct the nested structure: ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃y.D)
+        // FIX: Include BOTH arg_x and arg_y here.
+        // This prevents the builder from pruning 'forall x' later.
+        let d = builder.atomic_formula(4, &[arg_x, arg_y], skel);
+
+        // 3. Construct the nested structure: ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃y.D(x,y))
         let or_bc = builder.or(&[b, c]);
         let not_or_bc = builder.not(or_bc);
 
-        // (exists y. D(y))
+        // (exists y. D(x, y))
         let exists_d = builder.exists(vars_y, d)?;
-        // (forall x. (exists y. D(y)))
-        // Note: if x is not used in the body, the builder might still prune it.
-        // If that happens, add arg_x to the atomic_formula 'd' above.
+        // (forall x. (exists y. D(x, y))) -> x is now "free" in the body, so it stays!
         let forall_exists_d = builder.forall(vars_x, exists_d)?;
 
         let and_node = builder.and(&[a, not_or_bc, forall_exists_d]);
@@ -476,13 +505,12 @@ mod tests {
             let node = builder.fetch(result_id)?;
             assert!(
                 matches!(node.kind(), ExprEntryKind::Or),
-                "Root must be an OR node (De Morgan: ¬(A ∧ B) -> ¬A ∨ ¬B)"
+                "Root must be an OR node"
             );
             node.children().to_vec()
         };
 
-        // Expected: ¬A ∨ (B ∨ C) ∨ ∃x.∀y.¬D
-        // The builder flattens the OR, so we expect 4 children: [¬A, B, C, ∃x.∀y.¬D]
+        // Expected: ¬A ∨ (B ∨ C) ∨ ∃x.∀y.¬D(x,y)
         assert_eq!(
             children.len(),
             4,
@@ -496,9 +524,9 @@ mod tests {
         assert!(children.contains(&c), "C is missing");
 
         // 7. Verify the inverted quantifier exists in the children
+        // Now this will pass because 'x' was not pruned during construction.
         let has_exists = children.iter().any(|&id| {
             let node = builder.get(id).unwrap();
-            // After pushing negation: ¬(∀x.∃y.D) becomes ∃x.∀y.¬D
             matches!(node.kind(), ExprEntryKind::Exists(_))
         });
 
