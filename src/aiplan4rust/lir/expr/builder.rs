@@ -1,9 +1,13 @@
-use ordered_float::OrderedFloat;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, AtomSkeletonId, CompareOp, FunctionSkeletonId, FunctionSymbolId, ObjectId, OptimizationOp, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lang::CompareOp::Less;
-use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::lang::{
+    ArithmeticOp, AssignOp, AtomSkeletonId, CompareOp, FunctionSkeletonId, FunctionSymbolId,
+    ObjectId, OptimizationOp, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId,
+    TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
+};
+use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::builder::SyntaxTreeBuilder;
+use crate::aiplan4rust::tree::NodeId;
+use ordered_float::OrderedFloat;
 
 /// Ergonomic builder for `Expr` (expression trees).
 ///
@@ -47,7 +51,11 @@ impl ExprBuilder {
     }
 
     /// Create a node with children and set it as root
-    pub fn root_node(&mut self, node: ExprNode, children: Vec<NodeId>) -> Result<NodeId, ExprError> {
+    pub fn root_node(
+        &mut self,
+        node: ExprNode,
+        children: Vec<NodeId>,
+    ) -> Result<NodeId, ExprError> {
         Ok(self.base.root_node(node, children)?)
     }
 
@@ -85,7 +93,10 @@ impl ExprBuilder {
     /// # Returns
     /// NodeId of the newly created node.
     fn binary(&mut self, kind: ExprKind, left: NodeId, right: NodeId) -> NodeId {
-        self.node(ExprNode::new(kind, ExprContent::None, None), vec![left, right])
+        self.node(
+            ExprNode::new(kind, ExprContent::None, None),
+            vec![left, right],
+        )
     }
 
     /// Creates an N-ary node in the expression tree.
@@ -122,7 +133,7 @@ impl ExprBuilder {
         self.leaf(ExprNode::new(
             ExprKind::Object,
             ExprContent::Object(id.into()),
-            None
+            None,
         ))
     }
 
@@ -161,7 +172,7 @@ impl ExprBuilder {
         self.leaf(ExprNode::new(
             ExprKind::FunctionSymbol,
             ExprContent::FunctionSymbol(id.into()),
-            None
+            None,
         ))
     }
 
@@ -225,7 +236,11 @@ impl ExprBuilder {
     /// # Arguments
     /// * `sym_id` - The function symbol identifier (accepts `FunctionSymbolId` or `usize`).
     /// * `args` - The function's arguments.
-    pub fn function_term<FID: Into<FunctionSymbolId>>(&mut self, sym_id: FID, args: Vec<NodeId>) -> NodeId {
+    pub fn function_term<FID: Into<FunctionSymbolId>>(
+        &mut self,
+        sym_id: FID,
+        args: Vec<NodeId>,
+    ) -> NodeId {
         let sym_node = self.function_symbol(sym_id);
         self.build_function_node(ExprContent::None, sym_node, args)
     }
@@ -252,13 +267,15 @@ impl ExprBuilder {
     }
 
     /// Assembles a FunctionTerm node respecting child order: [Symbol, ...Args].
-    fn build_function_node(&mut self, content: ExprContent, sym_node: NodeId, args: Vec<NodeId>) -> NodeId {
+    fn build_function_node(
+        &mut self,
+        content: ExprContent,
+        sym_node: NodeId,
+        args: Vec<NodeId>,
+    ) -> NodeId {
         let mut children = vec![sym_node];
         children.extend(args);
-        self.node(
-            ExprNode::new(ExprKind::Function, content, None),
-            children
-        )
+        self.node(ExprNode::new(ExprKind::Function, content, None), children)
     }
 
     /// Creates a numeric literal node.
@@ -288,7 +305,11 @@ impl ExprBuilder {
     /// # Arguments
     /// * `sym_id` - The predicate symbol identifier (accepts `PredicateSymbolId` or `usize`).
     /// * `args` - Nodes representing the predicate's terms/arguments.
-    pub fn atomic_formula<PID: Into<PredicateSymbolId>>(&mut self, sym_id: PID, args: Vec<NodeId>) -> NodeId {
+    pub fn atomic_formula<PID: Into<PredicateSymbolId>>(
+        &mut self,
+        sym_id: PID,
+        args: Vec<NodeId>,
+    ) -> NodeId {
         let sym_node = self.predicate(sym_id);
         self.build_atomic_node(ExprContent::None, sym_node, args)
     }
@@ -318,12 +339,17 @@ impl ExprBuilder {
     }
 
     /// Assembles an AtomicFormula node respecting child order: [Symbol, ...Args].
-    fn build_atomic_node(&mut self, content: ExprContent, sym_node: NodeId, args: Vec<NodeId>) -> NodeId {
+    fn build_atomic_node(
+        &mut self,
+        content: ExprContent,
+        sym_node: NodeId,
+        args: Vec<NodeId>,
+    ) -> NodeId {
         let mut children = vec![sym_node];
         children.extend(args);
         self.node(
             ExprNode::new(ExprKind::AtomicFormula, content, None),
-            children
+            children,
         )
     }
 
@@ -456,7 +482,10 @@ impl ExprBuilder {
     }
 
     /// Helper to convert a vector of TypedSymbols into a TypedList
-    pub fn typed_variable_list(&mut self, vars: Vec<TypedSymbol<VariableId, TypeId>>) -> TypedList<VariableId, TypeId> {
+    pub fn typed_variable_list(
+        &mut self,
+        vars: Vec<TypedSymbol<VariableId, TypeId>>,
+    ) -> TypedList<VariableId, TypeId> {
         let mut list = TypedList::new();
         for typed_var in vars {
             list.push(typed_var);
@@ -465,17 +494,20 @@ impl ExprBuilder {
     }
 
     /// Helper for a single typed symbol: (SymbolID, [TypeIDs])
-    pub fn typed_variable(&mut self, id: usize, type_ids: &[usize]) -> TypedSymbol<VariableId, TypeId> {
+    pub fn typed_variable(
+        &mut self,
+        id: usize,
+        type_ids: &[usize],
+    ) -> TypedSymbol<VariableId, TypeId> {
         let ty = self.ty(type_ids);
-        TypedSymbol::new(
-            VariableId::from(id),
-            ty,
-        )
+        TypedSymbol::new(VariableId::from(id), ty)
     }
 
     /// Helper to create a list of TypeIDs from a slice of integers
     pub fn ty(&mut self, ids: &[usize]) -> Type<TypeId> {
-        Type::either(ids.iter().map(|&id| TypeId::from(id)).collect())
+        // .collect() utilisera ton impl FromIterator
+        // Ça remplira la SmallVec sur la pile directement !
+        ids.iter().map(|&id| TypeId::from(id)).collect()
     }
 
     /// Creates a `Preference` node: (preference name body)
@@ -525,11 +557,7 @@ impl ExprBuilder {
     /// The [`NodeId`] of the newly created `FComp` node.
     pub fn comparison(&mut self, op: CompareOp, left: NodeId, right: NodeId) -> NodeId {
         self.node(
-            ExprNode::new(
-                ExprKind::Comparison,
-                ExprContent::Comparison(op),
-                None
-            ),
+            ExprNode::new(ExprKind::Comparison, ExprContent::Comparison(op), None),
             vec![left, right],
         )
     }
@@ -625,11 +653,7 @@ impl ExprBuilder {
     /// The [`NodeId`] of the newly created `Assign` node.
     fn assign_expr(&mut self, op: AssignOp, target: NodeId, value: NodeId) -> NodeId {
         self.node(
-            ExprNode::new(
-                ExprKind::Assignment,
-                ExprContent::Assignment(op),
-                None
-            ),
+            ExprNode::new(ExprKind::Assignment, ExprContent::Assignment(op), None),
             vec![target, value],
         )
     }
@@ -722,11 +746,7 @@ impl ExprBuilder {
     /// The [`NodeId`] of the newly created `Operation` node.
     fn arithmetic_exp(&mut self, op: ArithmeticOp, operands: Vec<NodeId>) -> NodeId {
         self.node(
-            ExprNode::new(
-                ExprKind::Arithmetic,
-                ExprContent::ArithmeticOp(op),
-                None
-            ),
+            ExprNode::new(ExprKind::Arithmetic, ExprContent::ArithmeticOp(op), None),
             operands,
         )
     }
@@ -1165,13 +1185,13 @@ impl ExprBuilder {
     ///
     /// * `task1` - The `NodeId` of the task that must occur first.
     /// * `task2` - The `NodeId` of the task that must occur second.
-    pub fn task_ordering_constraint(
-        &mut self,
-        task1: NodeId,
-        task2: NodeId,
-    ) -> NodeId {
+    pub fn task_ordering_constraint(&mut self, task1: NodeId, task2: NodeId) -> NodeId {
         self.node(
-            ExprNode::new(ExprKind::TaskOrderingConstraint, ExprContent::Comparison(Less), None),
+            ExprNode::new(
+                ExprKind::TaskOrderingConstraint,
+                ExprContent::Comparison(Less),
+                None,
+            ),
             vec![task1, task2],
         )
     }

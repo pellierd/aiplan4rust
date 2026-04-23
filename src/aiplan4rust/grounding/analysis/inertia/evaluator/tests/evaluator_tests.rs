@@ -1,10 +1,12 @@
-use std::collections::HashMap;
 use crate::aiplan4rust::grounding::config::{DEFAULT_MAX_ARITY, DEFAULT_MAX_PROJ};
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{AtomSkeletonId, ObjectId};
-use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
+use crate::aiplan4rust::lir::problem::atomic_skeleton::{
+    AtomicFormulaSkeleton, AtomicFunctionSkeleton,
+};
 use crate::analysis::inertia::evaluator::InertiaEvaluator;
 use crate::analysis::inertia::InertiaTable;
+use std::collections::HashMap;
 
 #[cfg(test)]
 impl<'a> InertiaEvaluator<'a> {
@@ -14,7 +16,7 @@ impl<'a> InertiaEvaluator<'a> {
     pub fn mock(
         predicate_defs: &[AtomicFormulaSkeleton], // Plus besoin de 'a ici pour ces deux-là
         function_defs: &[AtomicFunctionSkeleton],
-        value_registry: &'a ValueRegistry,        // On garde 'a pour les objets externes
+        value_registry: &'a ValueRegistry, // On garde 'a pour les objets externes
         inertia: &'a InertiaTable,
     ) -> Self {
         Self {
@@ -53,7 +55,13 @@ impl<'a> InertiaEvaluator<'a> {
     }
 
     /// Injecte manuellement des données de comptage pour simuler l'état initial.
-    pub fn inject_predicate_count(&mut self, id: usize, mask: u16, args: Vec<ObjectId>, count: usize) {
+    pub fn inject_predicate_count(
+        &mut self,
+        id: usize,
+        mask: u16,
+        args: Vec<ObjectId>,
+        count: usize,
+    ) {
         self.counting_predicates
             .entry(AtomSkeletonId::from(id))
             .or_default()
@@ -65,31 +73,37 @@ impl<'a> InertiaEvaluator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use ordered_float::OrderedFloat;
     use super::*;
     use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
-    use crate::aiplan4rust::lang::{FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
+    use crate::aiplan4rust::lang::{
+        FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId, Type, TypeId, TypedList,
+        TypedSymbol, VariableId,
+    };
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ops::StaticValue;
     use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
     use crate::analysis::inertia::evaluator::evaluator::ArgumentBuffer;
+    use ordered_float::OrderedFloat;
 
     /// Helper pour créer des définitions de prédicats de test
     pub fn mock_predicate_defs(count: usize) -> Vec<AtomicFormulaSkeleton> {
-        (0..count).map(|i| AtomicFormulaSkeleton::new(
-            PredicateSymbolId::from(i),
-            TypedList::new()
-        )).collect()
+        (0..count)
+            .map(|i| AtomicFormulaSkeleton::new(PredicateSymbolId::from(i), TypedList::new()))
+            .collect()
     }
 
     /// Helper pour créer des définitions de fonctions de test
     pub fn mock_function_defs(count: usize) -> Vec<AtomicFunctionSkeleton> {
-        (0..count).map(|i| AtomicFunctionSkeleton::new(
-            FunctionSymbolId::from(i),
-            TypedList::new(),
-            // On fournit au moins un TypeId pour éviter le panic
-            Type::either(vec![TypeId::from(0)])
-        )).collect()
+        (0..count)
+            .map(|i| {
+                AtomicFunctionSkeleton::new(
+                    FunctionSymbolId::from(i),
+                    TypedList::new(),
+                    // On fournit au moins un TypeId pour éviter le panic
+                    Type::either(&[TypeId::from(0)]),
+                )
+            })
+            .collect()
     }
 
     #[test]
@@ -104,7 +118,7 @@ mod tests {
         let atom_node = builder.atomic_formula_with_skeleton(
             0, // PredicateSymbolId
             vec![arg1, arg2],
-            skel_id_raw // AtomSkeletonId
+            skel_id_raw, // AtomSkeletonId
         );
         let expr = builder.finish();
 
@@ -142,11 +156,7 @@ mod tests {
         let arg = builder.constant(obj_id);
 
         // Construction du nœud avec le squelette LIR
-        let term_node = builder.function_term_with_skeleton(
-            func_id_raw,
-            vec![arg],
-            skel_id_raw
-        );
+        let term_node = builder.function_term_with_skeleton(func_id_raw, vec![arg], skel_id_raw);
         let expr = builder.finish();
 
         // --- PRÉPARATION DES DÉPENDANCES (Lifetimes 'a) ---
@@ -167,7 +177,7 @@ mod tests {
             FunctionSkeletonId::from(skel_id_raw),
             1, // arity
             &[ObjectId::from(obj_id)],
-            val
+            val,
         );
 
         let mut buffer = ArgumentBuffer::new();
@@ -206,7 +216,9 @@ mod tests {
 
         // L'état initial est vide par défaut dans le mock : N(p, a) = 0
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer).unwrap();
+        let res = registry
+            .evaluate_predicate_internal(atom_node, &expr, &mut buffer)
+            .unwrap();
 
         // Selon la Définition 6 de Koehler : Si p est positive inertia et N(p, a) = 0, alors FALSE.
         assert_eq!(
@@ -243,7 +255,9 @@ mod tests {
         registry.generate_predicate_masks(AtomSkeletonId::from(skel_id), 0, &[]);
 
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer).unwrap();
+        let res = registry
+            .evaluate_predicate_internal(atom_node, &expr, &mut buffer)
+            .unwrap();
 
         // Selon la Définition 6 de Koehler : Si p est negative inertia et N(p, a) = MAX(p, a), alors TRUE.
         assert_eq!(
@@ -295,15 +309,25 @@ mod tests {
 
         // Évaluation de s1(10)
         // Comme il est Inerte Positif ET présent dans l'état initial, il est simplifié à True.
-        let res1 = registry.evaluate_predicate_internal(node1, &expr, &mut buffer)
+        let res1 = registry
+            .evaluate_predicate_internal(node1, &expr, &mut buffer)
             .expect("L'évaluation a échoué pour s1");
-        assert_eq!(res1, Some(true), "Le prédicat s1(10) devrait être trouvé et simplifié à True");
+        assert_eq!(
+            res1,
+            Some(true),
+            "Le prédicat s1(10) devrait être trouvé et simplifié à True"
+        );
 
         // Évaluation de s2(10)
         // Comme il est Inerte Positif ET absent de l'état initial (N=0), il est simplifié à False.
-        let res2 = registry.evaluate_predicate_internal(node2, &expr, &mut buffer)
+        let res2 = registry
+            .evaluate_predicate_internal(node2, &expr, &mut buffer)
             .expect("L'évaluation a échoué pour s2");
-        assert_eq!(res2, Some(false), "Le prédicat s2(10) devrait être False (Inertie Positive + Absent)");
+        assert_eq!(
+            res2,
+            Some(false),
+            "Le prédicat s2(10) devrait être False (Inertie Positive + Absent)"
+        );
     }
 
     #[test]
@@ -316,8 +340,8 @@ mod tests {
 
         // 1. On peuple le ValueRegistry avec 2 objets (MAX = 2)
         let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
-            TypedSymbol::new(obj_10, Type::either(vec![type_id])),
-            TypedSymbol::new(obj_11, Type::either(vec![type_id])),
+            TypedSymbol::new(obj_10, Type::either(&[type_id])),
+            TypedSymbol::new(obj_11, Type::either(&[type_id])),
         ]));
 
         // 2. On définit manuellement le squelette pour inclure le typing de l'argument
@@ -325,9 +349,10 @@ mod tests {
             AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()),
             AtomicFormulaSkeleton::new(
                 PredicateSymbolId::from(1),
-                TypedList::from_iter(vec![
-                    TypedSymbol::new(VariableId::from(0), Type::either(vec![type_id]))
-                ])
+                TypedList::from_iter(vec![TypedSymbol::new(
+                    VariableId::from(0),
+                    Type::either(&[type_id]),
+                )]),
             ),
         ];
         let f_defs = Vec::new();
@@ -350,7 +375,9 @@ mod tests {
         registry.generate_predicate_masks(AtomSkeletonId::from(skel_id), 1, &[obj_10]);
 
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer).unwrap();
+        let res = registry
+            .evaluate_predicate_internal(atom_node, &expr, &mut buffer)
+            .unwrap();
 
         // Comme N(1) != 0 et N(1) != MAX(2), le registre doit répondre "Je ne sais pas"
         assert!(
@@ -437,7 +464,9 @@ mod tests {
         registry.generate_predicate_masks(AtomSkeletonId::from(skel_id), 0, &[]);
 
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer).unwrap();
+        let res = registry
+            .evaluate_predicate_internal(atom_node, &expr, &mut buffer)
+            .unwrap();
 
         // Ici MAX doit être 1 (produit vide), N est 1. Résultat : True.
         assert_eq!(res, Some(true));
@@ -507,8 +536,6 @@ mod tests {
             "Une instanciation partielle avec N < MAX doit retourner None"
         );
     }*/
-
-
 
     /*#[test]
     fn test_fix_projection_beyond_first_argument() {
@@ -668,16 +695,18 @@ mod tests {
             AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()),
             AtomicFormulaSkeleton::new(
                 PredicateSymbolId::from(1),
-                TypedList::from_iter(vec![
-                    TypedSymbol::new(VariableId::from(0), Type::either(vec![type_id]))
-                ])
+                TypedList::from_iter(vec![TypedSymbol::new(
+                    VariableId::from(0),
+                    Type::either(&[type_id]),
+                )]),
             ),
         ];
 
         // 2. ValueRegistry : indispensable pour calculate_max_instances
-        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
-            TypedSymbol::new(ObjectId::from(100), Type::either(vec![type_id])),
-        ]));
+        let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![TypedSymbol::new(
+            ObjectId::from(100),
+            Type::either(&[type_id]),
+        )]));
 
         // 3. Inertie : On marque explicitement le SQUELETTE 1 comme Inerte Positif
         let mut i_table = InertiaTable::empty();
@@ -691,14 +720,15 @@ mod tests {
         // On s'assure que le nœud d'atome porte BIEN le skel_id 1
         let var_node = builder.variable(0);
         let atom_node = builder.atomic_formula_with_skeleton(
-            1,             // PredicateId
+            1,              // PredicateId
             vec![var_node], // Arguments (?x)
-            skel_id_val    // AtomSkeletonId (stocké dans le nœud)
+            skel_id_val,    // AtomSkeletonId (stocké dans le nœud)
         );
         let expr = builder.finish();
 
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer)
+        let res = registry
+            .evaluate_predicate_internal(atom_node, &expr, &mut buffer)
             .expect("Evaluation failed");
 
         // ANALYSE :
@@ -752,15 +782,25 @@ mod tests {
 
         // 5. Évaluation
         // node1 (s1) : N=1, MAX=1 -> Inerte + Présent = TRUE
-        let res1 = registry.evaluate_predicate_internal(node1, &expr, &mut buffer)
+        let res1 = registry
+            .evaluate_predicate_internal(node1, &expr, &mut buffer)
             .expect("Evaluation node1 failed");
 
         // node2 (s2) : N=0 -> Inerte Positif + Absent = FALSE
-        let res2 = registry.evaluate_predicate_internal(node2, &expr, &mut buffer)
+        let res2 = registry
+            .evaluate_predicate_internal(node2, &expr, &mut buffer)
             .expect("Evaluation node2 failed");
 
-        assert_eq!(res1, Some(true), "Le flag s1 devrait être TRUE (présent + inerte)");
-        assert_eq!(res2, Some(false), "Le flag s2 devrait être FALSE (absent + inerte positif)");
+        assert_eq!(
+            res1,
+            Some(true),
+            "Le flag s1 devrait être TRUE (présent + inerte)"
+        );
+        assert_eq!(
+            res2,
+            Some(false),
+            "Le flag s2 devrait être FALSE (absent + inerte positif)"
+        );
     }
 
     #[test]
@@ -778,29 +818,23 @@ mod tests {
             AtomicFormulaSkeleton::new(
                 PredicateSymbolId::from(pred_id),
                 TypedList::from_iter(vec![
-                    TypedSymbol::new(VariableId::from(0), Type::either(vec![type_id])),
-                    TypedSymbol::new(VariableId::from(1), Type::either(vec![type_id])),
-                ])
+                    TypedSymbol::new(VariableId::from(0), Type::either(&[type_id])),
+                    TypedSymbol::new(VariableId::from(1), Type::either(&[type_id])),
+                ]),
             ),
         ];
 
         // 2. Setup du ValueRegistry (Indispensable pour que le typing soit connu)
         let v_reg = ValueRegistry::from_objects(TypedList::from_iter(vec![
-            TypedSymbol::new(obj10, Type::either(vec![type_id])),
-            TypedSymbol::new(obj99, Type::either(vec![type_id])),
+            TypedSymbol::new(obj10, Type::either(&[type_id])),
+            TypedSymbol::new(obj99, Type::either(&[type_id])),
         ]));
 
         // 3. Initialisation du registre avec max_arity=2 et max_projection=2
         let i_table = InertiaTable::empty();
         let f_defs = Vec::new();
-        let mut registry = InertiaEvaluator::mock_with_config(
-            &p_defs,
-            &f_defs,
-            &v_reg,
-            &i_table,
-            2,
-            2
-        );
+        let mut registry =
+            InertiaEvaluator::mock_with_config(&p_defs, &f_defs, &v_reg, &i_table, 2, 2);
 
         // 4. On enregistre le fait P(10, 99) à l'état initial
         // Cela va générer, entre autres, le masque 0b10 pour l'objet 10 (position 0)
@@ -810,7 +844,8 @@ mod tests {
         // Ici, le premier argument est une variable, le second est la constante 10.
         let arg_var = builder.variable(0);
         let arg_const = builder.constant(obj10);
-        let node_id = builder.atomic_formula_with_skeleton(pred_id, vec![arg_var, arg_const], skel_id_raw);
+        let node_id =
+            builder.atomic_formula_with_skeleton(pred_id, vec![arg_var, arg_const], skel_id_raw);
         let expr = builder.finish();
 
         let mut buffer = ArgumentBuffer::new();
@@ -823,13 +858,22 @@ mod tests {
         // - Argument 0 est Variable -> bit 0 (poids fort) = 0
         // - Argument 1 est Constante -> bit 1 (poids faible) = 1
         // - Masque attendu : 0b01 (1)
-        assert_eq!(mask, 1, "Le masque pour le second argument fixe doit être 0b01 (1)");
-        assert_eq!(buffer.len(), 1, "Le buffer doit contenir exactement 1 constante (obj10)");
+        assert_eq!(
+            mask, 1,
+            "Le masque pour le second argument fixe doit être 0b01 (1)"
+        );
+        assert_eq!(
+            buffer.len(),
+            1,
+            "Le buffer doit contenir exactement 1 constante (obj10)"
+        );
         assert_eq!(buffer[0], obj10);
 
         // 6. Vérification de la non-collision
         // On cherche dans la table si on a une entrée pour P avec le masque 0b01 et l'objet [10]
-        let n = registry.counting_predicates.get(&skel_id)
+        let n = registry
+            .counting_predicates
+            .get(&skel_id)
             .and_then(|m| m.get(&mask))
             .and_then(|e| e.get(&buffer[..]))
             .copied()
@@ -871,12 +915,12 @@ mod tests {
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
                 TypedList::new(),
-                Type::either(vec![TypeId::from(0)])
+                Type::either(&[TypeId::from(0)]),
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(func_id_val),
                 TypedList::new(),
-                Type::either(vec![TypeId::from(0)])
+                Type::either(&[TypeId::from(0)]),
             ),
         ];
 
@@ -884,7 +928,12 @@ mod tests {
         let p_defs = Vec::new();
         let value_registry = ValueRegistry::empty();
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &value_registry, &i_table);
-        registry.generate_function_masks(skel_id, 1, &[obj_a], StaticValue::Number(OrderedFloat::from(val)));
+        registry.generate_function_masks(
+            skel_id,
+            1,
+            &[obj_a],
+            StaticValue::Number(OrderedFloat::from(val)),
+        );
 
         // 4. Build the LIR expression: f(10)
         let arg = builder.constant(obj_a);
@@ -893,7 +942,8 @@ mod tests {
 
         // 5. Evaluation of the internal logic
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_function_internal(node_id, &expr, &mut buffer)
+        let res = registry
+            .evaluate_function_internal(node_id, &expr, &mut buffer)
             .expect("Evaluation should not fail for valid grounded inputs");
 
         assert_eq!(res, Some(StaticValue::Number(OrderedFloat(val))));
@@ -912,21 +962,29 @@ mod tests {
         i_table.insert_function(skel_id, Inertia::positive());
 
         // 2. Local definitions for the mock 🛠️
-        let f_defs = vec![
-            AtomicFunctionSkeleton::new(
-                FunctionSymbolId::from(skel_id_val),
-                TypedList::new(),
-                Type::either(vec![TypeId::from(0)])
-            ),
-        ];
+        let f_defs = vec![AtomicFunctionSkeleton::new(
+            FunctionSymbolId::from(skel_id_val),
+            TypedList::new(),
+            Type::either(&[TypeId::from(0)]),
+        )];
 
         // 3. Setup evaluator and inject TWO different values
         let p_defs = Vec::new();
         let value_registry = ValueRegistry::empty();
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &value_registry, &i_table);
 
-        registry.generate_function_masks(skel_id, 1, &[obj_10], StaticValue::Number(OrderedFloat::from(42.5)));
-        registry.generate_function_masks(skel_id, 1, &[obj_20], StaticValue::Number(OrderedFloat::from(100.0)));
+        registry.generate_function_masks(
+            skel_id,
+            1,
+            &[obj_10],
+            StaticValue::Number(OrderedFloat::from(42.5)),
+        );
+        registry.generate_function_masks(
+            skel_id,
+            1,
+            &[obj_20],
+            StaticValue::Number(OrderedFloat::from(100.0)),
+        );
 
         // 4. Build expression with a variable: f(?var0)
         let var_node = builder.variable(0);
@@ -935,7 +993,8 @@ mod tests {
 
         // 5. Evaluation
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_function_internal(node_id, &expr, &mut buffer)
+        let res = registry
+            .evaluate_function_internal(node_id, &expr, &mut buffer)
             .expect("Evaluation should not fail");
 
         // The result MUST be None because the function is not grounded
@@ -965,19 +1024,22 @@ mod tests {
         i_table.insert_function(skel_id, Inertia::positive());
 
         // 2. Define the function skeleton 🛠️
-        let f_defs = vec![
-            AtomicFunctionSkeleton::new(
-                FunctionSymbolId::from(skel_id_val),
-                TypedList::new(),
-                Type::either(vec![TypeId::from(0)])
-            ),
-        ];
+        let f_defs = vec![AtomicFunctionSkeleton::new(
+            FunctionSymbolId::from(skel_id_val),
+            TypedList::new(),
+            Type::either(&[TypeId::from(0)]),
+        )];
 
         // 3. Setup evaluator and inject data for ONE specific object
         let p_defs = Vec::new();
         let value_registry = ValueRegistry::empty();
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &value_registry, &i_table);
-        registry.generate_function_masks(skel_id, 1, &[obj_10], StaticValue::Number(OrderedFloat::from(val)));
+        registry.generate_function_masks(
+            skel_id,
+            1,
+            &[obj_10],
+            StaticValue::Number(OrderedFloat::from(val)),
+        );
 
         // 4. Build expression with a variable: f(?var0)
         let var_node = builder.variable(0);
@@ -986,9 +1048,13 @@ mod tests {
 
         // 5. Evaluation
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_function_internal(node_id, &expr, &mut buffer)
+        let res = registry
+            .evaluate_function_internal(node_id, &expr, &mut buffer)
             .expect("Evaluation should handle non-grounded nodes gracefully");
 
-        assert_eq!(res, None, "Should not simplify a function call containing variables");
+        assert_eq!(
+            res, None,
+            "Should not simplify a function call containing variables"
+        );
     }
 }

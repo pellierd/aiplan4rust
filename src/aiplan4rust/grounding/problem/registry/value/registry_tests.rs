@@ -35,21 +35,35 @@ fn test_build_linear_inheritance_chain() {
 
     // Single object defined at the leaf
     let o_truck = ObjectId::from(100);
-    let object_defs = vec![
-        TypedSymbol::new(o_truck, Type::primitive(t_tru)),
-    ];
+    let object_defs = vec![TypedSymbol::new(o_truck, Type::primitive(t_tru))];
 
     let registry = ValueRegistry::build(&type_defs, &object_defs)
         .expect("Registry build should succeed for a valid linear hierarchy");
 
     // 1. Verify upward propagation: the object must exist in all ancestor domains
-    assert_eq!(registry.get_primitive_type_domain(t_tru).unwrap(), &[o_truck]);
-    assert_eq!(registry.get_primitive_type_domain(t_veh).unwrap(), &[o_truck]);
-    assert_eq!(registry.get_primitive_type_domain(t_phy).unwrap(), &[o_truck]);
-    assert_eq!(registry.get_primitive_type_domain(t_obj).unwrap(), &[o_truck]);
+    assert_eq!(
+        registry.get_primitive_type_domain(t_tru).unwrap(),
+        &[o_truck]
+    );
+    assert_eq!(
+        registry.get_primitive_type_domain(t_veh).unwrap(),
+        &[o_truck]
+    );
+    assert_eq!(
+        registry.get_primitive_type_domain(t_phy).unwrap(),
+        &[o_truck]
+    );
+    assert_eq!(
+        registry.get_primitive_type_domain(t_obj).unwrap(),
+        &[o_truck]
+    );
 
     // 2. Verify internal memory structure
-    assert_eq!(registry.unique_objects_count(), 1, "There is only 1 unique constant");
+    assert_eq!(
+        registry.unique_objects_count(),
+        1,
+        "There is only 1 unique constant"
+    );
     assert_eq!(
         registry.storage_size(),
         4,
@@ -97,18 +111,34 @@ fn test_build_disjoint_branches() {
         .expect("Registry build should succeed for valid disjoint branches");
 
     // 1. Isolation Check: Physical branch should not see Location objects
-    let phy_domain = registry.get_primitive_type_domain(t_phy).expect("Physical domain missing");
+    let phy_domain = registry
+        .get_primitive_type_domain(t_phy)
+        .expect("Physical domain missing");
     assert!(phy_domain.contains(&o_phy));
-    assert!(!phy_domain.contains(&o_loc), "Physical domain should not include Location objects");
+    assert!(
+        !phy_domain.contains(&o_loc),
+        "Physical domain should not include Location objects"
+    );
 
     // 2. Isolation Check: Location branch should not see Physical objects
-    let loc_domain = registry.get_primitive_type_domain(t_loc).expect("Location domain missing");
+    let loc_domain = registry
+        .get_primitive_type_domain(t_loc)
+        .expect("Location domain missing");
     assert!(loc_domain.contains(&o_loc));
-    assert!(!loc_domain.contains(&o_phy), "Location domain should not include Physical objects");
+    assert!(
+        !loc_domain.contains(&o_phy),
+        "Location domain should not include Physical objects"
+    );
 
     // 3. Merge Check: Root should aggregate objects from all branches
-    let obj_domain = registry.get_primitive_type_domain(t_obj).expect("Root domain missing");
-    assert_eq!(obj_domain.len(), 2, "Root domain must contain the union of all child objects");
+    let obj_domain = registry
+        .get_primitive_type_domain(t_obj)
+        .expect("Root domain missing");
+    assert_eq!(
+        obj_domain.len(),
+        2,
+        "Root domain must contain the union of all child objects"
+    );
     assert!(obj_domain.contains(&o_phy));
     assert!(obj_domain.contains(&o_loc));
 
@@ -146,18 +176,27 @@ fn test_build_empty_abstract_type() {
         .expect("Registry build should succeed even with no objects");
 
     // 1. Domain Check: The type exists in the registry but its domain is empty
-    let domain = registry.get_primitive_type_domain(t_abstract)
+    let domain = registry
+        .get_primitive_type_domain(t_abstract)
         .expect("Domain for AbstractType should be accessible");
-    assert!(domain.is_empty(), "Domain should be empty for a type with no instances");
+    assert!(
+        domain.is_empty(),
+        "Domain should be empty for a type with no instances"
+    );
 
     // 2. Range Check: Range should be valid but signify zero elements
-    let range = registry.get_range(t_abstract)
+    let range = registry
+        .get_range(t_abstract)
         .expect("Range should be defined even for empty types");
     assert_eq!(range.len(), 0, "Range length must be 0 for empty domains");
 
     // 3. Global Consistency
     assert_eq!(registry.storage_size(), 0, "No objects should be stored");
-    assert_eq!(registry.unique_objects_count(), 0, "Unique object count should be 0");
+    assert_eq!(
+        registry.unique_objects_count(),
+        0,
+        "Unique object count should be 0"
+    );
 }
 
 /// **Test 4: Forest Structure (Multiple Independent Roots)**
@@ -200,12 +239,16 @@ fn test_build_multiple_roots_forest() {
 
     // 1. Domain Check: Verify each root contains its respective objects
     assert_eq!(
-        registry.get_primitive_type_domain(t_root_a).expect("Domain A missing"),
+        registry
+            .get_primitive_type_domain(t_root_a)
+            .expect("Domain A missing"),
         &[o_1],
         "RootA should only contain obj_1"
     );
     assert_eq!(
-        registry.get_primitive_type_domain(t_root_b).expect("Domain B missing"),
+        registry
+            .get_primitive_type_domain(t_root_b)
+            .expect("Domain B missing"),
         &[o_2],
         "RootB should only contain obj_2"
     );
@@ -220,8 +263,16 @@ fn test_build_multiple_roots_forest() {
     );
 
     // 3. Global Consistency
-    assert_eq!(registry.unique_objects_count(), 2, "Total unique objects should be 2");
-    assert_eq!(registry.storage_size(), 2, "Total storage size should be 2 (no duplication needed here)");
+    assert_eq!(
+        registry.unique_objects_count(),
+        2,
+        "Total unique objects should be 2"
+    );
+    assert_eq!(
+        registry.storage_size(),
+        2,
+        "Total storage size should be 2 (no duplication needed here)"
+    );
 }
 /// **Test 5: Diamond Inheritance (Deduplication)**
 ///
@@ -250,29 +301,57 @@ fn test_build_diamond_inheritance_deduplication() {
         TypedSymbol::new(t_a, Type::root()),
         TypedSymbol::new(t_b, Type::primitive(t_a)),
         TypedSymbol::new(t_c, Type::primitive(t_a)),
-        TypedSymbol::new(t_d, Type::either(vec![t_b, t_c])),
+        TypedSymbol::new(t_d, Type::either(&[t_b, t_c])),
     ];
 
     let o_d = ObjectId::from(400);
-    let object_defs = vec![
-        TypedSymbol::new(o_d, Type::primitive(t_d)),
-    ];
+    let object_defs = vec![TypedSymbol::new(o_d, Type::primitive(t_d))];
 
     let registry = ValueRegistry::build(&type_defs, &object_defs)
         .expect("Registry build should succeed for a diamond hierarchy");
 
     // 1. Logic Check: Object must be present in the entire lineage
-    assert_eq!(registry.get_primitive_type_domain(t_d).expect("Domain D missing"), &[o_d]);
-    assert_eq!(registry.get_primitive_type_domain(t_b).expect("Domain B missing"), &[o_d]);
-    assert_eq!(registry.get_primitive_type_domain(t_c).expect("Domain C missing"), &[o_d]);
-    assert_eq!(registry.get_primitive_type_domain(t_a).expect("Domain A missing"), &[o_d]);
+    assert_eq!(
+        registry
+            .get_primitive_type_domain(t_d)
+            .expect("Domain D missing"),
+        &[o_d]
+    );
+    assert_eq!(
+        registry
+            .get_primitive_type_domain(t_b)
+            .expect("Domain B missing"),
+        &[o_d]
+    );
+    assert_eq!(
+        registry
+            .get_primitive_type_domain(t_c)
+            .expect("Domain C missing"),
+        &[o_d]
+    );
+    assert_eq!(
+        registry
+            .get_primitive_type_domain(t_a)
+            .expect("Domain A missing"),
+        &[o_d]
+    );
 
     // 2. Deduplication Check: Common ancestor A must not have duplicates
-    let domain_a = registry.get_primitive_type_domain(t_a).expect("Domain A missing");
-    assert_eq!(domain_a.len(), 1, "Common ancestor should deduplicate objects reached via multiple paths");
+    let domain_a = registry
+        .get_primitive_type_domain(t_a)
+        .expect("Domain A missing");
+    assert_eq!(
+        domain_a.len(),
+        1,
+        "Common ancestor should deduplicate objects reached via multiple paths"
+    );
 
     // 3. Consistency Checks
-    assert_eq!(registry.unique_objects_count(), 1, "Only one unique object exists");
+    assert_eq!(
+        registry.unique_objects_count(),
+        1,
+        "Only one unique object exists"
+    );
     assert_eq!(
         registry.storage_size(),
         4,
@@ -315,7 +394,8 @@ fn test_build_error_on_indirect_cycle() {
     if let Err(e) = result {
         assert!(
             matches!(e, ValueRegistryError::CycleDetected(_)),
-            "Expected CycleDetected error, but received: {:?}", e
+            "Expected CycleDetected error, but received: {:?}",
+            e
         );
     }
 }
@@ -338,9 +418,7 @@ fn test_build_error_on_direct_cycle() {
     // Configuration: A -> A
     let t_a = TypeId::from(0);
 
-    let type_defs = vec![
-        TypedSymbol::new(t_a, Type::primitive(t_a)),
-    ];
+    let type_defs = vec![TypedSymbol::new(t_a, Type::primitive(t_a))];
 
     let result = ValueRegistry::build(&type_defs, &vec![]);
 
@@ -354,7 +432,8 @@ fn test_build_error_on_direct_cycle() {
     if let Err(e) = result {
         assert!(
             matches!(e, ValueRegistryError::CycleDetected(id) if id == t_a),
-            "Expected CycleDetected(TypeId(0)), but received: {:?}", e
+            "Expected CycleDetected(TypeId(0)), but received: {:?}",
+            e
         );
     }
 }
@@ -385,7 +464,7 @@ fn test_build_either_normalized_via_parser_logic() {
     let type_defs = vec![
         TypedSymbol::new(t_veh, Type::root()),
         TypedSymbol::new(t_tru, Type::primitive(t_veh)),
-        TypedSymbol::new(t_union, Type::either(vec![t_veh, t_tru])),
+        TypedSymbol::new(t_union, Type::either(&[t_veh, t_tru])),
     ];
 
     let o_1 = ObjectId::from(10);
@@ -399,15 +478,21 @@ fn test_build_either_normalized_via_parser_logic() {
 
     // 1. Domain Check: Verify upward propagation through the union
     assert_eq!(
-        registry.get_primitive_type_domain(t_union).expect("Union domain missing"),
+        registry
+            .get_primitive_type_domain(t_union)
+            .expect("Union domain missing"),
         &[o_1]
     );
     assert_eq!(
-        registry.get_primitive_type_domain(t_tru).expect("Truck domain missing"),
+        registry
+            .get_primitive_type_domain(t_tru)
+            .expect("Truck domain missing"),
         &[o_1]
     );
     assert_eq!(
-        registry.get_primitive_type_domain(t_veh).expect("Vehicle domain missing"),
+        registry
+            .get_primitive_type_domain(t_veh)
+            .expect("Vehicle domain missing"),
         &[o_1]
     );
 
@@ -448,7 +533,8 @@ fn test_query_error_on_out_of_bounds_type() {
     if let Err(e) = result {
         assert!(
             matches!(e, ValueRegistryError::TypeIdOutOfBounds(id, _) if id == invalid_id),
-            "Expected TypeIdOutOfBounds(999), but received: {:?}", e
+            "Expected TypeIdOutOfBounds(999), but received: {:?}",
+            e
         );
     }
 }
@@ -486,7 +572,9 @@ fn test_build_preserves_object_declaration_order() {
 
     // Validation: Check that the slice matches the input sequence exactly
     assert_eq!(
-        registry.get_primitive_type_domain(t_tru).expect("Domain missing"),
+        registry
+            .get_primitive_type_domain(t_tru)
+            .expect("Domain missing"),
         &[o1, o2, o3],
         "The registry must maintain the order in which objects were defined"
     );
@@ -516,7 +604,8 @@ fn test_build_succeeds_with_empty_root() {
         .expect("Registry build should succeed even if the root type is empty");
 
     // Validation: Ensure the domain is accessible and empty
-    let domain = registry.get_primitive_type_domain(t_root)
+    let domain = registry
+        .get_primitive_type_domain(t_root)
         .expect("Domain for the root type should exist");
 
     assert!(
@@ -544,9 +633,7 @@ fn test_build_error_on_invalid_parent_reference() {
     let t_missing = TypeId::from(99); // This ID is never defined as a symbol
 
     // Definition: A valid symbol pointing to an undefined parent ID
-    let type_defs = vec![
-        TypedSymbol::new(t_exists, Type::primitive(t_missing)),
-    ];
+    let type_defs = vec![TypedSymbol::new(t_exists, Type::primitive(t_missing))];
 
     let result = ValueRegistry::build(&type_defs, &vec![]);
 
@@ -560,7 +647,8 @@ fn test_build_error_on_invalid_parent_reference() {
     if let Err(e) = result {
         assert!(
             matches!(e, ValueRegistryError::TypeIdOutOfBounds(id, _) if id == t_missing),
-            "Expected TypeIdOutOfBounds(99) for the missing parent, but received: {:?}", e
+            "Expected TypeIdOutOfBounds(99) for the missing parent, but received: {:?}",
+            e
         );
     }
 }
@@ -585,14 +673,13 @@ fn test_build_error_on_object_with_invalid_type() {
     let t_missing = TypeId::from(99);
 
     // Definitions: Only Type 0 exists
-    let type_defs = vec![
-        TypedSymbol::new(t_exists, Type::root()),
-    ];
+    let type_defs = vec![TypedSymbol::new(t_exists, Type::root())];
 
     // Object 1 tries to belong to non-existent Type 99
-    let object_defs = vec![
-        TypedSymbol::new(ObjectId::from(1), Type::primitive(t_missing)),
-    ];
+    let object_defs = vec![TypedSymbol::new(
+        ObjectId::from(1),
+        Type::primitive(t_missing),
+    )];
 
     let result = ValueRegistry::build(&type_defs, &object_defs);
 
@@ -606,7 +693,8 @@ fn test_build_error_on_object_with_invalid_type() {
     if let Err(e) = result {
         assert!(
             matches!(e, ValueRegistryError::TypeIdOutOfBounds(id, _) if id == t_missing),
-            "Expected TypeIdOutOfBounds(99), but received: {:?}", e
+            "Expected TypeIdOutOfBounds(99), but received: {:?}",
+            e
         );
     }
 }

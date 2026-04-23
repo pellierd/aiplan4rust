@@ -218,17 +218,16 @@ impl<'a> ExprBuilder<'a> {
     /// - Otherwise, returns an `either` union of the provided type IDs.
     pub fn ty(&mut self, ids: &[usize]) -> Type<TypeId> {
         match ids {
-            // Single type case: avoids Vec allocation for unions.
+            // Cas type unique : Zéro allocation, direct sur la pile.
             [single_id] => Type::primitive(TypeId::from(*single_id)),
 
-            // Empty case: represents the root type.
+            // Cas vide : Type racine.
             [] => Type::root(),
 
-            // Multiple types: constructs an 'either' union.
-            _ => {
-                let members = ids.iter().map(|&id| TypeId::from(id)).collect();
-                Type::either(members)
-            }
+            // Cas multiple : On collect directement dans Type.
+            // Grâce à FromIterator, SmallVec gère lui-même le passage pile -> tas
+            // uniquement si ids.len() > 2.
+            _ => ids.iter().map(|&id| TypeId::from(id)).collect(),
         }
     }
 }

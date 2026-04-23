@@ -179,7 +179,7 @@ fn simplify_type(
     }
 
     let mut simplified_ids = Vec::new();
-    let mut kept_indices = Vec::new();
+    let mut kept_indices = Vec::with_capacity(n);
     for i in 0..n {
         if (to_remove_mask & (1 << i)) == 0 {
             simplified_ids.push(members[i]);

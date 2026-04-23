@@ -1,6 +1,6 @@
-use std::fmt;
-use indexmap::IndexMap;
 use crate::aiplan4rust::lang::{Type, TypeId, TypedSymbol};
+use indexmap::IndexMap;
+use std::fmt;
 
 /// A registry responsible for the unification and management of composite types during the flattening pass.
 ///
@@ -93,9 +93,13 @@ impl TypeRegistry {
     /// An [`Iterator`] yielding tuples of the new [`TypeId`] and its corresponding [`Type`] definition.
     pub fn into_new_types(self) -> impl Iterator<Item = (TypeId, Type<TypeId>)> {
         let offset = self.initial_count;
-        self.cache.into_iter()
+        self.cache
+            .into_iter()
             .filter(move |(_, id)| id.as_usize() >= offset)
-            .map(|(sig, id)| (id, Type::either(sig)))
+            .map(|(sig, id)| {
+                // On passe une slice (&sig) à Type::either
+                (id, Type::either(&sig))
+            })
     }
 }
 
