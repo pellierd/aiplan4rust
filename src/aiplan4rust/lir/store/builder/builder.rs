@@ -1,3 +1,5 @@
+use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
+use crate::aiplan4rust::lir::store::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::store::error::StorerError;
 use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId, ExprNodeRef, ExprStore};
 
@@ -7,6 +9,7 @@ pub struct ExprBuilder<'a> {
     pub(crate) store: &'a mut ExprStore,
     pub(crate) primary_buffer: Vec<ExprId>,
     pub(crate) secondary_buffer: Vec<ExprId>,
+    pub(crate) vars_buffer: TypedList<VariableId, TypeId>,
 }
 
 impl<'a> ExprBuilder<'a> {
@@ -17,6 +20,7 @@ impl<'a> ExprBuilder<'a> {
             store,
             primary_buffer: Vec::with_capacity(32),
             secondary_buffer: Vec::with_capacity(32),
+            vars_buffer: TypedList::with_capacity(16),
         }
     }
 
@@ -45,8 +49,12 @@ impl<'a> ExprBuilder<'a> {
         self.store.fetch(id)
     }
 
-    pub fn reconstruct(&mut self, kind: ExprEntryKind, children: &[ExprId]) -> ExprId {
-        match kind {
+    pub fn reconstruct(
+        &mut self,
+        kind: ExprEntryKind,
+        children: &[ExprId],
+    ) -> Result<ExprId, ExprBuilderError> {
+        let id = match kind {
             // --- 1. Opérateurs Logiques et Arithmétiques Variadiques ---
             // On utilise les Smart Constructors (and, or, add...) pour les simplifications
             ExprEntryKind::And => self.and(children),
@@ -78,8 +86,8 @@ impl<'a> ExprBuilder<'a> {
             }
 
             // --- 4. Quantificateurs (Données + 1 enfant) ---
-            ExprEntryKind::Forall(vars) => self.forall(vars, children[0]),
-            ExprEntryKind::Exists(vars) => self.exists(vars, children[0]),
+            ExprEntryKind::Forall(vars) => self.forall(vars, children[0])?,
+            ExprEntryKind::Exists(vars) => self.exists(vars, children[0])?,
 
             // --- 5. Noeuds avec Squelettes (AtomicFormula, Function, Task) ---
             // Crucial : children[0] est le symbole, children[1..] sont les arguments.
@@ -108,7 +116,8 @@ impl<'a> ExprBuilder<'a> {
             // --- 7. Cas Terminaux (Feuilles) ---
             // Object, Variable, symbols, Number, TotalTime...
             leaf_kind => self.intern(leaf_kind, &[]),
-        }
+        };
+        Ok(id)
     }
 
     /// Returns true if two values are nearly equal within [Self::EPSILON].

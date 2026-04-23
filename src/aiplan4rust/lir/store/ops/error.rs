@@ -2,6 +2,7 @@ use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
+use crate::aiplan4rust::lir::store::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::store::error::StorerError;
 use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
@@ -29,6 +30,9 @@ pub enum ExprOpErrorHC {
     /// An error originating from the lang module
     #[error(transparent)]
     Lang(#[from] LangError),
+
+    #[error(transparent)]
+    ExpBuilder(#[from] ExprBuilderError),
 
     /// Indicates that an unsupported or unexpected `AstContent` variant was encountered.
     #[error("Unsupported content: {content:?}")]

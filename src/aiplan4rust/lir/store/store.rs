@@ -1,3 +1,4 @@
+use crate::aiplan4rust::lang::VariableId;
 use crate::aiplan4rust::lir::store::error::StorerError;
 use crate::aiplan4rust::lir::store::iter::postorder::PostorderIter;
 use crate::aiplan4rust::lir::store::iter::preorder::PreorderIter;
@@ -35,6 +36,10 @@ pub struct ExprStore {
     /// Utilise FxHash pour des performances maximales sur les petits types.
     #[serde(skip)]
     lookup: HashMap<ExprEntry, ExprId, FxBuildHasher>,
+
+    /// Cache des variables libres, synchronisé avec `entries`.
+    /// free_vars[i] contient les variables libres de entries[i].
+    free_vars: Vec<VariableSet>,
 }
 
 impl Default for ExprStore {
@@ -47,6 +52,7 @@ impl Default for ExprStore {
                 // Initialise le FxHasher par défaut
                 core::hash::BuildHasherDefault::<fxhash::FxHasher>::default(),
             ),
+            free_vars: Vec::with_capacity(1024),
         }
     }
 }
@@ -77,6 +83,9 @@ impl ExprStore {
         // On crée l'entry (Zéro-alloc si <= 4 enfants)
         let entry = ExprEntry::new(kind, children);
 
+        let fv = self.compute_free_variables(&entry);
+        self.free_vars.push(fv);
+
         // On insère dans le lookup en premier (on doit cloner ici car la table de hash
         // a besoin de posséder sa propre clé pour rester valide)
         self.lookup.insert(entry.clone(), id);
@@ -85,6 +94,19 @@ impl ExprStore {
         self.entries.push(entry);
 
         id
+    }
+
+    /// Accès direct au masque (utile pour les unions dans intern)
+    #[inline]
+    pub fn get_free_vars(&self, id: ExprId) -> &VariableSet {
+        &self.free_vars[id.as_usize()]
+    }
+
+    /// La fonction que tu as écrite, simplifiée en utilisant VariableSet
+    #[inline]
+    pub fn is_variable_free(&self, expr_id: ExprId, var_id: VariableId) -> bool {
+        // On récupère le set, puis on délègue la vérification du bit
+        self.get_free_vars(expr_id).contains(var_id)
     }
 
     pub fn get(&self, id: ExprId) -> Option<ExprNodeRef<'_>> {
@@ -122,13 +144,64 @@ impl ExprStore {
         self.lookup.clear();
     }
 
-    /// Reconstruit l'index de recherche après désérialisation.
-    fn rebuild_cache(&mut self) {
+    pub fn rebuild_caches(&mut self) {
+        let count = self.entries.len();
+
+        // 1. On prépare le lookup (comme tu le faisais)
         self.lookup.clear();
-        self.lookup.reserve(self.entries.len());
-        for (index, entry) in self.entries.iter().enumerate() {
-            self.lookup.insert(entry.clone(), ExprId::new(index));
+        self.lookup.reserve(count);
+
+        // 2. On prépare le cache des variables libres
+        self.free_vars.clear();
+        self.free_vars.reserve(count);
+
+        // 3. On reconstruit tout linéairement
+        // L'ordre 0..count est vital car les variables libres d'un parent
+        // dépendent de celles de ses enfants (déjà traitées car ID_enfant < ID_parent).
+        for i in 0..count {
+            let entry = &self.entries[i];
+            let id = ExprId::new(i);
+
+            // On remet l'entrée dans la table de hachage
+            self.lookup.insert(entry.clone(), id);
+
+            // On calcule et on stocke les variables libres pour cet index
+            let fv = self.compute_free_variables(entry);
+            self.free_vars.push(fv);
         }
+    }
+
+    #[inline]
+    fn compute_free_variables(&self, entry: &ExprEntry) -> VariableSet {
+        let mut fv = VariableSet::new();
+
+        match entry.kind() {
+            // CAS A : La source du signal (La variable elle-même)
+            ExprEntryKind::Variable(v_id) => {
+                fv.insert(*v_id);
+            }
+
+            // CAS B : Le filtre (Quantificateurs)
+            ExprEntryKind::Forall(vars) | ExprEntryKind::Exists(vars) => {
+                if let Some(&body_id) = entry.children().first() {
+                    fv = *self.get_free_vars(body_id);
+                    for v in vars {
+                        fv.remove(v.symbol());
+                    }
+                }
+            }
+
+            // CAS C : Tout le reste (Atomes, And, Or, Not, Opérateurs temporels...)
+            // On fait l'union de TOUS les enfants.
+            // Si un enfant est un PredicateSymbol, son bitset est vide -> Union neutre.
+            // Si un enfant est une Variable, on récupère son bit -> Union utile.
+            _ => {
+                for &child_id in entry.children() {
+                    fv.union_with(self.get_free_vars(child_id));
+                }
+            }
+        }
+        fv
     }
 }
 
@@ -151,14 +224,60 @@ impl<'de> Deserialize<'de> for ExprStore {
         }
 
         let data = ExprStoreData::deserialize(deserializer)?;
+        let count = data.entries.len();
 
         let mut store = Self {
             entries: data.entries,
-            lookup: HashMap::with_hasher(FxBuildHasher::default()),
+            // On initialise le cache avec la même capacité que les entrées
+            free_vars: Vec::with_capacity(count),
+            lookup: HashMap::with_capacity_and_hasher(count, FxBuildHasher::default()),
         };
 
-        store.rebuild_cache();
+        // Important : Reconstruire à la fois le Hash-Consing (lookup)
+        // ET le cache des variables libres (free_vars)
+        store.rebuild_caches();
 
         Ok(store)
+    }
+}
+
+const BITSET_WORDS: usize = 4;
+
+/// Un ensemble de variables représenté par un bitset de 256 bits.
+/// Placé en haut du fichier du store.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
+pub struct VariableSet([u64; BITSET_WORDS]);
+
+impl VariableSet {
+    pub fn new() -> Self {
+        Self([0; BITSET_WORDS])
+    }
+
+    #[inline]
+    pub fn insert(&mut self, id: VariableId) {
+        let idx = id.as_usize();
+        if idx < BITSET_WORDS * 64 {
+            self.0[idx / 64] |= 1 << (idx % 64);
+        }
+    }
+
+    #[inline]
+    pub fn remove(&mut self, id: VariableId) {
+        let idx = id.as_usize();
+        if idx < BITSET_WORDS * 64 {
+            self.0[idx / 64] &= !(1 << (idx % 64));
+        }
+    }
+
+    #[inline]
+    pub fn contains(&self, id: VariableId) -> bool {
+        let idx = id.as_usize();
+        idx < BITSET_WORDS * 64 && (self.0[idx / 64] & (1 << (idx % 64))) != 0
+    }
+
+    pub fn union_with(&mut self, other: &Self) {
+        for i in 0..BITSET_WORDS {
+            self.0[i] |= other.0[i];
+        }
     }
 }

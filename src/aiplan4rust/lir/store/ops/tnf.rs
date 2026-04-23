@@ -64,9 +64,9 @@ pub fn to_tnf(
                         scratch.push_time_specifier(s, e, o, empty);
                     }
 
-                    let s_id = rebuild_safe(builder, &kind, scratch.collected_starts(), empty);
-                    let e_id = rebuild_safe(builder, &kind, scratch.collected_ends(), empty);
-                    let o_id = rebuild_safe(builder, &kind, scratch.collected_overalls(), empty);
+                    let s_id = rebuild_safe(builder, &kind, scratch.collected_starts(), empty)?;
+                    let e_id = rebuild_safe(builder, &kind, scratch.collected_ends(), empty)?;
+                    let o_id = rebuild_safe(builder, &kind, scratch.collected_overalls(), empty)?;
                     (s_id, e_id, o_id)
                 }
 
@@ -112,13 +112,13 @@ fn rebuild_safe(
     kind: &ExprEntryKind,
     kids: &[ExprId],
     empty: ExprId,
-) -> ExprId {
+) -> Result<ExprId, ExprOpErrorHC> {
     if kids.is_empty() {
-        empty
+        Ok(empty)
     } else if kids.len() == 1 && matches!(kind, ExprEntryKind::And | ExprEntryKind::Or) {
-        kids[0]
+        Ok(kids[0])
     } else {
-        builder.reconstruct(kind.clone(), kids)
+        Ok(builder.reconstruct(kind.clone(), kids)?)
     }
 }
 

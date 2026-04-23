@@ -1,13 +1,11 @@
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{SymbolId, Id, Type, RemapSymbol};
+use crate::aiplan4rust::lang::{Id, RemapSymbol, SymbolId, Type};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol<SID: Id, TID: Id> {
     /// SID est l'ID du symbole (StringID, VariableID, etc.)
     symbol: SID,
@@ -20,18 +18,28 @@ impl<SID: Id, TID: Id> TypedSymbol<SID, TID> {
         TypedSymbol { symbol, ty }
     }
 
-    pub fn symbol(&self) -> SID { self.symbol }
-    pub fn set_symbol(&mut self, symbol: SID) { self.symbol = symbol; }
+    pub fn symbol(&self) -> SID {
+        self.symbol
+    }
+    pub fn set_symbol(&mut self, symbol: SID) {
+        self.symbol = symbol;
+    }
 
-    pub fn ty(&self) -> &Type<TID> { &self.ty }
-    pub fn ty_mut(&mut self) -> &mut Type<TID> { &mut self.ty }
-    pub fn set_ty(&mut self, ty: Type<TID>) { self.ty = ty; }
+    pub fn ty(&self) -> &Type<TID> {
+        &self.ty
+    }
+    pub fn ty_mut(&mut self) -> &mut Type<TID> {
+        &mut self.ty
+    }
+    pub fn set_ty(&mut self, ty: Type<TID>) {
+        self.ty = ty;
+    }
 }
 
 impl<SID, TID> fmt::Display for TypedSymbol<SID, TID>
 where
     SID: Id + fmt::Display,
-    TID: Id + fmt::Display
+    TID: Id + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Affiche "symbole - typing"
@@ -65,7 +73,11 @@ where
 }*/
 
 impl InternerDisplay for TypedSymbol<SymbolId, SymbolId> {
-    fn fmt_with_interner(&self, w: &mut fmt::Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
+    fn fmt_with_interner(
+        &self,
+        w: &mut fmt::Formatter<'_>,
+        interner: &SymbolInterner,
+    ) -> fmt::Result {
         // Comme self.symbol est un StringID, il implémente InternerDisplay
         self.symbol.fmt_with_interner(w, interner)?;
 
@@ -83,7 +95,7 @@ impl SyntaxInternerDisplay for TypedSymbol<SymbolId, SymbolId> {
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &SymbolInterner,
-        indent: usize
+        indent: usize,
     ) -> fmt::Result {
         write_indent(f, indent)?;
 
@@ -116,13 +128,12 @@ where
     }
 }*/
 
-
 /*/// Représente un symbole typé.
 /// ID peut être StringID (syntaxe) ou TypeID (grounding/sémantique pour les types).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol<ID: Id> {
     /// Le symbole reste généralement un StringID (le nom de la variable/constante)
-    /// mais on pourrait aussi le rendre générique si besoin. 
+    /// mais on pourrait aussi le rendre générique si besoin.
     /// Ici, on garde StringID pour le nom et ID pour le typing.
     symbol: StringID,
     types: Type<ID>,

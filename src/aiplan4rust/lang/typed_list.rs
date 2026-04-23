@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{RemapSymbol, SymbolId, Id, TypedSymbol};
+use crate::aiplan4rust::lang::{Id, RemapSymbol, SymbolId, TypedSymbol};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 
 /// A collection of symbols where each symbol is associated with a specific typing.
@@ -39,6 +39,24 @@ where
         Self {
             typed_symbols: Vec::new(),
         }
+    }
+
+    /// Crée une nouvelle `TypedList` vide avec une capacité initiale spécifiée.
+    ///
+    /// La liste pourra contenir au moins `capacity` éléments sans réallouer.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            typed_symbols: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Vide la liste de tous ses éléments.
+    ///
+    /// Cette méthode conserve la capacité allouée, permettant de réutiliser
+    /// la mémoire pour les prochaines insertions.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.typed_symbols.clear();
     }
 
     /// Adds a typed symbol to the end of the list.
@@ -134,6 +152,45 @@ where
     ///   call [`Self::sort_by_symbol`] first.
     pub fn dedup_by_symbol(&mut self) {
         self.typed_symbols.dedup_by_key(|ts| ts.symbol());
+    }
+
+    /// Conserve uniquement les éléments qui satisfont le prédicat donné.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&TypedSymbol<SID, TID>) -> bool,
+    {
+        self.typed_symbols.retain(f);
+    }
+
+    /// Crée un itérateur qui extrait (déplace) tous les éléments de la liste.
+    ///
+    /// La liste est vidée mais conserve sa capacité allouée.
+    pub fn drain<R>(&mut self, range: R) -> std::vec::Drain<'_, TypedSymbol<SID, TID>>
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        self.typed_symbols.drain(range)
+    }
+
+    /// Ajoute les éléments d'un slice à la fin de la liste.
+    ///
+    /// Cette opération est très efficace car elle utilise la performance
+    /// native de `Vec::extend_from_slice`.
+    pub fn extend_from_slice(&mut self, other: &[TypedSymbol<SID, TID>]) {
+        self.typed_symbols.extend_from_slice(other);
+    }
+
+    /// Extrait le contenu et réinitialise la liste en conservant la capacité.
+    pub fn take(&mut self) -> Self {
+        let old_capacity = self.typed_symbols.capacity();
+        // On prend le Vec (zéro allocation)
+        let symbols = std::mem::take(&mut self.typed_symbols);
+        // On redonne un Vec vide au buffer avec la capacité initiale pour les prochains appels
+        self.typed_symbols = Vec::with_capacity(old_capacity);
+
+        Self {
+            typed_symbols: symbols,
+        }
     }
 }
 
@@ -232,7 +289,9 @@ impl<SID: Id, TID: Id> IntoIterator for TypedList<SID, TID> {
     ///
     /// # Returns
     /// - An iterator consuming the list and yielding [`TypedSymbol`] elements.
-    fn into_iter(self) -> Self::IntoIter { self.typed_symbols.into_iter() }
+    fn into_iter(self) -> Self::IntoIter {
+        self.typed_symbols.into_iter()
+    }
 }
 
 impl<'a, SID: Id, TID: Id> IntoIterator for &'a TypedList<SID, TID> {
@@ -243,7 +302,9 @@ impl<'a, SID: Id, TID: Id> IntoIterator for &'a TypedList<SID, TID> {
     ///
     /// # Returns
     /// - An iterator yielding references to [`TypedSymbol`].
-    fn into_iter(self) -> Self::IntoIter { self.typed_symbols.iter() }
+    fn into_iter(self) -> Self::IntoIter {
+        self.typed_symbols.iter()
+    }
 }
 
 impl<SID: Id, TID: Id> fmt::Display for TypedList<SID, TID> {
@@ -254,7 +315,9 @@ impl<SID: Id, TID: Id> fmt::Display for TypedList<SID, TID> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "(")?;
         for (i, sym) in self.typed_symbols.iter().enumerate() {
-            if i > 0 { write!(f, " ")?; }
+            if i > 0 {
+                write!(f, " ")?;
+            }
             write!(f, "{sym}")?;
         }
         write!(f, ")")
@@ -262,7 +325,8 @@ impl<SID: Id, TID: Id> fmt::Display for TypedList<SID, TID> {
 }
 
 impl<SID: Id, TID: Id> InternerDisplay for TypedList<SID, TID>
-where TypedSymbol<SID, TID>: InternerDisplay
+where
+    TypedSymbol<SID, TID>: InternerDisplay,
 {
     /// Formats the list using an interner to resolve symbol names.
     ///
@@ -271,10 +335,16 @@ where TypedSymbol<SID, TID>: InternerDisplay
     ///
     /// # Returns
     /// - `fmt::Result` indicating the success of the write operation.
-    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
+    fn fmt_with_interner(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &SymbolInterner,
+    ) -> fmt::Result {
         write!(f, "(")?;
         for (i, sym) in self.typed_symbols.iter().enumerate() {
-            if i > 0 { write!(f, " ")?; }
+            if i > 0 {
+                write!(f, " ")?;
+            }
             sym.fmt_with_interner(f, interner)?;
         }
         write!(f, ")")
@@ -282,7 +352,8 @@ where TypedSymbol<SID, TID>: InternerDisplay
 }
 
 impl<SID: Id, TID: Id> SyntaxInternerDisplay for TypedList<SID, TID>
-where TypedSymbol<SID, TID>: SyntaxInternerDisplay
+where
+    TypedSymbol<SID, TID>: SyntaxInternerDisplay,
 {
     /// Formats the list specifically for syntax-related output with indentation.
     ///
@@ -292,10 +363,17 @@ where TypedSymbol<SID, TID>: SyntaxInternerDisplay
     ///
     /// # Returns
     /// - `fmt::Result` indicating the success of the write operation.
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut fmt::Formatter<'_>, interner: &SymbolInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &SymbolInterner,
+        indent: usize,
+    ) -> fmt::Result {
         write_indent(f, indent)?;
         for (i, sym) in self.typed_symbols.iter().enumerate() {
-            if i > 0 { write!(f, " ")?; }
+            if i > 0 {
+                write!(f, " ")?;
+            }
             sym.fmt_syntax_with_interner(f, interner)?;
         }
         Ok(())

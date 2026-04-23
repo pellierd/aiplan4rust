@@ -9,7 +9,7 @@ use std::fmt::Formatter;
 
 /// Représente un typing PDDL générique (atomique ou union via `either`).
 /// `ID` peut être un `StringID` (phase syntaxique) ou un `TypeID` (phase sémantique).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Type<ID: Id> {
     /// Liste non vide des identifiants atomiques composant ce typing.
     members: Vec<ID>,

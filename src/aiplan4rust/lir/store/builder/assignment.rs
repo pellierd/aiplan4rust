@@ -206,7 +206,7 @@ impl<'a> ExprBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::{AssignOp, VariableId};
+    use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, VariableId};
     use crate::aiplan4rust::lir::store::builder::ExprBuilder;
     use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
 
@@ -360,7 +360,7 @@ mod tests {
 
         // Construction 1: 1.0 + 1.0 (Automatically folded to 2.0)
         let n1 = builder.number(1.0);
-        let val1 = builder.arithmetic(crate::aiplan4rust::lang::ArithmeticOp::Add, &[n1, n1]);
+        let val1 = builder.arithmetic(ArithmeticOp::Add, &[n1, n1]);
         let assign1 = builder.assign(target, val1);
 
         // Construction 2: Literal 2.0

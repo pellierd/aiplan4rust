@@ -71,17 +71,17 @@ pub fn to_nnf(
                 ExprEntryKind::Forall(vars) => {
                     let body = scratch.fetch(ExprId::from(encode(children_ids[0], negate)));
                     if negate {
-                        builder.exists(vars.clone(), body)
+                        builder.exists(vars.clone(), body)?
                     } else {
-                        builder.forall(vars.clone(), body)
+                        builder.forall(vars.clone(), body)?
                     }
                 }
                 ExprEntryKind::Exists(vars) => {
                     let body = scratch.fetch(ExprId::from(encode(children_ids[0], negate)));
                     if negate {
-                        builder.forall(vars.clone(), body)
+                        builder.forall(vars.clone(), body)?
                     } else {
-                        builder.exists(vars.clone(), body)
+                        builder.exists(vars.clone(), body)?
                     }
                 }
 
@@ -247,7 +247,7 @@ mod tests {
         let a = builder.atomic_formula(1, &[], skel);
         let var_x = builder.typed_variable(10, &[100]); // ID 10, Type 100
         let forall_vars = builder.typed_variable_list(vec![var_x]);
-        let forall_node = builder.forall(forall_vars, a);
+        let forall_node = builder.forall(forall_vars, a)?;
         let root = builder.not(forall_node);
 
         // 2. Transformation: ¬∀x.A -> ∃x.¬A
@@ -291,7 +291,7 @@ mod tests {
         let a = builder.atomic_formula(1, &[], skel);
         let var_x = builder.typed_variable(10, &[100]);
         let exists_vars = builder.typed_variable_list(vec![var_x]);
-        let exists_node = builder.exists(exists_vars, a);
+        let exists_node = builder.exists(exists_vars, a)?;
         let root = builder.not(exists_node);
 
         // 2. Transformation: ¬∃x.A -> ∀x.¬A
@@ -360,7 +360,7 @@ mod tests {
         let not_b = builder.not(b);
         let var_x = builder.typed_variable(10, &[100]);
         let exists_vars = builder.typed_variable_list(vec![var_x]);
-        let exists_c = builder.exists(exists_vars, c);
+        let exists_c = builder.exists(exists_vars, c)?;
 
         let and_node = builder.and(&[a, not_b, exists_c]);
         let root = builder.not(and_node);
@@ -447,8 +447,8 @@ mod tests {
         let not_or_bc = builder.not(or_bc);
 
         // ICI : On utilise `vars` (non vide) au lieu de `empty_vars`
-        let exists_d = builder.exists(vars.clone(), d);
-        let forall_exists_d = builder.forall(vars.clone(), exists_d);
+        let exists_d = builder.exists(vars.clone(), d)?;
+        let forall_exists_d = builder.forall(vars.clone(), exists_d)?;
 
         let and_node = builder.and(&[a, not_or_bc, forall_exists_d]);
         let root_id = builder.not(and_node);
