@@ -132,6 +132,7 @@ impl ExprStore {
         self.get_free_vars(expr_id).contains(var_id)
     }
 
+    #[inline]
     pub fn get(&self, id: ExprId) -> Option<ExprNodeRef<'_>> {
         self.entries
             .get(id.as_usize())

@@ -64,9 +64,9 @@ pub fn to_tnf(
                         scratch.push_time_specifier(s, e, o, empty);
                     }
 
-                    let s_id = rebuild_safe(builder, &kind, scratch.collected_starts(), empty)?;
-                    let e_id = rebuild_safe(builder, &kind, scratch.collected_ends(), empty)?;
-                    let o_id = rebuild_safe(builder, &kind, scratch.collected_overalls(), empty)?;
+                    let s_id = rebuild_safe(builder, &kind, scratch.at_start_buffer(), empty)?;
+                    let e_id = rebuild_safe(builder, &kind, scratch.at_end_buffer(), empty)?;
+                    let o_id = rebuild_safe(builder, &kind, scratch.overall_buffer(), empty)?;
                     (s_id, e_id, o_id)
                 }
 

@@ -32,6 +32,10 @@ pub struct Scratchpad {
     starts_buffer: Vec<ExprId>,
     ends_buffer: Vec<ExprId>,
     overalls_buffer: Vec<ExprId>,
+
+    /// Buffer pour extraire les enfants du store sans allocation.
+    children_buffer: Vec<ExprId>,
+    build_buffer: Vec<ExprId>,
 }
 
 impl Scratchpad {
@@ -60,6 +64,10 @@ impl Scratchpad {
             starts_buffer: Vec::with_capacity(64),
             ends_buffer: Vec::with_capacity(64),
             overalls_buffer: Vec::with_capacity(64),
+
+            // NNF
+            children_buffer: Vec::with_capacity(64),
+            build_buffer: Vec::with_capacity(64),
         }
     }
 
@@ -82,6 +90,10 @@ impl Scratchpad {
         self.starts_buffer.clear();
         self.ends_buffer.clear();
         self.overalls_buffer.clear();
+
+        // NNF
+        self.children_buffer.clear();
+        self.build_buffer.clear();
     }
 
     /// On l'initialise avant chaque algorithme
@@ -197,13 +209,16 @@ impl Scratchpad {
     }
 
     // Accesseurs pour la phase de reconstruction
-    pub fn collected_starts(&self) -> &[ExprId] {
+    #[inline]
+    pub fn at_start_buffer(&self) -> &[ExprId] {
         &self.starts_buffer
     }
-    pub fn collected_ends(&self) -> &[ExprId] {
+    #[inline]
+    pub fn at_end_buffer(&self) -> &[ExprId] {
         &self.ends_buffer
     }
-    pub fn collected_overalls(&self) -> &[ExprId] {
+    #[inline]
+    pub fn overall_buffer(&self) -> &[ExprId] {
         &self.overalls_buffer
     }
 
@@ -241,5 +256,40 @@ impl Scratchpad {
             .filter(|&(_, &count)| count >= 2)
             .max_by_key(|&(&id, count)| (count, id))
             .map(|(&id, _)| id)
+    }
+
+    #[inline]
+    pub fn children_buffer(&self) -> &[ExprId] {
+        self.children_buffer.as_slice()
+    }
+    #[inline]
+    pub fn build_buffer(&self) -> &[ExprId] {
+        self.build_buffer.as_slice()
+    }
+
+    #[inline]
+    pub fn children_buffer_mut(&mut self) -> &mut Vec<ExprId> {
+        &mut self.children_buffer
+    }
+
+    #[inline]
+    pub fn build_buffer_mut(&mut self) -> &mut Vec<ExprId> {
+        &mut self.build_buffer
+    }
+
+    /// Prépare un segment d'enfants dans le buffer et retourne ses indices.
+    #[inline(always)]
+    pub fn prepare_children_segment(&mut self, children: &[ExprId]) -> (usize, usize) {
+        let start = self.children_buffer().len();
+        self.children_buffer_mut().extend_from_slice(children);
+        let end = self.children_buffer().len();
+        (start, end)
+    }
+
+    /// Récupère les indices du dernier segment de `count` éléments.
+    #[inline(always)]
+    pub(crate) fn last_segment_indices(&self, count: usize) -> (usize, usize) {
+        let end = self.children_buffer().len();
+        (end - count, end)
     }
 }

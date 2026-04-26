@@ -5,12 +5,12 @@ mod expr;
 mod id;
 mod iter;
 mod kind;
+mod node;
 mod ops;
-mod reference;
 mod store;
 
 pub use entry::ExprEntry;
 pub use id::ExprId;
 pub use kind::ExprEntryKind;
-pub use reference::ExprNodeRef;
+pub use node::ExprNodeRef;
 pub use store::ExprStore;
