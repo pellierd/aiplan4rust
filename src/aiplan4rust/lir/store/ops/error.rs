@@ -77,6 +77,18 @@ pub enum ExprOpErrorHC {
         /// The kind of the node to help debugging.
         kind: ExprEntryKind,
     },
+
+    /// Indicates an illegal nesting of temporal operators (e.g., 'at start' inside 'at end').
+    /// This is typically caught during parsing or initial expression building.
+    #[error("Illegal Temporal Nesting: Cannot nest temporal operator {nested_kind:?} inside {parent_kind:?} at node {id:?}")]
+    IllegalTemporalNesting {
+        /// The ID of the node where the violation occurred.
+        id: ExprId,
+        /// The kind of the parent temporal operator.
+        parent_kind: ExprEntryKind,
+        /// The kind of the nested temporal operator that is forbidden.
+        nested_kind: ExprEntryKind,
+    },
 }
 
 impl ExprOpErrorHC {
@@ -108,6 +120,21 @@ impl ExprOpErrorHC {
     #[track_caller]
     pub fn unsupported_content(content: AstContent) -> Self {
         ExprOpErrorHC::UnsupportedContent { content }.trace()
+    }
+
+    /// Creates an `IllegalTemporalNesting` error variant and captures the call site.
+    #[track_caller]
+    pub fn illegal_temporal_nesting(
+        id: ExprId,
+        parent_kind: ExprEntryKind,
+        nested_kind: ExprEntryKind,
+    ) -> Self {
+        ExprOpErrorHC::IllegalTemporalNesting {
+            id,
+            parent_kind,
+            nested_kind,
+        }
+        .trace()
     }
 }
 
