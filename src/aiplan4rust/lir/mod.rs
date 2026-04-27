@@ -55,10 +55,10 @@ mod store;
 
 pub use encoder::LirEncoder;
 pub use error::LirError;
+pub use expr::Expr;
 pub use problem::action::Action as ActionDef;
 pub use problem::derived_predicate::DerivedPredicate as DerivedPredicateDef;
 pub use problem::initial_task_network::InitialTaskNetwork;
 pub use problem::method::Method as MethodDef;
 pub use problem::task_network::TaskNetwork;
-use problem::{action, atomic_skeleton, initial_task_network, method, task_network};
 pub use result::Result as LirEncoderResult;

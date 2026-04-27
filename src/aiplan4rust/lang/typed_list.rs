@@ -361,6 +361,17 @@ where
     }
 }
 
+impl<SID, TID> std::ops::IndexMut<usize> for TypedList<SID, TID>
+where
+    SID: Id,
+    TID: Id,
+{
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.typed_symbols[index]
+    }
+}
+
 impl<SID: Id, TID: Id> IntoIterator for TypedList<SID, TID> {
     /// The type of the elements being iterated over (owned symbols).
     type Item = TypedSymbol<SID, TID>;
