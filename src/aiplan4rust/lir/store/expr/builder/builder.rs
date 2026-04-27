@@ -23,9 +23,9 @@
 //! - [`StorerError`]: For low-level storage issues within the interned memory.
 
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::store::error::StorerError;
 use crate::aiplan4rust::lir::store::expr::builder::ExprBuilderError;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId, ExprNodeRef, ExprStore};
+use crate::aiplan4rust::lir::store::expr::error::StorerError;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId, ExprNodeRef, ExprStore};
 
 /// The default tolerance used for floating-point comparisons within the builder.
 ///
@@ -72,7 +72,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// This is an internal helper used when direct store manipulation is required
     /// outside of standard interning.
-    fn store(&mut self) -> &mut ExprStore {
+    pub(crate) fn store(&mut self) -> &mut ExprStore {
         self.store
     }
 

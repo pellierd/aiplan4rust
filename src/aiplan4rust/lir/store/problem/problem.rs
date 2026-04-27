@@ -50,11 +50,11 @@ use crate::aiplan4rust::lir::store::expr::{ExprId, ExprStore};
 use crate::aiplan4rust::lir::store::problem::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
+use crate::aiplan4rust::lir::store::problem::error::LiftedProblemError;
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::store::problem::{
     ActionDef, DerivedPredicateDef, DomainDef, InitialTaskNetwork, MethodDef, ProblemDef,
 };
-use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -454,7 +454,10 @@ impl Problem {
     /// * `Ok(TypeID)` - The ID of the successfully updated typing.
     /// * `Err(LirError::TypeDefinitionOrphan)` - If the ID's index exceeds the
     ///   allocated definitions, indicating the symbol was never registered via `add_type_symbol`.
-    pub fn add_type_defs(&mut self, ty: TypedSymbol<TypeId, TypeId>) -> Result<TypeId, LirError> {
+    pub fn add_type_defs(
+        &mut self,
+        ty: TypedSymbol<TypeId, TypeId>,
+    ) -> Result<TypeId, LiftedProblemError> {
         let id = ty.symbol();
         let idx = id.as_usize();
 
@@ -462,7 +465,7 @@ impl Problem {
         // If the index is out of bounds, it means the definition is an "orphan"
         // without a corresponding registered symbol.
         if idx >= self.type_defs.len() {
-            return Err(LirError::type_definition_orphan(id));
+            return Err(LiftedProblemError::type_definition_orphan(id));
         }
 
         self.type_defs[idx] = ty;
@@ -507,9 +510,12 @@ impl Problem {
     /// # Returns
     /// * `Ok(&TypedSymbol)` on success.
     /// * `Err(LirError::TypeDefinitionOrphan)` if the definition does not exist.
-    pub fn try_get_type(&self, id: TypeId) -> Result<&TypedSymbol<TypeId, TypeId>, LirError> {
+    pub fn try_get_type(
+        &self,
+        id: TypeId,
+    ) -> Result<&TypedSymbol<TypeId, TypeId>, LiftedProblemError> {
         self.get_type_def(id)
-            .ok_or_else(|| LirError::type_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::type_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable typing definition or returns an error.
@@ -523,9 +529,9 @@ impl Problem {
     pub fn try_get_type_mut(
         &mut self,
         id: TypeId,
-    ) -> Result<&mut TypedSymbol<TypeId, TypeId>, LirError> {
+    ) -> Result<&mut TypedSymbol<TypeId, TypeId>, LiftedProblemError> {
         self.get_type_def_mut(id)
-            .ok_or_else(|| LirError::type_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::type_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the object symbol table.
@@ -595,7 +601,7 @@ impl Problem {
     pub fn add_object_def(
         &mut self,
         obj: TypedSymbol<ObjectId, TypeId>,
-    ) -> Result<ObjectId, LirError> {
+    ) -> Result<ObjectId, LiftedProblemError> {
         let id = obj.symbol();
         let idx = id.as_usize();
 
@@ -603,7 +609,7 @@ impl Problem {
         // If the index is out of bounds, this definition has no corresponding
         // symbol entry, making it an "orphan".
         if idx >= self.object_defs.len() {
-            return Err(LirError::object_definition_orphan(id));
+            return Err(LiftedProblemError::object_definition_orphan(id));
         }
 
         self.object_defs[idx] = obj;
@@ -635,9 +641,12 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::ObjectDefinitionOrphan` if the ID is not registered.
-    pub fn try_get_object(&self, id: ObjectId) -> Result<&TypedSymbol<ObjectId, TypeId>, LirError> {
+    pub fn try_get_object(
+        &self,
+        id: ObjectId,
+    ) -> Result<&TypedSymbol<ObjectId, TypeId>, LiftedProblemError> {
         self.get_object_def(id)
-            .ok_or_else(|| LirError::object_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::object_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable object definition or returns an error.
@@ -647,9 +656,9 @@ impl Problem {
     pub fn try_get_object_mut(
         &mut self,
         id: ObjectId,
-    ) -> Result<&mut TypedSymbol<ObjectId, TypeId>, LirError> {
+    ) -> Result<&mut TypedSymbol<ObjectId, TypeId>, LiftedProblemError> {
         self.get_object_def_mut(id)
-            .ok_or_else(|| LirError::object_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::object_definition_orphan(id))
     }
 
     /// Checks if there are any objects defined specifically in the problem
@@ -793,9 +802,9 @@ impl Problem {
     pub fn try_get_predicate(
         &self,
         id: AtomSkeletonId,
-    ) -> Result<&AtomicFormulaSkeleton, LirError> {
+    ) -> Result<&AtomicFormulaSkeleton, LiftedProblemError> {
         self.get_predicate_def(id)
-            .ok_or_else(|| LirError::predicate_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::predicate_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable predicate definition or returns an error.
@@ -805,9 +814,9 @@ impl Problem {
     pub fn try_get_predicate_mut(
         &mut self,
         id: AtomSkeletonId,
-    ) -> Result<&mut AtomicFormulaSkeleton, LirError> {
+    ) -> Result<&mut AtomicFormulaSkeleton, LiftedProblemError> {
         self.get_predicate_def_mut(id)
-            .ok_or_else(|| LirError::predicate_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::predicate_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the function symbol table.
@@ -938,9 +947,9 @@ impl Problem {
     pub fn try_get_function(
         &self,
         id: FunctionSkeletonId,
-    ) -> Result<&AtomicFunctionSkeleton, LirError> {
+    ) -> Result<&AtomicFunctionSkeleton, LiftedProblemError> {
         self.get_function_def(id)
-            .ok_or_else(|| LirError::function_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::function_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable definition or returns a specialized error.
@@ -954,9 +963,9 @@ impl Problem {
     pub fn try_get_function_mut(
         &mut self,
         id: FunctionSkeletonId,
-    ) -> Result<&mut AtomicFunctionSkeleton, LirError> {
+    ) -> Result<&mut AtomicFunctionSkeleton, LiftedProblemError> {
         self.get_function_def_mut(id)
-            .ok_or_else(|| LirError::function_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::function_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the task symbol table.
@@ -1083,9 +1092,12 @@ impl Problem {
     ///
     /// # Errors
     /// Returns [`LirError::TaskDefinitionOrphan`] if the skeleton ID is invalid.
-    pub fn try_get_task(&self, id: TaskSkeletonId) -> Result<&AtomicTaskSkeleton, LirError> {
+    pub fn try_get_task(
+        &self,
+        id: TaskSkeletonId,
+    ) -> Result<&AtomicTaskSkeleton, LiftedProblemError> {
         self.get_task_def(id)
-            .ok_or_else(|| LirError::task_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::task_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable task definition or returns a specialized error.
@@ -1101,9 +1113,9 @@ impl Problem {
     pub fn try_get_task_mut(
         &mut self,
         id: TaskSkeletonId,
-    ) -> Result<&mut AtomicTaskSkeleton, LirError> {
+    ) -> Result<&mut AtomicTaskSkeleton, LiftedProblemError> {
         self.get_task_def_mut(id)
-            .ok_or_else(|| LirError::task_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::task_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the preference symbol table.
@@ -1168,9 +1180,9 @@ impl Problem {
     ///
     /// # Errors
     /// Returns [`LirError::PreferenceDefinitionOrphan`] if the ID is invalid.
-    pub fn try_get_preference(&self, id: PreferenceSymbolId) -> Result<ExprId, LirError> {
+    pub fn try_get_preference(&self, id: PreferenceSymbolId) -> Result<ExprId, LiftedProblemError> {
         self.get_preference_def(id)
-            .ok_or_else(|| LirError::preference_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::preference_definition_orphan(id))
     }
 
     /// Returns a reference to the global domain constraints.

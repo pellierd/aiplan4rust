@@ -1,13 +1,15 @@
 mod entry;
-mod error;
-mod expr;
+pub mod error;
+pub mod expr;
 mod id;
 mod kind;
 mod node;
 mod store;
 
-mod iter;
+pub(crate) mod builder;
+pub mod iter;
 
+pub use builder::ExprBuilder;
 pub use entry::ExprEntry;
 pub use id::ExprId;
 pub use kind::ExprEntryKind;

@@ -1,16 +1,18 @@
 pub mod action;
 pub mod atomic_skeleton;
-mod derived_predicate;
-mod domain_def;
-mod initial_task_network;
-mod method;
-mod problem;
-mod problem_def;
+pub mod derived_predicate;
+pub mod domain_def;
+pub mod error;
+pub mod initial_task_network;
+pub mod method;
+pub mod problem;
+pub mod problem_def;
 pub mod registry;
-mod task_network;
+pub mod task_network;
 
 pub use action::Action as ActionDef;
 pub use derived_predicate::DerivedPredicate as DerivedPredicateDef;
+pub use error::LiftedProblemError;
 pub use initial_task_network::InitialTaskNetwork;
 pub use method::Method as MethodDef;
 pub use problem::Problem as LiftedProblem;

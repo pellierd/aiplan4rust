@@ -9,8 +9,8 @@
 //! API has zero runtime overhead.
 
 use crate::aiplan4rust::lang::{FunctionSymbolId, ObjectId, PredicateSymbolId, VariableId};
-use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a constant leaf node representing a PDDL Object.
@@ -74,7 +74,7 @@ impl<'a> ExprBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lir::store::ExprStore;
+    use crate::aiplan4rust::lir::store::expr::{ExprBuilder, ExprStore};
 
     /// These tests verify the fundamental integrity of the Atomic Symbol constructors.
     ///

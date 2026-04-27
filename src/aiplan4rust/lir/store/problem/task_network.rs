@@ -35,11 +35,10 @@
 //! The logic used are built from the [`Expr`] representation, which supports
 //! logical combinations, references to task calls, and symbolic constructs parsed from ASTs.
 
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-
 use crate::aiplan4rust::lang::TaskSkeletonId;
 use crate::aiplan4rust::lir::store::expr::ExprId;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
 ///

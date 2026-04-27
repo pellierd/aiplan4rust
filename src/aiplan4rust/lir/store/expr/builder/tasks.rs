@@ -7,8 +7,8 @@
 //! for common task signatures and aggressive inlining of symbol constructors.
 
 use crate::aiplan4rust::lang::{CompareOp, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId};
-use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a leaf node representing a Task Symbol in an HTN domain.
@@ -121,10 +121,12 @@ impl<'a> ExprBuilder<'a> {
 }
 #[cfg(test)]
 mod tests {
+    use crate::aiplan4rust::lir::store::expr::{ExprBuilder, ExprStore};
+
     /// Verifies HTN specific interning integrity and deduplication.
     #[test]
     fn test_htn_symbols_and_ordering() {
-        let mut store = crate::aiplan4rust::lir::store::ExprStore::new();
+        let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
 
         // 1. Symbol Deduplication
@@ -149,7 +151,7 @@ mod tests {
     /// Verifies task instantiation with arguments and skeleton integrity.
     #[test]
     fn test_task_with_skeleton_and_arguments() {
-        let mut store = crate::aiplan4rust::lir::store::ExprStore::new();
+        let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
 
         let arg1 = builder.object(1);

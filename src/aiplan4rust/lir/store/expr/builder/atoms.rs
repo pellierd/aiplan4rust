@@ -12,8 +12,8 @@
 use crate::aiplan4rust::lang::{
     AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId,
 };
-use crate::aiplan4rust::lir::store::expr::builder::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs an `AtomicFormula` (Predicate with arguments) using a zero-alloc strategy.
@@ -168,7 +168,7 @@ mod tests {
         AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId, VariableId,
     };
     use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprStore};
 
     /// Objective: Verify that identical atomic formulas are deduplicated via Hash-Consing.
     /// Input: Calling builder.atomic_formula twice with identical predicate, arguments, and skeleton.

@@ -25,8 +25,8 @@
 //! **Canonicalize** → **Identity Check** → **Constant Fold** → **Intern**.
 
 use crate::aiplan4rust::lang::CompareOp;
-use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs a functional comparison expression: `(op left right)`.
@@ -338,8 +338,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::{CompareOp, FunctionSkeletonId, FunctionSymbolId, VariableId};
-    use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
-
+    use crate::aiplan4rust::lir::store::expr::ExprStore;
     /// Objective: Ensure 'Greater' is normalized to 'Less' and operands are swapped.
     /// Input: Calling builder.greater(a, b).
     /// Output: An ExprId pointing to a Comparison(Less) with children [b, a].

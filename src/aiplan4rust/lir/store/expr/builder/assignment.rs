@@ -39,8 +39,8 @@
 //! ```
 
 use crate::aiplan4rust::lang::AssignOp;
-use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a functional assignment node: `(op target value)`.
@@ -208,7 +208,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, VariableId};
     use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprStore};
 
     /// Test: (increase f1 0.0) -> empty_and
     /// Description: Verifies that additive and multiplicative identity operations

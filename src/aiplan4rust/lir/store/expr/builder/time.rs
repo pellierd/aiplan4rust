@@ -8,7 +8,7 @@
 //! redundancy and ensures high-performance interning through inlining.
 
 use crate::aiplan4rust::lir::store::expr::builder::{ExprBuilder, ExprBuilderError};
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Wraps an expression with an 'At Start' temporal constraint.
@@ -106,7 +106,8 @@ impl<'a> ExprBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use crate::aiplan4rust::lang::VariableId;
-    use crate::aiplan4rust::lir::store::ExprStore;
+    use crate::aiplan4rust::lir::store::expr::builder::ExprBuilderError;
+    use crate::aiplan4rust::lir::store::expr::{ExprBuilder, ExprEntryKind, ExprStore};
 
     /// Verifies successful creation and Hash-Consing (deduplication).
     #[test]

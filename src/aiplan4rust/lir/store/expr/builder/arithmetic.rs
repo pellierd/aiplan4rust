@@ -40,8 +40,8 @@
 //! ```
 
 use crate::aiplan4rust::lang::ArithmeticOp;
-use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 use ordered_float::OrderedFloat;
 
 impl<'a> ExprBuilder<'a> {
@@ -548,6 +548,9 @@ impl<'a> ExprBuilder<'a> {
 
     /// Creates a numeric literal node with mandatory NaN and Epsilon-aware Zero normalization.
     ///
+    /// This function is generic over `T: Into<f64>`, allowing transparent use of
+    /// native `f64`, `f32`, or `OrderedFloat<f64>`.
+    ///
     /// To ensure perfect deduplication (hash-consing) and numerical stability, this
     /// function normalizes floating-point values into canonical representations:
     ///
@@ -561,23 +564,30 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Arguments
     ///
-    /// * `value` - The floating-point value to wrap and normalize.
+    /// * `value` - The floating-point value to wrap and normalize. Accepts any type
+    ///   implementing `Into<f64>`.
     ///
     /// # Returns
     ///
     /// * `ExprId` - The unique identifier for this normalized numeric constant.
-    pub fn number(&mut self, value: f64) -> ExprId {
-        let val = if value.is_nan() {
+    pub fn number<T>(&mut self, value: T) -> ExprId
+    where
+        T: Into<f64>,
+    {
+        let val_f64 = value.into();
+
+        let normalized = if val_f64.is_nan() {
             // Normalize to a single canonical NaN representation
             OrderedFloat(f64::NAN)
-        } else if self.is_zero(value) {
+        } else if self.is_zero(val_f64) {
             // Snap near-zero values (within 1e-9) to 0.0 to ensure
             // uniqueness and eliminate floating-point noise.
             OrderedFloat(0.0)
         } else {
-            OrderedFloat(value)
+            OrderedFloat(val_f64)
         };
-        self.intern(ExprEntryKind::Number(val), &[])
+
+        self.intern(ExprEntryKind::Number(normalized), &[])
     }
 
     /// Creates an addition expression: `(+ operands...)`.
@@ -644,7 +654,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::VariableId;
-    use crate::aiplan4rust::lir::store::ExprStore;
+    use crate::aiplan4rust::lir::store::expr::ExprStore;
 
     /// Test: (+ 2 3) -> 5
     /// Verifies basic constant folding for addition.

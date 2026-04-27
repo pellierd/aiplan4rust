@@ -6,10 +6,10 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{SymbolId, TaskSkeletonId};
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
-use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{expr, EncodingRegistry};
+use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 
@@ -34,15 +34,12 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 /// This function will return an error if:
 /// * A child node kind is not recognized as a valid task network component.
 
-
-
 /// Main entry point for Task Network encoding.
 /// Orchestrates the two-pass process: 1. ID Collection, 2. Content Encoding.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
 ) -> Result<TaskNetwork, LirError> {
-
     // PASS 1: Scan for labels (t1:, t2:) and map them to indices
     collect_task_labels(subtree, registry)?;
 
@@ -101,30 +98,41 @@ fn encode_task_network_content(
             AstKind::PartiallyOrderedSubtaskDef => {
                 let tasks_node_id = child_node.try_child(0)?;
                 let tasks_node = ast.try_node(tasks_node_id)?;
-                tasks = expr::encode(&SyntaxSubtree::new(tasks_node, tasks_node_id, ast), registry)?;
+                tasks = expr::encode(
+                    &SyntaxSubtree::new(tasks_node, tasks_node_id, ast),
+                    registry,
+                )?;
             }
             AstKind::OrderedSubtaskDef => {
                 let tasks_node_id = child_node.try_child(0)?;
                 let tasks_node = ast.try_node(tasks_node_id)?;
-                tasks = expr::encode(&SyntaxSubtree::new(tasks_node, tasks_node_id, ast), registry)?;
+                tasks = expr::encode(
+                    &SyntaxSubtree::new(tasks_node, tasks_node_id, ast),
+                    registry,
+                )?;
                 total_ordered = true;
             }
             AstKind::TaskOrderingConstraintDef => {
                 let ordering_node_id = child_node.try_child(0)?;
                 let ordering_node = ast.try_node(ordering_node_id)?;
-                ordering = expr::encode(&SyntaxSubtree::new(ordering_node, ordering_node_id, ast), registry)?;
+                ordering = expr::encode(
+                    &SyntaxSubtree::new(ordering_node, ordering_node_id, ast),
+                    registry,
+                )?;
             }
             AstKind::TaskLogicalConstraintDef => {
                 let logical_node_id = child_node.try_child(0)?;
                 let logical_node = ast.try_node(logical_node_id)?;
-                constraints = expr::encode(&SyntaxSubtree::new(logical_node, logical_node_id, ast), registry)?;
+                constraints = expr::encode(
+                    &SyntaxSubtree::new(logical_node, logical_node_id, ast),
+                    registry,
+                )?;
             }
             _ => return Err(LirError::task_network_ast_kind_error(child_node.kind())),
         }
     }
     finalize_task_network(tasks, ordering, constraints, total_ordered, registry)
 }
-
 
 fn finalize_task_network(
     tasks: Expr,
@@ -158,5 +166,12 @@ fn finalize_task_network(
             }
         }
     }
-    Ok(TaskNetwork::new(tasks, ordering, constraints, total_ordered, task_defs, task_nodes))
+    Ok(TaskNetwork::new(
+        tasks,
+        ordering,
+        constraints,
+        total_ordered,
+        task_defs,
+        task_nodes,
+    ))
 }

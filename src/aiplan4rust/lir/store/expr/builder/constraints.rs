@@ -23,8 +23,8 @@
 //! Each method follows a strict validation-before-interning logic:
 //! **Validation** (Is interval valid?) → **Folding** (Is it trivially True/False?) → **Interning**.
 
-use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs an `always` constraint: the condition must hold in every single state
@@ -222,7 +222,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::VariableId;
-    use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::store::expr::ExprStore;
 
     /// Objective: Verify that 'always' correctly folds True and interns other expressions.
     /// Input: always(True) and always(variable).

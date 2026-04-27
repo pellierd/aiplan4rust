@@ -40,5 +40,5 @@ mod tasks;
 mod time;
 
 // Re-exports
-pub use self::builder::ExprBuilder;
+pub use builder::ExprBuilder;
 pub use error::ExprBuilderError;

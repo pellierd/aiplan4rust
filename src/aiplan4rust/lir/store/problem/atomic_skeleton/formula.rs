@@ -20,7 +20,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::aiplan4rust::lang::{PredicateSymbolId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::store::problem::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::store::problem::registry::SymbolRegistry;
+use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
 ///

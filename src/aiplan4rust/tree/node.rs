@@ -28,13 +28,12 @@
 //! println!("{}", syntax);
 //! ```
 
-
-use std::fmt::{Debug, Display};
-use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp};
-use crate::aiplan4rust::tree::SyntaxContent;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::SyntaxContent;
+use ordered_float::OrderedFloat;
+use std::fmt::{Debug, Display};
 
 /// Trait representing a node in a syntax tree.
 ///
@@ -235,7 +234,7 @@ pub trait Node: ArenaNode + Display {
     ///
     /// A `Result<Optimization, SyntaxTreeError>` containing the directive if successful,
     /// or an error if extraction failed.
-    fn try_optimization(&self) -> Result<OptimizationOp, SyntaxTreeError> {
+    fn try_optimization_op(&self) -> Result<OptimizationOp, SyntaxTreeError> {
         self.content().try_optimization_op()
     }
 

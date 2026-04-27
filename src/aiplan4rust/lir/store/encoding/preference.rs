@@ -8,9 +8,9 @@
 //! 2. **Logical Definition**: The preference's condition is encoded as an [`Expr`] and stored.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lir::encoding::EncodingRegistry;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::store::encoding::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::store::encoding::EncodingError;
+use crate::aiplan4rust::lir::store::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -31,7 +31,7 @@ pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+) -> Result<(), EncodingError> {
     let tree = subtree.tree();
     let node = subtree.node();
 

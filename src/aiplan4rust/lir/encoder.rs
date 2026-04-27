@@ -185,3 +185,59 @@ pub fn encode_lifted_problem(
     // 6. Return the fully constructed and normalized problem
     Ok(problem)
 }
+/*
+/// Encode a LiftedProblem from a LinkedSemanticContext.
+/// This is the core transformation that now integrates the ExprStore.
+pub fn encode_lifted_problem(
+    mut context: LinkedSemanticContext,
+) -> Result<LiftedProblem, LirError> {
+    // 1. Consommation de l'interner et des requirements
+    let interner = context.take_interner();
+    let requirements = context.take_required_requirements();
+
+    // 2. Création du LiftedProblem
+    let mut problem = LiftedProblem::new(requirements);
+    problem.set_interner(interner);
+
+    // --- ARCHITECTURE STORE ---
+    // 3. Initialisation du Builder d'expressions.
+    // C'est lui qui va posséder le Store pendant toute la phase d'encodage.
+    let mut builder = ExprBuilder::new();
+
+    // 4. Encodage des éléments du DOMAINE
+    let domain_symbol_table = context.take_domain_table();
+    let domain_syntax_tree = context.take_domain_syntax_tree();
+
+    // Le registre commence avec la table des symboles du domaine
+    let mut registry = EncodingRegistry::new(domain_symbol_table);
+
+    // On utilise ton nouveau module d'orchestration pour le domaine
+    // Note: On passe le builder pour que les actions/méthodes soient stockées
+    domain::encode(&domain_syntax_tree, &mut registry, &mut problem, &mut builder)
+        .map_err(|e| LirError::from(e))?;
+
+    // 5. Encodage des éléments du PROBLÈME
+    let problem_symbol_table = context.take_problem_table();
+    let problem_syntax_tree = context.take_problem_syntax_tree();
+
+    // On met à jour le registre avec la table des symboles du problème (objets, etc.)
+    registry.set_symbol_table(problem_symbol_table);
+
+    // On utilise ton nouveau module d'orchestration pour le problème
+    // Note: Le builder continue de remplir le même Store
+    problem::encode(&problem_syntax_tree, &mut registry, &mut problem, &mut builder)
+        .map_err(|e| LirError::from(e))?;
+
+    // --- FINALISATION ---
+
+    // 6. Transfert du Store vers le LiftedProblem
+    // Une fois l'encodage fini, on extrait le store du builder pour le donner au problème.
+    let store = builder.build();
+    problem.set_store(store);
+
+    // 7. Normalisation (si tes passes sont à jour pour le nouveau Store)
+    passes::normalize(&mut problem)?;
+
+    // 8. Retour du problème entièrement construit
+    Ok(problem)
+}*/

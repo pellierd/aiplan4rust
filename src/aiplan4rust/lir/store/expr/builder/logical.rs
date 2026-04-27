@@ -5,8 +5,8 @@
 //! and advanced conditional effect merging to ensure that logical expressions
 //! are simplified and unique within the [`ExprStore`].
 
-use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a logical `AND` node with one or more children.
@@ -599,7 +599,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use crate::aiplan4rust::lang::VariableId;
     use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::store::ExprStore;
+    use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprStore};
 
     /// Test: (and P True) -> P
     /// Verifies that the neutral element (True) is removed from an AND operation.

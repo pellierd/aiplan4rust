@@ -1,7 +1,7 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::VariableId;
-use crate::aiplan4rust::lir::store::error::StorerError;
-use crate::aiplan4rust::lir::store::ExprEntryKind;
+use crate::aiplan4rust::lir::store::expr::error::StorerError;
+use crate::aiplan4rust::lir::store::expr::ExprEntryKind;
 use thiserror::Error;
 
 /// Errors encountered during the construction of an expression via [`ExprBuilder`].

@@ -30,8 +30,8 @@
 //! ```
 
 use crate::aiplan4rust::lang::OptimizationOp;
-use crate::aiplan4rust::lir::store::expr::builder::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs a metric expression for plan optimization.
@@ -167,7 +167,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use super::*;
     use crate::aiplan4rust::lir::store::expr::builder::builder::EPSILON;
-    use crate::aiplan4rust::lir::store::ExprStore;
+    use crate::aiplan4rust::lir::store::expr::ExprStore;
 
     /// Verifies that special PDDL variables (total-time, total-cost) are
     /// properly interned and benefit from Hash-Consing.

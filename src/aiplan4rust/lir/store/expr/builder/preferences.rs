@@ -9,8 +9,8 @@
 //! equality checks during the planning process.
 
 use crate::aiplan4rust::lang::PreferenceSymbolId;
-use crate::aiplan4rust::lir::store::expr::builder::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a leaf node representing a preference name.
@@ -69,7 +69,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::PreferenceSymbolId;
-    use crate::aiplan4rust::lir::store::ExprStore;
+    use crate::aiplan4rust::lir::store::expr::ExprStore;
 
     /// Test: (preference P1 body)
     /// Verifies that the preference node is correctly constructed with two children:

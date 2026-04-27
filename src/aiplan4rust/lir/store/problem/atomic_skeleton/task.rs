@@ -14,9 +14,9 @@
 //! let task = AtomicTaskSkeleton::new(Ident::new("move"), TypedList::empty());
 //! ```
 
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::lang::{TaskSymbolId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::store::problem::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
