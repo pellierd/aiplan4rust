@@ -126,8 +126,14 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Parameters
     /// * `value` - The maximum time allowed for the expression to become true.
+    ///   Accepts any type convertible into `f64` (e.g., `f64`, `OrderedFloat`).
     /// * `expr` - The [`ExprId`] of the condition to monitor.
-    pub fn within(&mut self, value: f64, expr: ExprId) -> ExprId {
+    pub fn within<V>(&mut self, value: V, expr: ExprId) -> ExprId
+    where
+        V: Into<f64>,
+    {
+        let v = value.into();
+
         // Optimization: If it's already True, the deadline is irrelevant.
         if expr == self.empty_and() {
             return expr;
@@ -135,11 +141,11 @@ impl<'a> ExprBuilder<'a> {
 
         // Optimization: A negative deadline is a structural contradiction in PDDL.
         // We use is_neg to allow for near-zero negative values caused by float imprecision.
-        if self.is_neg(value) {
+        if self.is_neg(v) {
             return self.empty_or();
         }
 
-        let duration_node = self.number(value);
+        let duration_node = self.number(v);
         self.intern(ExprEntryKind::Within, &[duration_node, expr])
     }
 
@@ -153,19 +159,26 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Parameters
     /// * `duration` - The time window after each occurrence of `first` where `second` must hold.
+    ///   Accepts any type convertible into `f64` (e.g., `f64`, `OrderedFloat`).
     /// * `first` - The triggering condition.
     /// * `second` - The condition that must follow.
-    pub fn always_within(&mut self, duration: f64, first: ExprId, second: ExprId) -> ExprId {
+    pub fn always_within<D>(&mut self, duration: D, first: ExprId, second: ExprId) -> ExprId
+    where
+        D: Into<f64>,
+    {
+        let d = duration.into();
+
         // Optimization: If the trigger never happens, the requirement is satisfied by default.
         if first == self.empty_or() {
             return self.empty_and();
         }
 
-        let number_node = self.number(duration);
+        let number_node = self.number(d);
         self.intern(ExprEntryKind::AlwaysWithin, &[number_node, first, second])
     }
 
-    /// Constructs a `hold-during` constraint: the condition must hold throughout the interval `[start, end]`.
+    /// Constructs a `hold-during` constraint: the condition must hold throughout
+    /// the temporal interval $[start, end]$.
     ///
     /// # Trivial Simplifications
     ///
@@ -177,9 +190,18 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Parameters
     /// * `start` - The timestamp marking the beginning of the required period.
+    ///   Accepts any type convertible into `f64` (e.g., `f64`, `OrderedFloat`).
     /// * `end` - The timestamp marking the end of the required period.
+    ///   Accepts any type convertible into `f64`.
     /// * `expr` - The [`ExprId`] of the condition to monitor.
-    pub fn hold_during(&mut self, start: f64, end: f64, expr: ExprId) -> ExprId {
+    pub fn hold_during<S, E>(&mut self, start: S, end: E, expr: ExprId) -> ExprId
+    where
+        S: Into<f64>,
+        E: Into<f64>,
+    {
+        let s = start.into();
+        let e = end.into();
+
         // Optimization: If the condition is always True, the temporal constraint is redundant.
         if expr == self.empty_and() {
             return expr;
@@ -187,16 +209,16 @@ impl<'a> ExprBuilder<'a> {
 
         // Optimization: PDDL trajectories move forward. An inverted interval is a contradiction.
         // We use is_gt to avoid rejecting intervals that are nearly zero due to rounding.
-        if self.is_gt(start, end) {
+        if self.is_gt(s, e) {
             return self.empty_or();
         }
 
-        let start_node = self.number(start);
-        let end_node = self.number(end);
+        let start_node = self.number(s);
+        let end_node = self.number(e);
         self.intern(ExprEntryKind::HoldDuring, &[start_node, end_node, expr])
     }
 
-    /// Constructs a `hold-after` constraint: the condition must hold for all timestamps `t >= time`.
+    /// Constructs a `hold-after` constraint: the condition must hold for all timestamps $t \ge \text{time}$.
     ///
     /// # Trivial Simplifications
     ///
@@ -205,15 +227,20 @@ impl<'a> ExprBuilder<'a> {
     ///    is satisfied for any future state. Returns `True`.
     ///
     /// # Parameters
-    /// * `time` - The timestamp after which the condition must remain True until the end of the plan.
+    /// * `time` - The timestamp after which the condition must remain True.
+    ///   Accepts any type that can be converted into `f64` (e.g., `f64`, `OrderedFloat`).
     /// * `expr` - The [`ExprId`] of the condition to monitor.
-    pub fn hold_after(&mut self, time: f64, expr: ExprId) -> ExprId {
+    pub fn hold_after<T>(&mut self, time: T, expr: ExprId) -> ExprId
+    where
+        T: Into<f64>,
+    {
         // Optimization: A condition that is always True satisfies any 'hold-after' requirement.
         if expr == self.empty_and() {
             return expr;
         }
 
-        let time_node = self.number(time);
+        let time_val = time.into(); // Conversion transparente
+        let time_node = self.number(time_val);
         self.intern(ExprEntryKind::HoldAfter, &[time_node, expr])
     }
 }

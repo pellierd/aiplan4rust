@@ -9,6 +9,7 @@
 
 use crate::aiplan4rust::lir::store::expr::builder::{ExprBuilder, ExprBuilderError};
 use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
+use ordered_float::OrderedFloat;
 
 impl<'a> ExprBuilder<'a> {
     /// Wraps an expression with an 'At Start' temporal constraint.
@@ -100,6 +101,47 @@ impl<'a> ExprBuilder<'a> {
             }
         }
         Ok(())
+    }
+
+    /// Constructs a `TimedInitialLiteral` (TIL).
+    ///
+    /// A Timed Initial Literal is a specialized PDDL construct representing an
+    /// expression (usually an assignment or a predicate) that is added to the
+    /// initial state at a specific point in time.
+    ///
+    /// # Arguments
+    ///
+    /// * `time` - The timestamp when the expression becomes effective.
+    ///   Accepts any type convertible into `OrderedFloat<f64>` (e.g., `f64`, `OrderedFloat`).
+    /// * `expr` - The [`ExprId`] of the formula or assignment to trigger at `time`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(ExprId)` - The unique identifier of the timed literal node.
+    /// * `Err(ExprBuilderError)` - If the timestamp is negative, violating PDDL semantics.
+    pub fn timed_initial_literal<V>(
+        &mut self,
+        time: V,
+        expr: ExprId,
+    ) -> Result<ExprId, ExprBuilderError>
+    where
+        V: Into<OrderedFloat<f64>>,
+    {
+        let t: OrderedFloat<f64> = time.into();
+        let val = t.into_inner();
+
+        // Strict validation: we do not normalize, we raise a semantic error.
+        // The parser and semantic analysis are expected to have validated this upstream.
+        if val < 0.0 {
+            return Err(ExprBuilderError::invalid_timestamp(val));
+        }
+
+        // Create a numeric node for the timestamp
+        let time_node = self.number(val);
+
+        // Intern the binary relation [Time, Expression]
+        // This ensures the (Time, Expr) pair is unique in the store.
+        Ok(self.intern(ExprEntryKind::TimedInitialLiteral, &[time_node, expr]))
     }
 }
 
@@ -269,5 +311,39 @@ mod tests {
         // This should technically be invalid in most PDDL contexts
         let result = builder.at_start(not_start_p);
         // assert!(result.is_err()); // Only if you implement recursive checking
+    }
+
+    /// Objective: Verify the consistency of Timed Initial Literals (TIL) construction.
+    ///
+    /// This test checks two critical invariants:
+    /// 1. **Zero Normalization**: 0.0 and -0.0 must result in the same ExprId.
+    ///    This is guaranteed by `OrderedFloat` and internal number interning,
+    ///    ensuring that the sign of zero doesn't duplicate nodes in the store.
+    /// 2. **Result Handling**: Since the builder now returns a `Result`, we ensure
+    ///    that valid timestamps can be unwrapped correctly.
+    #[test]
+    fn test_timed_literal_normalization() -> Result<(), ExprBuilderError> {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+        let atom = builder.variable(VariableId::from(1));
+
+        // Both 0.0 and -0.0 are >= 0.0, so they are valid.
+        // They must be interned as the exact same expression node.
+        let til1 = builder.timed_initial_literal(0.0, atom)?;
+        let til2 = builder.timed_initial_literal(-0.0, atom)?;
+
+        assert_eq!(
+            til1, til2,
+            "TIL with 0.0 and -0.0 must be identical due to OrderedFloat hashing and interning"
+        );
+
+        // Complementary check: ensure that a strictly negative value actually returns an error.
+        let til_err = builder.timed_initial_literal(-1.0, atom);
+        assert!(
+            til_err.is_err(),
+            "The builder must reject strictly negative timestamps with an ExprBuilderError"
+        );
+
+        Ok(())
     }
 }

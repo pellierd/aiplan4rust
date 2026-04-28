@@ -53,7 +53,6 @@ pub fn test_hddl_encoder(domain_path: &str) {
         domain_path
     );
 }
-
 // IPC 1998
 #[test_case("tests/fixtures/pddl/ipc98/assembly"; "ipc98_pddl_adl_assembly")]
 #[test_case("tests/fixtures/pddl/ipc98/gripper/adl"; "ipc98_pddl_adl_gripper")]

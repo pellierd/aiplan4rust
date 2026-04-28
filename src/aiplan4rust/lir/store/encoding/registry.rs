@@ -10,7 +10,9 @@ use crate::aiplan4rust::lang::{
     PreferenceSymbolId, SymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId,
     VariableId,
 };
+use crate::aiplan4rust::lir::store::encoding::expr::Step;
 use crate::aiplan4rust::lir::store::encoding::EncodingError;
+use crate::aiplan4rust::lir::store::expr::ExprId;
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::tree::NodeId;
@@ -62,6 +64,14 @@ pub struct EncodingRegistry {
 
     task_label_to_id: HashMap<SymbolId, TaskLabelSymbolId>,
     task_label_id_to_symbol: Vec<SymbolId>,
+
+    // --- WORKSPACE BUFFERS (Reusable memory) ---
+    /// Reusable stack for tree traversal (Step::Enter / Step::Exit).
+    /// Using NodeId (usize) avoids lifetime issues.
+    pub(crate) stack_buffer: Vec<Step>,
+
+    /// Reusable stack for sub-expression results (ExprId).
+    pub(crate) results_buffer: Vec<ExprId>,
 }
 
 impl EncodingRegistry {
@@ -107,6 +117,11 @@ impl EncodingRegistry {
             preference_symbol_to_id: HashMap::new(),
             task_label_to_id: HashMap::new(),
             task_label_id_to_symbol: Vec::new(),
+
+            // --- Initialisation des buffers réutilisables ---
+            // On pré-alloue une petite capacité pour éviter les premiers "grow"
+            stack_buffer: Vec::with_capacity(64),
+            results_buffer: Vec::with_capacity(64),
         }
     }
 

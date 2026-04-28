@@ -30,6 +30,10 @@ pub enum ExprBuilderError {
         attempted_kind: ExprEntryKind,
     },
 
+    /// Triggered when a timestamp is negative where a non-negative value is required.
+    #[error("PDDL Semantic Error: timestamp must be non-negative, found {0}")]
+    InvalidTimestamp(f64),
+
     /// Wraps errors originating from the underlying [`ExprStore`].
     ///
     /// This typically includes issues like reaching storage capacity limits
@@ -63,6 +67,11 @@ impl ExprBuilderError {
             attempted_kind,
         }
         .trace()
+    }
+
+    #[track_caller]
+    pub fn invalid_timestamp(time: f64) -> Self {
+        ExprBuilderError::InvalidTimestamp(time).trace()
     }
 }
 

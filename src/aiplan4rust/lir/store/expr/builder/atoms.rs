@@ -136,30 +136,6 @@ impl<'a> ExprBuilder<'a> {
 
         id
     }
-
-    /// Constructs a `TimedInitialLiteral` (TIL).
-    ///
-    /// A Timed Initial Literal is a specialized PDDL construct representing an
-    /// expression (usually an assignment or a predicate) that is added to the
-    /// initial state at a specific point in time.
-    ///
-    /// # Arguments
-    ///
-    /// * `time` - The timestamp (f64) when the expression becomes effective.
-    ///   Note: Negative times are normalized to 0.0 or treated as immediate.
-    /// * `expr` - The [`ExprId`] of the formula or assignment to trigger at `time`.
-    ///
-    /// # Returns
-    ///
-    /// * `ExprId` - The unique identifier of the timed literal node.
-    pub fn timed_initial_literal(&mut self, time: f64, expr: ExprId) -> ExprId {
-        // Create a normalized numeric node for the timestamp
-        let time_node = self.number(time);
-
-        // Intern the binary relation [Time, Expression]
-        // This ensures the (Time, Expr) pair is unique in the store.
-        self.intern(ExprEntryKind::TimedInitialLiteral, &[time_node, expr])
-    }
 }
 
 #[cfg(test)]
@@ -226,24 +202,6 @@ mod tests {
         assert_eq!(
             children[1], arg,
             "Second child must be the numeric argument"
-        );
-    }
-
-    /// Objective: Verify that Timed Initial Literals (TIL) normalize time values.
-    /// Input: Creating TILs with 0.0 and -0.0.
-    /// Output: Identical ExprIds because number interning normalizes floating-point zero signs.
-    #[test]
-    fn test_timed_literal_normalization() {
-        let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
-        let atom = builder.variable(VariableId::from(1));
-
-        let til1 = builder.timed_initial_literal(0.0, atom);
-        let til2 = builder.timed_initial_literal(-0.0, atom);
-
-        assert_eq!(
-            til1, til2,
-            "TIL with 0.0 and -0.0 must be identical due to internal number normalization"
         );
     }
 

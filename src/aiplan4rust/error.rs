@@ -1,8 +1,7 @@
-use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::grounding::error::GroundingError;
+use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::normalization::NormalizationError;
@@ -12,6 +11,7 @@ use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::SyntaxError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::validation::common::WellNormalizedError;
+use thiserror::Error;
 
 pub trait Traceable: std::fmt::Debug + std::fmt::Display + Sized {
     #[track_caller]
@@ -22,13 +22,16 @@ pub trait Traceable: std::fmt::Debug + std::fmt::Display + Sized {
 
             log::debug!(
                 "Trace at {}:{}:{}\n[Content] {}\n[Backtrace]\n{}",
-                caller.file(), caller.line(), caller.column(), self, bt
+                caller.file(),
+                caller.line(),
+                caller.column(),
+                self,
+                bt
             );
         }
         self
     }
 }
-
 
 #[derive(Debug, Error)]
 pub enum AiplanError {
@@ -73,11 +76,9 @@ pub enum AiplanError {
 
     #[error(transparent)]
     IO(#[from] ArtefactError),
-
 }
 
 impl AiplanError {
-
     /// Crée une erreur interne avec un message donné.
     pub fn internal_error<S: Into<String>>(msg: S) -> Self {
         AiplanError::InternalError(msg.into()).trace()

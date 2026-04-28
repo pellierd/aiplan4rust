@@ -38,9 +38,14 @@
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
+use crate::aiplan4rust::lir::encoding::{domain, encoding, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::{encoding, passes, LirError};
+use crate::aiplan4rust::lir::store::encoding::encoding::encode_domain as new_encode_domain;
+use crate::aiplan4rust::lir::store::encoding::encoding::encode_problem as new_encode_problem;
+use crate::aiplan4rust::lir::store::encoding::EncodingRegistry as NewEncodingRegistry;
+use crate::aiplan4rust::lir::store::expr::{ExprBuilder, ExprStore};
+use crate::aiplan4rust::lir::store::problem::LiftedProblem as NewLiftedProblem;
+use crate::aiplan4rust::lir::{passes, LirError};
 use crate::LirEncoderResult;
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
@@ -125,6 +130,8 @@ impl LirEncoder {
     /// }
     /// ```
     pub fn encode(&mut self, context: LinkedSemanticContext) -> Result<LirEncoderResult, LirError> {
+        let new = encode_new_lifted_problem(context.clone())?;
+
         // 1. Create a LiftedProblem from the linked semantic context
         let lifted_problem = encode_lifted_problem(context)?;
 
@@ -185,36 +192,42 @@ pub fn encode_lifted_problem(
     // 6. Return the fully constructed and normalized problem
     Ok(problem)
 }
-/*
+
 /// Encode a LiftedProblem from a LinkedSemanticContext.
 /// This is the core transformation that now integrates the ExprStore.
-pub fn encode_lifted_problem(
+pub fn encode_new_lifted_problem(
     mut context: LinkedSemanticContext,
-) -> Result<LiftedProblem, LirError> {
+) -> Result<NewLiftedProblem, LirError> {
     // 1. Consommation de l'interner et des requirements
     let interner = context.take_interner();
     let requirements = context.take_required_requirements();
 
     // 2. Création du LiftedProblem
-    let mut problem = LiftedProblem::new(requirements);
+    let mut problem = NewLiftedProblem::new(requirements);
     problem.set_interner(interner);
 
     // --- ARCHITECTURE STORE ---
     // 3. Initialisation du Builder d'expressions.
     // C'est lui qui va posséder le Store pendant toute la phase d'encodage.
-    let mut builder = ExprBuilder::new();
+    let mut expr_store = ExprStore::new();
+    let mut builder = ExprBuilder::new(&mut expr_store);
 
     // 4. Encodage des éléments du DOMAINE
     let domain_symbol_table = context.take_domain_table();
     let domain_syntax_tree = context.take_domain_syntax_tree();
 
     // Le registre commence avec la table des symboles du domaine
-    let mut registry = EncodingRegistry::new(domain_symbol_table);
+    let mut registry = NewEncodingRegistry::new(domain_symbol_table);
 
     // On utilise ton nouveau module d'orchestration pour le domaine
     // Note: On passe le builder pour que les actions/méthodes soient stockées
-    domain::encode(&domain_syntax_tree, &mut registry, &mut problem, &mut builder)
-        .map_err(|e| LirError::from(e))?;
+    new_encode_domain(
+        &domain_syntax_tree,
+        &mut registry,
+        &mut problem,
+        &mut builder,
+    )
+    .map_err(|e| LirError::from(e))?;
 
     // 5. Encodage des éléments du PROBLÈME
     let problem_symbol_table = context.take_problem_table();
@@ -225,19 +238,22 @@ pub fn encode_lifted_problem(
 
     // On utilise ton nouveau module d'orchestration pour le problème
     // Note: Le builder continue de remplir le même Store
-    problem::encode(&problem_syntax_tree, &mut registry, &mut problem, &mut builder)
-        .map_err(|e| LirError::from(e))?;
+    new_encode_problem(
+        &problem_syntax_tree,
+        &mut registry,
+        &mut problem,
+        &mut builder,
+    )?;
 
     // --- FINALISATION ---
 
     // 6. Transfert du Store vers le LiftedProblem
-    // Une fois l'encodage fini, on extrait le store du builder pour le donner au problème.
-    let store = builder.build();
-    problem.set_store(store);
+    // Une fois l'encodage fini, on extrait le store du builder pour le donner au problème.@
+    problem.set_store(expr_store);
 
     // 7. Normalisation (si tes passes sont à jour pour le nouveau Store)
-    passes::normalize(&mut problem)?;
+    //passes::normalize(&mut problem)?;
 
     // 8. Retour du problème entièrement construit
     Ok(problem)
-}*/
+}

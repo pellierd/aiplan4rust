@@ -1,5 +1,5 @@
 pub mod problem;
 
-mod encoding;
+pub(crate) mod encoding;
 pub mod expr;
 mod renderers;
