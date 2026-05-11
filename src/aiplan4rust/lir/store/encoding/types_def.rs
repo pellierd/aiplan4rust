@@ -7,7 +7,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::store::encoding::{typed_symbol, EncodingError, EncodingRegistry};
-use crate::aiplan4rust::lir::store::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -36,7 +36,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
 ) -> Result<(), EncodingError> {
     // Phase 1: Register all typing symbols to generate their TypeIDs
     collect_type_ids(subtree, registry, ir)?;
@@ -73,7 +73,7 @@ pub fn encode(
 fn collect_type_ids(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
 ) -> Result<(), EncodingError> {
     let tree = subtree.tree();
     let list_node = tree.try_node(subtree.node().try_child(0)?)?;
@@ -127,7 +127,7 @@ fn collect_type_ids(
 fn encode_definitions(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
 ) -> Result<(), EncodingError> {
     let tree = subtree.tree();
     let list_node_id = subtree.node().try_child(0)?;
@@ -152,7 +152,7 @@ fn encode_definitions(
 /// The `number` type is required for any domain involving numeric fluents or
 /// action costs. Note that this type is a primitive and does not have an
 /// entry in the AST-based type hierarchy.
-fn encode_builtin_types(registry: &mut EncodingRegistry, ir: &LiftedProblem) {
+fn encode_builtin_types(registry: &mut EncodingRegistry, ir: &NewLiftedProblem) {
     let reqs = ir.requirements();
 
     // The 'number' type is required for Numeric Fluents or Action Costs.

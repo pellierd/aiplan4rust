@@ -4,14 +4,14 @@ use crate::aiplan4rust::lir::store::encoding::{
     expr, task_network, EncodingError, EncodingRegistry,
 };
 use crate::aiplan4rust::lir::store::expr::ExprBuilder;
-use crate::aiplan4rust::lir::store::problem::{LiftedProblem, MethodDef};
+use crate::aiplan4rust::lir::store::problem::{MethodDef, NewLiftedProblem};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
     builder: &mut ExprBuilder, // Injection du builder central
 ) -> Result<(), EncodingError> {
     let node = subtree.node();

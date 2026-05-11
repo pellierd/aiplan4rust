@@ -5,7 +5,7 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::store::encoding::{typed_symbol, EncodingError, EncodingRegistry};
-use crate::aiplan4rust::lir::store::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 use crate::aiplan4rust::semantic::symbol::origin::Origin;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
@@ -17,7 +17,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
 ) -> Result<(), EncodingError> {
     // Phase 1 : Enregistrement des noms et filtrage (Shared vs Local)
     let object_nodes_ids = collect_object_ids(subtree, registry, ir)?;
@@ -31,7 +31,7 @@ pub fn encode(
 fn collect_object_ids(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
 ) -> Result<Vec<NodeId>, EncodingError> {
     let tree = subtree.tree();
     // Accès au premier enfant qui est la liste typée
@@ -71,7 +71,7 @@ fn collect_object_ids(
 fn encode_definitions(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
     object_nodes_ids: Vec<NodeId>,
 ) -> Result<(), EncodingError> {
     let tree = subtree.tree();

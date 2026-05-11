@@ -44,7 +44,7 @@ use crate::aiplan4rust::lir::store::encoding::encoding::encode_domain as new_enc
 use crate::aiplan4rust::lir::store::encoding::encoding::encode_problem as new_encode_problem;
 use crate::aiplan4rust::lir::store::encoding::EncodingRegistry as NewEncodingRegistry;
 use crate::aiplan4rust::lir::store::expr::{ExprBuilder, ExprStore};
-use crate::aiplan4rust::lir::store::problem::LiftedProblem as NewLiftedProblem;
+use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 use crate::aiplan4rust::lir::{passes, LirError};
 use crate::LirEncoderResult;
 
@@ -130,7 +130,7 @@ impl LirEncoder {
     /// }
     /// ```
     pub fn encode(&mut self, context: LinkedSemanticContext) -> Result<LirEncoderResult, LirError> {
-        let new = encode_new_lifted_problem(context.clone())?;
+        let new_lifted_problem = encode_new_lifted_problem(context.clone())?;
 
         // 1. Create a LiftedProblem from the linked semantic context
         let lifted_problem = encode_lifted_problem(context)?;
@@ -139,6 +139,7 @@ impl LirEncoder {
         //    and the diagnostics collected during the build process
         Ok(LirEncoderResult::success(
             lifted_problem,
+            new_lifted_problem,
             std::mem::take(&mut self.diagnostic_manager),
         ))
     }

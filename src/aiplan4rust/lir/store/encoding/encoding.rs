@@ -14,7 +14,7 @@
 
 use crate::aiplan4rust::lir::store::encoding::{domain, problem, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::store::expr::ExprBuilder;
-use crate::aiplan4rust::lir::store::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::Tree;
 
@@ -38,7 +38,7 @@ use crate::aiplan4rust::tree::Tree;
 pub fn encode_domain(
     syntax_tree: &Tree<AstNode>,
     context: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
     builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     domain::encode(syntax_tree, context, ir, builder)
@@ -69,7 +69,7 @@ pub fn encode_domain(
 pub fn encode_problem(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
     builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     problem::encode(syntax_tree, registry, ir, builder)

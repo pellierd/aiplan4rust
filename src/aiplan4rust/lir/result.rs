@@ -1,6 +1,7 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 use std::fmt;
 
 /// Represents the outcome of the IR (Intermediate Representation) building phase.
@@ -20,6 +21,7 @@ pub enum Result {
     Success {
         /// The constructed lifted problem.
         lifted_problem: LiftedProblem,
+        new_lifted_problem: NewLiftedProblem,
         /// Diagnostics collected during the build.
         diagnostic_manager: DiagnosticManager,
     },
@@ -43,10 +45,12 @@ impl Result {
     /// A `Result::Success` variant.
     pub fn success(
         lifted_problem: LiftedProblem,
+        new_lifted_problem: NewLiftedProblem,
         diagnostic_manager: DiagnosticManager,
     ) -> Self {
         Self::Success {
             lifted_problem,
+            new_lifted_problem,
             diagnostic_manager,
         }
     }
@@ -59,10 +63,7 @@ impl Result {
     ///
     /// # Returns
     /// A `Result::Failure` variant.
-    pub fn failure(
-        diagnostic_manager: DiagnosticManager,
-        interner: SymbolInterner,
-    ) -> Self {
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: SymbolInterner) -> Self {
         Self::Failure {
             diagnostic_manager,
             interner,
@@ -97,27 +98,71 @@ impl Result {
         }
     }
 
+    // --- New Accessors (New Store-based Problem) ---
+
+    /// Returns a reference to the new Store-based IR if available.
+    pub fn new_lifted_problem(&self) -> Option<&NewLiftedProblem> {
+        match self {
+            Self::Success {
+                new_lifted_problem, ..
+            } => Some(new_lifted_problem),
+            Self::Failure { .. } => None,
+        }
+    }
+
+    /// Returns a mutable reference to the new Store-based IR if available.
+    pub fn new_lifted_problem_mut(&mut self) -> Option<&mut NewLiftedProblem> {
+        match self {
+            Self::Success {
+                new_lifted_problem, ..
+            } => Some(new_lifted_problem),
+            Self::Failure { .. } => None,
+        }
+    }
+
+    /// Consumes and returns the new lifted problem if available.
+    pub fn take_new_lifted_problem(&mut self) -> Option<NewLiftedProblem> {
+        match self {
+            Self::Success {
+                new_lifted_problem, ..
+            } => Some(std::mem::take(new_lifted_problem)),
+            Self::Failure { .. } => None,
+        }
+    }
+
     /// Returns a reference to the diagnostic manager.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Success {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
+            Self::Failure {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
         }
     }
 
     /// Returns a mutable reference to the diagnostic manager.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         match self {
-            Result::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Result::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Result::Success {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
+            Result::Failure {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
         }
     }
 
     /// Consumes and returns the diagnostic manager, leaving an empty one.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
-            Self::Failure { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
+            Self::Success {
+                diagnostic_manager, ..
+            } => std::mem::take(diagnostic_manager),
+            Self::Failure {
+                diagnostic_manager, ..
+            } => std::mem::take(diagnostic_manager),
         }
     }
 
@@ -169,7 +214,11 @@ impl fmt::Display for Result {
     /// diagnostics and notes the build failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Success { lifted_problem, diagnostic_manager } => {
+            Self::Success {
+                lifted_problem,
+                new_lifted_problem,
+                diagnostic_manager,
+            } => {
                 writeln!(f, "IR built successfully:\n{}", lifted_problem)?;
                 if !diagnostic_manager.is_empty() {
                     writeln!(f, "\nDiagnostics:")?;
@@ -180,7 +229,9 @@ impl fmt::Display for Result {
                     writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
-            Self::Failure { diagnostic_manager, .. } => {
+            Self::Failure {
+                diagnostic_manager, ..
+            } => {
                 writeln!(f, "IR build failed.")?;
                 for diag in diagnostic_manager.diagnostics() {
                     writeln!(f, "{}", diag)?;

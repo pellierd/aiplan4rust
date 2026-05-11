@@ -15,7 +15,7 @@ pub use derived_predicate::DerivedPredicate as DerivedPredicateDef;
 pub use error::LiftedProblemError;
 pub use initial_task_network::InitialTaskNetwork;
 pub use method::Method as MethodDef;
-pub use problem::Problem as LiftedProblem;
+pub use problem::Problem as NewLiftedProblem;
 pub use registry::SymbolRegistry;
 pub use task_network::TaskNetwork;
 

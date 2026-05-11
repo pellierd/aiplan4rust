@@ -14,7 +14,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::store::encoding::EncodingRegistry;
 use crate::aiplan4rust::lir::store::encoding::{typed_list, EncodingError};
 use crate::aiplan4rust::lir::store::problem::skeleton::task::Task;
-use crate::aiplan4rust::lir::store::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -42,7 +42,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
 ) -> Result<(), EncodingError> {
     let node = subtree.node();
     let tree = subtree.tree();

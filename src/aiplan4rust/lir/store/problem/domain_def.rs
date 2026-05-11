@@ -25,7 +25,7 @@ use crate::aiplan4rust::lir::store::problem::skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::store::problem::{
-    ActionDef, DerivedPredicateDef, LiftedProblem, MethodDef,
+    ActionDef, DerivedPredicateDef, MethodDef, NewLiftedProblem,
 };
 use crate::aiplan4rust::lir::store::renderers;
 use crate::aiplan4rust::lir::store::renderers::{
@@ -57,7 +57,7 @@ impl<'a> DomainDef<'a> {
     /// # Returns
     ///
     /// A new `DomainDef` instance providing read-only access to domain information.
-    pub fn new(problem: &'a LiftedProblem) -> Self {
+    pub fn new(problem: &'a NewLiftedProblem) -> Self {
         Self { problem }
     }
 

@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::store::encoding::{
     EncodingRegistry,
 };
 use crate::aiplan4rust::lir::store::expr::ExprBuilder;
-use crate::aiplan4rust::lir::store::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 
@@ -50,7 +50,7 @@ use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 pub fn encode(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
     builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     // Phase 1: Structural Declarations.
@@ -92,7 +92,7 @@ pub fn encode(
 pub fn collect_problem_definitions(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
 ) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
@@ -144,7 +144,7 @@ pub fn collect_problem_definitions(
 pub fn encode_problem_logic(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
     builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
