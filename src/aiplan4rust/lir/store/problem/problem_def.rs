@@ -11,7 +11,7 @@
 //! These wrappers implement formatting traits to allow flexible rendering:
 //! - [`SyntaxDisplay`] – produces a syntax-oriented string representation.
 //! - [`SelfInternerDisplay`] – uses the internal `StringInterner` for resolving identifiers.
-//! - [`Display`] – default string representation for convenience.
+//! - [`Display`] – debug string representation for convenience.
 //!
 //! # Example
 //!
@@ -38,6 +38,11 @@ use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSym
 use crate::aiplan4rust::lir::store::expr::ExprId;
 use crate::aiplan4rust::lir::store::problem::InitialTaskNetwork;
 use crate::aiplan4rust::lir::store::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
+use core::fmt::Formatter;
 use std::fmt::Display;
 
 /// Wrapper around a specific problem instance within a domain.
@@ -164,73 +169,36 @@ impl<'a> ProblemDef<'a> {
     }
 }
 
-/*impl<'a> Display for ProblemDef<'a> {
-    /// Provides the default human-readable string representation of the problem.
-    ///
-    /// This implementation delegates to `renderers::default::render_problem`.
-    ///
-    /// # Parameters
-    /// - `f`: The [`Formatter`] to write the output into.
-    ///
-    /// # Returns
-    /// [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Display;
-    /// let problem_def: ProblemDef = /* obtain ProblemDef */;
-    /// println!("{}", problem_def); // Uses this Display implementation
-    /// ```
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::default::render_problem(f, self.problem)
-    }
-}
-
 impl<'a> LiftedSyntaxDisplay for ProblemDef<'a> {
-    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    /// Rendu PDDL/HDDL du problème (objets, init, goal, etc.) avec un contexte externe.
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
         renderers::syntax::problem::render(f, self, ctx)
     }
 
-    fn fmt_syntax_self(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    /// Rendu "Auto-géré" : crée le contexte à partir du LiftedProblem interne.
+    fn fmt_syntax_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let ctx = RenderContext::new(self.problem);
         self.fmt_syntax(f, &ctx)
     }
-}*/
+}
 
-/*impl<'a> SyntaxSerializable for ProblemDef<'a> {
-    /// Serializes the problem definition into a syntax string.
-    ///
-    /// This method produces a normalized, human-readable representation of the problem,
-    /// including all objects, initial state, goals, and tasks. It uses the internal
-    /// [`StringInterner`] of the problem to resolve all identifiers.
-    ///
-    /// The resulting string is suitable for saving to a file, re-parsing, or comparing
-    /// problem definitions in a normalized form.
-    ///
-    /// # Returns
-    ///
-    /// A `String` containing the serialized problem.
-    ///
-    /// # Errors
-    ///
-    /// This method may return a [`SerializationError`] if internal formatting fails,
-    /// although with the current implementation this is unlikely because `to_syntax_string`
-    /// is infallible.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use crate::aiplan4rust::lir::problem::{ProblemDef, LiftedProblem};
-    /// # let problem: LiftedProblem = todo!();
-    /// let problem_def = ProblemDef::new(&problem);
-    /// let serialized = problem_def.serialize_to_string().unwrap();
-    /// println!("{}", serialized);
-    /// ```
-    fn serialize_to_string(
-        &self,
-    ) -> Result<String, SerializationError> {
-        // Use the existing SyntaxInternerDisplay implementation
-        Ok(self.to_syntax_string())
+impl<'a> LiftedDebugDisplay for ProblemDef<'a> {
+    /// Rendu structurel technique du problème (Store IDs, Interning, etc.).
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::problem_def::render(f, self, ctx)
     }
-}*/
+
+    /// Rendu "Auto-géré" pour le debug technique.
+    fn fmt_debug_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let ctx = RenderContext::new(self.problem);
+        self.fmt_debug(f, &ctx)
+    }
+}
+
+/// Implémentation de Display pour faciliter l'usage de println!
+/// Par défaut, on affiche la syntaxe PDDL/HDDL.
+impl<'a> std::fmt::Display for ProblemDef<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.fmt_syntax_self(f)
+    }
+}

@@ -1,68 +1,140 @@
-//! Module `lifted_syntax_display`
+//! Context-aware rendering traits for Lifted Intermediate Representation (LIR).
 //!
-//! Ce module définit le trait pour le rendu textuel (PDDL/HDDL) des éléments du LIR.
-//! Il gère deux cas d'usage :
-//! 1. Le rendu d'éléments dépendants d'un contexte externe (ex: Action, Expr).
-//! 2. Le rendu d'éléments racines qui fournissent leur propre contexte (ex: DomainDef, Problem).
+//! This module defines a specialized display system for PDDL and HDDL structures.
+//! Unlike standard formatting, LIR components rely on a [`RenderContext`] to
+//! resolve internal database identifiers into human-readable symbols.
+//!
+//! # Architecture
+//!
+//! The module is organized around two core traits:
+//! * [`LiftedSyntaxDisplay`]: Focused on generating valid PDDL/HDDL source code.
+//! * [`LiftedDebugDisplay`]: Focused on structural diagnostics and interning verification.
+//!
+//! # Implementation Strategy
+//!
+//! To keep the API surface clean, all intermediate formatting wrappers are kept
+//! **private**. Users interact with the rendering engine solely through the public
+//! trait methods, ensuring a seamless and robust abstraction.
 
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt::{self, Write};
 
-/// Trait unique pour le rendu syntaxique PDDL/HDDL.
-pub trait LiftedSyntaxDisplay {
-    // --- CAS 1 : RENDU AVEC CONTEXTE EXTERNE (Enfants) ---
+// =============================================================================
+// 1. LIFTED SYNTAX DISPLAY
+// =============================================================================
 
-    /// Formate l'élément en utilisant le [`RenderContext`] fourni.
+/// Trait for generating standard-compliant PDDL/HDDL syntax.
+///
+/// This trait should be implemented by any LIR element that needs to be
+/// exported to a planner or displayed as valid domain code.
+pub trait LiftedSyntaxDisplay {
+    /// The core formatting logic for PDDL/HDDL generation.
+    ///
+    /// ### Parameters
+    /// - `f`: The standard format writer.
+    /// - `ctx`: The [`RenderContext`] used to resolve IDs (Types, Predicates, etc.).
+    ///
+    /// ### Returns
+    /// - `fmt::Result`: Success or a formatting error.
     fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result;
 
-    /// Produit une String à partir d'un contexte donné.
-    fn to_syntax_string_with_context(&self, ctx: &RenderContext) -> String
+    /// Generates a standalone [`String`] representation of the element.
+    ///
+    /// Useful for logging or simple string manipulation where a writer is not available.
+    ///
+    /// ### Parameters
+    /// - `ctx`: The rendering context.
+    ///
+    /// ### Returns
+    /// - `String`: The formatted PDDL/HDDL syntax.
+    fn to_syntax_string(&self, ctx: &RenderContext) -> String
     where
         Self: Sized,
     {
         let mut s = String::new();
-        let _ = write!(&mut s, "{}", self.as_syntax_with_context(ctx));
+        let _ = write!(&mut s, "{}", self.as_syntax(ctx));
         s
     }
 
-    /// Helper pour le formattage récursif : `write!(f, "{}", item.as_syntax(ctx))`
-    fn as_syntax_with_context<'a>(
-        &'a self,
-        ctx: &'a RenderContext<'a>,
-    ) -> LiftedSyntaxDisplayWrapper<'a, Self>
+    /// Wraps the element to enable standard `Display` compatibility.
+    ///
+    /// This method is the primary way to render elements within `println!` or `write!`.
+    ///
+    /// ### Parameters
+    /// - `ctx`: The rendering context.
+    ///
+    /// ### Returns
+    /// - A private wrapper implementing [`fmt::Display`].
+    fn as_syntax<'a>(&'a self, ctx: &'a RenderContext<'a>) -> LiftedSyntaxDisplayWrapper<'a, Self>
     where
         Self: Sized,
     {
         LiftedSyntaxDisplayWrapper { value: self, ctx }
     }
 
-    // --- CAS 2 : RENDU AUTO-GÉRÉ (Racines) ---
-
-    /// Formate l'élément en créant son propre contexte interne.
-    /// Par défaut, renvoie une erreur si l'objet n'est pas une racine.
+    /// Self-contained rendering for root elements (e.g., Domain, Problem).
+    ///
+    /// This method is used when the element possesses its own internal interner
+    /// and does not require an external context.
     fn fmt_syntax_self(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Les types racines (DomainDef, Problem) doivent surcharger cette méthode.
         Err(fmt::Error)
     }
+}
 
-    /// Produit une String sans nécessiter de contexte externe.
-    fn to_syntax_string(&self) -> String
+// =============================================================================
+// 2. LIFTED DEBUG DISPLAY
+// =============================================================================
+
+/// Trait for technical and structural inspection.
+///
+/// Implementations of this trait provide a detailed view of the LIR, typically
+/// including resolved names alongside their raw internal IDs (e.g., `[p#42]`).
+pub trait LiftedDebugDisplay {
+    /// The core formatting logic for structural debugging.
+    ///
+    /// ### Parameters
+    /// - `f`: The standard format writer.
+    /// - `ctx`: The [`RenderContext`] used for symbol resolution.
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result;
+
+    /// Generates a detailed debug [`String`].
+    ///
+    /// ### Parameters
+    /// - `ctx`: The rendering context.
+    fn to_debug_string(&self, ctx: &RenderContext) -> String
     where
         Self: Sized,
     {
         let mut s = String::new();
-        write!(&mut s, "{}", SelfSyntaxDisplayWrapper { value: self })
-            .expect("Root syntax rendering failed: context could not be self-generated.");
+        let _ = write!(&mut s, "{}", self.as_debug(ctx));
         s
+    }
+
+    /// Wraps the element to enable standard `Display` compatibility for debug views.
+    ///
+    /// ### Parameters
+    /// - `ctx`: The rendering context.
+    fn as_debug<'a>(&'a self, ctx: &'a RenderContext<'a>) -> LiftedDebugDisplayWrapper<'a, Self>
+    where
+        Self: Sized,
+    {
+        LiftedDebugDisplayWrapper { value: self, ctx }
+    }
+
+    /// Self-contained debug rendering for root elements.
+    fn fmt_debug_self(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Err(fmt::Error)
     }
 }
 
-// --- WRAPPERS DE FORMATEUR ---
+// =============================================================================
+// PRIVATE DISPLAY WRAPPERS
+// =============================================================================
 
-/// Wrapper pour le rendu avec contexte externe.
-pub struct LiftedSyntaxDisplayWrapper<'a, T: ?Sized> {
-    pub value: &'a T,
-    pub ctx: &'a RenderContext<'a>,
+/// Private bridge between `LiftedSyntaxDisplay` and `fmt::Display`.
+struct LiftedSyntaxDisplayWrapper<'a, T: ?Sized> {
+    value: &'a T,
+    ctx: &'a RenderContext<'a>,
 }
 
 impl<'a, T: LiftedSyntaxDisplay + ?Sized> fmt::Display for LiftedSyntaxDisplayWrapper<'a, T> {
@@ -71,9 +143,21 @@ impl<'a, T: LiftedSyntaxDisplay + ?Sized> fmt::Display for LiftedSyntaxDisplayWr
     }
 }
 
-/// Wrapper pour le rendu auto-géré (Racine).
-pub struct SelfSyntaxDisplayWrapper<'a, T: ?Sized> {
-    pub value: &'a T,
+/// Private bridge between `LiftedDebugDisplay` and `fmt::Display`.
+struct LiftedDebugDisplayWrapper<'a, T: ?Sized> {
+    value: &'a T,
+    ctx: &'a RenderContext<'a>,
+}
+
+impl<'a, T: LiftedDebugDisplay + ?Sized> fmt::Display for LiftedDebugDisplayWrapper<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt_debug(f, self.ctx)
+    }
+}
+
+/// Private bridge for self-contained root elements.
+struct SelfSyntaxDisplayWrapper<'a, T: ?Sized> {
+    value: &'a T,
 }
 
 impl<'a, T: LiftedSyntaxDisplay + ?Sized> fmt::Display for SelfSyntaxDisplayWrapper<'a, T> {

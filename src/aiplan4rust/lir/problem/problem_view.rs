@@ -11,7 +11,7 @@
 //! These wrappers implement formatting traits to allow flexible rendering:
 //! - [`SyntaxDisplay`] – produces a syntax-oriented string representation.
 //! - [`SelfInternerDisplay`] – uses the internal `StringInterner` for resolving identifiers.
-//! - [`Display`] – default string representation for convenience.
+//! - [`Display`] – debug string representation for convenience.
 //!
 //! # Example
 //!
@@ -33,13 +33,13 @@
 //! let task_network = problem_wrapper.initial_task_network();
 //! ```
 
-use std::fmt::{self, Display, Formatter};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork};
+use std::fmt::{self, Display, Formatter};
 
 /// Wrapper around a specific problem instance within a domain.
 ///
@@ -165,11 +165,10 @@ impl<'a> ProblemDef<'a> {
     }
 }
 
-
 impl<'a> Display for ProblemDef<'a> {
-    /// Provides the default human-readable string representation of the problem.
+    /// Provides the debug human-readable string representation of the problem.
     ///
-    /// This implementation delegates to `renderers::default::render_problem`.
+    /// This implementation delegates to `renderers::debug::render_problem`.
     ///
     /// # Parameters
     /// - `f`: The [`Formatter`] to write the output into.

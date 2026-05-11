@@ -13,7 +13,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::store::encoding::EncodingRegistry;
 use crate::aiplan4rust::lir::store::encoding::{typed_list, EncodingError};
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::task::Task;
+use crate::aiplan4rust::lir::store::problem::skeleton::task::Task;
 use crate::aiplan4rust::lir::store::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;

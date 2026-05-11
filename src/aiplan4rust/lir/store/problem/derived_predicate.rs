@@ -6,8 +6,13 @@
 
 use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::store::expr::ExprId;
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::store::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
+use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
 /// Represents a derived predicate in a PDDL problem.
@@ -139,25 +144,16 @@ impl DerivedPredicate {
     }
 }
 
-/*/// Implements [`fmt::Display`] for `DerivedPredicate`.
-///
-/// This allows printing the derived predicate in a human-readable format using
-/// the default renderer.
-impl fmt::Display for DerivedPredicate {
-    /// Formats the derived predicate into the given formatter.
-    ///
-    /// # Parameters
-    /// - `f`: The [`fmt::Formatter`] to write the output into.
-    ///
-    /// # Returns
-    /// [`fmt::Result`] indicating whether writing was successful.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        renderers::default::render_derived_predicate(f, self)
+impl LiftedSyntaxDisplay for DerivedPredicate {
+    /// Rendu PDDL propre (ex: (:derived (p ?x) (and ...)))
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::derived_predicate::render(f, self, ctx)
     }
 }
 
-impl LiftedSyntaxDisplay for DerivedPredicate {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
-        renderers::syntax::derived_predicate::render(f, self, ctx)
+impl LiftedDebugDisplay for DerivedPredicate {
+    /// Rendu structurel pour le debug (Head ID, Body Expr Tree, Local Symbols)
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::derived_predicate::render(f, self, ctx)
     }
-}*/
+}

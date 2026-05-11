@@ -1,11 +1,11 @@
 use crate::aiplan4rust::lir::store::expr::ExprId;
 use crate::aiplan4rust::lir::store::problem::ProblemDef;
-use crate::aiplan4rust::lir::store::renderers::default::common::writeln_centered;
-use crate::aiplan4rust::lir::store::renderers::default::{expr, initial_task_network, typed_list};
+use crate::aiplan4rust::lir::store::renderers::debug::common::writeln_centered;
+use crate::aiplan4rust::lir::store::renderers::debug::{expr, initial_task_network, typed_list};
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt;
 
-pub fn render_problem(
+pub fn render(
     f: &mut fmt::Formatter<'_>,
     problem: &ProblemDef,
     ctx: &RenderContext,

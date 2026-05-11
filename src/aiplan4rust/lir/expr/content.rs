@@ -12,7 +12,7 @@
 //!
 //! # Main Variants
 //!
-//! - `None`: Represents no content (default/empty syntax).
+//! - `None`: Represents no content (debug/empty syntax).
 //! - `Ident`: An interned identifier (references a name via [`StringInterner`] for efficient string storage).
 //! - `Float`: A floating-point literal (wrapped in [`OrderedFloat`] to guarantee total ordering).
 //! - `BinaryComp`: A binary comparison operator (`=`, `<`, `>`, etc.).
@@ -35,7 +35,7 @@
 //! use ordered_float::OrderedFloat;
 //!
 //!
-//! let mut interner = StringInterner::default();
+//! let mut interner = StringInterner::debug();
 //! let id = interner.intern("load");
 //! let content = Content::Ident(id);
 //!
@@ -50,15 +50,19 @@
 //! The [`Content::remap_idents`] method allows in-place remapping of interned identifiers
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp, TypedList, VariableId, ObjectId, PredicateSymbolId, FunctionSymbolId, FunctionSkeletonId, AtomSkeletonId, TaskSkeletonId, TypeId, TaskSymbolId, PreferenceSymbolId, TaskLabelSymbolId};
+use crate::aiplan4rust::lang::{
+    ArithmeticOp, AssignOp, AtomSkeletonId, CompareOp, FunctionSkeletonId, FunctionSymbolId,
+    ObjectId, OptimizationOp, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId,
+    TaskSkeletonId, TaskSymbolId, TypeId, TypedList, VariableId,
+};
 use crate::aiplan4rust::lir::expr::error::ExprError;
+use crate::aiplan4rust::lir::expr::ExprContent;
+use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::tree::SyntaxContent;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::aiplan4rust::lir::expr::ExprContent;
-use crate::aiplan4rust::lir::renderers;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -68,11 +72,11 @@ use crate::aiplan4rust::lir::renderers;
 /// This enum is a leaf in the syntax tree — it contains data but no child nodes.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum Content {
-    /// No content (empty/default syntax node).
+    /// No content (empty/debug syntax node).
     #[default]
     None,
     //Ident(StringID),
-    Variable(VariableId),     // Variables liées (Forall/Exists)
+    Variable(VariableId), // Variables liées (Forall/Exists)
     Object(ObjectId),     // Objets/Constantes du domaine
 
     // --- Symboles de Définition ---
@@ -110,11 +114,9 @@ pub enum Content {
 
     /// The bound variables for a quantifier (Forall or Exists) stored as a `TypedList`.
     QuantifierVariables(TypedList<VariableId, TypeId>),
-
 }
 
 impl Content {
-
     /// Returns the object ID if the content is `Constant`.
     pub fn as_object(&self) -> Option<ObjectId> {
         match self {
@@ -141,7 +143,6 @@ impl Content {
         self.as_variable().ok_or_else(ExprError::not_variable)
     }
 
-
     /// Returns the predicate ID if the content is `Predicate`.
     pub fn as_predicate_symbol(&self) -> Option<PredicateSymbolId> {
         match self {
@@ -152,7 +153,8 @@ impl Content {
 
     /// Returns the predicate ID or an error.
     pub fn try_predicate_symbol(&self) -> Result<PredicateSymbolId, ExprError> {
-        self.as_predicate_symbol().ok_or_else(ExprError::not_predicate)
+        self.as_predicate_symbol()
+            .ok_or_else(ExprError::not_predicate)
     }
 
     /// Returns the functor ID if the content is `Functor`.
@@ -191,7 +193,8 @@ impl Content {
 
     /// Returns the task label ID or an error.
     pub fn try_task_label_symbol(&self) -> Result<TaskLabelSymbolId, ExprError> {
-        self.as_task_label_symbol().ok_or_else(ExprError::not_task_id)
+        self.as_task_label_symbol()
+            .ok_or_else(ExprError::not_task_id)
     }
 
     /// Returns the preference ID if the content is `Preference`.
@@ -204,7 +207,8 @@ impl Content {
 
     /// Returns the preference ID or an error.
     pub fn try_preference_symbol(&self) -> Result<PreferenceSymbolId, ExprError> {
-        self.as_preference_symbol().ok_or_else(ExprError::not_preference)
+        self.as_preference_symbol()
+            .ok_or_else(ExprError::not_preference)
     }
 
     /// Returns the predicate ID if the content is `AtomicSkeleton`.
@@ -217,7 +221,8 @@ impl Content {
 
     /// Returns the predicate ID or an error.
     pub fn try_atom_skeleton(&self) -> Result<AtomSkeletonId, ExprError> {
-        self.as_atom_skeleton().ok_or_else(ExprError::not_atom_skeleton)
+        self.as_atom_skeleton()
+            .ok_or_else(ExprError::not_atom_skeleton)
     }
 
     /// Returns the function ID if the content is `FunctionSkeleton`.
@@ -277,7 +282,6 @@ impl Content {
         }
     }
 
-
     /// Returns a mutable reference to the quantifier’s bound variables if the content is `TypedVariables`.
     ///
     /// # Returns
@@ -294,7 +298,9 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::not_quantifier_variables()` if the content is not `TypedVariables`.
-    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<VariableId, TypeId>, ExprError> {
+    pub fn try_quantifier_vars_mut(
+        &mut self,
+    ) -> Result<&mut TypedList<VariableId, TypeId>, ExprError> {
         match self {
             ExprContent::QuantifierVariables(list) => Ok(list),
             _ => Err(ExprError::not_quantifier_variables()),
@@ -308,9 +314,7 @@ impl fmt::Display for Content {
     }
 }
 
-
 impl SyntaxContent for Content {
-
     fn as_number(&self) -> Option<OrderedFloat<f64>> {
         match self {
             Content::Number(f) => Some(*f),

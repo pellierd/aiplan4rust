@@ -6,7 +6,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::PredicateSymbolId;
 use crate::aiplan4rust::lir::store::encoding::{typed_list, EncodingError, EncodingRegistry};
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::store::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 

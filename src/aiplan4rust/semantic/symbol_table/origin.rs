@@ -7,8 +7,8 @@
 //! The `Origin` can also be converted into a `SymbolOrigin`, which is used
 //! on a per-symbol basis.
 
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 
@@ -46,9 +46,9 @@ pub enum Origin {
 }
 
 impl Default for Origin {
-    /// Returns the default value for `Origin`.
+    /// Returns the debug value for `Origin`.
     ///
-    /// The default origin is `Unknown`, indicating an unspecified or placeholder origin.
+    /// The debug origin is `Unknown`, indicating an unspecified or placeholder origin.
     fn default() -> Self {
         Origin::Unknown
     }

@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
 use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
+use aiplan4rust::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
+use aiplan4rust::aiplan4rust::semantic::SymbolTable;
 use aiplan4rust::aiplan4rust::syntax::ast::Ast;
 use aiplan4rust::Renderer;
 use chrono::Utc;
@@ -9,8 +11,6 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 use walkdir::WalkDir;
-use aiplan4rust::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
-use aiplan4rust::aiplan4rust::semantic::SymbolTable;
 
 /// Supported file extensions (case-insensitive).
 const SUPPORTED_EXTENSIONS: &[&str] = &["pddl", "hddl"];
@@ -183,7 +183,7 @@ pub fn delete_all_files_with_extension(root_dir: &Path, extension: &str) {
 }
 
 /// Returns a filtered list of files based on the `FULL_TESTS` environment variable.
-/// In "Swallow" mode (default), it returns only the domain and the first problem.
+/// In "Swallow" mode (debug), it returns only the domain and the first problem.
 /// In "Full" mode, it returns all collected files.
 pub fn filter_files_by_mode(all_files: Vec<PathBuf>) -> Vec<PathBuf> {
     let full_mode = std::env::var("FULL_TESTS").is_ok();
@@ -248,9 +248,18 @@ pub fn get_test_files_for_mode(all_files: Vec<PathBuf>) -> Vec<PathBuf> {
 pub fn print_test_status(count: usize, total: usize, dir: &Path) {
     let full_mode = std::env::var("FULL_TESTS").is_ok();
     if full_mode {
-        println!("\x1b[1;32m[Full Test]\x1b[0m Processed {} files in {}", count, dir.display());
+        println!(
+            "\x1b[1;32m[Full Test]\x1b[0m Processed {} files in {}",
+            count,
+            dir.display()
+        );
     } else {
-        println!("\x1b[1;36m[Swallow Test]\x1b[0m Tested {}/{} files in {}", count, total, dir.display());
+        println!(
+            "\x1b[1;36m[Swallow Test]\x1b[0m Tested {}/{} files in {}",
+            count,
+            total,
+            dir.display()
+        );
     }
 }
 
@@ -311,17 +320,23 @@ pub fn write_diagnostics_to_file(
         timestamp.to_rfc3339(),
     );
 
-    diag_file
-        .write_all(header.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write header to diag file: {}", diag_path.display()));
+    diag_file.write_all(header.as_bytes()).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write header to diag file: {}",
+            diag_path.display()
+        )
+    });
 
     let mut buffer = Vec::new();
     Renderer::write_to(diagnostic_manager, interner, &mut buffer, false)
         .expect("Failed to write diagnostics");
 
-    diag_file
-        .write_all(&buffer)
-        .unwrap_or_else(|_| panic!("Failed to write diagnostics to diag file: {}", diag_path.display()));
+    diag_file.write_all(&buffer).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write diagnostics to diag file: {}",
+            diag_path.display()
+        )
+    });
 }
 
 /// Writes the string representation of an AST to a `.ast` file next to the given path,
@@ -441,7 +456,10 @@ pub fn write_error_diagnostic_file_for_domain_and_problem(
     );
 
     // Répertoire cible (ici on met le fichier à côté du fichier problème)
-    let diag_path = problem_path.parent().unwrap_or_else(|| Path::new(".")).join(diag_file_name);
+    let diag_path = problem_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(diag_file_name);
 
     let mut diag_file = File::create(&diag_path)
         .unwrap_or_else(|_| panic!("Failed to create diag file: {}", diag_path.display()));
@@ -506,8 +524,12 @@ pub fn write_symbol_table_to_file(
 ) {
     let symtab_path = file_path.with_extension("symtab");
 
-    let mut symtab_file = File::create(&symtab_path)
-        .unwrap_or_else(|_| panic!("Failed to create symbol table file: {}", symtab_path.display()));
+    let mut symtab_file = File::create(&symtab_path).unwrap_or_else(|_| {
+        panic!(
+            "Failed to create symbol table file: {}",
+            symtab_path.display()
+        )
+    });
 
     let timestamp = Utc::now();
     let header = format!(
@@ -525,12 +547,22 @@ pub fn write_symbol_table_to_file(
 
     symtab_file
         .write_all(header.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write header to symbol table file: {}", symtab_path.display()));
+        .unwrap_or_else(|_| {
+            panic!(
+                "Failed to write header to symbol table file: {}",
+                symtab_path.display()
+            )
+        });
 
     let symtab_str = symbol_table.to_string_with_interner(interner);
     symtab_file
         .write_all(symtab_str.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write symbol table to file: {}", symtab_path.display()));
+        .unwrap_or_else(|_| {
+            panic!(
+                "Failed to write symbol table to file: {}",
+                symtab_path.display()
+            )
+        });
 }
 
 /// Writes linking diagnostics to a `.linking.diag` file next to the given problem file.
@@ -588,18 +620,19 @@ pub fn write_linking_diag_to_file(
     // Build a filename like "<problem>.linking.diag"
     let problem_stem = problem_path.file_stem().unwrap_or_default();
 
-    let file_name = format!(
-        "{}.linking.diag",
-        problem_stem.to_string_lossy()
-    );
+    let file_name = format!("{}.linking.diag", problem_stem.to_string_lossy());
 
     let diag_path = problem_path
         .parent()
         .unwrap_or_else(|| Path::new("."))
         .join(file_name);
 
-    let mut diag_file = File::create(&diag_path)
-        .unwrap_or_else(|_| panic!("Failed to create linking diagnostic file: {}", diag_path.display()));
+    let mut diag_file = File::create(&diag_path).unwrap_or_else(|_| {
+        panic!(
+            "Failed to create linking diagnostic file: {}",
+            diag_path.display()
+        )
+    });
 
     let timestamp = Utc::now();
     let header = format!(
@@ -617,18 +650,24 @@ pub fn write_linking_diag_to_file(
         timestamp.to_rfc3339(),
     );
 
-    diag_file
-        .write_all(header.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write header to linking diagnostic file: {}", diag_path.display()));
+    diag_file.write_all(header.as_bytes()).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write header to linking diagnostic file: {}",
+            diag_path.display()
+        )
+    });
 
     // Convert diagnostics to a string using the Renderer
     let mut buffer = Vec::new();
     Renderer::write_to(diagnostic_manager, interner, &mut buffer, false)
         .expect("Failed to write diagnostics");
 
-    diag_file
-        .write_all(&buffer)
-        .unwrap_or_else(|_| panic!("Failed to write linking diagnostics to file: {}", diag_path.display()));
+    diag_file.write_all(&buffer).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write linking diagnostics to file: {}",
+            diag_path.display()
+        )
+    });
 }
 
 /// Writes LIR encoding diagnostics to a `.lir.diag` file next to the given problem file.
@@ -659,18 +698,19 @@ pub fn write_lir_diag_to_file(
     // Build a filename like "<problem>.lir.diag"
     let problem_stem = problem_path.file_stem().unwrap_or_default();
 
-    let file_name = format!(
-        "{}.lir.diag",
-        problem_stem.to_string_lossy()
-    );
+    let file_name = format!("{}.lir.diag", problem_stem.to_string_lossy());
 
     let diag_path = problem_path
         .parent()
         .unwrap_or_else(|| Path::new("."))
         .join(file_name);
 
-    let mut diag_file = File::create(&diag_path)
-        .unwrap_or_else(|_| panic!("Failed to create LIR diagnostic file: {}", diag_path.display()));
+    let mut diag_file = File::create(&diag_path).unwrap_or_else(|_| {
+        panic!(
+            "Failed to create LIR diagnostic file: {}",
+            diag_path.display()
+        )
+    });
 
     let timestamp = Utc::now();
     let header = format!(
@@ -688,16 +728,22 @@ pub fn write_lir_diag_to_file(
         timestamp.to_rfc3339(),
     );
 
-    diag_file
-        .write_all(header.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write header to LIR diagnostic file: {}", diag_path.display()));
+    diag_file.write_all(header.as_bytes()).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write header to LIR diagnostic file: {}",
+            diag_path.display()
+        )
+    });
 
     // Convert diagnostics to a string using the Renderer
     let mut buffer = Vec::new();
     Renderer::write_to(diagnostic_manager, interner, &mut buffer, false)
         .expect("Failed to write diagnostics");
 
-    diag_file
-        .write_all(&buffer)
-        .unwrap_or_else(|_| panic!("Failed to write LIR diagnostics to file: {}", diag_path.display()));
+    diag_file.write_all(&buffer).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write LIR diagnostics to file: {}",
+            diag_path.display()
+        )
+    });
 }

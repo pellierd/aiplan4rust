@@ -3,24 +3,24 @@
 //! to the corresponding `PlanningFormat`.
 //!
 //! Supported extensions include:
-//! - `.pddl` for PDDL files (default)
+//! - `.pddl` for PDDL files (debug)
 //! - `.hddl` for HDDL files
 
 use std::fmt::{self, Display};
 use std::str::FromStr;
 
-use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxFormat;
+use crate::aiplan4rust::serialization::SerializationError;
 
 /// Enumeration of supported syntax language file extensions.
 ///
 /// # Variants
 ///
-/// - `Pddl`: Represents `.pddl` files (default).
+/// - `Pddl`: Represents `.pddl` files (debug).
 /// - `Hddl`: Represents `.hddl` files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Extension {
-    /// PDDL file extension (default).
+    /// PDDL file extension (debug).
     #[default]
     Pddl,
     /// HDDL file extension.

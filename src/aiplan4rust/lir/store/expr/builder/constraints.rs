@@ -88,7 +88,7 @@ impl<'a> ExprBuilder<'a> {
     /// * `first` - The triggering condition (the "if").
     /// * `second` - The subsequent condition (the "then").
     pub fn sometime_after(&mut self, first: ExprId, second: ExprId) -> ExprId {
-        // Optimization: If 'first' can never happen, the constraint is satisfied by default.
+        // Optimization: If 'first' can never happen, the constraint is satisfied by debug.
         if first == self.empty_or() {
             return self.empty_and();
         }
@@ -168,7 +168,7 @@ impl<'a> ExprBuilder<'a> {
     {
         let d = duration.into();
 
-        // Optimization: If the trigger never happens, the requirement is satisfied by default.
+        // Optimization: If the trigger never happens, the requirement is satisfied by debug.
         if first == self.empty_or() {
             return self.empty_and();
         }

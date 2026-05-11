@@ -25,16 +25,16 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
+use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::{MethodSymbolId, TaskLabelSymbolId, TypeId, VariableId};
-use crate::aiplan4rust::lir::problem::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::expr::expr::Expr;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::named_typed_list::NamedTypedList;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::lir::{renderers, TaskNetwork};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
-use crate::aiplan4rust::lir::{renderers, TaskNetwork};
-use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Method {
@@ -193,14 +193,12 @@ impl Method {
     pub fn task_label_symbols_mut(&mut self) -> &mut SymbolRegistry<TaskLabelSymbolId> {
         &mut self.task_label_symbols
     }
-
 }
-
 
 impl fmt::Display for Method {
     /// Formats the `Method` for human-readable output.
     ///
-    /// This implementation uses the default renderer to produce a readable
+    /// This implementation uses the debug renderer to produce a readable
     /// representation of the method, including its name, parameters,
     /// task, precondition, and task network.
     ///

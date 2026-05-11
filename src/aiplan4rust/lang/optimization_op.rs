@@ -16,10 +16,10 @@
 //!
 //! This type_checker is typically used in goal representations, metric definitions, or solver configurations.
 
+use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
 use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
-use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -40,7 +40,7 @@ use std::fmt::Formatter;
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum OptimizationOp {
-    /// No optimization specified (default value).
+    /// No optimization specified (debug value).
     #[default]
     None,
 
@@ -94,7 +94,6 @@ impl fmt::Display for OptimizationOp {
     }
 }
 
-
 /// Implements the `DisplayWithInterner` trait for `Optimization`.
 ///
 /// This implementation formats an `Optimization` value by
@@ -126,7 +125,6 @@ impl InternerDisplay for OptimizationOp {
     }
 }
 
-
 /// Implements the `PlanningSyntaxDisplay` trait for `Optimization`.
 ///
 /// This trait provides user-facing syntax formatting for `Optimization` values.
@@ -156,7 +154,12 @@ impl SyntaxInternerDisplay for OptimizationOp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &SymbolInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        _interner: &SymbolInterner,
+        indent: usize,
+    ) -> fmt::Result {
         write_indent(f, indent)?;
         fmt::Display::fmt(self, f)
     }

@@ -35,8 +35,8 @@
 //! The logic used are built from the [`Expr`] representation, which supports
 //! logical combinations, references to task calls, and symbolic constructs parsed from ASTs.
 
-use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 use crate::aiplan4rust::lang::TaskSkeletonId;
 use crate::aiplan4rust::lir::expr::Expr;
@@ -102,8 +102,7 @@ impl TaskNetwork {
             logical_constraints,
             is_declared_total_ordered,
             task_def,
-            task_nodes
-
+            task_nodes,
         }
     }
 
@@ -211,13 +210,12 @@ impl TaskNetwork {
     pub fn set_declared_total_ordered(&mut self, value: bool) {
         self.is_declared_total_ordered = value;
     }
-
 }
 
 impl Display for TaskNetwork {
     /// Formats the `TaskNetwork` as a human-readable string.
     ///
-    /// This implementation uses the default renderer to display the tasks,
+    /// This implementation uses the debug renderer to display the tasks,
     /// ordering constraints, and logical constraints in a readable form.
     ///
     /// # Arguments

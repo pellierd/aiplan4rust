@@ -14,13 +14,18 @@
 //! let pred = AtomicFormulaSkeleton::new(Ident::new("at"), TypedList::empty());
 //! ```
 
+use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
 use crate::aiplan4rust::lang::{PredicateSymbolId, TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::store::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
 ///
@@ -118,9 +123,18 @@ impl DerefMut for Formula {
     }
 }
 
-impl fmt::Display for Formula {
-    /// Formats the formula in a human-readable form.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.header.fmt(f)
+impl LiftedSyntaxDisplay for Formula {
+    /// Rendu syntaxique PDDL : (at ?obj - object ?loc - location)
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        let local_ctx = ctx.with_variables(&self.variable_symbols);
+        renderers::syntax::atom::render(f, self, &local_ctx)
+    }
+}
+
+impl LiftedDebugDisplay for Formula {
+    /// Rendu technique : PredicateSkeleton{ (at [p#2] ?obj [v#0] - object [t#1]) }
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        let local_ctx = ctx.with_variables(&self.variable_symbols);
+        renderers::debug::atom::render(f, self, &local_ctx)
     }
 }

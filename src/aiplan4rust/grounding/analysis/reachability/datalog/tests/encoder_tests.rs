@@ -13,7 +13,7 @@ use crate::aiplan4rust::lir::expr::ExprBuilder;
 /// # Setup Details
 /// - **Encoder**: A `DatalogEncoder` initialized with an auxiliary predicate offset of 100
 ///   to avoid ID collisions with domain predicates.
-/// - **Parameters**: A `TypedList` pre-populated with three default variables
+/// - **Parameters**: A `TypedList` pre-populated with three debug variables
 ///   (`?v0`, `?v1`, `?v2`) mapped to the root typing.
 ///
 /// # Output

@@ -1,8 +1,8 @@
 use crate::aiplan4rust::lir::store::expr::ExprId;
 use crate::aiplan4rust::lir::store::problem::LiftedProblem;
-use crate::aiplan4rust::lir::store::renderers::default::common::writeln_centered;
-use crate::aiplan4rust::lir::store::renderers::default::{
-    action, atomic_skeleton, expr, function_skeleton, method, typed_list,
+use crate::aiplan4rust::lir::store::renderers::debug::common::writeln_centered;
+use crate::aiplan4rust::lir::store::renderers::debug::{
+    action, atom, expr, function, method, typed_list,
 };
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt;
@@ -93,7 +93,7 @@ pub fn render(
         for p in problem.predicate_defs() {
             write!(f, "  ")?;
             // Signature : (nom ?arg1 - type)
-            atomic_skeleton::render(f, p, ctx)?;
+            atom::render(f, p, ctx)?;
             writeln!(f)?;
         }
     }
@@ -106,7 +106,7 @@ pub fn render(
     } else {
         for func in problem.function_defs() {
             write!(f, "  ")?;
-            function_skeleton::render(f, func, ctx)?;
+            function::render(f, func, ctx)?;
             writeln!(f)?;
         }
     }

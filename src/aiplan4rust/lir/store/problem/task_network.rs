@@ -37,6 +37,11 @@
 
 use crate::aiplan4rust::lang::TaskSkeletonId;
 use crate::aiplan4rust::lir::store::expr::ExprId;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
+use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -179,36 +184,16 @@ impl TaskNetwork {
     }
 }
 
-/*impl Display for TaskNetwork {
-    /// Formats the `TaskNetwork` as a human-readable string.
-    ///
-    /// This implementation uses the default renderer to display the tasks,
-    /// ordering constraints, and logical constraints in a readable form.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Write;
-    /// # let network: TaskNetwork = todo!();
-    /// let mut s = String::new();
-    /// write!(&mut s, "{}", network).unwrap();
-    /// println!("{}", s);
-    /// ```
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        renderers::default::render_task_network(f, self)
+impl LiftedSyntaxDisplay for TaskNetwork {
+    /// Rendu PDDL/HDDL (le "beau" texte pour l'export ou l'utilisateur).
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::task_network::render(f, self, ctx)
     }
 }
 
-impl LiftedSyntaxDisplay for TaskNetwork {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
-        renderers::syntax::task_network::render_task_network(f, self, ctx)
+impl LiftedDebugDisplay for TaskNetwork {
+    /// Rendu structurel (l'arbre technique avec IDs et structure interne).
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::task_network::render(f, self, ctx)
     }
-}*/
+}

@@ -62,22 +62,22 @@
 //! }
 //! ```
 
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
-use logos::Logos;
 use crate::aiplan4rust::artefact::error::ArtefactError;
-use crate::aiplan4rust::artefact::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
 use crate::aiplan4rust::artefact::ir::content::IRContent;
-use crate::aiplan4rust::artefact::IRKind;
+use crate::aiplan4rust::artefact::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
 use crate::aiplan4rust::artefact::language::Language;
 use crate::aiplan4rust::artefact::raw::content::RawContent;
 use crate::aiplan4rust::artefact::raw::kind::RawKind;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::artefact::IRKind;
 use crate::aiplan4rust::lir::problem::problem::Problem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeSerializable, SerializationError};
 use crate::aiplan4rust::syntax::lexer::Token;
+use logos::Logos;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 /// Represents a source artifact used in the planning pipeline.
 ///
@@ -103,7 +103,7 @@ use crate::aiplan4rust::syntax::lexer::Token;
 ///
 /// let ir_source = Source::IR {
 ///     path: PathBuf::from("domain.ir"),
-///     content: IRContent::ParsedDomain(Default::default(), "format".to_string()),
+///     content: IRContent::ParsedDomain(Default::debug(), "format".to_string()),
 /// };
 /// ```
 #[derive(Debug, Clone)]
@@ -144,7 +144,6 @@ pub enum Source {
         content: Vec<u8>,
     },
 }
-
 
 impl Source {
     /// Constructs a new `Source::Raw` variant.
@@ -290,7 +289,6 @@ impl TryFrom<&Path> for Source {
 // -------------------------------------------------------------------------
 
 impl Source {
-
     /// Reads an `Source` from a byte vector, attempting IR deserialization first, then falling back
     /// to raw or unknown content.
     ///
@@ -328,30 +326,28 @@ impl Source {
     fn read_from_bytes(path: PathBuf, bytes: Vec<u8>) -> Result<Self, ArtefactError> {
         // Attempt to read IR header and payload
         match Self::try_to_read_ir(&bytes)? {
-            Some((header, payload)) => {
-                match header.ir_kind() {
-                    IRKind::ParsedDomain => {
-                        let sc = SemanticContext::deserialize_from_bytes(payload, header.format())?;
-                        let content = IRContent::ParsedDomain(sc, header.format());
-                        Ok(Source::new_ir(path, content))
-                    }
-                    IRKind::ParsedProblem => {
-                        let sc = SemanticContext::deserialize_from_bytes(payload, header.format())?;
-                        let content = IRContent::ParsedProblem(sc, header.format());
-                        Ok(Source::new_ir(path, content))
-                    }
-                    IRKind::LiftedProblem => {
-                        let pb = LiftedProblem::deserialize_from_bytes(payload, header.format())?;
-                        let content = IRContent::LiftedProblem(pb, header.format());
-                        Ok(Source::new_ir(path, content))
-                    }
-                    IRKind::GroundedProblem => {
-                        let pb = Problem::deserialize_from_bytes(payload, header.format())?;
-                        let content = IRContent::GroundedProblem(pb, header.format());
-                        Ok(Source::new_ir(path, content))
-                    }
+            Some((header, payload)) => match header.ir_kind() {
+                IRKind::ParsedDomain => {
+                    let sc = SemanticContext::deserialize_from_bytes(payload, header.format())?;
+                    let content = IRContent::ParsedDomain(sc, header.format());
+                    Ok(Source::new_ir(path, content))
                 }
-           }
+                IRKind::ParsedProblem => {
+                    let sc = SemanticContext::deserialize_from_bytes(payload, header.format())?;
+                    let content = IRContent::ParsedProblem(sc, header.format());
+                    Ok(Source::new_ir(path, content))
+                }
+                IRKind::LiftedProblem => {
+                    let pb = LiftedProblem::deserialize_from_bytes(payload, header.format())?;
+                    let content = IRContent::LiftedProblem(pb, header.format());
+                    Ok(Source::new_ir(path, content))
+                }
+                IRKind::GroundedProblem => {
+                    let pb = Problem::deserialize_from_bytes(payload, header.format())?;
+                    let content = IRContent::GroundedProblem(pb, header.format());
+                    Ok(Source::new_ir(path, content))
+                }
+            },
             None => {
                 // No IR header found → fallback to UTF-8
                 match String::from_utf8(bytes) {
@@ -359,14 +355,17 @@ impl Source {
                         if let Some(kind) = infer_raw_kind(&content) {
                             let language = detect_raw_language(&content);
                             let content = RawContent::new(kind, language, content);
-                            return Ok(Source::new_raw(path, content))
+                            return Ok(Source::new_raw(path, content));
                         }
 
                         Ok(Source::Text { path, content })
                     }
                     Err(e) => {
                         // Binary unknown
-                        Ok(Source::Binary { path, content: e.into_bytes() })
+                        Ok(Source::Binary {
+                            path,
+                            content: e.into_bytes(),
+                        })
                     }
                 }
             }
@@ -497,7 +496,6 @@ impl Source {
 // Accessors for Source paths and content
 // -------------------------------------------------------------------------
 impl Source {
-
     /// Returns the file path associated with this `Source`.
     ///
     /// Works for all variants (`Raw`, `IR`, `Text`, `Binary`).
@@ -966,7 +964,6 @@ fn infer_raw_kind(source: &str) -> Option<RawKind> {
     }
     None
 }
-
 
 /// Detects the language of a raw source text, distinguishing between PDDL and HDDL.
 ///

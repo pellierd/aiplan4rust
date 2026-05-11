@@ -39,7 +39,6 @@
 //!
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
-
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{
     ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
@@ -47,18 +46,22 @@ use crate::aiplan4rust::lang::{
     TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol,
 };
 use crate::aiplan4rust::lir::store::expr::{ExprId, ExprStore};
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::{
+use crate::aiplan4rust::lir::store::problem::error::LiftedProblemError;
+use crate::aiplan4rust::lir::store::problem::skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
-use crate::aiplan4rust::lir::store::problem::error::LiftedProblemError;
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::store::problem::{
     ActionDef, DerivedPredicateDef, DomainDef, InitialTaskNetwork, MethodDef, ProblemDef,
 };
+// Regroupement des imports de rendu
+use crate::aiplan4rust::lir::store::renderers::display::{LiftedDebugDisplay, LiftedSyntaxDisplay};
+use crate::aiplan4rust::lir::store::renderers::{self, RenderContext};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
+
+use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
@@ -145,7 +148,7 @@ pub struct Problem {
 
 #[allow(dead_code)]
 impl Problem {
-    /// Creates a new empty `PlanningProblem` with default identifiers
+    /// Creates a new empty `PlanningProblem` with debug identifiers
     /// and no requirements, types, constants, predicates, functions, or actions.
     ///
     /// # Example
@@ -541,13 +544,13 @@ impl Problem {
 
     /// Adds a new object symbol and ensures a corresponding definition placeholder exists.
     ///
-    /// If the object is new, a [`TypedSymbol`] with `Type::default()` is added to
+    /// If the object is new, a [`TypedSymbol`] with `Type::debug()` is added to
     /// `object_defs` to keep the table and definitions synchronized.
     pub fn add_object_symbol(&mut self, symbol: SymbolId) -> ObjectId {
         let id = self.object_symbols.insert(symbol);
         let idx = id.as_usize();
         if idx >= self.object_defs.len() {
-            // Placeholder definition using the default typing (usually 'object')
+            // Placeholder definition using the debug typing (usually 'object')
             self.object_defs.push(TypedSymbol::new(id, Type::default()));
         }
         id
@@ -1575,21 +1578,42 @@ impl Problem {
     }
 }
 
-/*impl Display for Problem {
-    /// Implements standard Rust [`Display`] for the problem.
-    ///
-    /// Delegates to the default interner-aware renderer for the entire problem.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write the output into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::default::render_problem(f, self)
+impl LiftedSyntaxDisplay for Problem {
+    /// Rendu syntaxique complet (PDDL/HDDL) du problème.
+    /// Note : En PDDL, un "Problem" est généralement rendu séparément du "Domain",
+    /// mais cette structure LIR contient les deux. Le renderer décidera quoi afficher.
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::domain::render(f, &DomainDef::new(self), ctx)?;
+        writeln!(f, "\n")?;
+        renderers::syntax::problem::render(f, &ProblemDef::new(self), ctx)
     }
-}*/
 
+    /// Point d'entrée principal pour générer du code PDDL/HDDL à partir d'un Problem.
+    fn fmt_syntax_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let ctx = RenderContext::new(self);
+        self.fmt_syntax(f, &ctx)
+    }
+}
+
+impl LiftedDebugDisplay for Problem {
+    /// Rendu structurel technique de l'intégralité du problème (Squelettes, Actions, Methods, Init, Goal).
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::problem::render(f, self, ctx)
+    }
+
+    /// Point d'entrée principal pour inspecter la structure interne (Debug).
+    fn fmt_debug_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let ctx = RenderContext::new(self);
+        self.fmt_debug(f, &ctx)
+    }
+}
+
+/// Implémentation de Display pour le Problem.
+/// Par convention, on utilise souvent le rendu Debug pour le type racine 'Problem'
+/// afin de voir toute la structure technique lors d'un `println!("{:?}", prob)`.
+impl std::fmt::Display for Problem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.fmt_debug_self(f)
+    }
+}
 impl SerdeSerializable for Problem {}

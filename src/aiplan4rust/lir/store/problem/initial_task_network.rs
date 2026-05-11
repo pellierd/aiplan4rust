@@ -7,6 +7,11 @@
 use crate::aiplan4rust::lang::{TaskLabelSymbolId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::store::problem::TaskNetwork;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
+use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -109,9 +114,16 @@ impl InitialTaskNetwork {
     }
 }
 
-/*impl Display for InitialTaskNetwork {
-    /// Formats the initial task network for display purposes.
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::default::render_initial_task_network(f, self)
+impl LiftedSyntaxDisplay for InitialTaskNetwork {
+    /// Délègue le rendu PDDL/HDDL au module spécialisé.
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::initial_task_network::render(f, self, ctx)
     }
-}*/
+}
+
+impl LiftedDebugDisplay for InitialTaskNetwork {
+    /// Délègue le rendu structurel (arbre/debug) au module spécialisé.
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::initial_task_network::render(f, self, ctx)
+    }
+}

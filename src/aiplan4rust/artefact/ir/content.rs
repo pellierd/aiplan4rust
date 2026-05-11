@@ -47,7 +47,7 @@
 //! use aiplan4rust::serialization::SerdeFormat;
 //!
 //! // Creating a parsed domain IR content
-//! let domain_ctx = SemanticContext::default();
+//! let domain_ctx = SemanticContext::debug();
 //! let content = IRContent::ParsedDomain(domain_ctx, SerdeFormat::Json);
 //!
 //! // Access the IR kind
@@ -66,13 +66,13 @@
 //! }
 //! ```
 
-use std::fmt;
 use crate::aiplan4rust::artefact::ir::kind::IRKind;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::grounding::problem::Problem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeFormat, SerdeSerializable, SerializationError};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 
 /// Enum representing the actual content of an IR artifact.
@@ -162,10 +162,9 @@ impl IRContent {
                 LiftedProblem::deserialize_from_bytes(bytes, format)?,
                 format,
             ),
-            IRKind::GroundedProblem => IRContent::GroundedProblem(
-                Problem::deserialize_from_bytes(bytes, format)?,
-                format,
-            ),
+            IRKind::GroundedProblem => {
+                IRContent::GroundedProblem(Problem::deserialize_from_bytes(bytes, format)?, format)
+            }
         };
         Ok(content)
     }

@@ -1,7 +1,7 @@
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{
     ActionSymbolId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, SymbolId,
-    TaskSymbolId, TypeId,
+    TaskSymbolId, TypeId, VariableId,
 };
 use crate::aiplan4rust::lir::store::expr::ExprStore;
 use crate::aiplan4rust::lir::store::problem::{LiftedProblem, SymbolRegistry};
@@ -16,6 +16,8 @@ pub struct RenderContext<'a> {
     task_symbols: &'a SymbolRegistry<TaskSymbolId>,
     action_symbols: &'a SymbolRegistry<ActionSymbolId>,
     method_symbols: &'a SymbolRegistry<MethodSymbolId>,
+
+    variable_symbols: Option<&'a SymbolRegistry<VariableId>>,
 }
 
 impl<'a> RenderContext<'a> {
@@ -30,6 +32,15 @@ impl<'a> RenderContext<'a> {
             task_symbols: &problem.task_symbols(),
             action_symbols: &problem.action_symbols(),
             method_symbols: &problem.method_symbols(), // Aj
+            variable_symbols: None,
+        }
+    }
+
+    /// Crée un nouveau contexte de rendu incluant des variables locales.
+    pub fn with_variables(&self, vars: &'a SymbolRegistry<VariableId>) -> Self {
+        Self {
+            variable_symbols: Some(vars),
+            ..*self
         }
     }
 
@@ -56,6 +67,11 @@ impl<'a> RenderContext<'a> {
 
     pub fn method_symbols(&self) -> &SymbolRegistry<MethodSymbolId> {
         self.method_symbols
+    }
+
+    /// Retourne la table des variables locales si elle existe.
+    pub fn variable_symbols(&self) -> Option<&SymbolRegistry<VariableId>> {
+        self.variable_symbols
     }
 
     pub fn interner(&self) -> &SymbolInterner {
@@ -122,5 +138,16 @@ impl<'a> RenderContext<'a> {
             .get_ident(id)
             .map(|&s_id| self.resolve_symbol(s_id))
             .unwrap_or("<unknown_method>")
+    }
+
+    // --- Résolution de noms ---
+
+    /// Résout un VariableID en passant par sa table locale, puis l'interner.
+    /// Retourne le nom brut sans le préfixe '?' (pour laisser le choix au renderer).
+    pub fn resolve_variable(&self, id: VariableId) -> &str {
+        self.variable_symbols
+            .and_then(|table| table.get_ident(id))
+            .map(|&s_id| self.resolve_symbol(s_id))
+            .unwrap_or("<unknown_var>")
     }
 }

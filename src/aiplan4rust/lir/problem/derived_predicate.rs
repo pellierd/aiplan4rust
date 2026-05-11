@@ -4,15 +4,15 @@
 //! A `DerivedPredicate` is a logical fact derived from other facts,
 //! consisting of a head (name and parameters) and a body (logical expression).
 
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::problem::symbol_registry::SymbolRegistry;
 use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
-use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
-use crate::aiplan4rust::lir::problem::symbol_registry::SymbolRegistry;
 
 /// Represents a derived predicate in a PDDL problem.
 ///
@@ -68,7 +68,7 @@ impl DerivedPredicate {
             head_id: header_id,
             head,
             body,
-            variable_symbols: SymbolRegistry::new()
+            variable_symbols: SymbolRegistry::new(),
         }
     }
 
@@ -141,17 +141,20 @@ impl DerivedPredicate {
 
     /// Accès en lecture seule à la table des noms (symboles) des variables.
     /// À utiliser pour le rendu ou les messages d'erreur.
-    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> { &self.variable_symbols }
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> {
+        &self.variable_symbols
+    }
 
     /// Accès mutable à la table des noms des variables.
-    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> { &mut self.variable_symbols }
-
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> {
+        &mut self.variable_symbols
+    }
 }
 
 /// Implements [`fmt::Display`] for `DerivedPredicate`.
 ///
 /// This allows printing the derived predicate in a human-readable format using
-/// the default renderer.
+/// the debug renderer.
 impl fmt::Display for DerivedPredicate {
     /// Formats the derived predicate into the given formatter.
     ///
@@ -165,8 +168,8 @@ impl fmt::Display for DerivedPredicate {
     }
 }
 
-
 impl LiftedSyntaxDisplay for DerivedPredicate {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
-        renderers::syntax::derived_predicate::render(f, self, ctx)    }
+        renderers::syntax::derived_predicate::render(f, self, ctx)
+    }
 }

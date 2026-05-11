@@ -1,13 +1,12 @@
 //! This module handles the syntax rendering of HDDL Task Networks.
 
-use crate::aiplan4rust::lir::store::problem::{InitialTaskNetwork, TaskNetwork};
+use crate::aiplan4rust::lir::store::problem::TaskNetwork;
 use crate::aiplan4rust::lir::store::renderers::context::RenderContext;
-use crate::aiplan4rust::lir::store::renderers::syntax::{expr, typed_list};
+use crate::aiplan4rust::lir::store::renderers::syntax::expr;
 use std::fmt;
-use std::fmt::Formatter;
 
 /// Renders a [TaskNetwork] into HDDL format (Syntax version).
-pub fn render_task_network(
+pub fn render(
     f: &mut fmt::Formatter<'_>,
     network: &TaskNetwork,
     ctx: &RenderContext,
@@ -37,26 +36,4 @@ pub fn render_task_network(
     }
 
     Ok(())
-}
-
-/// Renders the Initial Task Network (HTN) for a problem file.
-pub fn render_initial_task_network(
-    f: &mut Formatter<'_>,
-    itn: &InitialTaskNetwork,
-    ctx: &RenderContext,
-) -> fmt::Result {
-    write!(f, "(:htn")?;
-
-    // 1. Parameters (Optional in HTN)
-    if !itn.parameters().is_empty() {
-        write!(f, "\n    :parameters (")?;
-        typed_list::render_typed_variable_list(f, itn.parameters().as_slice(), ctx)?;
-        write!(f, ")")?;
-    }
-
-    // 2. The core network
-    write!(f, "\n    ")?;
-    render_task_network(f, itn.task_network(), ctx)?;
-
-    write!(f, "\n  )")
 }

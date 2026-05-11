@@ -1,5 +1,5 @@
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::AtomicFormulaSkeleton;
-use crate::aiplan4rust::lir::store::renderers::default::typed_list;
+use crate::aiplan4rust::lir::store::problem::skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::store::renderers::debug::typed_list;
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt::{self, Formatter};
 

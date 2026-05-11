@@ -7,7 +7,7 @@
 //! - Format `Format` variants as lowercase strings for display.
 //!
 //! # Supported formats
-//! - HDDL (default)
+//! - HDDL (debug)
 //! - PDDL
 //!
 //! # Usage examples
@@ -26,8 +26,8 @@
 use std::fmt;
 use std::str::FromStr;
 
-use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxExtension;
+use crate::aiplan4rust::serialization::SerializationError;
 
 /// This module defines the `Format` enum representing supported syntax serialization formats,
 /// specifically for syntax languages such as HDDL and PDDL.
@@ -37,13 +37,13 @@ use crate::aiplan4rust::serialization::syntax::SyntaxExtension;
 ///
 /// # Supported formats
 ///
-/// - HDDL (default)
+/// - HDDL (debug)
 /// - PDDL
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Format {
     /// PDDL format
     Pddl,
-    /// HDDL format (default)
+    /// HDDL format (debug)
     #[default]
     Hddl,
 }
@@ -74,7 +74,7 @@ impl Format {
 /// # Returns
 ///
 /// Corresponding `Format` variant. If the extension is unknown,
-/// returns `Format::Hddl` by default (you may customize this behavior).
+/// returns `Format::Hddl` by debug (you may customize this behavior).
 impl From<SyntaxExtension> for Format {
     fn from(ext: SyntaxExtension) -> Self {
         match ext {

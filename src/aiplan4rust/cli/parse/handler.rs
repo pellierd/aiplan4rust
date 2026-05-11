@@ -1,22 +1,22 @@
-use std::fs;
 use clap::error::ErrorKind;
 use clap::ArgMatches;
 use colored::Colorize;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::artefact::source::Source;
+use crate::aiplan4rust::artefact::{Artefact, IRContent};
+use crate::aiplan4rust::cli::check::check_parse_args;
 use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
 use crate::aiplan4rust::cli::error::CliError;
-use crate::aiplan4rust::artefact::error::ArtefactError;
-use crate::aiplan4rust::artefact::{IRContent, Artefact};
-use crate::aiplan4rust::artefact::source::Source;
-use crate::aiplan4rust::cli::check::check_parse_args;
 use crate::aiplan4rust::cli::path::{default_parsed_output_path, output_path};
+use crate::aiplan4rust::diagnostic::{Renderer, Severity};
+use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::SerdeFormat;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::diagnostic::{Severity, Renderer};
 use crate::aiplan4rust::Frontend;
 
 /// Handles the `parse` CLI subcommand.
@@ -36,7 +36,7 @@ use crate::aiplan4rust::Frontend;
 ///
 /// - **Single input file**:
 ///     - Uses `-o/--output` if provided.
-///     - Otherwise, generates a default filename in the current directory or specified output directory.
+///     - Otherwise, generates a debug filename in the current directory or specified output directory.
 /// - **Multiple input files**:
 ///     - `-o/--output` should not be provided (validation ensures this).
 ///     - Requires `-d/--out-dir` to specify an output directory, defaults to the current directory.
@@ -70,21 +70,19 @@ pub fn handle_parse_command(matches: &ArgMatches) -> Result<(), CliError> {
         .ok_or_else(|| {
             clap::Error::raw(
                 ErrorKind::MissingRequiredArgument,
-                "No input files provided"
+                "No input files provided",
             )
         })?
         .map(PathBuf::from)
         .collect();
 
     // Retrieve the output format
-    let format = *matches
-        .get_one::<SerdeFormat>(FORMAT_ARG)
-        .ok_or_else(|| {
-            clap::Error::raw(
-                ErrorKind::MissingRequiredArgument,
-                "No output format provided"
-            )
-        })?;
+    let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).ok_or_else(|| {
+        clap::Error::raw(
+            ErrorKind::MissingRequiredArgument,
+            "No output format provided",
+        )
+    })?;
 
     // Determine the output directory
     let out_dir = matches
@@ -114,7 +112,7 @@ pub fn handle_parse_command(matches: &ArgMatches) -> Result<(), CliError> {
 ///
 /// This function processes each `Source` in `sources`:
 /// 1. Determines the output path: uses `output_opt` if provided, otherwise
-///    generates a default parsed output path in `out_dir`.
+///    generates a debug parsed output path in `out_dir`.
 /// 2. Parses the raw input using `parse_from_raw_input`.
 /// 3. Accumulates diagnostics statistics (warnings and errors).
 ///
@@ -179,15 +177,12 @@ pub fn parse_inputs(
         let total_time = start_time.elapsed().as_secs_f32();
         println!(
             "\nFinished {} error(s), {} warning(s) in {:.2}s",
-            total_errors,
-            total_warnings,
-            total_time
+            total_errors, total_warnings, total_time
         );
     }
 
     Ok(())
 }
-
 
 /// Filters a list of file paths, returning only those that are valid raw PDDL/HDDL sources.
 ///
@@ -242,7 +237,11 @@ fn filter_raw_sources(source_paths: &Vec<PathBuf>) -> Result<Vec<Source>, CliErr
         let source = match Source::try_from_path(path) {
             Ok(src) => src,
             Err(e) => {
-                println!("Warning: failed to read '{}': {} — ignored", path.display(), e);
+                println!(
+                    "Warning: failed to read '{}': {} — ignored",
+                    path.display(),
+                    e
+                );
                 continue;
             }
         };
@@ -269,7 +268,6 @@ fn filter_raw_sources(source_paths: &Vec<PathBuf>) -> Result<Vec<Source>, CliErr
 
     Ok(valid_inputs)
 }
-
 
 /// Parses a single PDDL/HDDL input file and optionally writes its semantic context to an output file.
 ///
@@ -413,23 +411,15 @@ fn display_parsing_start<P: AsRef<Path>>(input_path: P) -> String {
 /// display_parsing_result(&result, elapsed).unwrap();
 /// // Output: "Finished 2 error(s), 5 warning(s) in 0.42s"
 /// ```
-fn display_parsing_result(
-    result: &AnalyzerResult,
-    elapsed_time: f32,
-) -> Result<(), CliError> {
+fn display_parsing_result(result: &AnalyzerResult, elapsed_time: f32) -> Result<(), CliError> {
     // Render diagnostics
-    let mut renderer = Renderer::new(
-        result.diagnostic_manager(),
-        result.interner(),
-    );
+    let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
     renderer.display()?;
 
     // Count errors and warnings
     let diagnostic_manager = result.diagnostic_manager();
-    let error_count =
-        diagnostic_manager.count_diagnostics_of_severity(Severity::Error);
-    let warning_count =
-        diagnostic_manager.count_diagnostics_of_severity(Severity::Warning);
+    let error_count = diagnostic_manager.count_diagnostics_of_severity(Severity::Error);
+    let warning_count = diagnostic_manager.count_diagnostics_of_severity(Severity::Warning);
 
     println!(
         "{} {} error(s), {} warning(s) in {:.2}s",
@@ -485,7 +475,7 @@ pub fn save_parse_output<P: Into<PathBuf>>(
 
     // Dynamically determine the IR kind based on the semantic context
     // Could be improved with a `context.kind()` method
-    let kind = context.syntax_tree().try_root().unwrap().kind();  // either ParsedDomain or ParsedProblem
+    let kind = context.syntax_tree().try_root().unwrap().kind(); // either ParsedDomain or ParsedProblem
 
     // Build the IR content enum variant based on the kind
     let ir_content = match kind {

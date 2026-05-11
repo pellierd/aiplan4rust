@@ -1,11 +1,11 @@
+use crate::aiplan4rust::artefact::Extension;
 use std::io;
 use std::path::{Path, PathBuf};
-use crate::aiplan4rust::artefact::Extension;
 
-/// Generates a default "parsed" output path for a given input file.
+/// Generates a debug "parsed" output path for a given input file.
 ///
 /// This function simplifies calling `default_output_path` for the case
-/// of a single input file and uses `Extension::Parsed` by default.
+/// of a single input file and uses `Extension::Parsed` by debug.
 ///
 /// # Arguments
 /// * `input_path` - The path to the input file.
@@ -13,10 +13,7 @@ use crate::aiplan4rust::artefact::Extension;
 ///
 /// # Errors
 /// Returns `CliError::InvalidFileName` if the input file stem is missing or not valid UTF-8.
-pub fn default_parsed_output_path(
-    input_path: &Path,
-    out_dir: &Path,
-) -> Result<PathBuf, io::Error> {
+pub fn default_parsed_output_path(input_path: &Path, out_dir: &Path) -> Result<PathBuf, io::Error> {
     default_output_path(input_path, None, Some(Extension::Parsed), Some(out_dir))
 }
 
@@ -32,18 +29,14 @@ pub fn default_parsed_output_path(
 ///
 /// # Errors
 /// Returns `CliError::InvalidFileName` if the input file stem is missing or not valid UTF-8.
-pub fn output_path(
-    input_path: &Path,
-    out_dir: &Path,
-) -> Result<PathBuf, io::Error> {
+pub fn output_path(input_path: &Path, out_dir: &Path) -> Result<PathBuf, io::Error> {
     default_output_path(input_path, None, None, Some(out_dir))
 }
 
-
-/// Generates a default "lifted" output path for a given domain and problem file.
+/// Generates a debug "lifted" output path for a given domain and problem file.
 ///
 /// This function simplifies calling `default_output_path` for the case
-/// of linking a domain with a single problem file and uses `Extension::Lifted` by default.
+/// of linking a domain with a single problem file and uses `Extension::Lifted` by debug.
 ///
 /// # Arguments
 /// * `domain_path` - The path to the domain file.
@@ -57,13 +50,18 @@ pub fn default_lifted_output_path(
     problem_path: &Path,
     out_dir: &Path,
 ) -> Result<PathBuf, io::Error> {
-    default_output_path(domain_path, Some(problem_path), Some(Extension::Lifted), Some(out_dir))
+    default_output_path(
+        domain_path,
+        Some(problem_path),
+        Some(Extension::Lifted),
+        Some(out_dir),
+    )
 }
 
-/// Generates a default "grounded" output path for a given domain and problem file.
+/// Generates a debug "grounded" output path for a given domain and problem file.
 ///
 /// This function simplifies calling `default_output_path` for the case
-/// of grounding a domain with a single problem file and uses `Extension::Grounded` by default.
+/// of grounding a domain with a single problem file and uses `Extension::Grounded` by debug.
 ///
 /// # Arguments
 /// * `domain_path` - The path to the domain file.
@@ -85,7 +83,7 @@ pub fn default_grounded_output_path(
     )
 }
 
-/// Generates a default output path from a domain file and optionally a problem file,
+/// Generates a debug output path from a domain file and optionally a problem file,
 /// using the specified output `Extension`, and optionally placing the result in an
 /// output directory.
 ///
@@ -188,8 +186,6 @@ pub fn default_output_path(
     Ok(out_dir.unwrap_or_else(|| Path::new("")).join(filename))
 }
 
-
-
 /// Extracts the file stem (file name without extension) from a given `Path`.
 ///
 /// # Arguments
@@ -214,14 +210,14 @@ fn file_stem_or_error(path: &Path) -> Result<&str, io::Error> {
     let stem = path.file_stem().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
-            format!("No file stem found for path {}", path.display())
+            format!("No file stem found for path {}", path.display()),
         )
     })?;
 
     let stem_str = stem.to_str().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("Invalid UTF-8 in path {}", path.display())
+            format!("Invalid UTF-8 in path {}", path.display()),
         )
     })?;
 

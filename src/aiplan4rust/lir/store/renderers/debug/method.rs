@@ -1,9 +1,8 @@
 use crate::aiplan4rust::lir::store::problem::MethodDef;
-use crate::aiplan4rust::lir::store::renderers::default::common::{
+use crate::aiplan4rust::lir::store::renderers::debug::common::{
     render_labeled_expr, render_labeled_variable_typed_list, writeln_centered,
 };
-use crate::aiplan4rust::lir::store::renderers::default::task_network::render_task_network;
-use crate::aiplan4rust::lir::store::renderers::RenderContext;
+use crate::aiplan4rust::lir::store::renderers::{debug, RenderContext};
 use std::fmt;
 
 /// Rendu d'une Méthode HDDL structurée.
@@ -26,7 +25,7 @@ pub fn render(f: &mut fmt::Formatter<'_>, method: &MethodDef, ctx: &RenderContex
 
     // 5. Réseau de tâches (Subtasks, Ordering, Constraints)
     // On ne met pas de label ici car render_task_network gère ses propres sections internes
-    render_task_network(f, method.task_network(), ctx)?;
+    debug::task_network::render(f, method.task_network(), ctx)?;
 
     writeln!(f, "{}\n", "-".repeat(80))
 }

@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::store::problem::ProblemDef;
 use crate::aiplan4rust::lir::store::renderers::context::RenderContext;
-use crate::aiplan4rust::lir::store::renderers::syntax::{expr, task_network, typed_list};
+use crate::aiplan4rust::lir::store::renderers::syntax::{expr, initial_task_network, typed_list};
 use std::fmt::{self, Formatter};
 
 /// Rendu complet d'une définition de problème (PDDL/HDDL Syntax version).
@@ -60,7 +60,7 @@ pub fn render(f: &mut Formatter<'_>, problem: &ProblemDef<'_>, ctx: &RenderConte
     // On ne l'affiche que s'il y a effectivement des tâches ou un réseau défini
     if !problem.initial_task_network().is_empty() {
         write!(f, "  ")?;
-        task_network::render_initial_task_network(f, problem.initial_task_network(), ctx)?;
+        initial_task_network::render(f, problem.initial_task_network(), ctx)?;
         writeln!(f)?;
     }
 

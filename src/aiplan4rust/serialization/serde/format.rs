@@ -8,24 +8,24 @@
 //! and provides utility methods for format identification.
 //!
 //! # Supported Formats
-//! - JSON (default)
+//! - JSON (debug)
 //! - YAML
 //! - TOML
 //! - CBOR (binary, typically encoded as hex string for textual use)
 //! - MessagePack (binary, typically encoded as hex string for textual use)
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::serialization::serde::SerdeExtension;
+use crate::aiplan4rust::AiplanError;
 
-use std::fmt;
-use std::str::FromStr;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::str::FromStr;
 
 /// Represents supported serialization formats (JSON, YAML).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum, Serialize, Deserialize)]
 pub enum Format {
-    /// JSON format (default)
+    /// JSON format (debug)
     #[default]
     Json,
     /// YAML format

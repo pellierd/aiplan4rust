@@ -94,7 +94,7 @@ impl InternerMergeResult {
     }
 
     /// Extracts the merged `StringInterner` by taking it out of `self`,
-    /// leaving an empty/default `StringInterner` in its place.
+    /// leaving an empty/debug `StringInterner` in its place.
     ///
     /// Requires `&mut self`.
     pub fn take_interner(&mut self) -> SymbolInterner {

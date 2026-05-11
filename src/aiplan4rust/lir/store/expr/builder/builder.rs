@@ -27,7 +27,7 @@ use crate::aiplan4rust::lir::store::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::store::expr::error::StorerError;
 use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId, ExprNodeRef, ExprStore};
 
-/// The default tolerance used for floating-point comparisons within the builder.
+/// The debug tolerance used for floating-point comparisons within the builder.
 ///
 /// This value is used by comparison utilities (e.g., `is_eq`, `is_gt`) to
 /// mitigate precision issues inherent in floating-point representations

@@ -462,7 +462,7 @@ mod tests {
             let child_kind = child_node.kind();
 
             // Extract the inner expression ID from the temporal specifier (e.g., 'A' in 'AtStart(A)')
-            // If the child is an optimized node (like an empty AND), we default to the 'empty' ID.
+            // If the child is an optimized node (like an empty AND), we debug to the 'empty' ID.
             let inner_id = child_node.children().get(0).copied().unwrap_or(empty);
 
             match child_kind {

@@ -513,7 +513,7 @@ impl<'a> ExprBuilder<'a> {
     fn finalize(&mut self, op: ArithmeticOp) -> ExprId {
         let len = self.primary_buffer.len();
 
-        // 1. Handle empty operand lists by returning the operator's default identity value.
+        // 1. Handle empty operand lists by returning the operator's debug identity value.
         if len == 0 {
             let val = match op {
                 ArithmeticOp::Add | ArithmeticOp::Sub => 0.0,

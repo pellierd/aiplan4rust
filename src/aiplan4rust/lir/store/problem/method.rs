@@ -28,9 +28,14 @@
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::{MethodSymbolId, TaskLabelSymbolId, TypeId, VariableId};
 use crate::aiplan4rust::lir::store::expr::ExprId;
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::named_typed_list::NamedTypedList;
+use crate::aiplan4rust::lir::store::problem::skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::store::problem::TaskNetwork;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
+use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -179,36 +184,16 @@ impl Method {
     }
 }
 
-/*impl fmt::Display for Method {
-    /// Formats the `Method` for human-readable output.
-    ///
-    /// This implementation uses the default renderer to produce a readable
-    /// representation of the method, including its name, parameters,
-    /// task, precondition, and task network.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Write;
-    /// # let method: Method = todo!();
-    /// let mut s = String::new();
-    /// write!(&mut s, "{}", method).unwrap();
-    /// println!("{}", s);
-    /// ```
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        renderers::default::render_method(f, self)
+impl LiftedSyntaxDisplay for Method {
+    /// Rendu HDDL propre (ex: (:method name :parameters (...) :task (...) :precondition (...) :subtasks (...)))
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::method::render(f, self, ctx)
     }
 }
 
-impl LiftedSyntaxDisplay for Method {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
-        renderers::syntax::method::render(f, self, ctx)
-    }*/
+impl LiftedDebugDisplay for Method {
+    /// Rendu structurel pour le debug (Method ID, Task Refined, Precondition Tree, TaskNetwork Tree)
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::method::render(f, self, ctx)
+    }
+}

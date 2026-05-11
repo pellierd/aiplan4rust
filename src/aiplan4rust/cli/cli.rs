@@ -6,10 +6,10 @@
 //! 3. The `build_cli` function, which constructs the top-level `aiplan` CLI command
 //!    including all subcommands (`link` and `parse`).
 
-use clap::Command;
 use crate::aiplan4rust::cli::ground::cli::build_ground_subcommand;
 use crate::aiplan4rust::cli::link::cli::build_link_subcommand;
 use crate::aiplan4rust::cli::parse::cli::build_parse_subcommand;
+use clap::Command;
 
 /// Application author.
 pub const AUTHOR: &str = "Damien Pellier <damien.pellier@imag.fr>";
@@ -37,13 +37,7 @@ pub const CBOR: &str = "cbor";
 pub const MESSAGEPACK: &str = "messagepack";
 
 /// All supported output formats.
-pub const SUPPORTED_FORMATS: &[&str] = &[
-    JSON,
-    YAML,
-    TOML,
-    CBOR,
-    MESSAGEPACK,
-];
+pub const SUPPORTED_FORMATS: &[&str] = &[JSON, YAML, TOML, CBOR, MESSAGEPACK];
 
 /// Argument names.
 pub const FILES_ARG: &str = "files";
@@ -57,7 +51,7 @@ pub const CURRENT_DIR: &str = ".";
 /// Help messages for CLI arguments.
 pub const FILES_HELP: &str = "The domain and/or problem files to parse";
 pub const OUTPUT_HELP: &str = "Output filename (single input file only)";
-pub const OUT_DIR_HELP: &str = "Output directory for the output file(s) (default: current directory)";
+pub const OUT_DIR_HELP: &str = "Output directory for the output file(s) (debug: current directory)";
 pub const FORMAT_HELP: &str = "Output format (json, yaml, toml, cbor, messagepack)";
 
 /// Builds the main CLI command for the `aiplan` application.

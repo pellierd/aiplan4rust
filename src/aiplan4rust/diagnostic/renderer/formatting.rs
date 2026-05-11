@@ -81,7 +81,7 @@ pub(crate) fn symbol_to_string(symbol: &Symbol, interner: Option<&SymbolInterner
 ///
 /// # Returns
 /// A `String` representation of the `Type`. If `interner` is provided, the identifiers
-/// inside the `Type` are resolved using it; otherwise, the default string representation is used.
+/// inside the `Type` are resolved using it; otherwise, the debug string representation is used.
 pub(crate) fn type_to_string(ty: &Type<SymbolId>, interner: Option<&SymbolInterner>) -> String {
     if let Some(interner) = interner {
         ty.to_syntax_string_with_interner(interner)

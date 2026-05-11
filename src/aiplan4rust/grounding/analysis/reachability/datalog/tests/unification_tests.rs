@@ -7,7 +7,7 @@ use crate::analysis::inertia::InertiaTable;
 
 #[test]
 fn test_unification_logic() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
 
     // On définit une macro locale pour réinitialiser l'environnement.
@@ -67,7 +67,7 @@ fn test_unification_logic() {
 
 #[test]
 fn test_unification_with_existing_bindings() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     macro_rules! reset_env {
         () => {
@@ -113,7 +113,7 @@ fn test_unification_with_existing_bindings() {
 
 #[test]
 fn test_unification_self_constraint() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     macro_rules! reset_env {
         () => {
@@ -145,7 +145,7 @@ fn test_unification_self_constraint() {
 
 #[test]
 fn test_unification_rollback_on_failure() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     macro_rules! reset_env {
         () => {
@@ -176,7 +176,7 @@ fn test_unification_rollback_on_failure() {
 
 #[test]
 fn test_unification_triple_variable_constraint() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let var_x = Term::Variable(VariableId::from(0));
     // Atome : P(?v0, ?v0, ?v0)
@@ -195,7 +195,7 @@ fn test_unification_triple_variable_constraint() {
 
 #[test]
 fn test_unification_partial_rollback() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let var_x = Term::Variable(VariableId::from(0));
     let var_y = Term::Variable(VariableId::from(1));
@@ -226,7 +226,7 @@ fn test_unification_partial_rollback() {
 
 #[test]
 fn test_unification_empty_atom() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let atom_terms: Vec<Term> = vec![];
     let tuple: Vec<ObjectId> = vec![];
@@ -237,7 +237,7 @@ fn test_unification_empty_atom() {
 
 #[test]
 fn test_unification_full_cleanup() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let var_x = Term::Variable(VariableId::from(0));
 
@@ -255,7 +255,7 @@ fn test_unification_full_cleanup() {
 
 #[test]
 fn test_unification_at_limit_64() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
 
     // 1. Création d'un atome avec exactement 64 variables : ?v0, ?v1, ..., ?v63
@@ -283,7 +283,7 @@ fn test_unification_at_limit_64() {
 
 #[test]
 fn test_unification_cross_variable_consistency() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let var_x = Term::Variable(VariableId::from(0));
     let var_y = Term::Variable(VariableId::from(1));

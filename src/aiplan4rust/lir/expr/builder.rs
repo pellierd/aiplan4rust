@@ -370,7 +370,7 @@ impl ExprBuilder {
     /// Creates an empty logical `AND` node, representing a "True" constant.
     ///
     /// In PDDL and many logical frameworks, a conjunction with no operands
-    /// is vacuously true. This is commonly used as a default precondition
+    /// is vacuously true. This is commonly used as a debug precondition
     /// or an empty effect block.
     ///
     /// # Returns

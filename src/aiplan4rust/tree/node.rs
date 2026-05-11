@@ -135,7 +135,7 @@ pub trait Node: ArenaNode + Display {
     ///
     /// # Default behavior
     ///
-    /// By default, this delegates to `content().is_none()`.
+    /// By debug, this delegates to `content().is_none()`.
     fn has_content(&self) -> bool {
         self.content().is_none()
     }

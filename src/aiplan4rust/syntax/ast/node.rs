@@ -229,7 +229,7 @@ impl DerefMut for AstNode {
 }
 
 impl fmt::Display for AstNode {
-    /// Formats the AST node using the default renderer.
+    /// Formats the AST node using the debug renderer.
     ///
     /// This implementation provides a readable string representation of the node, including
     /// its kind, content, and optionally its span or children.
@@ -457,7 +457,7 @@ impl Node for AstNode {
 impl RemapSymbol for AstNode {
     /// Remaps identifiers in this syntax node's content using the provided map.
     ///
-    /// This default implementation works for any typing implementing [`Node`],
+    /// This debug implementation works for any typing implementing [`Node`],
     /// delegating the remapping to `content_mut()`.
     ///
     /// # Parameters

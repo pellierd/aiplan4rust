@@ -1,5 +1,4 @@
 pub mod action;
-pub mod atomic_skeleton;
 pub mod derived_predicate;
 pub mod domain_def;
 pub mod error;
@@ -8,6 +7,7 @@ pub mod method;
 pub mod problem;
 pub mod problem_def;
 pub mod registry;
+pub mod skeleton;
 pub mod task_network;
 
 pub use action::Action as ActionDef;

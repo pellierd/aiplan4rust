@@ -16,7 +16,7 @@ use crate::aiplan4rust::lir::store::encoding::{
     preference, task, types_def, EncodingError, EncodingRegistry,
 };
 use crate::aiplan4rust::lir::store::expr::ExprBuilder;
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::AtomicFunctionSkeleton;
+use crate::aiplan4rust::lir::store::problem::skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::store::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};

@@ -1,4 +1,4 @@
-/// The default initial capacity allocated for each typing's object list within the evaluator.
+/// The debug initial capacity allocated for each typing's object list within the evaluator.
 ///
 /// # Technical Impact
 /// This value determines the `with_capacity` size for the internal `Vec<ObjectId>`
@@ -13,7 +13,6 @@
 /// # Default
 /// Set to `16` as a balanced heuristic for standard IPC benchmarks.
 pub const DEFAULT_VALUE_REGISTRY_SIZE: usize = 16;
-
 
 pub const DEFAULT_MAX_ARITY: usize = 15;
 

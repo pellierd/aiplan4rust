@@ -7,7 +7,7 @@ use crate::aiplan4rust::lang::{
     AtomSkeletonId, CompareOp, ObjectId, Requirement, Type, TypedList, TypedSymbol, VariableId,
 };
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::ActionDef;
 use crate::analysis::inertia::InertiaTable;
@@ -152,7 +152,7 @@ pub fn create_mock_problem_with_init() -> Result<LiftedProblem, Box<dyn Error>> 
 
 #[test]
 fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let problem = create_mock_problem_with_init()?;
 
@@ -238,7 +238,7 @@ fn test_engine_load_segments() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_engine_init_facts_ingestion() -> Result<(), Box<dyn Error>> {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let problem = create_mock_problem_with_init()?;
 
@@ -282,7 +282,7 @@ fn test_engine_init_facts_ingestion() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_type_inheritance_ingestion() -> Result<(), Box<dyn Error>> {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let problem = create_mock_problem_with_init()?;
 
@@ -328,7 +328,7 @@ fn test_type_inheritance_ingestion() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_action_rule_ingestion() -> Result<(), Box<dyn std::error::Error>> {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let problem = create_mock_problem_with_init()?;
 
@@ -389,7 +389,7 @@ fn test_action_rule_ingestion() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn test_optimize_body_efficiency() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
 
     // --- CONFIGURATION RÉALISTE DES SEUILS ---
@@ -464,7 +464,7 @@ fn test_optimize_body_efficiency() {
 
 #[test]
 fn test_duplicate_fact_prevention() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let sk_id = AtomSkeletonId::from(1);
     let obj_1 = ObjectId::from(1);
@@ -503,7 +503,7 @@ fn test_duplicate_fact_prevention() {
 
 #[test]
 fn test_db_semi_naive_cycle() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let sk_id = AtomSkeletonId::from(1);
     let args = [ObjectId::from(10)];
@@ -527,7 +527,7 @@ fn test_db_semi_naive_cycle() {
 
 #[test]
 fn test_transitive_closure() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     engine.fluence_threshold = 1; // 0: AncestorOf
     let sk_anc = AtomSkeletonId::from(0);
@@ -564,7 +564,7 @@ fn test_transitive_closure() {
 
 #[test]
 fn test_fixed_point_termination() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     engine.fluence_threshold = 1;
     let sk_p = AtomSkeletonId::from(0);
@@ -591,7 +591,7 @@ fn test_fixed_point_termination() {
 
 #[test]
 fn test_full_mock_move_reachability() -> Result<(), Box<dyn Error>> {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let problem = create_mock_problem_with_init()?;
 
@@ -647,7 +647,7 @@ fn test_full_mock_move_reachability() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn test_mixed_arity_zero_and_vars() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let sk_prop = AtomSkeletonId::from(0); // Arity 0
     let sk_fact = AtomSkeletonId::from(1); // Arity 1
@@ -680,7 +680,7 @@ fn test_mixed_arity_zero_and_vars() {
 
 #[test]
 fn test_constant_not_in_db() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let sk_p = AtomSkeletonId::from(0);
     let c_present = ObjectId::from(1);
@@ -710,7 +710,7 @@ fn test_constant_not_in_db() {
 
 #[test]
 fn test_triangle_join_consistency() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let sk_p = AtomSkeletonId::from(0);
     let (a, b, c) = (ObjectId::from(1), ObjectId::from(2), ObjectId::from(3));
@@ -745,7 +745,7 @@ fn test_triangle_join_consistency() {
 
 #[test]
 fn test_deep_recursive_chain() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let sk_link = AtomSkeletonId::from(0);
     let sk_path = AtomSkeletonId::from(1);
@@ -805,7 +805,7 @@ fn test_deep_recursive_chain() {
 
 #[test]
 fn test_diamond_join_consistency() {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let sk_a = AtomSkeletonId::from(0);
     let sk_b = AtomSkeletonId::from(1);
@@ -850,7 +850,7 @@ fn test_diamond_join_consistency() {
 
 #[test]
 fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let v0_id = VariableId::from(0);
     let v1_id = VariableId::from(1);
@@ -957,7 +957,7 @@ fn test_engine_execution_with_negated_equality() -> Result<(), Box<dyn Error>> {
 }
 #[test]
 fn test_ground_action_extraction() -> Result<(), Box<dyn Error>> {
-    let table = InertiaTable::default();
+    let table = InertiaTable::debug();
     let mut engine = DatalogEngine::new(&table);
     let problem = create_mock_problem_with_init()?;
 

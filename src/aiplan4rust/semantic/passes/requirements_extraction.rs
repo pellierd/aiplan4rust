@@ -329,7 +329,7 @@ pub fn extract_required_requirements(
                                     }
 
                                     // 3. Explicitly allow elements permitted in a linear cost combination.
-                                    // Standard operators (+, -, *, /) are accepted by default via the '_' arm.
+                                    // Standard operators (+, -, *, /) are accepted by debug via the '_' arm.
                                     AstKind::Number
                                     | AstKind::TotalTime
                                     | AstKind::Arithmetic

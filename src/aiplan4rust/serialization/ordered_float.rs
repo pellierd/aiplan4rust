@@ -3,7 +3,7 @@
 //! The `OrderedFloat` wrapper from the `ordered_float` crate provides total ordering for floating-point
 //! numbers, which is not possible with plain `f64` due to IEEE NaN semantics.
 //!
-//! However, `OrderedFloat<f64>` does not implement Serde's `Serialize` and `Deserialize` traits by default.
+//! However, `OrderedFloat<f64>` does not implement Serde's `Serialize` and `Deserialize` traits by debug.
 //! This module provides custom Serde serializer and deserializer functions that convert
 //! between `OrderedFloat<f64>` and a regular `f64` during serialization and deserialization.
 //!
@@ -17,8 +17,8 @@
 
 use ordered_float::OrderedFloat;
 use serde::{
-    Deserializer, Serializer,
     de::{self, Visitor},
+    Deserializer, Serializer,
 };
 use std::fmt;
 

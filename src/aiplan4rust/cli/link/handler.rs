@@ -48,7 +48,7 @@ use std::path::PathBuf;
 /// - If the domain is Raw, all problems must also be Raw.
 /// - Each problem is linked individually with the domain, producing separate output files.
 /// - If a single problem file is provided and an explicit output path is given,
-///   it will be used; otherwise, default output paths are generated.
+///   it will be used; otherwise, debug output paths are generated.
 /// - Warnings are printed for any invalid domain or problem files.
 ///
 /// # Arguments
@@ -81,7 +81,7 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
         .cloned()
         .collect();
 
-    // --- Determine output format (default to JSON) ---
+    // --- Determine output format (debug to JSON) ---
     let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).ok_or_else(|| {
         clap::Error::raw(
             ErrorKind::MissingRequiredArgument,

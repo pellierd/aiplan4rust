@@ -10,7 +10,11 @@
 //! let parse_cmd = build_parse_subcommand();
 //! ```
 
-use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FILES_HELP, FORMAT_ARG, FORMAT_HELP, FORMAT_LONG, FORMAT_SHORT, JSON, OUTPUT_ARG, OUTPUT_HELP, OUTPUT_LONG, OUTPUT_SHORT, OUT_DIR_ARG, OUT_DIR_HELP, OUT_DIR_LONG, OUT_DIR_SHORT};
+use crate::aiplan4rust::cli::cli::{
+    CURRENT_DIR, FILES_ARG, FILES_HELP, FORMAT_ARG, FORMAT_HELP, FORMAT_LONG, FORMAT_SHORT, JSON,
+    OUTPUT_ARG, OUTPUT_HELP, OUTPUT_LONG, OUTPUT_SHORT, OUT_DIR_ARG, OUT_DIR_HELP, OUT_DIR_LONG,
+    OUT_DIR_SHORT,
+};
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use clap::{Arg, Command};
 
@@ -30,8 +34,8 @@ pub const PARSE_ABOUT: &str =
 /// This subcommand accepts the following CLI arguments:
 /// - `<files>` (required, 1 or more): domain and/or problem files to parse.
 /// - `-o, --output` (optional, single file only): output filename if only one input file is provided.
-/// - `-d, --out-dir` (optional, multiple files only): directory where output files will be written (default: current directory).
-/// - `-f, --format` (optional, default: `json`): output serialization format. Possible values: `json`, `yaml`, `toml`, `cbor`, `messagepack`.
+/// - `-d, --out-dir` (optional, multiple files only): directory where output files will be written (debug: current directory).
+/// - `-f, --format` (optional, debug: `json`): output serialization format. Possible values: `json`, `yaml`, `toml`, `cbor`, `messagepack`.
 ///
 /// # Rules
 /// - If a single input file is provided:
@@ -70,7 +74,7 @@ pub fn build_parse_subcommand() -> Command {
                 .short(OUT_DIR_SHORT)
                 .long(OUT_DIR_LONG)
                 .help(OUT_DIR_HELP)
-                .default_value(CURRENT_DIR)
+                .default_value(CURRENT_DIR),
         )
         .arg(
             Arg::new(FORMAT_ARG)

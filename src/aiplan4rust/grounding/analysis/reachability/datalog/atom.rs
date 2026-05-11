@@ -31,7 +31,7 @@ impl Atom {
 
     /// Creates a new `Atom` with the given skeleton ID and terms.
     ///
-    /// By default, the atom is not negated.
+    /// By debug, the atom is not negated.
     ///
     /// # Arguments
     /// * `skeleton_id` - The identifier mapping to a specific predicate in the domain.

@@ -15,19 +15,23 @@
 //! This module also provides implementations of formatting traits for [`DomainDef`]:
 //! - [`SyntaxDisplay`] – formats the domain as a syntax string without interner or indentation.
 //! - [`SelfInternerDisplay`] – formats the domain using its internal `StringInterner`.
-//! - [`Display`] – default string representation of the domain.
+//! - [`Display`] – debug string representation of the domain.
 
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedList, TypedSymbol};
 use crate::aiplan4rust::lir::store::expr::ExprId;
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::{
+use crate::aiplan4rust::lir::store::problem::problem::Problem;
+use crate::aiplan4rust::lir::store::problem::skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
-use crate::aiplan4rust::lir::store::problem::problem::Problem;
 use crate::aiplan4rust::lir::store::problem::{
     ActionDef, DerivedPredicateDef, LiftedProblem, MethodDef,
 };
-use core::fmt::Display;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
+use core::fmt::{Display, Formatter};
 
 /// Wrapper around the domain view of a lifted problem.
 ///
@@ -194,74 +198,29 @@ impl<'a> DomainDef<'a> {
     }
 }
 
-/*/// Implements the standard [`Display`] trait for [`DomainDef`].
-///
-/// This provides a default string representation of the domain, typically
-/// using the default rendering ops for the lifted problem (`renderers::default::render_problem`).
-///
-/// # Example
-///
-/// ```rust
-/// use std::fmt::Display;
-/// let domain_def: DomainDef = ...;
-/// println!("{}", domain_def);
-/// ```
-impl<'a> Display for DomainDef<'a> {
-    /// Formats the domain using the default renderer.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::default::render_problem(f, self.problem)
-    }
-}
-
 impl<'a> LiftedSyntaxDisplay for DomainDef<'a> {
-    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    /// Rendu PDDL du domaine complet en utilisant un contexte externe.
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
         renderers::syntax::domain::render(f, self, ctx)
     }
 
-    fn fmt_syntax_self(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    /// Rendu "Auto-géré" : crée le contexte à partir du problème interne.
+    fn fmt_syntax_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let ctx = RenderContext::new(self.problem);
         self.fmt_syntax(f, &ctx)
     }
-}*/
+}
 
-/*impl<'a> SyntaxSerializable for DomainDef<'a> {
-    /// Serializes the domain definition into a syntax string.
-    ///
-    /// This uses the internal [`StringInterner`] of the domain to resolve
-    /// all identifiers into their string representations. The resulting
-    /// string is a normalized, human-readable representation of the domain,
-    /// suitable for saving to a file or for comparison with other serialized domains.
-    ///
-    /// # Returns
-    ///
-    /// A `String` containing the serialized domain.
-    ///
-    /// # Errors
-    ///
-    /// This method may return a [`SerializationError`] if any internal
-    /// formatting fails, although in the current implementation this is
-    /// unlikely since `to_syntax_string` is infallible.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use crate::aiplan4rust::lir::problem::{DomainDef, LiftedProblem};
-    /// # let problem: LiftedProblem = todo!();
-    /// let domain = DomainDef::new(&problem);
-    /// let serialized = domain.serialize_to_string().unwrap();
-    /// println!("{}", serialized);
-    /// ```
-    fn serialize_to_string(
-        &self,
-    ) -> Result<String, SerializationError> {
-        Ok(self.to_syntax_string())
+impl<'a> LiftedDebugDisplay for DomainDef<'a> {
+    /// Rendu structurel technique du domaine.
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        // Souvent, on délègue au renderer de problème car le domaine est une vue du problème
+        renderers::debug::domain_def::render(f, self, ctx)
     }
-}*/
+
+    /// Rendu "Auto-géré" pour le debug.
+    fn fmt_debug_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let ctx = RenderContext::new(self.problem);
+        self.fmt_debug(f, &ctx)
+    }
+}

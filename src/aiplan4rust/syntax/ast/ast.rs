@@ -54,21 +54,21 @@
 //! - [`SymbolInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, SymbolInterner};
+use crate::aiplan4rust::syntax::ast::error::AstError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
-use crate::aiplan4rust::syntax::ast::error::AstError;
-use crate::aiplan4rust::tree::{Tree, NodeId, Node};
+use crate::aiplan4rust::tree::{Node, NodeId, Tree};
+use std::collections::HashMap;
 
+use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, SymbolId};
+use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
+use crate::aiplan4rust::serialization::SerializationError;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::time::SystemTime;
-use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, SymbolId};
-use crate::aiplan4rust::serialization::SerializationError;
-use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
 
 /// Represents a complete Abstract Syntax Tree (AST) along with its context.
 ///
@@ -99,12 +99,12 @@ pub struct Ast {
 }
 
 impl Default for Ast {
-    /// Creates a new empty [`Ast`] instance initialized with default values.
+    /// Creates a new empty [`Ast`] instance initialized with debug values.
     ///
-    /// The default instance has:
+    /// The debug instance has:
     /// - An empty syntax tree.
     /// - An empty string interner.
-    /// - A `source_id` set to `Literal::default()` to indicate unknown source.
+    /// - A `source_id` set to `Literal::debug()` to indicate unknown source.
     /// - A generation timestamp set to the current system time.
     fn default() -> Self {
         Ast {
@@ -228,7 +228,7 @@ impl Ast {
     /// the filename or origin label of the AST (e.g., `"domain.pddl"` or `"stdin"`).
     ///
     /// If this method returns [`LiteralId::default()`], it typically means the source
-    /// name is undefined or not set (e.g., in an empty or default AST).
+    /// name is undefined or not set (e.g., in an empty or debug AST).
     ///
     /// To retrieve the actual string, use [`SymbolInterner::resolve_literal`] or
     /// [`SymbolInterner::try_resolve_literal`] with this value.
@@ -348,10 +348,7 @@ impl Ast {
     /// # Errors
     ///
     /// Returns a [`AiplanError`] if a syntax node cannot be accessed mutably.
-    pub fn init_span(
-        &mut self,
-        fast_line_table: &FastLineTable,
-    ) -> Result<(), AstError> {
+    pub fn init_span(&mut self, fast_line_table: &FastLineTable) -> Result<(), AstError> {
         if !self.syntax_tree().is_empty() {
             let mut stack = vec![self.syntax_tree().try_root_id()?];
             while let Some(node_id) = stack.pop() {
@@ -430,7 +427,6 @@ impl Ast {
         // Delegate to the node's `to_string_with_interner` method with the current arena and interner
         node.to_string_with_interner(self.syntax_tree(), self.interner())
     }
-
 }
 
 impl SyntaxDisplay for Ast {
@@ -538,7 +534,6 @@ impl SyntaxSerializable for Ast {
 }
 
 impl Tree<AstNode> {
-
     /// Remaps identifiers starting only from the root.
     pub fn remap_idents(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         // We retrieve the root ID. If it exists, we start the recursive remapping.
@@ -562,7 +557,7 @@ impl Tree<AstNode> {
     pub fn remap_idents_from(
         &mut self,
         id: NodeId,
-        map: &HashMap<SymbolId, SymbolId>
+        map: &HashMap<SymbolId, SymbolId>,
     ) -> Result<(), InternerError> {
         let mut stack = vec![id];
         while let Some(current_id) = stack.pop() {

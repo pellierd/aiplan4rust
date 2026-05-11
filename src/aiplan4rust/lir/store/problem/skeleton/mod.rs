@@ -1,4 +1,4 @@
-//! The `atomic_skeleton` module contains abstract skeletons common to predicates, tasks,
+//! The `skeleton` module contains abstract skeletons common to predicates, tasks,
 //! functions, methods, and actions in PDDL representation.
 //!
 //! This module defines base structures like `NamedTypedList` that encapsulate
@@ -18,19 +18,19 @@
 //!
 //! # Example
 //! ```rust
-//! use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+//! use crate::aiplan4rust::lir::skeleton::NamedTypedList;
 //! use crate::aiplan4rust::lang::{Ident, TypedList};
 //!
 //! let named = NamedTypedList::new(Ident::new("move"), TypedList::new(vec![]));
 //! println!("Entity name: {}", named.name());
 //! ```
 
-pub mod formula;
+pub mod atom;
 pub mod function;
 pub mod named_typed_list;
 pub mod task;
 
-pub use formula::Formula as AtomicFormulaSkeleton;
+pub use atom::Formula as AtomicFormulaSkeleton;
 pub use function::Function as AtomicFunctionSkeleton;
 pub use named_typed_list::NamedTypedList;
 pub use task::Task as AtomicTaskSkeleton;

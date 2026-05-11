@@ -8,7 +8,7 @@ pub fn simplify(
     store: &mut ExprStore,
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<ExprId, ExprOpErrorHC> {
-    let mut substitution_map: FxHashMap<ExprId, ExprId> = FxHashMap::default();
+    let mut substitution_map: FxHashMap<ExprId, ExprId> = FxHashMap::debug();
 
     // Correction ici : on déstructure le tuple renvoyé par l'itérateur
     let postorder_ids: Vec<ExprId> = store.postorder(root).map(|(id, _, _)| id).collect();

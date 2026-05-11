@@ -143,7 +143,7 @@ pub struct Problem {
 
 #[allow(dead_code)]
 impl Problem {
-    /// Creates a new empty `PlanningProblem` with default identifiers
+    /// Creates a new empty `PlanningProblem` with debug identifiers
     /// and no requirements, types, constants, predicates, functions, or actions.
     ///
     /// # Example
@@ -505,13 +505,13 @@ impl Problem {
 
     /// Adds a new object symbol and ensures a corresponding definition placeholder exists.
     ///
-    /// If the object is new, a [`TypedSymbol`] with `Type::default()` is added to
+    /// If the object is new, a [`TypedSymbol`] with `Type::debug()` is added to
     /// `object_defs` to keep the table and definitions synchronized.
     pub fn add_object_symbol(&mut self, symbol: SymbolId) -> ObjectId {
         let id = self.object_symbols.insert(symbol);
         let idx = id.as_usize();
         if idx >= self.object_defs.len() {
-            // Placeholder definition using the default typing (usually 'object')
+            // Placeholder definition using the debug typing (usually 'object')
             self.object_defs.push(TypedSymbol::new(id, Type::default()));
         }
         id
@@ -1621,7 +1621,7 @@ impl Problem {
 impl Display for Problem {
     /// Implements standard Rust [`Display`] for the problem.
     ///
-    /// Delegates to the default interner-aware renderer for the entire problem.
+    /// Delegates to the debug interner-aware renderer for the entire problem.
     ///
     /// # Arguments
     ///

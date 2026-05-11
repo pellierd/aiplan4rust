@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::store::expr::ExprId;
-use crate::aiplan4rust::lir::store::renderers::default::typed_list;
-use crate::aiplan4rust::lir::store::renderers::{default, RenderContext};
+use crate::aiplan4rust::lir::store::renderers::debug::typed_list;
+use crate::aiplan4rust::lir::store::renderers::{debug, RenderContext};
 use std::fmt;
 
 // Taille standard d'un palier d'indentation.
@@ -71,6 +71,6 @@ pub fn render_labeled_expr(
     } else {
         // On délègue au moteur de rendu d'arbre (dans expression.rs)
         // avec une indentation de base.
-        default::expr::render(f, expr_id, ctx)
+        debug::expr::render(f, expr_id, ctx)
     }
 }

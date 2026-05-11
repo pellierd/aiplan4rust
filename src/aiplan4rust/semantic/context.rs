@@ -121,11 +121,11 @@ pub struct Context {
     generated_at: SystemTime,
 }
 impl Default for Context {
-    /// Returns a default `Context`.
+    /// Returns a debug `Context`.
     ///
     /// All fields are initialized to their respective defaults, except for `generated_at`,
     /// which is set to the current system time (`SystemTime::now()`).
-    /// Creates a default, empty `Context`.
+    /// Creates a debug, empty `Context`.
     ///
     /// Note: `generated_at` is initialized to the current system time,
     /// representing the moment this empty context was instantiated.

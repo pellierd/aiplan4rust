@@ -21,8 +21,6 @@
 
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::fmt::Formatter;
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
 ///
@@ -106,18 +104,5 @@ impl<ID: Copy> NamedTypedList<ID> {
 
     pub fn arity(&self) -> usize {
         self.parameters.len()
-    }
-}
-
-impl<ID> fmt::Display for NamedTypedList<ID>
-where
-    ID: fmt::Display,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "[symbol: {}, parameters: {}]",
-            self.symbol, self.parameters
-        )
     }
 }

@@ -1,18 +1,14 @@
 use crate::aiplan4rust::lir::store::expr::ExprId;
 use crate::aiplan4rust::lir::store::problem::DomainDef;
-use crate::aiplan4rust::lir::store::renderers::default::common::writeln_centered;
-use crate::aiplan4rust::lir::store::renderers::default::{
-    action, atomic_skeleton, expr, function_skeleton, method, typed_list,
+use crate::aiplan4rust::lir::store::renderers::debug::common::writeln_centered;
+use crate::aiplan4rust::lir::store::renderers::debug::{
+    action, atom, expr, function, method, typed_list,
 };
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt;
 
 /// Renders a human-readable representation of a `DomainDef` into a formatter.
-pub fn render_domain_def(
-    f: &mut fmt::Formatter<'_>,
-    domain: &DomainDef,
-    ctx: &RenderContext,
-) -> fmt::Result {
+pub fn render(f: &mut fmt::Formatter<'_>, domain: &DomainDef, ctx: &RenderContext) -> fmt::Result {
     // === HEADER ===
     writeln_centered(f, " DOMAIN DEFINITION ", 80, '=')?;
     writeln!(
@@ -62,7 +58,7 @@ pub fn render_domain_def(
         for p in domain.predicate_defs() {
             write!(f, "  ")?;
             // Signature : (nom ?arg1 - type)
-            atomic_skeleton::render(f, p, ctx)?;
+            atom::render(f, p, ctx)?;
             writeln!(f)?;
         }
     }
@@ -75,7 +71,7 @@ pub fn render_domain_def(
     } else {
         for func in domain.functions_defs() {
             write!(f, "  ")?;
-            function_skeleton::render(f, func, ctx)?;
+            function::render(f, func, ctx)?;
             writeln!(f)?;
         }
     }

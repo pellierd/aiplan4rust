@@ -248,7 +248,7 @@ pub fn encode_new_lifted_problem(
     // --- FINALISATION ---
 
     // 6. Transfert du Store vers le LiftedProblem
-    // Une fois l'encodage fini, on extrait le store du builder pour le donner au problème.@
+    // Une fois l'encodage fini, on extrait le store du builder pour le donner au problème.
     problem.set_store(expr_store);
 
     // 7. Normalisation (si tes passes sont à jour pour le nouveau Store)

@@ -15,8 +15,13 @@
 //! ```
 
 use crate::aiplan4rust::lang::{TaskSymbolId, TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::store::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
+use core::fmt::{Debug, Formatter};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
@@ -106,11 +111,18 @@ impl DerefMut for Task {
     }
 }
 
-impl fmt::Display for Task {
-    /// Formats the task into a human-readable string.
-    ///
-    /// This delegates to the `Display` implementation of the underlying `NamedTypedList`.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.header.fmt(f)
+impl LiftedSyntaxDisplay for Task {
+    /// Rendu syntaxique HDDL : (:task move :parameters (?obj - object ?to - location))
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        let local_ctx = ctx.with_variables(&self.variable_symbols);
+        renderers::syntax::task::render(f, self, &local_ctx)
+    }
+}
+
+impl LiftedDebugDisplay for Task {
+    /// Rendu technique : TaskSkeleton{ (move [t#4] ?obj [v#0] - object [t#1]) }
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        let local_ctx = ctx.with_variables(&self.variable_symbols);
+        renderers::debug::task::render(f, self, &local_ctx)
     }
 }

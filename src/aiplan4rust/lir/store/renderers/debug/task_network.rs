@@ -1,10 +1,10 @@
 use crate::aiplan4rust::lir::store::problem::TaskNetwork;
-use crate::aiplan4rust::lir::store::renderers::default::common::render_labeled_expr;
+use crate::aiplan4rust::lir::store::renderers::debug::common::render_labeled_expr;
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt;
 
 /// Rendu d'un TaskNetwork (utilisé dans les méthodes et l'ITN)
-pub fn render_task_network(
+pub fn render(
     f: &mut fmt::Formatter<'_>,
     network: &TaskNetwork,
     ctx: &RenderContext,

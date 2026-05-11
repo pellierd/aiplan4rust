@@ -1,7 +1,7 @@
 //! This module handles the syntax rendering of PDDL derived predicates.
 
 use crate::aiplan4rust::lir::store::problem::DerivedPredicateDef;
-use crate::aiplan4rust::lir::store::renderers::syntax::{atomic_skeleton, expr};
+use crate::aiplan4rust::lir::store::renderers::syntax::{atom, expr};
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt;
 
@@ -16,7 +16,7 @@ pub fn render(
     // 1. Début du bloc et "head"
     // Le head est un AtomicFormulaSkeleton (ex: (path ?x ?y))
     write!(f, "(:derived ")?;
-    atomic_skeleton::render(f, derived.head(), ctx)?;
+    atom::render(f, derived.head(), ctx)?;
 
     // 2. Le "body" (la formule logique)
     // On indente le corps pour une meilleure lisibilité dans le fichier de domaine

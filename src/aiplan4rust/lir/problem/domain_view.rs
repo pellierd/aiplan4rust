@@ -15,17 +15,19 @@
 //! This module also provides implementations of formatting traits for [`DomainDef`]:
 //! - [`SyntaxDisplay`] – formats the domain as a syntax string without interner or indentation.
 //! - [`SelfInternerDisplay`] – formats the domain using its internal `StringInterner`.
-//! - [`Display`] – default string representation of the domain.
+//! - [`Display`] – debug string representation of the domain.
 
-use core::fmt::Display;
-use std::fmt::{self, Formatter};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
-use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::{renderers, ActionDef, DerivedPredicateDef, MethodDef};
+use crate::aiplan4rust::lir::problem::atomic_skeleton::{
+    AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
+};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::lir::{renderers, ActionDef, DerivedPredicateDef, MethodDef};
+use core::fmt::Display;
+use std::fmt::{self, Formatter};
 
 /// Wrapper around the domain view of a lifted problem.
 ///
@@ -194,8 +196,8 @@ impl<'a> DomainDef<'a> {
 
 /// Implements the standard [`Display`] trait for [`DomainDef`].
 ///
-/// This provides a default string representation of the domain, typically
-/// using the default rendering ops for the lifted problem (`renderers::default::render_problem`).
+/// This provides a debug string representation of the domain, typically
+/// using the debug rendering ops for the lifted problem (`renderers::debug::render_problem`).
 ///
 /// # Example
 ///
@@ -205,7 +207,7 @@ impl<'a> DomainDef<'a> {
 /// println!("{}", domain_def);
 /// ```
 impl<'a> Display for DomainDef<'a> {
-    /// Formats the domain using the default renderer.
+    /// Formats the domain using the debug renderer.
     ///
     /// # Arguments
     ///
@@ -219,7 +221,7 @@ impl<'a> Display for DomainDef<'a> {
     }
 }
 
-impl<'a>  LiftedSyntaxDisplay for DomainDef<'a> {
+impl<'a> LiftedSyntaxDisplay for DomainDef<'a> {
     fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
         renderers::syntax::domain::render(f, self, ctx)
     }

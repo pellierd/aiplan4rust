@@ -80,22 +80,22 @@ pub struct LinkedSemanticContext {
 }
 
 impl Default for LinkedSemanticContext {
-    /// Returns a default `LinkedSemanticContext`.
+    /// Returns a debug `LinkedSemanticContext`.
     ///
-    /// This default context is primarily intended for initialization or placeholder purposes.
-    /// All fields are set to their respective default values, except for `generated_at`,
+    /// This debug context is primarily intended for initialization or placeholder purposes.
+    /// All fields are set to their respective debug values, except for `generated_at`,
     /// which is initialized to the current system time (`SystemTime::now()`).
     ///
     /// # Fields Default Values
-    /// - `domain_syntax_tree` and `problem_syntax_tree` – `Default::default()`
-    /// - `domain_table` and `problem_table` – `Default::default()`
+    /// - `domain_syntax_tree` and `problem_syntax_tree` – `Default::debug()`
+    /// - `domain_table` and `problem_table` – `Default::debug()`
     /// - `declared_requirements` and `required_requirements` – empty `HashSet`
     /// - `interner` – empty `StringInterner`
-    /// - `domain_source_id` and `problem_source_id` – `Default::default()`
+    /// - `domain_source_id` and `problem_source_id` – `Default::debug()`
     /// - `generated_at` – current system time
     ///
     /// # Returns
-    /// A `LinkedSemanticContext` with all fields initialized to default values.
+    /// A `LinkedSemanticContext` with all fields initialized to debug values.
     fn default() -> Self {
         LinkedSemanticContext {
             domain_syntax_tree: Default::default(),

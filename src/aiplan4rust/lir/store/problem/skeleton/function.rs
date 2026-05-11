@@ -19,8 +19,13 @@
 //! ```
 
 use crate::aiplan4rust::lang::{FunctionSymbolId, Type, TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::store::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::store::problem::SymbolRegistry;
+use crate::aiplan4rust::lir::store::renderers;
+use crate::aiplan4rust::lir::store::renderers::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+};
+use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
@@ -144,9 +149,21 @@ impl DerefMut for Function {
     }
 }
 
-impl fmt::Display for Function {
-    /// Displays the function as: `(name params) -> return_type`.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} -> {}", self.header, self.ty)
+impl LiftedSyntaxDisplay for Function {
+    /// Rendu syntaxique PDDL : (distance ?l1 ?l2 - location) - number
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        // On enrichit le contexte avec les variables locales avant d'appeler le renderer
+        let local_ctx = ctx.with_variables(&self.variable_symbols);
+        // Appel direct au renderer que tu viens de définir
+        renderers::syntax::function::render(f, self, &local_ctx)
+    }
+}
+
+impl LiftedDebugDisplay for Function {
+    /// Rendu technique détaillé pour le debugging.
+    /// Utilise le renderer spécialisé pour un affichage hybride (PDDL + IDs internes).
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        let local_ctx = ctx.with_variables(&self.variable_symbols);
+        renderers::debug::function::render(f, self, &local_ctx)
     }
 }

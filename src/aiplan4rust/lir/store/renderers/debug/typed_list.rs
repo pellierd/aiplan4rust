@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
-use crate::aiplan4rust::lir::store::renderers::default::ty;
+use crate::aiplan4rust::lir::store::renderers::debug::ty;
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt;
 

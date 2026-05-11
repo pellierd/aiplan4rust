@@ -1,8 +1,8 @@
-use std::fmt;
-use crate::aiplan4rust::grounding::binding::Bindings;
 use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
+use crate::aiplan4rust::grounding::binding::Bindings;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{ObjectId, TypeId, TypedList, VariableId};
+use std::fmt;
 
 /// A lazy combination iterator designed for exploring variable value domains.
 ///
@@ -42,7 +42,10 @@ impl<'a> BindingsIterator<'a> {
     ///
     /// # Returns
     /// - A new `BindingsIterator` instance or a `BindingsIteratorError` if an overflow occurs.
-    pub fn new(variables: &'a TypedList<VariableId, TypeId>, value_registry: &'a ValueRegistry) -> Result<Self, BindingsIteratorError> {
+    pub fn new(
+        variables: &'a TypedList<VariableId, TypeId>,
+        value_registry: &'a ValueRegistry,
+    ) -> Result<Self, BindingsIteratorError> {
         let domains = value_registry.get_variable_domains(variables)?;
         let arity = domains.len();
 
@@ -68,7 +71,7 @@ impl<'a> BindingsIterator<'a> {
         // 3. Buffer initialization
         let indices = vec![0; arity];
 
-        // Pre-fill current_bindings with default ObjectIds to avoid allocations during iteration.
+        // Pre-fill current_bindings with debug ObjectIds to avoid allocations during iteration.
         let mut current_bindings = Bindings::with_capacity(arity);
         for typed_var in variables {
             current_bindings.insert(typed_var.symbol(), ObjectId::default());
@@ -109,7 +112,8 @@ impl<'a> BindingsIterator<'a> {
             if arity > 0 {
                 for i in 0..arity {
                     let val = self.domains[i][self.indices[i]];
-                    self.current_bindings.insert(self.variables[i].symbol(), val);
+                    self.current_bindings
+                        .insert(self.variables[i].symbol(), val);
                 }
             } else {
                 // For arity 0, mark as exhausted immediately after this first yield.
@@ -128,7 +132,8 @@ impl<'a> BindingsIterator<'a> {
             // Update the buffer from the changed index onwards to synchronize with new indices.
             for i in changed_idx..arity {
                 let val = self.domains[i][self.indices[i]];
-                self.current_bindings.insert(self.variables[i].symbol(), val);
+                self.current_bindings
+                    .insert(self.variables[i].symbol(), val);
             }
         }
 

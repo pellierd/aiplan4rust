@@ -29,7 +29,7 @@ pub fn render(f: &mut fmt::Formatter<'_>, method: &MethodDef, ctx: &RenderContex
 
     // 5. Réseau de tâches (Subtasks, Ordering, Constraints)
     // On délègue au module task_network qui gère l'indentation interne
-    task_network::render_task_network(f, method.task_network(), ctx)?;
+    task_network::render(f, method.task_network(), ctx)?;
     writeln!(f)?;
 
     // 6. Fermeture du bloc (:method ...)

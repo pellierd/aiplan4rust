@@ -1,16 +1,18 @@
-use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ObjectId, PredicateSymbolId, TypeId};
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
+use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::grounding::problem::Fluent;
 use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ObjectId, PredicateSymbolId, TypeId};
 use crate::aiplan4rust::lang::{Requirement, SymbolId, TaskSymbolId, TypedSymbol};
+use crate::aiplan4rust::lir::problem::atomic_skeleton::{
+    AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
+};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
-use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 
 /// Represents a fully grounded PDDL problem.
 ///
@@ -30,7 +32,6 @@ pub struct Problem {
     predicate_symbols: SymbolRegistry<PredicateSymbolId>,
     function_symbols: SymbolRegistry<FunctionSymbolId>,
     task_symbols: SymbolRegistry<TaskSymbolId>,
-    
 
     type_defs: Vec<TypedSymbol<TypeId, TypeId>>,
     object_defs: Vec<TypedSymbol<ObjectId, TypeId>>,
@@ -50,7 +51,6 @@ pub struct Problem {
 }
 
 impl Problem {
-
     /// Creates a new `Problem` by consuming a `LiftedProblem`.
     ///
     /// This implementation performs an ownership transfer of all internal
@@ -95,7 +95,7 @@ impl Problem {
     ///
     /// All symbol tables (types, predicates, functions, objects) and vectors
     /// are initialized empty. The domain and problem identifiers are set
-    /// to `Ident::default()` and must be assigned later using `set_domain_id`
+    /// to `Ident::debug()` and must be assigned later using `set_domain_id`
     /// and `set_problem_id`.
     ///
     ///
@@ -389,8 +389,6 @@ impl fmt::Display for Problem {
         // ---------- Object Type Domains ----------
         writeln!(f, "\nType Domains Table:\n{}\n", self.type_objects())?;
 
-
-
         // ---------- Fluents ----------
         writeln!(f, "\nFluents Table:")?;
         if self.fluents().is_empty() {
@@ -492,4 +490,4 @@ impl fmt::Display for Problem {
     }
 }*/
 
-impl SerdeSerializable for Problem { }
+impl SerdeSerializable for Problem {}

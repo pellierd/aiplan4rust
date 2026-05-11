@@ -1,8 +1,8 @@
 use crate::aiplan4rust::lir::store::problem::ActionDef;
-use crate::aiplan4rust::lir::store::renderers::default::common::{
+use crate::aiplan4rust::lir::store::renderers::debug::common::{
     render_labeled_variable_typed_list, writeln_centered,
 };
-use crate::aiplan4rust::lir::store::renderers::default::expr;
+use crate::aiplan4rust::lir::store::renderers::debug::expr;
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt;
 

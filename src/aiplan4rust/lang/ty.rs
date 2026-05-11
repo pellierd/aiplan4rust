@@ -33,7 +33,7 @@ pub struct Type<ID: Id> {
 }
 
 impl<ID: Id> Default for Type<ID> {
-    /// Creates a default, empty `Type`.
+    /// Creates a debug, empty `Type`.
     ///
     /// An empty `Type` is considered a "root" or "top" type in PDDL (equivalent to `object`).
     /// This constructor is zero-cost as it does not trigger any heap allocation.

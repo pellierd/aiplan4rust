@@ -1,9 +1,8 @@
 use crate::aiplan4rust::lir::store::problem::InitialTaskNetwork;
-use crate::aiplan4rust::lir::store::renderers::default::common::{
+use crate::aiplan4rust::lir::store::renderers::debug::common::{
     render_labeled_variable_typed_list, writeln_centered,
 };
-use crate::aiplan4rust::lir::store::renderers::default::task_network::render_task_network;
-use crate::aiplan4rust::lir::store::renderers::RenderContext;
+use crate::aiplan4rust::lir::store::renderers::{debug, RenderContext};
 use std::fmt;
 
 pub fn render(
@@ -17,7 +16,7 @@ pub fn render(
     render_labeled_variable_typed_list(f, "PARAMETERS", itn.parameters(), ctx)?;
 
     // Le réseau de tâches
-    render_task_network(f, itn.task_network(), ctx)?;
+    debug::task_network::render(f, itn.task_network(), ctx)?;
 
     writeln!(f, "{}", "=".repeat(60))
 }

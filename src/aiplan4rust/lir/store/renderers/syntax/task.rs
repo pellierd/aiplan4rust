@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::store::problem::atomic_skeleton::AtomicTaskSkeleton;
+use crate::aiplan4rust::lir::store::problem::skeleton::AtomicTaskSkeleton;
 use crate::aiplan4rust::lir::store::renderers::syntax::typed_list;
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt;

@@ -55,19 +55,19 @@
 //! assert_eq!(value.to_syntax_string(), "SimpleType(example)");
 //! ```
 
+use crate::aiplan4rust::interner::SymbolInterner;
 use std::fmt;
 use std::fmt::{Formatter, Write};
-use crate::aiplan4rust::interner::SymbolInterner;
 
 /// Default number of characters used per indentation level.
 ///
-/// This constant is used by [`SyntaxInternerDisplay`] implementations as the default
+/// This constant is used by [`SyntaxInternerDisplay`] implementations as the debug
 /// indent width, typically 2 spaces.
 pub const DEFAULT_INDENT_WIDTH: usize = 2;
 
 /// Default character used for indentation.
 ///
-/// This constant is used by [`SyntaxInternerDisplay`] implementations as the default
+/// This constant is used by [`SyntaxInternerDisplay`] implementations as the debug
 /// indent character, typically a space `' '`.
 pub const DEFAULT_INDENT_CHAR: char = ' ';
 
@@ -102,15 +102,14 @@ pub fn write_indent(f: &mut std::fmt::Formatter<'_>, level: usize) -> std::fmt::
 
 /// Trait for formatting values with planned syntax, supporting indentation and interner resolution.
 ///
-/// Provides default constants for indentation width and indent character,
+/// Provides debug constants for indentation width and indent character,
 /// along with methods to format the value at variable indentation levels.
 ///
 /// # Default constants
 ///
-/// - [`DEFAULT_INDENT_WIDTH`]: number of characters per indent level (default: 2).
-/// - [`DEFAULT_INDENT_CHAR`]: character used for indentation (default: space).
+/// - [`DEFAULT_INDENT_WIDTH`]: number of characters per indent level (debug: 2).
+/// - [`DEFAULT_INDENT_CHAR`]: character used for indentation (debug: space).
 pub trait SyntaxInternerDisplay {
-
     /// Formats the value with a given indent level and an interner for resolving interned identifiers.
     ///
     /// # Arguments
@@ -231,10 +230,7 @@ pub trait SyntaxInternerDisplay {
     /// # Returns
     ///
     /// The formatted `String`.
-    fn to_syntax_string_with_interner(
-        &self,
-        interner: &SymbolInterner,
-    ) -> String
+    fn to_syntax_string_with_interner(&self, interner: &SymbolInterner) -> String
     where
         Self: Sized,
     {
@@ -271,7 +267,8 @@ impl<'a, T: SyntaxInternerDisplay + ?Sized> std::fmt::Display for DisplaySyntaxW
     ///
     /// A [`fmt::Result`] indicating success or failure of the formatting operation.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.value.fmt_syntax_with_interner_and_indent(f, self.interner, self.indent)
+        self.value
+            .fmt_syntax_with_interner_and_indent(f, self.interner, self.indent)
     }
 }
 
@@ -304,7 +301,7 @@ impl<'a, T: SyntaxInternerDisplay + ?Sized> std::fmt::Display for DisplaySyntaxW
 pub trait SyntaxDisplay {
     /// Writes the value to the given formatter.
     ///
-    /// This method is the common formatting function and is used by the default
+    /// This method is the common formatting function and is used by the debug
     /// implementations of `to_syntax_string` and `try_to_syntax_string`.
     ///
     /// # Arguments
@@ -358,7 +355,7 @@ pub trait SyntaxDisplay {
 
 /// Internal wrapper to allow using `fmt_syntax` with `write!`.
 ///
-/// This struct is used by the default implementations of
+/// This struct is used by the debug implementations of
 /// `try_to_syntax_string` and `to_syntax_string` to adapt a
 /// `SyntaxDisplay` into a typing that implements `Display`.
 struct DisplayWrapper<'a, T: ?Sized> {

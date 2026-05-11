@@ -27,7 +27,7 @@ pub const SYMBOL_ORIGIN_UNKNOWN: &str = "Unknown";
 /// - `Domain`: Symbol originates from the domain file.
 /// - `Problem`: Symbol originates from the problem file.
 /// - `Shared`: Symbol is present in both domain and problem (e.g., a constant specialized in the problem).
-/// - `Unknown`: Origin is unknown or undetermined (default).
+/// - `Unknown`: Origin is unknown or undetermined (debug).
 ///
 /// # Example
 ///

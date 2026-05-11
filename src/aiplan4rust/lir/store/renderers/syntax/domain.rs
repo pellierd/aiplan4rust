@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::store::problem::DomainDef;
 use crate::aiplan4rust::lir::store::renderers::syntax::{
-    action, atomic_skeleton, derived_predicate, expr, function_skeleton, method, task, typed_list,
+    action, atom, derived_predicate, expr, function, method, task, typed_list,
 };
 use crate::aiplan4rust::lir::store::renderers::RenderContext;
 use std::fmt::{self, Formatter};
@@ -50,7 +50,7 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
         write!(f, "\n  (:predicates")?;
         for pred in domain.predicate_defs() {
             write!(f, "\n    ")?;
-            atomic_skeleton::render(f, pred, ctx)?;
+            atom::render(f, pred, ctx)?;
         }
         write!(f, "\n  )")?;
     }
@@ -60,7 +60,7 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
         write!(f, "\n  (:functions")?;
         for func in domain.functions_defs() {
             write!(f, "\n    ")?;
-            function_skeleton::render(f, func, ctx)?;
+            function::render(f, func, ctx)?;
         }
         write!(f, "\n  )")?;
     }

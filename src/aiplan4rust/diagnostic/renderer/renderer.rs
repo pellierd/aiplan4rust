@@ -21,12 +21,12 @@
 //! Create a `Renderer` with references to a `DiagnosticManager` and `StringInterner`,
 //! then invoke its methods to write formatted diagnostics to your desired output.
 
+use crate::aiplan4rust::diagnostic::renderer::{formatting, message, suggestion};
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticError, DiagnosticManager};
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::diagnostic::renderer::{formatting, message, suggestion};
 
-use std::io::{self, Write};
 use crate::Severity;
+use std::io::{self, Write};
 
 /// Renderer responsible for formatting and outputting diagnostics.
 ///
@@ -48,7 +48,7 @@ pub struct Renderer<'a> {
 impl<'a> Renderer<'a> {
     /// Creates a new `Renderer` with references to the diagnostic manager and string interner.
     ///
-    /// The default output is set to standard output (`stdout`).
+    /// The debug output is set to standard output (`stdout`).
     ///
     /// # Parameters
     ///
@@ -218,11 +218,7 @@ impl<'a> Renderer<'a> {
 /// let header = format_header_line(&diagnostic, &interner, true);
 /// println!("{}", header);
 /// ```
-fn format_header_line(
-    diagnostic: &Diagnostic,
-    interner: &SymbolInterner,
-    color: bool,
-) -> String {
+fn format_header_line(diagnostic: &Diagnostic, interner: &SymbolInterner, color: bool) -> String {
     let kind = diagnostic.kind();
     let code = diagnostic.code();
 
@@ -232,7 +228,11 @@ fn format_header_line(
         _ => code.clone(),
     };
 
-    format!("{}: {}\n", severity_str, message::format_message(kind, interner))
+    format!(
+        "{}: {}\n",
+        severity_str,
+        message::format_message(kind, interner)
+    )
 }
 
 /// Formats the location of a diagnostic in the form of a file path and line/column numbers,
@@ -258,11 +258,7 @@ fn format_header_line(
 /// let location = format_location(&diagnostic, &interner, true);
 /// println!("{}", location);
 /// ```
-fn format_location(
-    diagnostic: &Diagnostic,
-    interner: &SymbolInterner,
-    color: bool,
-) -> String {
+fn format_location(diagnostic: &Diagnostic, interner: &SymbolInterner, color: bool) -> String {
     let filename = interner
         .try_resolve_literal(diagnostic.source())
         .unwrap_or("<unknown>");
@@ -316,7 +312,12 @@ fn format_source_snippet(
     let vertical_bar = formatting::vertical_bar(color);
 
     let mut snippet = String::new();
-    snippet.push_str(&format!("{:>width$} {}\n", "", vertical_bar, width = gutter_width));
+    snippet.push_str(&format!(
+        "{:>width$} {}\n",
+        "",
+        vertical_bar,
+        width = gutter_width
+    ));
     snippet.push_str(&format!(
         "{} {} {}\n",
         format!("{:>width$}", span.begin_line(), width = gutter_width),
@@ -338,7 +339,12 @@ fn format_source_snippet(
         width = gutter_width
     ));
 
-    snippet.push_str(&format!("{:>width$} {}\n", "", vertical_bar, width = gutter_width));
+    snippet.push_str(&format!(
+        "{:>width$} {}\n",
+        "",
+        vertical_bar,
+        width = gutter_width
+    ));
     Some(snippet)
 }
 

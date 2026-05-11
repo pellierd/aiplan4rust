@@ -32,21 +32,23 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, SymbolId, OptimizationOp, RemapSymbol, Requirement};
+use crate::aiplan4rust::lang::{
+    ArithmeticOp, AssignOp, CompareOp, OptimizationOp, RemapSymbol, Requirement, SymbolId,
+};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
+use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
+use crate::aiplan4rust::tree::SyntaxContent;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::syntax::ast::AstError;
-use crate::aiplan4rust::tree::SyntaxContent;
 
 /// Represents semantic content associated with an AST syntax.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum Content {
-    /// No content (default/empty syntax).
+    /// No content (debug/empty syntax).
     #[default]
     None,
 
@@ -115,10 +117,8 @@ impl Content {
     /// Returns `Ok(Ident)` if successful or
     /// `Err(SyntaxTreeError::NotAnIdent)` if the content is not an identifier.
     pub fn try_ident(&self) -> Result<SymbolId, AstError> {
-        self.as_ident()
-            .ok_or_else(|| AstError::not_a_symbol_id())
+        self.as_ident().ok_or_else(|| AstError::not_a_symbol_id())
     }
-
 }
 
 /// Implements the standard `fmt::Display` trait for the `Content` enum.
@@ -253,7 +253,6 @@ impl SyntaxInternerDisplay for Content {
 }
 
 impl SyntaxContent for Content {
-
     /// Returns the floating-point literal if this content is a `Float`.
     ///
     /// # Returns
@@ -328,7 +327,6 @@ impl SyntaxContent for Content {
     fn is_none(&self) -> bool {
         matches!(self, Content::None)
     }
-
 }
 
 impl RemapSymbol for Content {

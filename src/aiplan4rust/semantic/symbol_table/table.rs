@@ -80,18 +80,18 @@ pub struct Table {
 }
 
 impl Default for Table {
-    /// Creates a new, empty symbol table with default metadata.
+    /// Creates a new, empty symbol table with debug metadata.
     ///
     /// - The symbol map is initialized empty.
     /// - The origin is set to [`SymbolTableOrigin::None`].
-    /// - The root node ID is set to the default [`NodeId`].
+    /// - The root node ID is set to the debug [`NodeId`].
     ///
     /// # Returns
-    /// A new default-initialized symbol table.
+    /// A new debug-initialized symbol table.
     ///
     /// # Example
     /// ```rust
-    /// let table = Table::default();
+    /// let table = Table::debug();
     /// assert!(table.iter().next().is_none());
     /// ```
     fn default() -> Self {
