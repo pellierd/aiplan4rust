@@ -1,8 +1,9 @@
-pub mod table;
 pub mod inertia;
+pub mod table;
 
-pub mod evaluator;
 pub mod error;
+pub mod evaluator;
+pub mod new_table;
 
 pub use error::InertiaError;
 pub use table::InertiaTable;

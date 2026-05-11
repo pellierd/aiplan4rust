@@ -15,6 +15,14 @@ impl<'a> TreePreorderIter<'a> {
         stack.push((root, 0, true));
         Self { store, stack }
     }
+
+    /// Retire les `n` prochains éléments de la pile.
+    /// Utile pour sauter des branches spécifiques (comme la condition d'un When).
+    pub fn skip_children(&mut self, n: usize) {
+        for _ in 0..n {
+            self.stack.pop();
+        }
+    }
 }
 
 impl<'a> Iterator for TreePreorderIter<'a> {

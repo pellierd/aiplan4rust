@@ -1233,6 +1233,27 @@ impl Problem {
         &mut self.derived_predicate_defs
     }
 
+    /// Checks if a predicate ID corresponds to a derived predicate (axiom).
+    ///
+    /// Derived predicates are defined by rules rather than being directly
+    /// modified by action effects.
+    ///
+    /// # Performance
+    /// This check is currently **O(N)** where N is the number of derived predicates.
+    /// If performance becomes a bottleneck (e.g., in a large domain with many axioms),
+    /// consider using a `HashSet` or a `BitSet` for **O(1)** lookups.
+    ///
+    /// # Arguments
+    /// * `id` - The unique identifier of the predicate skeleton to check.
+    ///
+    /// # Returns
+    /// `true` if the predicate is derived, `false` otherwise.
+    pub fn is_derived_predicate(&self, id: AtomSkeletonId) -> bool {
+        self.derived_predicate_defs
+            .iter()
+            .any(|d| d.header_id() == id)
+    }
+
     /// Adds a new derived predicate to the problem.
     ///
     /// This appends the provided [`LiftedDerivedPredicate`] to the

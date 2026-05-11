@@ -51,7 +51,7 @@ mod passes;
 pub mod problem;
 pub mod renderers;
 pub mod result;
-mod store;
+pub(crate) mod store;
 
 pub use encoder::LirEncoder;
 pub use error::LirError;
