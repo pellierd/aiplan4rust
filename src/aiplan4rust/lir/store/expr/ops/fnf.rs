@@ -49,9 +49,9 @@
 //!
 
 use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::expr::iter::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ops::scratchpad::Scratchpad;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 use smallvec::SmallVec;
 use std::mem;
 
@@ -338,7 +338,7 @@ fn assemble_result(
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::AtomSkeletonId;
-    use crate::aiplan4rust::lir::store::ExprStore;
+    use crate::aiplan4rust::lir::store::expr::ExprStore;
 
     /// Utility helper to create unique atomic formulas for testing.
     fn atom(builder: &mut ExprBuilder, id: usize) -> ExprId {
@@ -513,7 +513,6 @@ mod tests {
         let b = atom(&mut builder, 2);
         let c = atom(&mut builder, 3);
         let d = atom(&mut builder, 4);
-
         let common_factor = builder.or(&[a, b]);
         let and1 = builder.and(&[common_factor, c]);
         let and2 = builder.and(&[common_factor, d]);

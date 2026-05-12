@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 /// Encodes logical negations into atomic predicate identifiers using a bit-mask (MSB).
@@ -11,7 +11,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// node where the internal `AtomSkeletonId` is marked as negated.
 ///
 /// # Preconditions
-/// This function acts as a **strict final pass** in the rewriting pipeline. It assumes
+/// This function acts as a **strict final pass** in the simplification pipeline. It assumes
 /// the tree has been pre-processed:
 /// 1. **Implication Elimination**: All `Imply` nodes must be removed.
 /// 2. **Negation Propagation**: All `Not` nodes must be pushed down to the leaves.
@@ -58,7 +58,7 @@ pub fn to_pnf(
     expr: &mut Expr,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     stack: &mut Vec<(NodeId, bool)>, // La pile transporte (ID, est_une_condition)
-    is_effect: bool,           // Indique si on démarre dans un arbre d'effets
+    is_effect: bool,                 // Indique si on démarre dans un arbre d'effets
 ) -> Result<(), ExprOpError> {
     stack.clear();
 
@@ -167,7 +167,7 @@ pub fn to_pnf(
 fn handle_not_node(
     node_id: NodeId,
     expr: &mut Expr,
-    negated_atoms: &mut Vec<AtomSkeletonId>
+    negated_atoms: &mut Vec<AtomSkeletonId>,
 ) -> Result<bool, ExprOpError> {
     let node_kind = ExprKind::Not;
 
@@ -176,7 +176,9 @@ fn handle_not_node(
     // allowing subsequent mutations.
     let child_id = {
         let node = expr.try_node(node_id)?;
-        node.children().first().copied()
+        node.children()
+            .first()
+            .copied()
             .ok_or_else(|| ExprOpError::invalid_expr_node(node_id, node_kind))?
     };
 
@@ -189,12 +191,13 @@ fn handle_not_node(
         ExprKind::AtomicFormula => {
             // Check the current negation state of the atom.
             // PNF encoding requires that we don't flip a bit that is already set (logic error).
-            let is_negated = if let ExprContent::AtomSkeleton(id) = expr.try_node(child_id)?.content() {
-                id.is_negated()
-            } else {
-                // Ensure the node content matches its kind.
-                return Err(ExprOpError::invalid_expr_node(child_id, child_kind));
-            };
+            let is_negated =
+                if let ExprContent::AtomSkeleton(id) = expr.try_node(child_id)?.content() {
+                    id.is_negated()
+                } else {
+                    // Ensure the node content matches its kind.
+                    return Err(ExprOpError::invalid_expr_node(child_id, child_kind));
+                };
 
             if is_negated {
                 return Err(ExprOpError::invalid_expr_node(child_id, child_kind));

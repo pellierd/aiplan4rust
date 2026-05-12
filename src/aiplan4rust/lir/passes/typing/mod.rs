@@ -23,7 +23,7 @@
 //!     and HTN task networks).
 //!
 //! ## Encapsulation
-//! To maintain a clean public API, all internal rewriting logic and the registry
+//! To maintain a clean public API, all internal simplification logic and the registry
 //! are kept private to the `typing` module. Only the high-level [`normalize`]
 //! function is exposed to the rest of the compiler crate.
 
@@ -31,17 +31,17 @@
 mod problem;
 
 // --- Rewriting Components ---
-mod expr;
-mod typed_symbol;
-mod typed_list;
-mod ty;
+mod action;
 mod atomic_formula_skeleton;
 mod atomic_function_skeleton;
 mod derived_predicate;
-mod task;
-mod action;
-mod method;
+mod expr;
 mod initial_task_network;
+mod method;
+mod task;
+mod ty;
+mod typed_list;
+mod typed_symbol;
 
 // --- Utilities ---
 mod registry;

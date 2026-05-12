@@ -15,7 +15,7 @@
 //! - [`kind`]: Defines the `Kind` enum representing the different
 //!   kinds of expression nodes (logical operators, symbols, predicates, etc.).
 //! - [`simplify`]: Contains utilities and functions for transforming
-//!   or rewriting logic.
+//!   or simplification logic.
 //! - [`expr`]: Defines the `Expr` type_checker, a wrapper around an expression
 //!   arena (syntax tree) that holds `ExprNode` instances and provides
 //!   expression-level operations.
@@ -40,17 +40,17 @@
 //! This modular design promotes clear separation of concerns,
 //! making the expression representation extensible and easier to maintain.
 
-pub mod content;
-pub mod node;
-pub mod kind;
-pub mod expr;
-pub mod error;
 pub mod builder;
+pub mod content;
+pub mod error;
+pub mod expr;
+pub mod kind;
+pub mod node;
 pub mod ops;
 
-pub use content::Content as ExprContent;
-pub use node::ExprNode;
-pub use kind::Kind as ExprKind;
-pub use expr::Expr;
-pub use error::ExprError;
 pub use builder::ExprBuilder;
+pub use content::Content as ExprContent;
+pub use error::ExprError;
+pub use expr::Expr;
+pub use kind::Kind as ExprKind;
+pub use node::ExprNode;

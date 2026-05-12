@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::store::ExprId;
+use crate::aiplan4rust::lir::store::expr::ExprId;
 use bit_set::BitSet;
 use rustc_hash::FxHashMap;
 

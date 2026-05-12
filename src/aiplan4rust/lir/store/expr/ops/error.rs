@@ -1,7 +1,7 @@
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::lir::store::error::StorerError;
 use crate::aiplan4rust::lir::store::expr::builder::ExprBuilderError;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::error::StorerError;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

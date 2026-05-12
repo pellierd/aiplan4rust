@@ -29,7 +29,7 @@ use crate::aiplan4rust::lir::LirError;
 /// # Errors
 ///
 /// Returns a [`LirError`] if:
-/// * An expression is malformed during logical rewriting.
+/// * An expression is malformed during logical simplification.
 /// * The type materialization phase fails to register a new anonymous type due to
 ///   naming collisions or registry inconsistencies.
 ///
@@ -47,7 +47,7 @@ use crate::aiplan4rust::lir::LirError;
 /// ```
 pub fn normalize(problem: &mut LiftedProblem) -> Result<(), LirError> {
     // 1. Logical Normalization (finalization/logic)
-    // Clean up semantics, simplify trees, and apply standard rewriting rules.
+    // Clean up semantics, simplify trees, and apply standard simplification rules.
     logic::normalize(problem)?;
 
     // 2. Structural Normalization (finalization/either-type)

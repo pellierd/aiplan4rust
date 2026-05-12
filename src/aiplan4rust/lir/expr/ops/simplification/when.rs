@@ -1,5 +1,5 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a `When` expression node according to PDDL simplification rules.
@@ -17,7 +17,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Errors
 /// Returns an error if `node_id` does not correspond to a valid node
-/// in the expression tree or if rewriting fails.
+/// in the expression tree or if simplification fails.
 ///
 /// # Examples
 /// ```rust
@@ -25,15 +25,12 @@ use crate::aiplan4rust::tree::NodeId;
 /// // Result: E
 /// normalize(when_id, &mut logic)?;
 /// ```
-pub fn simplify(
-    node_id: NodeId,
-    expr: &mut Expr,
-) -> Result<(), ExprOpError> {
+pub fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     simplify_when_node(node_id, expr)?;
     Ok(())
 }
 
-/// Simplifies a `When` node according to PDDL logical rewriting rules.
+/// Simplifies a `When` node according to PDDL logical simplification rules.
 ///
 /// This function applies the following simplification rules:
 ///
@@ -74,7 +71,10 @@ fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpEr
     debug_assert!(node.kind() == ExprKind::When, "Node must be a When");
 
     let children = node.children();
-    debug_assert!(children.len() == 2, "When node must have exactly 2 children");
+    debug_assert!(
+        children.len() == 2,
+        "When node must have exactly 2 children"
+    );
 
     let cond_id = children[0];
     let eff_id = children[1];

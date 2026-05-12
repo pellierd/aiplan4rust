@@ -12,7 +12,7 @@
 //!
 //! The module also provides formatting capabilities with and without interners
 //! (see [`InternerDisplay`]) and supports identifier remapping, which is useful
-//! for name rewriting or alpha-renaming in transformations.
+//! for name simplification or alpha-renaming in transformations.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};

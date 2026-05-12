@@ -1,6 +1,6 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::NodeId;
 
 /// Recursively pushes negations down the expression tree using De Morgan’s laws
@@ -109,7 +109,7 @@ pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError
 /// `Not` nodes are returned so they can be processed further.
 ///
 /// # Parameters
-/// - `node_id`: NodeId of the `Not` node to rewriting.
+/// - `node_id`: NodeId of the `Not` node to simplification.
 /// - `logic`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
@@ -152,7 +152,11 @@ fn apply_de_morgan(node_id: NodeId, expr: &mut Expr) -> Result<Vec<NodeId>, Expr
 
     // Mutate the parent Not node into Or/And
     let node_mut = expr.try_node_mut(node_id)?;
-    node_mut.set_kind(if child_kind == ExprKind::And { ExprKind::Or } else { ExprKind::And });
+    node_mut.set_kind(if child_kind == ExprKind::And {
+        ExprKind::Or
+    } else {
+        ExprKind::And
+    });
     node_mut.set_content(Content::None);
     node_mut.set_children(vec![]);
 
@@ -208,8 +212,10 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
         child.kind() == ExprKind::Forall || child.kind() == ExprKind::Exists,
         "Child of Not must be a quantifier"
     );
-    debug_assert!(child.children().len() == 1, "Quantifier node must have exactly one child (the body)");
-
+    debug_assert!(
+        child.children().len() == 1,
+        "Quantifier node must have exactly one child (the body)"
+    );
 
     // Copy values to avoid borrow conflicts
     let child_kind = child.kind();
@@ -240,8 +246,8 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
+    use crate::aiplan4rust::lir::expr::ExprKind;
 
     /// Test pushing negation through AND using De Morgan's law.
     /// Input: (not (and (A) (B))) -> (or (not (A)) (not (B)))
@@ -490,7 +496,11 @@ mod tests {
 
         // 3. Validation
         let root = expr.try_root_node()?;
-        assert_eq!(root.kind(), ExprKind::Or, "La racine doit être un OR après De Morgan");
+        assert_eq!(
+            root.kind(),
+            ExprKind::Or,
+            "La racine doit être un OR après De Morgan"
+        );
         assert_eq!(root.children().len(), 3);
 
         // --- Branche 0 : ¬A ---
@@ -500,13 +510,25 @@ mod tests {
         // --- Branche 1 : ¬¬(B ∨ C) ---
         // Puisqu'on ne fait que traverser, les deux NOT sont toujours présents.
         let first_not_id = root.children()[1];
-        assert_eq!(expr.try_node_kind(first_not_id)?, ExprKind::Not, "Le premier NOT est conservé");
+        assert_eq!(
+            expr.try_node_kind(first_not_id)?,
+            ExprKind::Not,
+            "Le premier NOT est conservé"
+        );
 
         let second_not_id = expr.try_node(first_not_id)?.children()[0];
-        assert_eq!(expr.try_node_kind(second_not_id)?, ExprKind::Not, "Le deuxième NOT est conservé");
+        assert_eq!(
+            expr.try_node_kind(second_not_id)?,
+            ExprKind::Not,
+            "Le deuxième NOT est conservé"
+        );
 
         let inner_or_id = expr.try_node(second_not_id)?.children()[0];
-        assert_eq!(expr.try_node_kind(inner_or_id)?, ExprKind::Or, "On retrouve le OR initial");
+        assert_eq!(
+            expr.try_node_kind(inner_or_id)?,
+            ExprKind::Or,
+            "On retrouve le OR initial"
+        );
 
         // --- Branche 2 : ∃x.∀y.¬D ---
         let exists_id = root.children()[2];
@@ -516,7 +538,11 @@ mod tests {
         assert_eq!(expr.try_node_kind(forall_id)?, ExprKind::Forall);
 
         let final_not_id = expr.try_node(forall_id)?.children()[0];
-        assert_eq!(expr.try_node_kind(final_not_id)?, ExprKind::Not, "Le NOT a bien été poussé sur D");
+        assert_eq!(
+            expr.try_node_kind(final_not_id)?,
+            ExprKind::Not,
+            "Le NOT a bien été poussé sur D"
+        );
 
         let atom_d_id = expr.try_node(final_not_id)?.children()[0];
         assert_eq!(expr.try_node_kind(atom_d_id)?, ExprKind::AtomicFormula);

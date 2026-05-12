@@ -30,11 +30,11 @@
 //! * **Inlined Logic**: Boolean dualities (De Morgan) are computed via branchless
 //!   bitwise operations where possible.
 
-use crate::aiplan4rust::lir::store::expr::iter::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
 
 use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::ops::scratchpad::Scratchpad;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 
 /// Converts a logical expression to Negation Normal Form (NNF).
 ///
@@ -271,8 +271,7 @@ mod tests {
     use super::*;
     use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
     use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::store::expr::iter::Scratchpad;
-    use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::store::expr::ExprStore;
 
     /// Test pushing negation through AND using De Morgan's law.
     /// Input: (not (and (A) (B))) -> (or (not (A)) (not (B)))

@@ -1486,7 +1486,7 @@ impl Problem {
     /// Returns a mutable reference to the metric specification.
     ///
     /// This allows for the modification of the optimization objective,
-    /// such as scaling costs or rewriting the metric expression for
+    /// such as scaling costs or simplification the metric expression for
     /// specific solver requirements.
     ///
     /// # Returns

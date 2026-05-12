@@ -12,7 +12,7 @@
 //!
 //! Key goals of logic include:
 //!
-//! - Flattening or rewriting nested constructs (e.g., desugaring `TypedList` and `EitherType`).
+//! - Flattening or simplification nested constructs (e.g., desugaring `TypedList` and `EitherType`).
 //! - Deduplicating or merging repeated entries (e.g., `:requirements`, type_checker definitions).
 //! - Ensuring valid and well-scoped definitions are available to semantic analyzers.
 //!
@@ -90,11 +90,11 @@
 //! - [`DiagnosticManager`] — Responsible for logging all non-fatal issues during logic.
 //! - [`Ast`] — The syntax tree structure being normalized.
 
-pub mod result;
+pub mod error;
 pub mod normalizer;
 pub mod passes;
-pub mod error;
+pub mod result;
 
+pub use error::NormalizationError;
 pub use normalizer::Normalizer;
 pub use result::Result as NormalizerResult;
-pub use error::NormalizationError;

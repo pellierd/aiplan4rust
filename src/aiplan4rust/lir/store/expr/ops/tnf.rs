@@ -55,9 +55,9 @@
 //! and memory-efficient, even for very large or deeply nested logical formulas.
 
 use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::expr::iter::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::store::expr::ops::scratchpad::Scratchpad;
+use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 use smallvec::SmallVec;
 
 /// The maximum number of children stored inline in a `SmallVec` before spilling to the heap.
@@ -422,7 +422,7 @@ impl TimeSpecifier {
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::{AtomSkeletonId, TypedSymbol, VariableId};
-    use crate::aiplan4rust::lir::store::ExprStore;
+    use crate::aiplan4rust::lir::store::expr::ExprStore;
 
     /// Helper to verify the top-level structure of a TNF (Temporal Normal Form) result.
     ///
