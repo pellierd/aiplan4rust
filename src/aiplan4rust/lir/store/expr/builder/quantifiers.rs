@@ -169,65 +169,71 @@ impl<'a> ExprBuilder<'a> {
         Ok(())
     }
 
-    /// Creates a typed variable list from an existing vector of typed symbols.
+    /// Creates a typed variable list from any collection convertible into a vector of typed symbols.
     ///
     /// # Parameters
-    /// * `vars`: A `Vec` of `TypedSymbol` representing the variables and their types.
+    /// * `vars`: Any collection or structure that implements `Into<Vec<TypedSymbol<VariableId, TypeId>>>`.
+    ///   This includes `Vec`, boxed slices, or fixed-size arrays (e.g., `[var_x, var_y]`).
     ///
     /// # Return Value
-    /// Returns a `TypedList`. This operation transfers ownership of the input
-    /// vector into the list structure.
+    /// Returns a `TypedList`. If a `Vec` is provided, ownership is transferred with zero allocations.
+    /// If an array is passed, it is efficiently converted into the underlying vector.
     #[inline]
-    pub fn typed_variable_list(
-        &mut self,
-        vars: Vec<TypedSymbol<VariableId, TypeId>>,
-    ) -> TypedList<VariableId, TypeId> {
-        // Wrap the existing vector into a TypedList structure.
-        TypedList::from(vars)
+    pub fn typed_variable_list<I>(&mut self, vars: I) -> TypedList<VariableId, TypeId>
+    where
+        I: Into<Vec<TypedSymbol<VariableId, TypeId>>>,
+    {
+        // Wrap the converted vector into a TypedList structure.
+        TypedList::from(vars.into())
     }
 
     /// Creates a typed variable symbol consisting of a unique identifier and a type.
     ///
     /// # Parameters
-    /// * `id`: The raw `usize` identifier for the variable.
-    /// * `type_ids`: A slice of `usize` identifiers representing the variable's type
-    ///   (either a single type or a union of types).
+    /// * `id`: Anything convertible into a `VariableId` (e.g., `usize`, `VariableId`).
+    /// * `type_ids`: Any collection that can be borrowed as a slice of `usize` identifiers
+    ///   (e.g., fixed-size arrays like `[101]`, vectors, or slices).
     ///
     /// # Return Value
     /// Returns a `TypedSymbol` mapping the `VariableId` to its corresponding `TypeId`.
     #[inline]
-    pub fn typed_variable(
-        &mut self,
-        id: usize,
-        type_ids: &[usize],
-    ) -> TypedSymbol<VariableId, TypeId> {
-        // Map the raw ID to VariableId and resolve the type structure.
-        TypedSymbol::new(VariableId::from(id), self.ty(type_ids))
+    pub fn typed_variable<V, T>(&mut self, id: V, type_ids: T) -> TypedSymbol<VariableId, TypeId>
+    where
+        V: Into<VariableId>,
+        T: AsRef<[usize]>,
+    {
+        // Convert the ID automatically and borrow the type identifiers as a slice
+        TypedSymbol::new(id.into(), self.ty(type_ids.as_ref()))
     }
 
     /// Constructs a `Type` object, representing either a primitive type
     /// or a union type (`either`).
     ///
     /// # Parameters
-    /// * `ids`: A slice of `usize` representing the internal IDs of the types to include.
+    /// * `ids`: Any collection that can be borrowed as a slice of `usize` identifiers
+    ///   (e.g., fixed-size arrays like `[101]`, vectors, or slices).
     ///
     /// # Return Value
     /// Returns a `Type<TypeId>`.
     /// - If `ids` contains one element, returns a primitive type.
     /// - If `ids` is empty, returns the root type.
     /// - Otherwise, returns an `either` union of the provided type IDs.
-    pub fn ty(&mut self, ids: &[usize]) -> Type<TypeId> {
-        match ids {
-            // Cas type unique : Zéro allocation, direct sur la pile.
+    #[inline]
+    pub fn ty<T>(&mut self, ids: T) -> Type<TypeId>
+    where
+        T: AsRef<[usize]>,
+    {
+        match ids.as_ref() {
+            // Single type case: Zero allocation, directly on the stack.
             [single_id] => Type::primitive(TypeId::from(*single_id)),
 
-            // Cas vide : Type racine.
+            // Empty case: Root type.
             [] => Type::root(),
 
-            // Cas multiple : On collect directement dans Type.
-            // Grâce à FromIterator, SmallVec gère lui-même le passage pile -> tas
-            // uniquement si ids.len() > 2.
-            _ => ids.iter().map(|&id| TypeId::from(id)).collect(),
+            // Multiple types case: Collect directly into Type.
+            // Thanks to FromIterator, SmallVec automatically handles stack-to-heap
+            // transition only if ids.len() exceeds its inline capacity.
+            slice => slice.iter().map(|&id| TypeId::from(id)).collect(),
         }
     }
 }

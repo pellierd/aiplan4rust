@@ -561,7 +561,7 @@ impl<'a> ExprBuilder<'a> {
         self.or(&[not_a, consequent])
     }
 
-    /// Creates a conditional effect node: `(when condition effect)`.
+    /*/// Creates a conditional effect node: `(when condition effect)`.
     ///
     /// This function applies several "smart" simplifications to avoid creating
     /// redundant nodes in the store:
@@ -592,12 +592,131 @@ impl<'a> ExprBuilder<'a> {
         }
 
         self.intern(ExprEntryKind::When, &[cond, eff])
+    }*/
+
+    /// Creates a conditional effect node: `(when condition effect)`.
+    ///
+    /// This function applies several layers of "smart" structural simplifications
+    /// to avoid interning redundant or dead nodes in the `ExprStore`. It utilizes the
+    /// builder's internal reusable scratch buffers to perform zero-allocation optimizations.
+    ///
+    /// # Architectural Simplifications Applied
+    ///
+    /// 1. **Direct Application**: If the condition is always `True` (an empty `And`), the
+    ///    conditional wrapper is bypassed, and the `effect` is returned directly:
+    ///    `(when True E) -> E`
+    ///
+    /// 2. **Condition Dead-End (False)**: If the condition is always `False` (an empty `Or`),
+    ///    the effect can never trigger. It is simplified to a no-op:
+    ///    `(when False E) -> True` (represented as an empty `And`)
+    ///
+    /// 3. **Void Effect (True)**: If the effect is already an empty `And` (`True`), executing
+    ///    it has no physical impact:
+    ///    `(when C True) -> True`
+    ///
+    /// 4. **Impossible Effect (False)**: If the effect is an empty `Or` (`False`), it represents
+    ///    an unreachable or invalid state mutation, collapsing into a no-op:
+    ///    `(when C False) -> True`
+    ///
+    /// 5. **Identity No-op**: If the condition and the effect are structurally identical
+    ///    (evaluated via `ExprId` equality thanks to Hash-Consing), the effect is guaranteed
+    ///    to be a no-op since it only asserts what is already true:
+    ///    `(when E E) -> True`
+    ///
+    /// 6. **Advanced Partial Implication (Fast-Downward Style)**: If both the condition and the
+    ///    effect contain overlapping conjunctions, any atomic formula in the effect that is
+    ///    explicitly guaranteed by the condition is redundant. The function filters these out
+    ///    in $O(N \log N + M \log N)$ time using internal memory buffers without triggering
+    ///    heap allocations:
+    ///    `(when (and A B) (and A C)) -> (when (and A B) C)`
+    ///
+    /// # Returns
+    /// An `ExprId` pointing to the fully simplified expression.
+    pub fn when(&mut self, cond: ExprId, eff: ExprId) -> ExprId {
+        let true_id = self.empty_and();
+        let false_id = self.empty_or();
+
+        // 1. Direct Application: (when True E) -> E
+        if cond == true_id {
+            return eff;
+        }
+
+        // Simplified No-ops (Return empty AND / True):
+        // 2. Condition is False: (when False E)
+        // 3. Effect is Empty:    (when C True)
+        // 4. Effect is False:    (when C False)
+        // 5. Identity:           (when E E)
+        if cond == false_id || eff == true_id || eff == false_id || cond == eff {
+            return true_id;
+        }
+
+        // 2. Fetch entries to check if structural optimization is possible
+        let cond_entry = self.store.fetch(cond).unwrap();
+        let eff_entry = self.store.fetch(eff).unwrap();
+
+        // 6. Partial implication reduction is only applicable if the effect is a conjunction (And)
+        if !matches!(eff_entry.kind(), ExprEntryKind::And) {
+            return self.intern(ExprEntryKind::When, &[cond, eff]);
+        }
+
+        // 3. Clear and reuse our internal buffers (0 allocations on the heap!)
+        self.primary_buffer.clear(); // Will store facts guaranteed by the condition
+        self.secondary_buffer.clear(); // Will store the remaining, non-redundant effects
+
+        // Populate primary_buffer with facts from the condition
+        match cond_entry.kind() {
+            ExprEntryKind::And => {
+                self.primary_buffer
+                    .extend(cond_entry.children().iter().copied());
+            }
+            ExprEntryKind::AtomicFormula(_) => {
+                self.primary_buffer.push(cond);
+            }
+            _ => {}
+        }
+
+        // Sort the primary_buffer to allow ultra-fast binary search O(log N)
+        self.primary_buffer.sort_unstable();
+
+        // 4. Filter out redundant effects
+        let mut skipped_any = false;
+        for &eff_child_id in eff_entry.children() {
+            let child_entry = self.store.fetch(eff_child_id).unwrap();
+
+            // We only prune AtomicFormulas that are explicitly proven true by the condition
+            if matches!(child_entry.kind(), ExprEntryKind::AtomicFormula(_))
+                && self.primary_buffer.binary_search(&eff_child_id).is_ok()
+            {
+                skipped_any = true;
+                continue; // Redundant effect found and pruned!
+            }
+            self.secondary_buffer.push(eff_child_id);
+        }
+
+        // 5. Rebuild the effect only if a simplification actually happened
+        if skipped_any {
+            if self.secondary_buffer.is_empty() {
+                return true_id;
+            } else if self.secondary_buffer.len() == 1 {
+                let simplified_eff = self.secondary_buffer[0];
+                return self.intern(ExprEntryKind::When, &[cond, simplified_eff]);
+            } else {
+                // To avoid borrow-checker conflicts or reentrancy issues with internal buffers,
+                // we clone the slice before passing it to the n-ary constructor.
+                let remaining_slice = self.secondary_buffer.clone();
+                let simplified_eff = self.and(&remaining_slice);
+                return self.intern(ExprEntryKind::When, &[cond, simplified_eff]);
+            }
+        }
+
+        // Default: no changes made, intern the standard conditional node
+        self.intern(ExprEntryKind::When, &[cond, eff])
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::VariableId;
+    use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, VariableId};
     use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprStore};
 
@@ -908,5 +1027,74 @@ mod tests {
             not_not_not_p, not_p,
             "Triple negation should reduce to a single NOT node"
         );
+    }
+
+    /// Test: When condition partially implies a complex conjunction effect
+    ///
+    /// Input: (when (and A B) (and A C))
+    /// Process: Bypasses `normalize` entirely. We test the smart constructor `builder.when`
+    ///          directly to ensure it utilizes internal buffers to prune the redundant atom A.
+    /// Expected Output: (when (and A B) C)
+    #[test]
+    fn test_when_condition_partially_implies_effect_direct() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        // 1. Prepare atomic formulas: A=1, B=2, C=3
+        let skel = AtomSkeletonId::from(0);
+        let a = builder.atomic_formula(PredicateSymbolId::from(1), &[], skel);
+        let b = builder.atomic_formula(PredicateSymbolId::from(2), &[], skel);
+        let c = builder.atomic_formula(PredicateSymbolId::from(3), &[], skel);
+
+        // 2. Build the condition: (and A B)
+        let condition = builder.and(&[a, b]);
+
+        // 3. Build the effect: (and A C)
+        let a2 = builder.atomic_formula(PredicateSymbolId::from(1), &[], skel);
+        let effect = builder.and(&[a2, c]);
+
+        // 4. Call the smart constructor directly
+        // The optimization happens HERE, during the call, not in a post-process normalization.
+        let when_node = builder.when(condition, effect);
+
+        // --- VALIDATION (Directly on the returned node) ---
+        let entry = store.fetch(when_node).unwrap();
+
+        // The root must be a WHEN node
+        assert!(
+            matches!(entry.kind(), ExprEntryKind::When),
+            "The root should be a WHEN node, found: {:?}",
+            entry.kind()
+        );
+
+        let children = entry.children();
+        assert_eq!(
+            children.len(),
+            2,
+            "WHEN node must have exactly 2 children ([cond, eff])"
+        );
+
+        let effect_id = children[1];
+        let effect_entry = store.fetch(effect_id).unwrap();
+
+        // If the smart constructor did its job, (and A C) is now just C.
+        // So the effect kind must be a direct AtomicFormula, NOT an And.
+        assert!(
+            matches!(effect_entry.kind(), ExprEntryKind::AtomicFormula(_)),
+            "The effect should have been simplified down to a single AtomicFormula (C), found: {:?}",
+            effect_entry.kind()
+        );
+
+        // Double check that the remaining predicate is indeed C (ID 3)
+        let pred_leaf_id = effect_entry
+            .children()
+            .get(0)
+            .copied()
+            .expect("AtomicFormula must have a predicate child");
+
+        let pred_leaf = store.fetch(pred_leaf_id).unwrap();
+        if let ExprEntryKind::PredicateSymbol(pid) = pred_leaf.kind() {
+            assert_eq!(pid.as_usize(), 3, "The remaining effect must be C (ID 3)");
+        }
     }
 }

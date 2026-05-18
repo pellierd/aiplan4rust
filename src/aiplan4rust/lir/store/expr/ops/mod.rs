@@ -1,6 +1,4 @@
 mod error;
-mod fnf;
-mod nnf;
-pub mod scratchpad;
+mod normalization;
+mod rewriting;
 pub mod simplification;
-mod tnf;
