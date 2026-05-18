@@ -10,6 +10,7 @@ use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::problem::symbol_registry::IndexTableError;
 use crate::aiplan4rust::lir::store::encoding::EncodingError;
+use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
@@ -34,6 +35,9 @@ use thiserror::Error;
 /// - [`InternalError`]: Generic internal errors indicating unexpected or unrecoverable conditions.
 #[derive(Debug, Error)]
 pub enum LirError {
+    #[error(transparent)]
+    ExprOpHC(#[from] ExprOpErrorHC),
+
     /// An error originating from the expression system.
     #[error(transparent)]
     Logic(#[from] ExprOpError),

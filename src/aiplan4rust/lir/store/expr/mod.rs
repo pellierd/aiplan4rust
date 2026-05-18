@@ -17,3 +17,5 @@ pub use id::ExprId;
 pub use kind::ExprEntryKind;
 pub use node::ExprNodeRef;
 pub use store::ExprStore;
+
+pub use self::ops::normalization::normalize;
