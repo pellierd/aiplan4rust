@@ -1,6 +1,6 @@
-use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
 use crate::aiplan4rust::lir::store::expr::ops::rewriting::{fnf, nnf, tnf, Scratchpad};
 use crate::aiplan4rust::lir::store::expr::{ExprBuilder, ExprId, ExprStore};
+use crate::aiplan4rust::lir::store::normalization::error::NormalizationError;
 
 /// Fonction de normalisation indépendante.
 ///
@@ -11,7 +11,7 @@ pub fn normalize(
     store: &mut ExprStore,
     scratch: &mut Scratchpad,
     is_durative: bool, // Ajout du flag
-) -> Result<ExprId, ExprOpErrorHC> {
+) -> Result<ExprId, NormalizationError> {
     let mut builder = ExprBuilder::new(store);
 
     // 1. Mise en forme logique (NNF)
@@ -42,7 +42,7 @@ mod tests {
     /// Input: (and (and A B) (and B C) (and (and A B) D))
     /// Expected: (and A B C D)
     #[test]
-    fn test_complex_nested_and_deduplication() -> Result<(), ExprOpErrorHC> {
+    fn test_complex_nested_and_deduplication() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -93,7 +93,7 @@ mod tests {
     ///   2. Deduplication -> (and A B C)
     /// Expected: (and A B C)
     #[test]
-    fn test_root_and_structural_simplification() -> Result<(), ExprOpErrorHC> {
+    fn test_root_and_structural_simplification() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -153,7 +153,7 @@ mod tests {
     ///   2. Deduplication -> (or A B C)
     /// Expected: (or A B C)
     #[test]
-    fn test_root_or_structural_simplification() -> Result<(), ExprOpErrorHC> {
+    fn test_root_or_structural_simplification() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -213,7 +213,7 @@ mod tests {
     ///   2. Deduplication -> (or A B C)
     /// Expected: (or A B C)
     #[test]
-    fn test_root_or_structural_duplicates_order_independent() -> Result<(), ExprOpErrorHC> {
+    fn test_root_or_structural_duplicates_order_independent() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -272,7 +272,7 @@ mod tests {
     ///   1. Flattening/Reduction -> A
     /// Expected: A (AtomicFormula)
     #[test]
-    fn test_and_single_child_reduction() -> Result<(), ExprOpErrorHC> {
+    fn test_and_single_child_reduction() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -326,7 +326,7 @@ mod tests {
     /// Input: (and)
     /// Expected: (and) [Logical True]
     #[test]
-    fn test_empty_and_node() -> Result<(), ExprOpErrorHC> {
+    fn test_empty_and_node() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -361,7 +361,7 @@ mod tests {
     /// Input: (or)
     /// Expected: (or) [Logical False]
     #[test]
-    fn test_empty_or_node() -> Result<(), ExprOpErrorHC> {
+    fn test_empty_or_node() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -396,7 +396,7 @@ mod tests {
     /// Input: (not (not A))
     /// Expected: A (AtomicFormula)
     #[test]
-    fn test_simplify_node_double_negation() -> Result<(), ExprOpErrorHC> {
+    fn test_simplify_node_double_negation() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -450,7 +450,7 @@ mod tests {
     /// Input: (not (and)) [not True]
     /// Expected: (or) [False]
     #[test]
-    fn test_simplify_node_not_over_empty_and() -> Result<(), ExprOpErrorHC> {
+    fn test_simplify_node_not_over_empty_and() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -489,7 +489,7 @@ mod tests {
     /// Input: (not (not (and A B)))
     /// Expected: (and A B)
     #[test]
-    fn test_simplify_node_double_negation_on_and() -> Result<(), ExprOpErrorHC> {
+    fn test_simplify_node_double_negation_on_and() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -540,7 +540,7 @@ mod tests {
     /// Input: (A -> (B -> C))
     /// Expected output after flattening: (or (not A) (not B) C)
     #[test]
-    fn test_nested_imply_left_to_right() -> Result<(), ExprOpErrorHC> {
+    fn test_nested_imply_left_to_right() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -603,7 +603,7 @@ mod tests {
     /// Input: ((A -> B) -> C)
     /// Expected output (with De Morgan applied): (or (and A (not B)) C)
     #[test]
-    fn test_nested_imply_right_to_left() -> Result<(), ExprOpErrorHC> {
+    fn test_nested_imply_right_to_left() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -670,7 +670,7 @@ mod tests {
     /// Input: (+ 1 (* 2 3) 4)
     /// Expected: 11
     #[test]
-    fn test_add_mul_nested() -> Result<(), ExprOpErrorHC> {
+    fn test_add_mul_nested() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -720,7 +720,7 @@ mod tests {
     /// Input: (- (/ 20 2) 3)
     /// Expected: 7
     #[test]
-    fn test_div_sub_nested() -> Result<(), ExprOpErrorHC> {
+    fn test_div_sub_nested() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -768,7 +768,7 @@ mod tests {
     /// Input: (+ (* 2 3) (- 10 4) (/ 20 5))
     /// Expected: 6 + 6 + 4 = 16
     #[test]
-    fn test_deeply_nested_operations() -> Result<(), ExprOpErrorHC> {
+    fn test_deeply_nested_operations() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -823,7 +823,7 @@ mod tests {
     /// Input: (+ 2 (* A 3))
     /// Expected: (+ 2 (* A 3)) (cannot simplify because A is a variable)
     #[test]
-    fn test_nested_with_variable_child() -> Result<(), ExprOpErrorHC> {
+    fn test_nested_with_variable_child() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -904,7 +904,7 @@ mod tests {
     /// Input: (imply A B)
     /// Expected: (or (not A) B)
     #[test]
-    fn test_normalize_simple_imply() -> Result<(), ExprOpErrorHC> {
+    fn test_normalize_simple_imply() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -962,7 +962,7 @@ mod tests {
     /// Process: (or (not (not (not A))) B) -> (or (not A) B)
     /// Expected: (or (not A) B)
     #[test]
-    fn test_normalize_with_double_negation() -> Result<(), ExprOpErrorHC> {
+    fn test_normalize_with_double_negation() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -1036,7 +1036,7 @@ mod tests {
     /// Input: (imply A (and B C))
     /// Expected: (or (not A) (and B C))
     #[test]
-    fn test_normalize_with_and_or_nodes() -> Result<(), ExprOpErrorHC> {
+    fn test_normalize_with_and_or_nodes() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -1107,7 +1107,7 @@ mod tests {
     /// Input: (imply (forall (?X - T1) (A)) (exists (?Y - T2) (B)))
     /// Expected Output (with quantifier elimination and NNF): (or B (not A))
     #[test]
-    fn test_normalize_with_quantifiers() -> Result<(), ExprOpErrorHC> {
+    fn test_normalize_with_quantifiers() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -1191,7 +1191,7 @@ mod tests {
     /// Process: (when True Effect) -> Effect
     /// Expected Output: (and A B C)
     #[test]
-    fn test_when_empty_and_complex_effect() -> Result<(), ExprOpErrorHC> {
+    fn test_when_empty_and_complex_effect() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -1252,7 +1252,7 @@ mod tests {
     /// Process: (when False Effect) -> True (Empty And)
     /// Expected Output: (and)
     #[test]
-    fn test_when_empty_or_complex_effect() -> Result<(), ExprOpErrorHC> {
+    fn test_when_empty_or_complex_effect() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -1303,7 +1303,7 @@ mod tests {
     ///          the effect is redundant.
     /// Expected Output: (and)
     #[test]
-    fn test_when_condition_equal_effect() -> Result<(), ExprOpErrorHC> {
+    fn test_when_condition_equal_effect() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);
@@ -1355,7 +1355,7 @@ mod tests {
     /// Process: A conditional effect that does nothing is itself a no-op.
     /// Expected Output: (and)
     #[test]
-    fn test_when_nontrivial_condition_empty_effect() -> Result<(), ExprOpErrorHC> {
+    fn test_when_nontrivial_condition_empty_effect() -> Result<(), NormalizationError> {
         let mut store = ExprStore::new();
         let mut scratch = Scratchpad::with_capacity(64);
         let mut builder = ExprBuilder::new(&mut store);

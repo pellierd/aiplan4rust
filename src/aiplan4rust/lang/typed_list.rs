@@ -28,7 +28,7 @@ pub const OPTIMAL_LIST_CAPACITY: usize = 8;
 /// # Generic Parameters
 /// - `SID`: The identifier type for the symbol (e.g., `SymbolId`, `VariableId`).
 /// - `TID`: The identifier type for the symbol's typing (e.g., `SymbolId`, `TypeId`).
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedList<SID: Id, TID: Id> {
     /// The internal storage, stack-allocated for small lists.
     typed_symbols: SmallVec<[TypedSymbol<SID, TID>; OPTIMAL_LIST_CAPACITY]>,
@@ -269,6 +269,27 @@ where
     }
 }
 
+impl<SID: Id, TID: Id> Default for TypedList<SID, TID> {
+    /// Creates a new, empty `TypedList` using its default configuration.
+    ///
+    /// This is identical to calling [`TypedList::new`], initializing the underlying
+    /// storage on the stack with a capacity of [`OPTIMAL_LIST_CAPACITY`] (8)
+    /// without triggering any dynamic heap allocations.
+    ///
+    /// # Examples
+    /// ```
+    /// use aiplan4rust::TypedList;
+    /// use aiplan4rust::lir::id::{SymbolId, TypeId};
+    ///
+    /// let list: TypedList<SymbolId, TypeId> = Default::default();
+    /// assert!(list.is_empty());
+    /// ```
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RemapSymbol for TypedList<SymbolId, SymbolId> {
     /// Updates all symbols within the list using a provided mapping table.
     ///
@@ -335,6 +356,34 @@ where
     #[inline]
     fn extend<I: IntoIterator<Item = TypedSymbol<SID, TID>>>(&mut self, iter: I) {
         self.typed_symbols.extend(iter);
+    }
+}
+
+impl<'a, SID, TID> Extend<&'a TypedSymbol<SID, TID>> for TypedList<SID, TID>
+where
+    SID: Id + 'a,
+    TID: Id + 'a,
+    TypedSymbol<SID, TID>: Clone,
+{
+    /// Extends the list by cloning elements from an iterator of borrowed symbols.
+    ///
+    /// # Performance
+    /// This operation iterates over the references, clones each [`TypedSymbol`]
+    /// (including its underlying type member signatures), and appends them to the list.
+    /// `SmallVec` automatically optimizes this by evaluating the iterator's bounds
+    /// to reserve memory upfront if a heap spill is required.
+    ///
+    /// # Examples
+    /// ```
+    /// use aiplan4rust::TypedList;
+    ///
+    /// let mut list = TypedList::new();
+    /// let references = vec![&sym1, &sym2];
+    /// list.extend(references);
+    /// ```
+    #[inline]
+    fn extend<I: IntoIterator<Item = &'a TypedSymbol<SID, TID>>>(&mut self, iter: I) {
+        self.typed_symbols.extend(iter.into_iter().cloned());
     }
 }
 
@@ -405,6 +454,23 @@ impl<'a, SID: Id, TID: Id> IntoIterator for &'a TypedList<SID, TID> {
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.typed_symbols.iter()
+    }
+}
+
+impl<'a, SID: Id, TID: Id> IntoIterator for &'a mut TypedList<SID, TID> {
+    /// The type of the elements being iterated over (mutably borrowed symbols).
+    type Item = &'a mut TypedSymbol<SID, TID>;
+    /// A standard mutable slice iterator, optimized by the compiler.
+    type IntoIter = std::slice::IterMut<'a, TypedSymbol<SID, TID>>;
+
+    /// Creates a mutable borrowing iterator from a mutable reference to `TypedList`.
+    ///
+    /// # Performance
+    /// Delegates to the underlying mutable slice iterator. This is highly efficient,
+    /// avoiding heap allocations and enabling the compiler to apply advanced loop optimizations.
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.typed_symbols.iter_mut()
     }
 }
 

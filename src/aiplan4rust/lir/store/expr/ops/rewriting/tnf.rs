@@ -55,8 +55,8 @@
 //! and memory-efficient, even for very large or deeply nested logical formulas.
 
 use crate::aiplan4rust::lir::store::expr::builder::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr::iter::scratchpad::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::expr::ops::rewriting::scratchpad::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 use smallvec::SmallVec;
 

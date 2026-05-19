@@ -1,7 +1,7 @@
-use crate::aiplan4rust::lir::store::expr;
-use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
 use crate::aiplan4rust::lir::store::expr::ops::rewriting::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::ExprStore;
+use crate::aiplan4rust::lir::store::normalization::error::NormalizationError;
+use crate::aiplan4rust::lir::store::normalization::logic::expr;
 use crate::aiplan4rust::lir::store::problem::TaskNetwork;
 
 /// Normalizes a `TaskNetwork` using the canonical expression normalization pipeline.
@@ -24,7 +24,7 @@ pub fn normalize(
     network: &mut TaskNetwork,
     store: &mut ExprStore,
     scratch: &mut Scratchpad,
-) -> Result<(), ExprOpErrorHC> {
+) -> Result<(), NormalizationError> {
     // Task network constraints dictate HTN state ordering and bounds, which are non-durative.
     let normalized_constraints =
         expr::normalize(network.logical_constraints(), store, scratch, false)?;

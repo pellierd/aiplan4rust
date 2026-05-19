@@ -1,10 +1,8 @@
-use crate::aiplan4rust::lir::store::expr;
-use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
 use crate::aiplan4rust::lir::store::expr::ops::rewriting::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::ExprStore;
-use crate::aiplan4rust::lir::store::normalization::logic::{
-    action, derived_predicate, initial_task_network, method,
-};
+use crate::aiplan4rust::lir::store::normalization::error::NormalizationError;
+use crate::aiplan4rust::lir::store::normalization::logic::{action, derived_predicate, method};
+use crate::aiplan4rust::lir::store::normalization::logic::{expr, task_network};
 use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 
 /// Normalizes all logical expression components of a `LiftedProblem`.
@@ -30,7 +28,7 @@ pub fn normalize(
     problem: &mut NewLiftedProblem,
     store: &mut ExprStore,
     scratch: &mut Scratchpad,
-) -> Result<(), ExprOpErrorHC> {
+) -> Result<(), NormalizationError> {
     // 1. Global Problem-level expressions (non-durative semantics context)
     let normalized_goal = expr::normalize(problem.goal(), store, scratch, false)?;
     problem.set_goal(normalized_goal);
@@ -61,8 +59,13 @@ pub fn normalize(
         method::normalize(method, store, scratch)?;
     }
 
-    // 5. Normalize the initial task network constraints
-    initial_task_network::normalize(problem.initial_task_network_mut(), store, scratch)?;
+    // --- 5. Initial Task Network Constraints ---
+    // Normalize the initial task network's logical constraints.
+    task_network::normalize(
+        problem.initial_task_network_mut().task_network_mut(),
+        store,
+        scratch,
+    )?;
 
     Ok(())
 }

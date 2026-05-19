@@ -1,66 +1,62 @@
 use crate::aiplan4rust::lir::store::expr::ops::rewriting::Scratchpad;
-use crate::aiplan4rust::lir::store::normalization::logic;
+use crate::aiplan4rust::lir::store::normalization::error::NormalizationError;
+use crate::aiplan4rust::lir::store::normalization::{logic, typing};
 use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
-use crate::aiplan4rust::lir::LirError;
 
-/// Performs the complete normalization pipeline for a [`LiftedProblem`].
+/// Performs the complete normalization pipeline for a [`NewLiftedProblem`].
 ///
-/// This function is the primary entry point for transforming a "raw" Lifted Intermediate
-/// Representation (LIR) into a "canonical" form ready for the grounding process.
-/// The transformation is executed in two distinct stages to decouple logical
-/// simplification from structural type resolution.
+/// This function acts as the primary orchestrator for transforming a "raw" Lifted Intermediate
+/// Representation (LIR) problem into a canonical, flat form optimized for the grounding engine.
+/// To maximize CPU cache efficiency and prevent runtime allocations, it extracts the internal
+/// expression storage and shares a single, pre-allocated [`Scratchpad`] scratch memory across
+/// all pipeline passes.
 ///
 /// # The Normalization Pipeline
 ///
-/// The process follows a strict order to ensure data integrity and performance:
+/// The orchestration follows a strict deterministic sequence:
 ///
 /// 1. **Logical Normalization ([`logic::normalize`]):**
-///    - Rewrites logical connectors (e.g., eliminating `imply` in favor of `or` and `not`).
-///    - Pushes negations down to atomic formulas (Negation Normal Form).
-///    - Simplifies boolean expressions and arithmetic constants.
-///    - *Goal:* Ensure the expression tree is semantically as simple as possible.
+///    - Rewrites logical implications and equivalences into base primitives (`and`, `or`, `not`).
+///    - Propagates negations inward to achieve a strict Negation Normal Form (NNF).
+///    - Const-folds arithmetic operations and prunes redundant boolean sub-trees.
 ///
-/// 2. **Structural Normalization ([`typing::normalize`]):**
-///    - Scans all expressions for ad-hoc `Either` type signatures.
-///    - Materializes these anonymous unions into formal, named types within the global
-///      [`SymbolRegistry`].
-///    - Updates all variable references and parameter lists to point to these new atomic IDs.
-///    - *Goal:* Eliminate complex type polymorphism to simplify the Grounder's work.
+/// 2. **Type Normalization ([`typing::normalize`]):**
+///    - Discovers ad-hoc `Either` union type allocations nested inside expressions or parameters.
+///    - Unifies and materializes these anonymous variations into permanent, atomic type definitions.
+///    - Mutates all reference sites in-place to shift complex polymorphism down to $O(1)$ ID lookups.
 ///
 /// # Errors
 ///
-/// Returns a [`LirError`] if:
-/// * An expression is malformed during logical simplification.
-/// * The type materialization phase fails to register a new anonymous type due to
-///   naming collisions or registry inconsistencies.
+/// Returns a [`NormalizationError`] if:
+/// * Expression manipulation discovers structurally malformed or broken AST links.
+/// * Type discovery encounters unresolvable identifiers or registry indexing collisions.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use crate::aiplan4rust::lir::problem::LiftedProblem;
-/// use crate::aiplan4rust::lir::passes::normalization;
+/// use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
+/// use crate::aiplan4rust::lir::store::normalization;
 ///
-/// # fn example(mut problem: LiftedProblem) -> Result<(), Box<dyn std::error::Error>> {
-/// // Transform the raw encoded problem into a grounded-ready problem
+/// # fn run_pass(mut problem: NewLiftedProblem) -> Result<(), normalization::error::NormalizationError> {
+/// // Execute logical simplification and type flattening in a single unified run
 /// normalization::normalize(&mut problem)?;
 /// # Ok(())
 /// # }
 /// ```
-pub fn normalize(problem: &mut NewLiftedProblem) -> Result<(), LirError> {
-    // 1. Extraction du store pour briser l'aliasing du Borrow Checker
+pub fn normalize(problem: &mut NewLiftedProblem) -> Result<(), NormalizationError> {
+    // 1. Extract the expression store to decouple ownership and bypass Borrow Checker aliasing constraints.
     let mut store = problem.take_store();
 
-    // 2. Allocation unique du Scratchpad pour tout le pipeline
+    // 2. Allocate a single Scratchpad memory buffer to be reused throughout the entire pipeline.
     let mut scratch = Scratchpad::new();
 
-    // 3. Exécution de la Passe 1 : Logique
-    // On convertit l'erreur de sous-passe en ton erreur globale LirError si nécessaire (.map_err ou Into)
+    // 3. Execute Pass 1: Logical Normalization (NNF conversion, pruning, and const-folding).
     logic::normalize(problem, &mut store, &mut scratch)?;
 
-    // 4. Exécution de la Passe 2 : Typage (Elle profitera du même store et scratchpad !)
-    // typing::normalize(problem, &mut store, &mut scratch)?;
+    // 4. Execute Pass 2: Type Normalization (Discovery, unification, and atomic materialization).
+    typing::normalize(problem, &mut store, &mut scratch)?;
 
-    // 5. Restitution du store finalisé au problème
+    // 5. Restore the finalized and canonicalized expression store back to the problem structure.
     problem.set_store(store);
 
     Ok(())

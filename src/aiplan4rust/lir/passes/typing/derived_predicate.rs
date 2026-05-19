@@ -16,10 +16,10 @@
 //! This ensures that when the grounder evaluates an axiom, it doesn't encounter
 //! complex type unions, significantly simplifying the inference engine.
 
+use crate::aiplan4rust::lir::passes::typing::TypeRegistry;
+use crate::aiplan4rust::lir::passes::typing::{atomic_formula_skeleton, expr};
 use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::passes::typing::{atomic_formula_skeleton, expr};
-use crate::aiplan4rust::lir::passes::typing::TypeRegistry;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Normalizes a derived predicate definition in-place.

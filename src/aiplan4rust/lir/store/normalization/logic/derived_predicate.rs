@@ -1,7 +1,7 @@
-use crate::aiplan4rust::lir::store::expr;
-use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
 use crate::aiplan4rust::lir::store::expr::ops::rewriting::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::ExprStore;
+use crate::aiplan4rust::lir::store::normalization::error::NormalizationError;
+use crate::aiplan4rust::lir::store::normalization::logic::expr;
 use crate::aiplan4rust::lir::store::problem::DerivedPredicateDef;
 
 /// Normalizes the logical expression of a `DerivedPredicate`.
@@ -24,7 +24,7 @@ pub fn normalize(
     derived_predicate: &mut DerivedPredicateDef,
     store: &mut ExprStore,
     scratch: &mut Scratchpad,
-) -> Result<(), ExprOpErrorHC> {
+) -> Result<(), NormalizationError> {
     // Derived predicates represent static logical rules, so durative logic is false.
     let normalized_body = expr::normalize(derived_predicate.body(), store, scratch, false)?;
 

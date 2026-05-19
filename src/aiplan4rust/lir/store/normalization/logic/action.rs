@@ -1,7 +1,7 @@
-use crate::aiplan4rust::lir::store::expr;
-use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
 use crate::aiplan4rust::lir::store::expr::ops::rewriting::Scratchpad;
 use crate::aiplan4rust::lir::store::expr::ExprStore;
+use crate::aiplan4rust::lir::store::normalization::error::NormalizationError;
+use crate::aiplan4rust::lir::store::normalization::logic::expr;
 use crate::aiplan4rust::lir::store::problem::ActionDef;
 
 /// Normalizes an `Action` using the canonical expression normalization pipeline.
@@ -24,7 +24,7 @@ pub fn normalize(
     action: &mut ActionDef,
     store: &mut ExprStore,
     scratch: &mut Scratchpad,
-) -> Result<(), ExprOpErrorHC> {
+) -> Result<(), NormalizationError> {
     let is_durative = action.is_durative();
 
     // 1. Duration (only applicable for durative actions)
