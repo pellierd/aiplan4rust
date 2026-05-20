@@ -23,6 +23,14 @@ pub enum ExprOpErrorHC {
         /// The kind of the nested temporal operator that is forbidden.
         nested_kind: ExprEntryKind,
     },
+
+    /// A required sub-expression variant was missing from the scratchpad structural memoization cache.
+    #[error("Cache Miss: A transformed child expression was expected but missing from the local scratchpad cache.")]
+    CacheMiss,
+
+    /// A structural logic error occurred where the root node failed to be reconstructed by the NNF loop.
+    #[error("NNF Logic Error: The DFS transformation loop finished but the root expression was not successfully reconstructed.")]
+    NnfLogicError,
 }
 
 impl ExprOpErrorHC {
@@ -39,6 +47,18 @@ impl ExprOpErrorHC {
             nested_kind,
         }
         .trace()
+    }
+
+    /// Creates a `CacheMiss` error variant and captures the call site.
+    #[track_caller]
+    pub fn cache_miss() -> Self {
+        ExprOpErrorHC::CacheMiss.trace()
+    }
+
+    /// Creates a `NnfLogicError` error variant and captures the call site.
+    #[track_caller]
+    pub fn nnf_logic_error() -> Self {
+        ExprOpErrorHC::NnfLogicError.trace()
     }
 }
 

@@ -30,27 +30,35 @@ pub fn normalize(
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
     // 1. Global Problem-level expressions (non-durative semantics context)
+    println!("Normalizing Goal expressions...\n {}", problem.goal());
+
     let normalized_goal = expr::normalize(problem.goal(), store, scratch, false)?;
     problem.set_goal(normalized_goal);
 
+    println!("Normalizing Domain Constraints expressions...");
     let normalized_dom_constraints =
         expr::normalize(problem.domain_constraints(), store, scratch, false)?;
     problem.set_domain_constraints(normalized_dom_constraints);
 
+    println!("Normalizing Problem Constraints expressions...");
     let normalized_prob_constraints =
         expr::normalize(problem.problem_constraints(), store, scratch, false)?;
     problem.set_problem_constraints(normalized_prob_constraints);
+
+    println!("Normalizing Metric expressions...");
 
     let normalized_metric = expr::normalize(problem.metric_spec(), store, scratch, false)?;
     problem.set_metric_spec(normalized_metric);
 
     // 2. Normalize all derived predicates
     for derived_predicate in problem.derived_predicate_defs_mut() {
+        println!("Normalizing Derive predicate expressions...");
         derived_predicate::normalize(derived_predicate, store, scratch)?;
     }
 
     // 3. Normalize all actions (internally manages durative vs non-durative branches)
     for action in problem.action_defs_mut() {
+        println!("Normalizing Action...");
         action::normalize(action, store, scratch)?;
     }
 

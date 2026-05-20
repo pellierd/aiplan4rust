@@ -99,6 +99,11 @@ pub fn to_fnf(
     scratch: &mut Scratchpad,
     recursive: bool,
 ) -> Result<ExprId, ExprOpErrorHC> {
+    // If the ID is NONE, return it untouched to prevent the pipeline from crashing.
+    if expr.is_none() {
+        return Ok(expr);
+    }
+
     // --- 1. PREPARATION ---
     // Deconstruct the input and separate factorable AND-groups from standalone nodes.
     let (naked_literals, initial_groups) = prepare_input(expr, builder)?;

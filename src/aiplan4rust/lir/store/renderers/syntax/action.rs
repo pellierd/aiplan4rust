@@ -19,7 +19,6 @@ pub fn render(
     } else {
         ":action"
     };
-    // On résout le nom de l'action via le contexte
     writeln!(
         f,
         "  ({} {}",
@@ -27,35 +26,34 @@ pub fn render(
         ctx.resolve_action_symbol(action.name())
     )?;
 
-    // 2. Paramètres : (?x - type ?y - type)
+    // 2. Paramètres
     write!(f, "    :parameters (")?;
     typed_list::render_typed_variable_list(f, action.parameters().as_slice(), ctx)?;
     writeln!(f, ")")?;
 
     // 3. Durée (Spécifique aux actions duratives)
     if let Some(duration_expr) = action.duration() {
-        write!(f, "    :duration ")?;
-        expr::render(f, duration_expr, ctx)?;
+        writeln!(f, "    :duration")?;
+        expr::render_with_indent(f, duration_expr, ctx, 1)?;
         writeln!(f)?;
     }
 
     // 4. Préconditions / Conditions
-    // On vérifie si l'expression n'est pas un (and) vide pour éviter les blocs inutiles
-    if !action.precondition().is_some() {
+    if action.precondition().is_some() {
         let cond_label = if is_durative {
             ":condition"
         } else {
             ":precondition"
         };
-        write!(f, "    {} ", cond_label)?;
-        expr::render(f, action.precondition(), ctx)?;
+        writeln!(f, "    {}", cond_label)?;
+        expr::render_with_indent(f, action.precondition(), ctx, 1)?;
         writeln!(f)?;
     }
 
     // 5. Effets
-    if !action.effect().is_some() {
-        write!(f, "    :effect ")?;
-        expr::render(f, action.effect(), ctx)?;
+    if action.effect().is_some() {
+        writeln!(f, "    :effect")?;
+        expr::render_with_indent(f, action.effect(), ctx, 1)?;
         writeln!(f)?;
     }
 

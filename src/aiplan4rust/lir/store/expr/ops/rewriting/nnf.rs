@@ -39,110 +39,144 @@ use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprId};
 /// Converts a logical expression to Negation Normal Form (NNF).
 ///
 /// In NNF, all negations are pushed down to the literal level (atoms), and the only
-/// allowed boolean operators are AND and OR. This implementation also handles
-/// quantified expressions (Forall/Exists) by applying their respective dualities.
+/// allowed boolean operators are AND and OR. This implementation also handles quantified
+/// expressions (Forall/Exists) by applying their respective dualities.
 ///
 /// The conversion is performed iteratively using a Depth-First Search (DFS) strategy
-/// facilitated by a [`Scratchpad`] to avoid recursion and minimize heap allocations.
+/// facilitated by a [`Scratchpad`] to avoid deep recursion and minimize heap allocations.
 ///
-/// # Logic
+/// # Polarity Cache Encoding
 ///
-/// The algorithm operates in three distinct phases within a single loop:
-/// 1. **Top-Down (Descent)**: Expressions are decomposed, and their children are pushed
-///    onto the stack with the current negation state (polarity).
-/// 2. **Memoization**: Each sub-expression is processed only once per polarity to
-///    handle Directed Acyclic Graph (DAG) structures efficiently.
-/// 3. **Bottom-Up (Reconstruction)**: Once children are transformed, the parent node
-///    is reconstructed using De Morgan's laws or quantifier duality.
+/// To optimize memoization within the scratchpad, structural IDs and their contextual
+/// negations are bit-packed into a unified `usize` key:
+/// * **Bits `1..61`**: Contain the raw structural index of the expression (`id.as_usize()`),
+///   shifted left by 1 bit. This strips away any ephemeral system flags from the upper bits.
+/// * **Bit `0` (LSB)**: Stores the negation polarity state (`0` for `negate = false`, `1` for `negate = true`).
+///
+/// If the input identifier matches `RAW_NONE`, the evaluation short-circuits immediately.
+///
+/// # Algorithm Phases
+///
+/// The transformation operates in three distinct logical phases within a single iterative loop:
+/// 1. **Top-Down (Descent)**: Expressions are analyzed, and their children are written to
+///    the arena buffer segment. The children are then pushed onto the DFS stack, inheriting
+///    or flipping the accumulated negation polarity.
+/// 2. **Memoization**: Each unique sub-expression combination is processed exactly once
+///    per polarity context to efficiently handle Directed Acyclic Graph (DAG) structures.
+/// 3. **Bottom-Up (Reconstruction)**: Once all dependent child structures are transformed,
+///    the parent node is rebuilt using De Morgan's laws or quantifier dualities.
 ///
 /// # Arguments
 ///
-/// * `root_id` - The [`ExprId`] of the root node to transform.
-/// * `builder` - A mutable reference to the [`ExprBuilder`] used to intern new nodes.
-/// * `scratch` - A mutable reference to a [`Scratchpad`] providing reusable buffers
-///   for stack operations, memoization, and child management.
+/// * `id` - The structural [`ExprId`] representing the root node to transform.
+/// * `builder` - A mutable reference to the [`ExprBuilder`] used to intern newly generated nodes.
+/// * `scratch` - A mutable reference to a reusable [`Scratchpad`] providing stable allocations
+///   for stack operations, cached memoization, and localized child buffers.
 ///
 /// # Returns
 ///
-/// * `Ok(ExprId)` - The ID of the resulting expression in NNF.
-/// * `Err(ExprOpErrorHC)` - An error if node fetching or construction fails.
-///
-/// # Memory Management
-///
-/// This function uses the `scratch.children_buffer()` as an arena-style stack. Each
-/// non-processed node stores its children's IDs in a segment of the buffer. Upon
-/// reconstruction (the `processed` phase), the segment is retrieved to look up
-/// transformed children and then truncated to free space for other branches.
+/// * `Ok(ExprId)` - The identifier pointing to the newly generated NNF expression.
+/// * `Err(ExprOpErrorHC)` - An internal operational error if structural retrieval fails,
+///   if a structural cache miss occurs ([`ExprOpErrorHC::CacheMiss`]), or if the root node
+///   fails to reconstruct ([`ExprOpErrorHC::NnfLogicError`]).
 pub fn to_nnf(
-    root_id: ExprId,
+    id: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
 ) -> Result<ExprId, ExprOpErrorHC> {
+    if id.is_none() {
+        return Ok(id);
+    }
+
     scratch.clear();
-    let root_encoded = ExprId::from(encode(root_id, false));
+    let root_encoded = ExprId::new(encode(id.as_usize(), false));
+    let mut final_id = None;
+
     scratch.push(root_encoded, false);
 
-    while let Some((encoded_id, processed)) = scratch.pop() {
-        let (curr_id, negate) = decode(encoded_id.as_usize());
+    while let Some((packed_id, processed)) = scratch.pop() {
+        let (curr_id, negate) = decode(packed_id.value);
+
+        if !curr_id.is_valid() {
+            continue;
+        }
 
         if !processed {
-            // Check memoization cache to avoid redundant work in DAGs
-            if scratch.get(encoded_id).is_some() {
+            if scratch.get(packed_id).is_some() {
                 continue;
             }
 
-            // --- PHASE 3 : DESCENT (Top-Down) ---
-            // Isolate builder access to retrieve kind and children
-            let (kind, start, end) = {
+            // --- PHASE 1: DESCENT (Top-Down) ---
+            let (is_not, start, end) = {
                 let entry = builder.fetch(curr_id)?;
                 let (s, e) = scratch.prepare_children_segment(entry.children());
-                (entry.kind().clone(), s, e)
+                (matches!(entry.kind(), ExprEntryKind::Not), s, e)
             };
 
-            // Mark this node as "to be reconstructed" after its children
-            scratch.push(encoded_id, true);
+            scratch.push(packed_id, true);
 
-            if matches!(kind, ExprEntryKind::Not) {
-                // For NOT nodes, we simply flip the negation state for the single child
+            if is_not {
                 let child_id = scratch.children_buffer()[start];
-                scratch.push(ExprId::from(encode(child_id, !negate)), false);
+                if child_id.is_valid() {
+                    let child_packed = ExprId::new(encode(child_id.as_usize(), !negate));
+                    scratch.push(child_packed, false);
+                }
             } else {
-                // Push children onto the stack to process them first
-                // Reversed to maintain the original logical order
                 for i in (start..end).rev() {
                     let child_id = scratch.children_buffer()[i];
-                    scratch.push(ExprId::from(encode(child_id, negate)), false);
+                    if child_id.is_valid() {
+                        let child_packed = ExprId::new(encode(child_id.as_usize(), negate));
+                        scratch.push(child_packed, false);
+                    }
                 }
             }
         } else {
-            // --- PHASE 2 : RECONSTRUCTION (Bottom-Up) ---
+            // --- PHASE 2: RECONSTRUCTION (Bottom-Up) ---
             let (kind, entry_child_count) = {
                 let entry = builder.fetch(curr_id)?;
                 (entry.kind().clone(), entry.children().len())
             };
 
-            // Identify the segment in the children arena corresponding to this node
             let (start, end) = scratch.last_segment_indices(entry_child_count);
 
             let new_id = match &kind {
                 ExprEntryKind::Not => {
-                    // Logic for double negation or pushing negation further down
                     let child_id = scratch.children_buffer()[start];
-                    scratch.fetch(ExprId::from(encode(child_id, !negate)))
+                    let target_packed = ExprId::new(encode(child_id.as_usize(), !negate));
+
+                    match scratch.get(target_packed) {
+                        Some(res) => res,
+                        None => {
+                            let fallback_packed = ExprId::new(encode(child_id.as_usize(), negate));
+                            scratch
+                                .get(fallback_packed)
+                                .ok_or_else(|| ExprOpErrorHC::cache_miss())?
+                        }
+                    }
                 }
 
                 ExprEntryKind::And | ExprEntryKind::Or => {
                     let is_and = matches!(kind, ExprEntryKind::And);
 
-                    // Collect already transformed children from the scratchpad cache
                     scratch.build_buffer_mut().clear();
                     for i in start..end {
-                        let c = scratch.children_buffer()[i];
-                        let transformed = scratch.fetch(ExprId::from(encode(c, negate)));
+                        let child_id = scratch.children_buffer()[i];
+                        let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
+
+                        let transformed = match scratch.get(target_packed) {
+                            Some(res) => res,
+                            None => {
+                                let fallback_packed =
+                                    ExprId::new(encode(child_id.as_usize(), !negate));
+
+                                scratch
+                                    .get(fallback_packed)
+                                    .ok_or_else(|| ExprOpErrorHC::cache_miss())?
+                            }
+                        };
                         scratch.build_buffer_mut().push(transformed);
                     }
 
-                    // Apply De Morgan's laws to decide the new operator
                     if apply_de_morgan(is_and, negate) {
                         builder.and(scratch.build_buffer())
                     } else {
@@ -153,9 +187,18 @@ pub fn to_nnf(
                 ExprEntryKind::Forall(vars) | ExprEntryKind::Exists(vars) => {
                     let is_forall = matches!(kind, ExprEntryKind::Forall(_));
                     let child_id = scratch.children_buffer()[start];
-                    let body = scratch.fetch(ExprId::from(encode(child_id, negate)));
+                    let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
 
-                    // Apply Quantifier Duality (¬∀ -> ∃, ¬∃ -> ∀)
+                    let body = match scratch.get(target_packed) {
+                        Some(res) => res,
+                        None => {
+                            let fallback_packed = ExprId::new(encode(child_id.as_usize(), !negate));
+                            scratch
+                                .get(fallback_packed)
+                                .ok_or_else(|| ExprOpErrorHC::cache_miss())?
+                        }
+                    };
+
                     if transform_quantifier(is_forall, negate) {
                         builder.forall(vars.clone(), body)?
                     } else {
@@ -164,8 +207,6 @@ pub fn to_nnf(
                 }
 
                 _ => {
-                    // Terminal nodes (Atoms, Fluents, etc.)
-                    // Re-intern the kind, applying a NOT if the cumulative negation is odd
                     let base = builder.intern(kind.clone(), &scratch.children_buffer()[start..end]);
                     if negate {
                         builder.not(base)
@@ -175,74 +216,73 @@ pub fn to_nnf(
                 }
             };
 
-            // Clean up the children arena for this depth and memoize result
             scratch.children_buffer_mut().truncate(start);
-            scratch.insert(encoded_id, new_id);
+            scratch.insert(packed_id, new_id);
+
+            if packed_id == root_encoded {
+                final_id = Some(new_id);
+            }
         }
     }
 
-    // The root result is now stored in the scratchpad cache
-    Ok(scratch.fetch(root_encoded))
+    final_id.ok_or_else(|| ExprOpErrorHC::nnf_logic_error())
 }
 
-/// Determines the effective boolean operator (AND or OR) after applying a negation.
+/// Determines the effective boolean operator (AND or OR) after applying a negation polarity.
 ///
-/// This helper implements De Morgan's laws by deciding whether the resulting node
-/// should be a conjunction or a disjunction based on the current negation state.
+/// This helper handles De Morgan's laws ($\neg(A \land B) \equiv \neg A \lor \neg B$ and
+/// $\neg(A \lor B) \equiv \neg A \land \neg B$) using a branchless XOR-like equivalence.
 ///
-/// # Arguments
+/// # Truth Table
 ///
-/// * `is_and` - A boolean indicating if the original operator is a conjunction (AND).
-/// * `negate` - A boolean indicating if a negation is being pushed down from a parent.
-///
-/// # Returns
-///
-/// * `true` if the resulting operator is an **AND**.
-/// * `false` if the resulting operator is an **OR**.
+/// | `is_and` | `negate` | Output (`true` = AND, `false` = OR) | Semic-equivalent |
+/// | :---:    | :---:    | :---:                               | :---             |
+/// | `true`   | `false`  | `true`                              | $\land$ stays $\land$ |
+/// | `true`   | `true`   | `false`                             | $\neg\land$ becomes $\lor$ |
+/// | `false`  | `false`  | `false`                             | $\lor$ stays $\lor$ |
+/// | `false`  | `true`   | `true`                              | $\neg\lor$ becomes $\land$ |
 #[inline(always)]
 fn apply_de_morgan(is_and: bool, negate: bool) -> bool {
-    // If negate is false, keep the original operator.
-    // If negate is true, flip it (AND becomes OR, OR becomes AND).
-    // Logic: is_and NXOR negate
     is_and == !negate
 }
 
-/// Determines the effective quantifier (Forall or Exists) after applying a negation.
+/// Determines the effective quantifier (Forall or Exists) after applying a negation polarity.
 ///
-/// Follows the equivalence: ¬∀x.P ≡ ∃x.¬P and ¬∃x.P ≡ ∀x.¬P.
+/// This helper handles first-order logic quantifier duality ($\neg\forall x. P(x) \equiv \exists x. \neg P(x)$
+/// and $\neg\exists x. P(x) \equiv \forall x. \neg P(x)$) using a branchless XOR-like equivalence.
 ///
-/// # Arguments
+/// # Truth Table
 ///
-/// * `is_forall` - `true` if the original node is a `Forall` quantifier.
-/// * `negate` - `true` if a negation is being pushed down.
-///
-/// # Returns
-///
-/// * `true` if the resulting quantifier should be a **Forall**.
-/// * `false` if the resulting quantifier should be an **Exists**.
+/// | `is_forall` | `negate` | Output (`true` = Forall, `false` = Exists) | Semic-equivalent |
+/// | :---:       | :---:    | :---:                                      | :---             |
+/// | `true`      | `false`  | `true`                                     | $\forall$ stays $\forall$ |
+/// | `true`      | `true`   | `false`                                    | $\neg\forall$ becomes $\exists$ |
+/// | `false`     | `false`  | `false`                                    | $\exists$ stays $\exists$ |
+/// | `false`     | `true`   | `true`                                     | $\neg\exists$ becomes $\forall$ |
 #[inline(always)]
 fn transform_quantifier(is_forall: bool, negate: bool) -> bool {
     is_forall == !negate
 }
 
-/// Encodes an [`ExprId`] and its negation polarity into a single `usize`.
+/// Encodes a structural `usize` index and its contextual negation polarity into a single `usize` key.
 ///
-/// This is used for memoization in the scratchpad, allowing it to store
-/// both the positive and negative versions of a transformed sub-expression.
+/// This encoding strips away any high-precision system flags from the original `ExprId` by
+/// operating on a cleaned `raw_idx`, ensuring the key is dense and safe for memoization.
+///
+/// # Bit Representation
+///
+/// ```text
+/// Bits 1..63: [ raw_idx (shifted left by 1) ]
+/// Bit     0: [ Polarity Flag (0 = Positive, 1 = Negated) ]
+/// ```
 ///
 /// # Arguments
 ///
-/// * `id` - The unique identifier of the expression.
-/// * `negate` - The current negation state (polarity).
-///
-/// # Returns
-///
-/// An encoded `usize` where:
-/// * Even values represent positive polarity (`negate = false`).
-/// * Odd values represent negative polarity (`negate = true`).
+/// * `raw_idx` - The raw structural index extracted via `id.as_usize()`.
+/// * `negate` - The accumulated negation polarity state.
 #[inline(always)]
-fn encode(id: ExprId, negate: bool) -> usize {
-    let val = id.as_usize() << 1;
+fn encode(raw_idx: usize, negate: bool) -> usize {
+    let val = raw_idx << 1;
     if negate {
         val | 1
     } else {
@@ -250,17 +290,19 @@ fn encode(id: ExprId, negate: bool) -> usize {
     }
 }
 
-/// Decodes a raw `usize` value retrieved from the scratchpad into an [`ExprId`] and its polarity.
+/// Decodes a packed `usize` memoization key back into a clean [`ExprId`] and its logical polarity.
 ///
-/// # Arguments
+/// # Safety and Validation
 ///
-/// * `val` - The encoded value previously generated by [`encode`].
+/// The reconstructed identifier is instantiated using `ExprId::from`, which triggers the internal
+/// boundary assertions of your structural store. This guarantees that corrupted or shifted
+/// sentinel values (like an invalid `RAW_NONE` spillover) are caught immediately.
 ///
 /// # Returns
 ///
 /// A tuple containing:
-/// * The original [`ExprId`].
-/// * A boolean indicating if the expression is negated (`true` if odd).
+/// 1. The structural [`ExprId`] cleaned of its packed polarity bit.
+/// 2. A `bool` indicating the active negation polarity state (`true` if negated).
 #[inline(always)]
 fn decode(val: usize) -> (ExprId, bool) {
     (ExprId::from(val >> 1), (val & 1) == 1)

@@ -224,3 +224,11 @@ impl<'a> LiftedDebugDisplay for DomainDef<'a> {
         self.fmt_debug(f, &ctx)
     }
 }
+
+/// Implémentation de Display pour faciliter l'usage de println!
+/// Par défaut, on affiche la syntaxe PDDL/HDDL.
+impl<'a> std::fmt::Display for DomainDef<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.fmt_syntax_self(f)
+    }
+}

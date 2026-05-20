@@ -43,14 +43,14 @@ pub fn render(f: &mut Formatter<'_>, problem: &ProblemDef<'_>, ctx: &RenderConte
     // 4. Initial State (:init)
     // En PDDL, :init attend une suite de faits. Si ton 'init' est un (and (f1) (f2)),
     // on l'affiche souvent sans le 'and' racine pour plus de compatibilité.
-    if !problem.init().is_some() {
+    if problem.init().is_some() {
         write!(f, "  (:init ")?;
         expr::render(f, problem.init(), ctx)?;
         writeln!(f, ")")?;
     }
 
     // 5. Goal State (:goal)
-    if !problem.goal().is_some() {
+    if problem.goal().is_some() {
         write!(f, "  (:goal ")?;
         expr::render(f, problem.goal(), ctx)?;
         writeln!(f, ")")?;
@@ -58,28 +58,28 @@ pub fn render(f: &mut Formatter<'_>, problem: &ProblemDef<'_>, ctx: &RenderConte
 
     // 6. Initial Task Network (:htn - Spécifique HDDL)
     // On ne l'affiche que s'il y a effectivement des tâches ou un réseau défini
-    if !problem.initial_task_network().is_empty() {
+    if problem.initial_task_network().is_empty() {
         write!(f, "  ")?;
         initial_task_network::render(f, problem.initial_task_network(), ctx)?;
         writeln!(f)?;
     }
 
     // 7. Constraints
-    if !problem.constraints().is_some() {
+    if problem.constraints().is_some() {
         write!(f, "  (:constraints ")?;
         expr::render(f, problem.constraints(), ctx)?;
         writeln!(f, ")")?;
     }
 
     // 8. Metric
-    if !problem.metric_spec().is_some() {
+    if problem.metric_spec().is_some() {
         write!(f, "  (:metric ")?;
         expr::render(f, problem.metric_spec(), ctx)?;
         writeln!(f, ")")?;
     }
 
     // 9. Length Spec
-    if !problem.length_spec().is_some() {
+    if problem.length_spec().is_some() {
         write!(f, "  (:length ")?;
         expr::render(f, problem.length_spec(), ctx)?;
         writeln!(f, ")")?;

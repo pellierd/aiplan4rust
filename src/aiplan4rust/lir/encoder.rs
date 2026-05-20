@@ -44,6 +44,7 @@ use crate::aiplan4rust::lir::store::encoding::encoding::encode_domain as new_enc
 use crate::aiplan4rust::lir::store::encoding::encoding::encode_problem as new_encode_problem;
 use crate::aiplan4rust::lir::store::encoding::EncodingRegistry as NewEncodingRegistry;
 use crate::aiplan4rust::lir::store::expr::{ExprBuilder, ExprStore};
+use crate::aiplan4rust::lir::store::normalization;
 use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
 use crate::aiplan4rust::lir::{passes, LirError};
 use crate::LirEncoderResult;
@@ -252,8 +253,12 @@ pub fn encode_new_lifted_problem(
     // Une fois l'encodage fini, on extrait le store du builder pour le donner au problème.
     problem.set_store(expr_store);
 
+    println!("{} ", problem.domain_view());
+
+    println!("{} ", problem.problem_view());
+
     // 7. Normalisation (si tes passes sont à jour pour le nouveau Store)
-    //passes::normalize(&mut problem)?;
+    normalization::normalize(&mut problem)?;
 
     // 8. Retour du problème entièrement construit
     Ok(problem)

@@ -84,10 +84,14 @@ const MAX_CHILDREN: usize = 32;
 /// Returns [`ExprOpErrorHC::IllegalTemporalNesting`] if a temporal operator is found
 /// nested inside another temporal operator.
 pub fn to_tnf(
-    root: ExprId,
+    expr: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
 ) -> Result<ExprId, ExprOpErrorHC> {
+    if expr.is_none() {
+        return Ok(expr);
+    }
+
     let empty = builder.empty_and();
     scratch.clear();
 
@@ -96,7 +100,7 @@ pub fn to_tnf(
     let mut children_ids: SmallVec<[ExprId; MAX_CHILDREN]> = SmallVec::new();
 
     // The root is initially processed with no temporal context (TimeSpecifier::None)
-    let root_encoded = TimeSpecifier::None.pack(root.as_usize());
+    let root_encoded = TimeSpecifier::None.pack(expr.as_usize());
     scratch.push(ExprId::from(root_encoded), false);
 
     while let Some((packed_id_wrapper, processed)) = scratch.pop() {
@@ -187,7 +191,7 @@ pub fn to_tnf(
     }
 
     // Final Assembly: Extract the root triplet (calculated under None context)
-    let root_key = TimeSpecifier::None.pack(root.as_usize());
+    let root_key = TimeSpecifier::None.pack(expr.as_usize());
     let (s, e, o) = scratch.get_temporal_decomposition(root_key);
 
     let nodes = [

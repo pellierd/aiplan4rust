@@ -28,5 +28,5 @@ pub fn render(
     write!(f, ")")?;
 
     // 3. Fermeture du bloc (:task ...)
-    write!(f, "\n)")
+    write!(f, "\n  )")
 }
