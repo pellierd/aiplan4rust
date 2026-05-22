@@ -138,7 +138,7 @@ pub fn to_fnf(
 
     // --- 1. PREPARATION ---
     let naked_literals = prepare_input(expr, builder, scratch)?;
-    let total_groups = scratch.group_buffer().len();
+    let total_groups = scratch.group_boundaries().len();
 
     // --- 2 & 3. CORE LOGIC & ASSEMBLY ---
     let factored_branch = if total_groups < 2 {
@@ -169,11 +169,11 @@ pub fn to_fnf(
 /// factored (nested `AND` nodes) from those that cannot (atomic formulas or naked literals).
 ///
 /// ### Algorithmic & Memory Invariants
-/// - **In-place Buffer Optimization**: Clears the scratchpad's global `group_buffer` and
-///   `other_kids` buffers without deallocating their underlying capacities, preventing
+/// - **In-place Buffer Optimization**: Clears the scratchpad's global `flat_groups` and
+///   `group_boundaries` buffers without deallocating their underlying capacities, preventing
 ///   thousands of microscopic heap reallocations.
-/// - **Unstable Canonical Sorting**: Every child array of an `AND` group is immediately sorted
-///   using `sort_unstable`. This is a **strict prerequisite** for the core factorization engine,
+/// - **Unstable Canonical Sorting**: Every segment of child IDs added to `flat_groups` is sorted
+///   immediately using `sort_unstable`. This is a **strict prerequisite** for the core factorization engine,
 ///   as it unlocks:
 ///   1. $O(\log n)$ lookup times via `binary_search` instead of $O(n)$ linear scans when matching factors.
 ///   2. Canonical representation guarantees so that Hash-Consing treats structurally uniform
@@ -181,15 +181,6 @@ pub fn to_fnf(
 /// - **Naked Literal Seeding**: Elements that are not part of a conjunction (e.g., a single atom
 ///   directly under the root `OR`) bypass the `Scratchpad` and are collected into a local,
 ///   stack-allocated `SmallVec` to be rejoined at the very end of the transformation pipeline.
-///
-/// ### Arguments
-/// * `expr` - The root `ExprId` to prepare. Typically an `OR` node, but safely wraps singletons.
-/// * `builder` - A reference to the `ExprBuilder` used to inspect the LIR store without mutations.
-/// * `scratch` - A mutable reference to the `Scratchpad` where extracted `AND` groups are deposited.
-///
-/// ### Returns
-/// * `Ok(SmallVec<[ExprId; MAX_CHILDREN]>)` - A stack-allocated vector containing the isolated naked literals.
-/// * `Err(ExprOpErrorHC)` - If node fetching from the underlying expression store fails.
 fn prepare_input(
     expr: ExprId,
     builder: &ExprBuilder,
@@ -197,9 +188,7 @@ fn prepare_input(
 ) -> Result<SmallVec<[ExprId; MAX_CHILDREN]>, ExprOpErrorHC> {
     let mut naked = SmallVec::new();
 
-    scratch.group_buffer_mut().clear();
-    scratch.other_kids_mut().clear();
-
+    scratch.clear();
     let entry = builder.fetch(expr)?;
 
     let children = if matches!(entry.kind(), ExprEntryKind::Or) {
@@ -212,9 +201,17 @@ fn prepare_input(
         let child_entry = builder.fetch(child_id)?;
 
         if matches!(child_entry.kind(), ExprEntryKind::And) {
-            let mut kids = child_entry.children().to_vec();
-            kids.sort_unstable();
-            scratch.group_buffer_mut().push(kids);
+            let child_kids = child_entry.children();
+            let start = scratch.flat_groups().len();
+
+            // Push elements directly onto the flat global vector without temporary heap vectors
+            scratch.flat_groups_mut().extend_from_slice(child_kids);
+            let end = scratch.flat_groups().len();
+
+            // Sort only the local slice corresponding to this group
+            scratch.flat_groups_mut()[start..end].sort_unstable();
+
+            scratch.group_boundaries_mut().push(start..end);
         } else {
             naked.push(child_id);
         }
@@ -223,7 +220,7 @@ fn prepare_input(
     Ok(naked)
 }
 
-/// Core recursive factorizer operating on a specific window of the global `group_buffer`.
+/// Core recursive factorizer operating on a specific window of the global `group_boundaries`.
 ///
 /// This function implements the greedy, frequency-based factorization algorithm in a strictly
 /// bounded memory window. It partitions the conjunctive groups inside the slice, solves them
@@ -234,35 +231,13 @@ fn prepare_input(
 ///    window `[start_idx..end_idx]` using `compute_frequencies_for_slice`.
 /// 2. **Best Factor Selection**: Picks the most frequent literal $f$. If no literal appears in more
 ///    than one group, it falls back to a flat reconstruction via `rebuild_flat_groups`.
-/// 3. **In-place Partitioning**: Rearranges the slice so that all groups containing $f$ are moved
-///    to the left sub-window `[start_idx..sub_branch_end]`, and $f$ is stripped from them.
+/// 3. **In-place Partitioning**: Rearranges the slice boundaries so that all groups containing $f$
+///    are moved to the left sub-window `[start_idx..sub_branch_end]`, and $f$ is stripped from them.
 /// 4. **Divide and Conquer**:
 ///    - *Left Branch*: Recursively refines the groups that shared $f$ (if `recursive` is true).
 ///    - *Right Branch*: Recursively processes the remaining groups that did not contain $f$.
 /// 5. **Post-Order Assembly**: Integrates the results using the distributive identity:
 ///    $$(f \land \text{left\_branch}) \lor \text{right\_branch}$$
-///
-/// ### Smart Constructor Synergies & Flattening
-/// To prevent deeply skewed or unrolled trees like `AND(A, AND(B, C))`, this function relies
-/// on the underlying `ExprBuilder::and` and `ExprBuilder::or` flattening laws. If a branch
-/// simplifies to a neutral or identity element (e.g., an empty disjunction), the constructor
-/// automatically collapses the node on-the-fly, preventing "identity leakage" into the final LIR.
-///
-/// ### Memory & Performance Guarantees
-/// - **Space Complexity**: $O(D)$ on the call stack where $D$ is the maximum recursive depth.
-/// - **Zero-Allocation**: No vectors or sub-buffers are cloned or allocated on the heap during
-///   the recursion. The partitioning happens purely *in-place* within the pre-allocated scratchpad.
-///
-/// ### Arguments
-/// * `builder` - A mutable reference to the `ExprBuilder` used for interning and smart-reducing nodes.
-/// * `scratch` - A mutable reference to the shared `Scratchpad` serving as the continuous memory backing.
-/// * `start_idx` - The lower bound index (inclusive) of the working group slice.
-/// * `end_idx` - The upper bound index (exclusive) of the working group slice.
-/// * `recursive` - If `true`, multi-level cascading factorization is performed on the left sub-branch.
-///
-/// ### Returns
-/// * `Ok(ExprId)` - The canonical ID of the structurally optimized local sub-expression tree.
-/// * `Err(ExprOpErrorHC)` - If the hash-consing layer or node storage retrieval fails.
 fn factorize_slice(
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
@@ -274,22 +249,21 @@ fn factorize_slice(
         return Ok(rebuild_flat_groups(builder, scratch, start_idx, end_idx));
     }
 
-    // 1. Fréquences locales
+    // 1. Local frequency analysis
     scratch.compute_frequencies_for_slice(start_idx, end_idx);
 
-    // 2. Recherche du meilleur facteur commun
+    // 2. Locate the optimal common factor
     if let Some(f) = scratch.find_best_factor() {
-        // 3. Partitionnement in-place (retire f des sous-groupes de gauche)
+        // 3. In-place boundary partitioning (modifies Range indices, leaves raw data stable)
         let num_with_f = scratch.partition_slice_by_factor(start_idx, end_idx, f);
 
-        // Si le partitionnement n'isole rien, on avorte pour cette branche
         if num_with_f == 0 {
             return Ok(rebuild_flat_groups(builder, scratch, start_idx, end_idx));
         }
 
         let sub_branch_end = start_idx + num_with_f;
 
-        // 4. Descente récursive
+        // 4. Recursive divide-and-conquer processing
         let left_branch = if recursive {
             factorize_slice(builder, scratch, start_idx, sub_branch_end, recursive)?
         } else {
@@ -298,20 +272,16 @@ fn factorize_slice(
 
         let right_branch = factorize_slice(builder, scratch, sub_branch_end, end_idx, recursive)?;
 
-        // 5. Assemblage intelligent via la distributivité
+        // 5. Intelligent post-order tree construction via distributivity
         let empty_and = builder.empty_and();
         let empty_or = builder.empty_or();
 
-        // Construction sûre du côté gauche factorisé : f ∧ left_branch
         let left_assembled = if left_branch == empty_and || left_branch == empty_or {
             f
         } else {
-            // Ton builder aplatit AND(A, AND(B, C)) -> AND(A, B, C).
-            // On passe un slice propre, le smart constructor s'occupe du reste.
             builder.and(&[f, left_branch])
         };
 
-        // Union finale locale
         if right_branch == empty_or || sub_branch_end == end_idx {
             Ok(left_assembled)
         } else {
@@ -327,28 +297,11 @@ fn factorize_slice(
 /// This fallback or terminal assembly function takes the conjunctive groups stored in the
 /// `Scratchpad` within the window `[start..end]` and builds their logical disjunction.
 ///
-/// ### Mathematical Behavior
-/// For a slice containing groups $G_s, G_{s+1}, \dots, G_{e-1}$ where each group $G_i$ is a
-/// collection of literals $[x_1, x_2, \dots]$, this function computes:
-/// $$\bigvee_{i=start}^{end-1} \left( \bigwedge_{x \in G_i} x \right)$$
-///
 /// ### Memory & Borrow Checker Invariants
-/// - **Indices-Based Iteration**: Instead of a standard iterator over `scratch.group_buffer()`,
-///   this function uses explicit indexing (`start..end`). This breaks the overlapping borrow
-///   that would occur if we held an immutable reference to a group while trying to mutably
-///   borrow the `scratch.build_buffer_mut()` to push the results.
-/// - **Buffer Reuse**: It utilizes the scratchpad's `build_buffer` to stage the temporary `AND`
+/// - **Indices-Based Iteration**: Uses explicit indexing and `scratch.get_group(i)` to cleanly
+///   separate immutable group slicing borrows from mutable `scratch.build_buffer_mut()` staging targets.
+/// - **Buffer Reuse**: Utilizes the scratchpad's `build_buffer` to stage the temporary `AND`
 ///   nodes before sending them to the top-level `OR` constructor, ensuring **zero heap allocations**.
-///
-/// ### Arguments
-/// * `builder` - The mutable reference to the `ExprBuilder` used for interning `AND` and `OR` nodes.
-/// * `scratch` - The working `Scratchpad` containing the global groups and the reusable build buffer.
-/// * `start` - The starting index (inclusive) of the window to reconstruct.
-/// * `end` - The ending index (exclusive) of the window to reconstruct.
-///
-/// ### Returns
-/// The canonical `ExprId` representing the disjunction of the sub-slice. If the slice is empty
-/// (`start == end`), it naturally evaluates to the neutral identity of the `OR` operator (`False`).
 fn rebuild_flat_groups(
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
@@ -358,7 +311,7 @@ fn rebuild_flat_groups(
     scratch.build_buffer_mut().clear();
 
     for i in start..end {
-        let group = &scratch.group_buffer()[i];
+        let group = scratch.get_group(i);
         let and_expr = builder.and(group);
         scratch.build_buffer_mut().push(and_expr);
     }

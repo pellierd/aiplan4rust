@@ -1,6 +1,7 @@
 use crate::aiplan4rust::lir::store::expr::ExprId;
 use bit_set::BitSet;
 use rustc_hash::FxHashMap;
+use std::ops::Range;
 
 /// Capacité initiale par défaut pour éviter les premières réallocations.
 const DEFAULT_SCRATCHPAD_CAPACITY: usize = 1024;
@@ -19,8 +20,12 @@ pub struct Scratchpad {
     visited: BitSet,
 
     // --- Buffers de factorisation (Logique pure) ---
-    group_buffer: Vec<Vec<ExprId>>,
-    swap_group_buffer: Vec<Vec<ExprId>>,
+    /// Unique buffer continu contenant tous les littéraux de tous les groupes AND mis bout à bout.
+    flat_groups: Vec<ExprId>,
+    /// Les délimitations (début..fin) de chaque groupe AND au sein du `flat_groups`.
+    group_boundaries: Vec<Range<usize>>,
+    /// Buffer de swap à plat pour réorganiser les `Range<usize>` sans toucher aux données physiques.
+    swap_boundaries: Vec<Range<usize>>,
     other_kids: Vec<ExprId>,
 
     // --- Buffer de statistiques (Pour ne pas réécrire plus tard) ---
@@ -53,8 +58,12 @@ impl Scratchpad {
             visited: BitSet::with_capacity(cap),
 
             // --- Buffers de factorisation (FNF) ---
-            group_buffer: Vec::with_capacity(16),
-            swap_group_buffer: Vec::with_capacity(16),
+            // --- Buffers de factorisation (FNF) OPTIMISÉS ---
+            // On prévoit de la place pour stocker environ 64 littéraux au total mis à plat
+            flat_groups: Vec::with_capacity(64),
+            // On prévoit une capacité initiale pour 16 groupes AND distincts
+            group_boundaries: Vec::with_capacity(16),
+            swap_boundaries: Vec::with_capacity(16),
             other_kids: Vec::with_capacity(16),
             freq_map: FxHashMap::default(),
 
@@ -82,9 +91,13 @@ impl Scratchpad {
         self.cache.clear();
         self.visited.clear();
 
-        // FNF
-        self.group_buffer.clear();
-        self.swap_group_buffer.clear();
+        // --- FNF OPTIMISÉS ---
+        // On vide le tableau continu et les tables d'index sans libérer leur mémoire allouée
+        self.flat_groups.clear();
+        self.group_boundaries.clear();
+        self.swap_boundaries.clear();
+
+        // Reste de la FNF
         self.other_kids.clear();
         self.freq_map.clear();
 
@@ -228,13 +241,43 @@ impl Scratchpad {
     // --- Accesseurs pour FNF (Factorisation) ---
 
     #[inline]
-    pub fn group_buffer(&self) -> &[Vec<ExprId>] {
-        &self.group_buffer
+    pub fn flat_groups(&self) -> &[ExprId] {
+        &self.flat_groups
     }
 
     #[inline]
-    pub fn group_buffer_mut(&mut self) -> &mut Vec<Vec<ExprId>> {
-        &mut self.group_buffer
+    pub fn flat_groups_mut(&mut self) -> &mut Vec<ExprId> {
+        &mut self.flat_groups
+    }
+
+    #[inline]
+    pub fn group_boundaries(&self) -> &[Range<usize>] {
+        &self.group_boundaries
+    }
+
+    #[inline]
+    pub fn group_boundaries_mut(&mut self) -> &mut Vec<Range<usize>> {
+        &mut self.group_boundaries
+    }
+
+    #[inline]
+    pub fn swap_boundaries_mut(&mut self) -> &mut Vec<Range<usize>> {
+        &mut self.swap_boundaries
+    }
+
+    /// Extrait une vue en lecture seule (slice) d'un groupe AND spécifique via son index.
+    /// Remplace avantageusement l'ancien `scratch.group_buffer()[idx]`
+    #[inline]
+    pub fn get_group(&self, group_idx: usize) -> &[ExprId] {
+        let range = &self.group_boundaries[group_idx];
+        &self.flat_groups[range.start..range.end] // <--- Accès direct par champs usize
+    }
+
+    /// Extrait une vue mutable d'un groupe AND spécifique si tu as besoin de le modifier localement.
+    #[inline]
+    pub fn get_group_mut(&mut self, group_idx: usize) -> &mut [ExprId] {
+        let range = &self.group_boundaries[group_idx];
+        &mut self.flat_groups[range.start..range.end] // <--- Accès direct par champs usize
     }
 
     #[inline]
@@ -246,42 +289,64 @@ impl Scratchpad {
     pub fn compute_frequencies_for_slice(&mut self, start: usize, end: usize) {
         self.freq_map.clear();
 
-        let end = std::cmp::min(end, self.group_buffer.len());
+        // On se base désormais sur le nombre de segments (groupes)
+        let end = std::cmp::min(end, self.group_boundaries.len());
         if start >= end {
             return;
         }
 
-        for group in &self.group_buffer[start..end] {
+        // On parcourt les index des groupes de la tranche courante
+        for i in start..end {
+            // 1. Extraction directe des bornes du groupe courant sans .clone()
+            let group_range = &self.group_boundaries[i];
+
+            // 2. Accès direct en mémoire contiguë via le slice indexé
+            let group = &self.flat_groups[group_range.start..group_range.end];
+
             for &id in group {
+                // 3. Incrémentation sécurisée dans la freq_map
                 *self.freq_map.entry(id).or_insert(0) += 1;
             }
         }
     }
 
-    /// MODIFICATION : Partitionne la portion [start..end] du group_buffer selon le facteur `f`.
-    /// Les expressions contenant `f` sont placées en premier. Le facteur y est retiré.
+    /// MODIFICATION : Partitionne la portion [start..end] des groupes selon le facteur `f`.
+    /// Les segments contenant `f` sont placés en premier. Le facteur y est retiré.
     /// Retourne le nombre d'éléments qui contenaient le facteur `f`.
     pub fn partition_slice_by_factor(&mut self, start: usize, end: usize, f: ExprId) -> usize {
-        self.swap_group_buffer.clear();
+        self.swap_boundaries.clear();
         let mut count_with_f = 0;
 
-        // Étape A : On extrait la portion via drain, et on répartit dans le swap_buffer
-        for mut group in self.group_buffer.drain(start..end) {
-            if group.binary_search(&f).is_ok() {
-                group.retain(|&x| x != f);
-                // On insère au début de swap_buffer pour regrouper ceux qui ont 'f'
-                self.swap_group_buffer.insert(count_with_f, group);
+        for i in start..end {
+            // 1. On prend une référence sur la Range (pas de move, pas de clone)
+            let range = &self.group_boundaries[i];
+
+            // 2. On extrait les bornes qui sont des usize (Copy)
+            let g_start = range.start;
+            let g_end = range.end;
+
+            // 3. On passe les bornes explicites à la tranche mutable
+            // Rust comprend parfaitement les emprunts disjoints ici
+            let group_mut = &mut self.flat_groups[g_start..g_end];
+
+            // --- Reste de ton code (recherche dichotomique et rotation) ---
+            if let Ok(found_idx) = group_mut.binary_search(&f) {
+                group_mut[found_idx..].rotate_left(1);
+
+                // On recrée une nouvelle Range ajustée (le groupe a rétréci de 1)
+                let updated_range = g_start..(g_end - 1);
+                self.swap_boundaries.insert(count_with_f, updated_range);
                 count_with_f += 1;
             } else {
-                // On pousse à la fin de swap_buffer pour ceux qui n'ont pas 'f'
-                self.swap_group_buffer.push(group);
+                // Le groupe n'a pas f, on récrée une Range identique à l'originale
+                self.swap_boundaries.push(g_start..g_end);
             }
         }
 
-        // Étape B : On réinjecte proprement la structure partitionnée
-        // sans perdre les allocations sous-jacentes du vecteur parent.
-        self.group_buffer
-            .splice(start..start, self.swap_group_buffer.drain(..));
+        // Étape B : Réinjection des Ranges réorganisés dans le buffer principal
+        // On remplace l'ancienne portion de délimitations par celle triée dans swap_boundaries.
+        self.group_boundaries
+            .splice(start..end, self.swap_boundaries.drain(..));
 
         count_with_f
     }
