@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::quantifier_expansion::expr;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
 use crate::aiplan4rust::lir::DerivedPredicateDef;
 
 /// Expands all logical quantifiers (`forall` and `exists`) within the predicate's body.
@@ -30,14 +30,9 @@ pub fn expand_with(
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), GroundingError> {
-
     // Expand quantifiers (forall/exists) inside the definition (body).
     // The head_id and head remain untouched as they define the signature.
-    expr::expand_with(
-        &mut predicate.body_mut(),
-        value_registry,
-        evaluator
-    )?;
+    expr::expand_with(&mut predicate.body_mut(), value_registry, evaluator)?;
 
     Ok(())
 }

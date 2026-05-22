@@ -3,14 +3,12 @@ use crate::aiplan4rust::grounding::analysis::inertia::new_evaluator::InertiaRegi
 use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTable;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{AtomSkeletonId, CompareOp, FunctionSkeletonId, ObjectId};
-use crate::aiplan4rust::lir::store::expr::ops::simplification::evaluator::StaticEvaluator;
-use crate::aiplan4rust::lir::store::expr::ops::simplification::StaticValue;
-use crate::aiplan4rust::lir::store::expr::Expr;
-use crate::aiplan4rust::lir::store::expr::{ExprEntryKind, ExprNodeRef, ExprStore};
-use crate::aiplan4rust::lir::store::problem::skeleton::{
-    AtomicFormulaSkeleton, AtomicFunctionSkeleton,
-};
-use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::expr::ops::simplification::evaluator::StaticEvaluator;
+use crate::aiplan4rust::lir::expr::ops::simplification::StaticValue;
+use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprNodeRef, ExprStore};
+use crate::aiplan4rust::lir::problem::skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use ordered_float::OrderedFloat;
 use smallvec::SmallVec;
 use std::collections::HashMap;

@@ -1,37 +1,48 @@
-use std::fmt::{self, Formatter};
-use crate::aiplan4rust::lang::{TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::problem::DomainDef;
-use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::syntax::{
+    action, atom, derived_predicate, expr, function, method, task, typed_list,
+};
 use crate::aiplan4rust::lir::renderers::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::{action, atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr, method, task, typed_list};
+use std::fmt::{self, Formatter};
 
-/// Rendu complet d'une définition de domaine.
+/// Rendu complet d'une définition de domaine au format PDDL/HDDL (Syntaxe).
 pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext) -> fmt::Result {
-    // 1. En-tête du domaine
-    write!(f, "(define (domain {})", ctx.resolve_symbol(domain.domain_name()))?;
+    // 1. En-tête : (define (domain nom))
+    write!(
+        f,
+        "(define (domain {})",
+        ctx.resolve_symbol(domain.domain_name())
+    )?;
 
-    // 2. Requirements
+    // 2. Requirements : (:requirements :strips :typing ...)
     let reqs = domain.requirements();
     if !reqs.is_empty() {
         write!(f, "\n  (:requirements")?;
         for req in reqs {
-            write!(f, "\n    {}", req.to_string().to_lowercase())?; // ou via une fonction dédiée
+            // On s'assure du format ":keyword" en minuscules
+            let req_str = req.to_string().to_lowercase();
+            let clean_req = if req_str.starts_with(':') {
+                req_str
+            } else {
+                format!(":{}", req_str)
+            };
+            write!(f, " {}", clean_req)?;
         }
-        write!(f, "\n  )")?;
+        write!(f, ")")?;
     }
 
-    // 3. Types
+    // 3. Types : (:types type1 - parent type2 - parent)
     if domain.has_type_defs() {
-        write!(f, "\n  (:types\n    ")?;
-        render_type_def(f, domain.type_defs(), ctx)?;
-        write!(f, "\n  )")?;
+        write!(f, "\n  (:types ")?;
+        typed_list::render_typed_type_list(f, domain.type_defs().as_slice(), ctx)?;
+        write!(f, ")")?;
     }
 
-    // 4. Constants
+    // 4. Constants : (:constants c1 c2 - type)
     if domain.has_constant_defs() {
-        write!(f, "\n  (:constants\n    ")?;
+        write!(f, "\n  (:constants ")?;
         typed_list::render_typed_object_list(f, domain.constant_defs(), ctx)?;
-        write!(f, "\n  )")?;
+        write!(f, ")")?;
     }
 
     // 5. Predicates
@@ -39,7 +50,7 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
         write!(f, "\n  (:predicates")?;
         for pred in domain.predicate_defs() {
             write!(f, "\n    ")?;
-            atomic_formula_skeleton::render(f, pred, ctx)?;
+            atom::render(f, pred, ctx)?;
         }
         write!(f, "\n  )")?;
     }
@@ -49,21 +60,21 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
         write!(f, "\n  (:functions")?;
         for func in domain.functions_defs() {
             write!(f, "\n    ")?;
-            atomic_function_skeleton::render(f, func, ctx)?;
+            function::render(f, func, ctx)?;
         }
         write!(f, "\n  )")?;
     }
 
-    // 7. Tasks (Spécifique HDDL)
+    // 7. Tasks (HDDL)
     if domain.has_task_defs() {
-        for task in domain.task_defs() {
+        for t in domain.task_defs() {
             write!(f, "\n  ")?;
-            task::render(f, task, ctx)?;
+            task::render(f, t, ctx)?;
         }
     }
 
-    // 11. Constraints (Domain level)
-    if !domain.constraints().is_empty() {
+    // 8. Constraints (Domain level)
+    if !domain.constraints().is_some() {
         write!(f, "\n  (:constraints ")?;
         expr::render(f, domain.constraints(), ctx)?;
         write!(f, ")")?;
@@ -75,42 +86,18 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
         derived_predicate::render(f, derived, ctx)?;
     }
 
-    // 8. Actions & Durative Actions
-    for action in domain.action_defs() {
+    // 10. Actions & Durative Actions
+    for a in domain.action_defs() {
         write!(f, "\n")?;
-        action::render(f, action, ctx)?;
+        action::render(f, a, ctx)?;
     }
 
-    // 10. Methods (HDDL)
-    for method in domain.method_defs() {
+    // 11. Methods (HDDL)
+    for m in domain.method_defs() {
         write!(f, "\n")?;
-        method::render(f, method, ctx)?;
+        method::render(f, m, ctx)?;
     }
 
     // Fermeture finale du domaine
-    write!(f, "\n)")?;
-
-    Ok(())
-}
-
-fn render_type_def(
-    f: &mut fmt::Formatter<'_>,
-    types: &[TypedSymbol<TypeId, TypeId>],
-    ctx: &RenderContext
-) -> fmt::Result {
-    for (i, ty_symbol) in types.iter().enumerate() {
-        // 1. Saut de ligne entre chaque déclaration (sauf avant la première)
-        if i > 0 {
-            write!(f, "\n    ")?;
-        }
-
-        // 2. Nom du typing actuel
-        let name = ctx.resolve_type(ty_symbol.symbol());
-        write!(f, "{}", name)?;
-
-        // 3. Rendu du typing parent (ex: ' - vehicle')
-        // Note: Assure-toi que render_type_list gère bien l'espace avant le '-'
-        renderers::syntax::ty::render(f, ty_symbol.ty(), ctx)?;
-    }
-    Ok(())
+    write!(f, "\n)")
 }

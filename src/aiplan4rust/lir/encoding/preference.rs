@@ -8,9 +8,9 @@
 //! 2. **Logical Definition**: The preference's condition is encoded as an [`Expr`] and stored.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lir::encoding::EncodingRegistry;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::encoding::EncodingError;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -30,8 +30,8 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+) -> Result<(), EncodingError> {
     let tree = subtree.tree();
     let node = subtree.node();
 
@@ -45,7 +45,7 @@ pub fn encode(
     ir.add_preference_symbol(label_symbol);
 
     // 3. MAPPING : On lie le NodeId de l'AST à l'ID du LIR
-    // Indispensable pour que expr::encode puisse résoudre le symbole plus tard
+    // Indispensable pour que expr_old::encode puisse résoudre le symbole plus tard
     registry.register_preference(label_node_id, preference_id);
 
     // NOTE: On n'encode PAS la logique ici (condition_expr).

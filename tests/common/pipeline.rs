@@ -1,14 +1,20 @@
 #![allow(dead_code)]
 
-use crate::common::io::{write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_lir_diag_to_file, write_symbol_table_to_file};
+use crate::common::io::{
+    write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file,
+    write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file,
+    write_lir_diag_to_file, write_symbol_table_to_file,
+};
+use aiplan4rust::aiplan4rust::artefact::Source;
 use aiplan4rust::aiplan4rust::linking::LinkerResult;
 use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
 use aiplan4rust::aiplan4rust::syntax::{ParserResult, SyntaxDisplay};
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
-use aiplan4rust::{check_well_formed, Normalizer, Parser, Severity, AnalyzerResult, LirEncoderResult, LirEncoder};
+use aiplan4rust::{
+    check_well_formed, AnalyzerResult, LirEncoder, LirEncoderResult, Normalizer, Parser, Severity,
+};
 use std::path::Path;
-use aiplan4rust::aiplan4rust::artefact::Source;
 
 /// Parses the source file to produce a ParserResult with a raw AST and checks its well-formedness.
 ///
@@ -44,14 +50,13 @@ use aiplan4rust::aiplan4rust::artefact::Source;
 /// }
 /// ```
 pub fn parse_and_check_ast(file_path: &Path) -> Option<ParserResult> {
-    let input = Source::try_from_path(file_path)
-        .unwrap_or_else(|e| {
-            panic!(
-                "TEST FAILURE: failed to read input file '{}': {:?}",
-                file_path.display(),
-                e
-            )
-        });
+    let input = Source::try_from_path(file_path).unwrap_or_else(|e| {
+        panic!(
+            "TEST FAILURE: failed to read input file '{}': {:?}",
+            file_path.display(),
+            e
+        )
+    });
     let mut parser = Parser::new();
     match parser.parse(&input) {
         Ok(parser_result) => {
@@ -463,10 +468,10 @@ pub fn link(
     Some(linker_result)
 }
 
-/// Performs LIR (Low-level Intermediate Representation) encoding from a linked context.
+/// Performs LIR (Low-level Intermediate Representation) encoding_old from a linked context.
 ///
 /// This function extracts the linked semantic context from a [`LinkerResult`],
-/// initializes the [`LirEncoder`], and generates the Datalog-based encoding
+/// initializes the [`LirEncoder`], and generates the Datalog-based encoding_old
 /// required for the grounding engine.
 ///
 /// # Parameters
@@ -477,21 +482,21 @@ pub fn link(
 ///
 /// # Returns
 ///
-/// - `Some(LirEncoderResult)`: If encoding completes successfully and produces a valid
+/// - `Some(LirEncoderResult)`: If encoding_old completes successfully and produces a valid
 ///   lifted problem, even if warnings were reported.
-/// - `None`: If encoding fails, if the linker result contains no context, or if
+/// - `None`: If encoding_old fails, if the linker result contains no context, or if
 ///   no lifted problem was produced.
 ///
 /// # Behavior
 ///
 /// - Takes ownership of the semantic context via [`LinkerResult::take_linked_semantic_context`].
-/// - All diagnostics generated during encoding are written to a `.lir.diag` file.
+/// - All diagnostics generated during encoding_old are written to a `.lir.diag` file.
 /// - Verifies the presence of the lifted problem within the result; returns `None` if missing.
 ///
 /// # Side Effects
 ///
 /// Writes a diagnostic file to disk in the same directory as the problem:
-/// - `<problem>.lir.diag`: Contains all diagnostics from the LIR encoding process.
+/// - `<problem>.lir.diag`: Contains all diagnostics from the LIR encoding_old process.
 ///
 /// # Example
 ///
@@ -500,7 +505,7 @@ pub fn link(
 /// let lir_result = encode(linker_result, &d_path, &p_path);
 ///
 /// if let Some(res) = lir_result {
-///     println!("LIR encoding successful with {} rules.", res.rules().len());
+///     println!("LIR encoding_old successful with {} rules.", res.rules().len());
 /// }
 /// ```
 ///
@@ -519,7 +524,7 @@ pub fn encode(
     // 2. Initialize the LIR encoder
     let mut lir_builder = LirEncoder::new();
 
-    // 3. Execute encoding
+    // 3. Execute encoding_old
     match lir_builder.encode(linked_context) {
         Ok(result) => {
             // Utilisation de la nouvelle fonction de diagnostic factorisée
@@ -532,7 +537,10 @@ pub fn encode(
             );
 
             // Vérification de la présence d'erreurs critiques
-            if result.diagnostic_manager().has_diagnostics_of_severity(Severity::Error) {
+            if result
+                .diagnostic_manager()
+                .has_diagnostics_of_severity(Severity::Error)
+            {
                 eprintln!(
                     "LIR Encoding reported errors for file {}",
                     problem_path.display()
@@ -552,7 +560,11 @@ pub fn encode(
             Some(result)
         }
         Err(e) => {
-            eprintln!("LIR Builder fatal error for {}: {}", problem_path.display(), e);
+            eprintln!(
+                "LIR Builder fatal error for {}: {}",
+                problem_path.display(),
+                e
+            );
             None
         }
     }

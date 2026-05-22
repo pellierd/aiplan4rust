@@ -3,12 +3,12 @@ use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaRegistry
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, ObjectId};
-use crate::aiplan4rust::lir::expr::ops::{StaticEvaluator, StaticValue};
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
-use crate::aiplan4rust::lir::problem::atomic_skeleton::{
+use crate::aiplan4rust::lir::store::expr_old::ops::{StaticEvaluator, StaticValue};
+use crate::aiplan4rust::lir::store::expr_old::{Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::store::problem_old::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton,
 };
-use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
 use crate::aiplan4rust::tree::Node;
 use ordered_float::OrderedFloat;
 use smallvec::SmallVec;

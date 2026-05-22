@@ -1,191 +1,239 @@
+//! This module handles the syntax rendering of PDDL/HDDL expressions using an iterative stack machine.
+
+use crate::aiplan4rust::lang::{TypeId, TypedSymbol, VariableId};
+use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::renderers::syntax::typed_list;
+use crate::aiplan4rust::lir::renderers::RenderContext;
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::expr::kind::Kind;
-use crate::aiplan4rust::lir::renderers::context::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::typed_list;
-use crate::aiplan4rust::syntax::lexer::token::{AT, LPAREN, RPAREN};
-use crate::aiplan4rust::syntax::write_indent;
-use crate::aiplan4rust::tree::NodeId;
 
+/// Opérations de la machine d'état de rendu itératif.
 enum RenderOp {
-    /// Analyse le nœud et empile ses composants (enfants, parenthèses, etc.)
-    Process(NodeId, usize),
-    /// Écrit une chaîne statique (ex: "(", ")", " - ")
+    Process(ExprId, usize),
     Write(&'static str),
-    /// Écrit le contenu d'un nœud (nom de variable, symbole)
-    WriteContent(NodeId),
-    /// Gère l'indentation
+    WriteDynamic(String),
+    WriteContent(ExprId),
+    /// On transporte un vecteur de symboles typés correspondants à la signature attendue
+    WriteVariables(Vec<TypedSymbol<VariableId, TypeId>>),
     Indent(usize),
-    /// Saute une ligne
     Newline,
 }
 
-pub fn render(
-    f: &mut Formatter<'_>,
-    expr: &Expr,
-    context: &RenderContext,
-) -> fmt::Result {
-    let root_id = match expr.root_id() {
-        Some(id) => id,
-        None => return write!(f, "()"),
-    };
+pub fn render(f: &mut Formatter<'_>, root_id: ExprId, context: &RenderContext) -> fmt::Result {
+    render_with_indent(f, root_id, context, 0)
+}
 
-    // On commence par le nœud racine
-    let mut stack = vec![RenderOp::Process(root_id, 0)];
+pub fn render_with_indent(
+    f: &mut Formatter<'_>,
+    root_id: ExprId,
+    context: &RenderContext,
+    indent: usize,
+) -> fmt::Result {
+    if root_id.is_none() {
+        return write!(f, "()");
+    }
+
+    // On initialise la pile avec l'indentation reçue en paramètre
+    let mut stack = vec![RenderOp::Process(root_id, indent)];
 
     while let Some(op) = stack.pop() {
         match op {
             RenderOp::Write(s) => write!(f, "{}", s)?,
-            RenderOp::WriteContent(id) => {
-                if let Some(node) = expr.get_node(id) {
-                    render_exp_content(f, node.content(), context)?;
+            RenderOp::WriteDynamic(s) => write!(f, "{}", s)?,
+            RenderOp::WriteContent(id) => render_terminal_node(f, id, context)?,
+            RenderOp::Indent(n) => {
+                for _ in 0..n {
+                    write!(f, "  ")?;
                 }
             }
-            RenderOp::Indent(n) => write_indent(f, n)?,
             RenderOp::Newline => writeln!(f)?,
+            RenderOp::WriteVariables(vars) => {
+                typed_list::render_typed_variable_list(f, vars.as_slice(), context)?;
+            }
 
             RenderOp::Process(id, indent) => {
-                let node = expr.get_node(id).ok_or(fmt::Error)?;
-                let children = node.children();
+                let entry = &context.store()[id];
+                let children = entry.children();
+                let kind = entry.kind();
 
-                match node.kind() {
-                    // --- FORMULES ATOMIQUES / TÂCHES ---
-                    // Résultat attendu : (pointing ?x3 ?x3)
-                    ExprKind::AtomicFormula | ExprKind::Function | ExprKind::Task => {
-                        stack.push(RenderOp::Write(RPAREN)); // )
+                match kind {
+                    // --- FORMULES ATOMIQUES / SQUELETTES / TÂCHES ---
+                    ExprEntryKind::AtomicFormula(_)
+                    | ExprEntryKind::Function(_)
+                    | ExprEntryKind::Task(_) => {
+                        stack.push(RenderOp::Write(")"));
 
                         for (i, &child_id) in children.iter().enumerate().rev() {
                             stack.push(RenderOp::Process(child_id, 0));
                             if i > 0 {
-                                stack.push(RenderOp::Write(" ")); // Espace entre les arguments
-                            }
-                        }
-
-                        stack.push(RenderOp::Write(LPAREN)); // ( (C'était RPAREN dans ton code)
-                        stack.push(RenderOp::Indent(indent));
-                    }
-
-                    // --- CONNECTEURS LOGIQUES ---
-                    // Résultat attendu : (and (pred1) (pred2))
-                    ExprKind::And | ExprKind::Or => {
-                        stack.push(RenderOp::Write(RPAREN));
-
-                        let is_multiline = children.len() > 1; // On peut ajuster cette condition
-
-                        for (i, &child_id) in children.iter().enumerate().rev() {
-                            stack.push(RenderOp::Process(child_id, if is_multiline { indent + 1 } else { 0 }));
-
-                            if is_multiline {
-                                stack.push(RenderOp::Indent(indent + 1));
-                                stack.push(RenderOp::Newline);
-                            } else if i > 0 {
-                                // Horizontal : un espace seulement entre les enfants
                                 stack.push(RenderOp::Write(" "));
                             }
                         }
 
-                        // Si on est en horizontal, il faut un espace APRES le mot-clé pour le premier enfant
+                        stack.push(RenderOp::Write("("));
+                        stack.push(RenderOp::Indent(indent));
+                    }
+
+                    // --- CONNECTEURS LOGIQUES N-AIRES (and, or) ---
+                    ExprEntryKind::And | ExprEntryKind::Or => {
+                        stack.push(RenderOp::Write(")"));
+
+                        let is_multiline = children.len() > 1;
+
+                        for (i, &child_id) in children.iter().enumerate().rev() {
+                            stack.push(RenderOp::Process(
+                                child_id,
+                                if is_multiline { indent + 1 } else { 0 },
+                            ));
+
+                            if is_multiline {
+                                // CRUCIAL : On veut d'abord exécuter l'Indent, puis le Newline.
+                                // Comme c'est une pile (LIFO), on doit push le Newline EN PREMIER.
+                                stack.push(RenderOp::Newline);
+                                stack.push(RenderOp::Indent(indent + 1));
+                            } else if i > 0 {
+                                stack.push(RenderOp::Write(" "));
+                            }
+                        }
+
                         if !is_multiline && !children.is_empty() {
                             stack.push(RenderOp::Write(" "));
                         }
 
-                        stack.push(RenderOp::Write(node.kind().to_pddl_keyword()));
-                        stack.push(RenderOp::Write(LPAREN));
-                        stack.push(RenderOp::Indent(indent));
-                    }
-                    // Résultat attendu : (and (pred1) (pred2))
-                    ExprKind::Not | ExprKind::Imply => {
-                        stack.push(RenderOp::Write(RPAREN));
+                        stack.push(RenderOp::Write(kind.to_pddl_keyword()));
+                        stack.push(RenderOp::Write("("));
 
-                        for (_, &child_id) in children.iter().enumerate().rev() {
-                            stack.push(RenderOp::Process(child_id, 0));
-                            // On ne met un espace que s'il y a un élément avant (donc i > 0)
-                            // OU on en met un après le mot-clé
-                            stack.push(RenderOp::Write(" "));
-                        }
-
-                        stack.push(RenderOp::Write(node.kind().to_pddl_keyword()));
-                        stack.push(RenderOp::Write(LPAREN));
+                        // On applique l'indentation initiale reçue sous le mot-clé (ex: :precondition)
                         stack.push(RenderOp::Indent(indent));
                     }
 
-                    // --- QUANTIFIERS (forall (?x) (goal)) ---
-                    ExprKind::Forall | ExprKind::Exists => {
-                        stack.push(RenderOp::Write(RPAREN));
-                        // 2. Le corps de la formule
-                        if let Some(&goal_id) = children.get(1) {
-                            stack.push(RenderOp::Process(goal_id, 0));
-                            stack.push(RenderOp::Write(" "));
+                    // --- CONNECTEURS UNRESETS / BINAIRES (not, imply) ---
+                    ExprEntryKind::Not | ExprEntryKind::Imply => {
+                        stack.push(RenderOp::Write(")"));
+
+                        let child_is_complex = children.first().map_or(false, |&c| {
+                            let k = context.store()[c].kind();
+                            matches!(
+                                k,
+                                ExprEntryKind::And
+                                    | ExprEntryKind::Or
+                                    | ExprEntryKind::Forall(_)
+                                    | ExprEntryKind::Exists(_)
+                                    | ExprEntryKind::When
+                            )
+                        });
+
+                        for &child_id in children.iter().rev() {
+                            if child_is_complex {
+                                stack.push(RenderOp::Process(child_id, indent + 1));
+                                stack.push(RenderOp::Indent(indent + 1));
+                                stack.push(RenderOp::Newline);
+                            } else {
+                                stack.push(RenderOp::Process(child_id, 0));
+                                stack.push(RenderOp::Write(" "));
+                            }
                         }
-                        // 1. La liste des variables (souvent déjà entre parenthèses dans le LIR)
-                        if let Some(&vars_id) = children.get(0) {
-                            stack.push(RenderOp::Process(vars_id, 0));
+
+                        stack.push(RenderOp::Write(kind.to_pddl_keyword()));
+                        stack.push(RenderOp::Write("("));
+                        stack.push(RenderOp::Indent(indent));
+                    }
+
+                    // --- QUANTIFICATEURS (forall / exists) ---
+                    ExprEntryKind::Forall(typed_list) | ExprEntryKind::Exists(typed_list) => {
+                        stack.push(RenderOp::Write(")"));
+
+                        if let Some(&body_id) = children.first() {
+                            stack.push(RenderOp::Process(body_id, indent + 1));
+                            stack.push(RenderOp::Indent(indent + 1));
+                            stack.push(RenderOp::Newline);
                         }
+
+                        stack.push(RenderOp::Write(")"));
+                        stack.push(RenderOp::WriteVariables(typed_list.as_slice().to_vec()));
+                        stack.push(RenderOp::Write("("));
 
                         stack.push(RenderOp::Write(" "));
-                        stack.push(RenderOp::Write(node.kind().to_pddl_keyword()));
-                        stack.push(RenderOp::Write(LPAREN));
+                        stack.push(RenderOp::Write(kind.to_pddl_keyword()));
+                        stack.push(RenderOp::Write("("));
                         stack.push(RenderOp::Indent(indent));
                     }
-                    // --- COMPARISONS & ASSIGNMENTS (= x y) ---
-                    ExprKind::Comparison | ExprKind::Assignment | ExprKind::Arithmetic => {
-                        stack.push(RenderOp::Write(RPAREN));
-                        for (_, &child_id) in children.iter().enumerate().rev() {
-                            stack.push(RenderOp::Process(child_id, 0));
-                            stack.push(RenderOp::Write(" "));
-                        }
 
-                        stack.push(RenderOp::WriteContent(id));
-                        stack.push(RenderOp::Write(LPAREN));
+                    // --- COMPARAISONS, ASSIGNATIONS & ARITHMÉTIQUE ---
+                    ExprEntryKind::Comparison(op) => {
+                        render_infix_operation(op.to_string(), children, 0, &mut stack);
                         stack.push(RenderOp::Indent(indent));
                     }
-                    // --- TEMPORAL & MODAL (at start, always...) ---
-                    ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall |
-                    ExprKind::Always | ExprKind::Sometime | ExprKind::Within |
-                    ExprKind::AtMostOnce | ExprKind::SometimeAfter | ExprKind::SometimeBefore |
-                    ExprKind::AlwaysWithin | ExprKind::HoldDuring | ExprKind::HoldAfter => {
-                        stack.push(RenderOp::Write(RPAREN));
+                    ExprEntryKind::Assignment(op) => {
+                        render_infix_operation(op.to_string(), children, 0, &mut stack);
+                        stack.push(RenderOp::Indent(indent));
+                    }
+                    ExprEntryKind::Arithmetic(op) => {
+                        render_infix_operation(op.to_string(), children, 0, &mut stack);
+                        stack.push(RenderOp::Indent(indent));
+                    }
+
+                    // --- TEMPORELS & MODAUX (at start, overall...) ---
+                    ExprEntryKind::AtStart
+                    | ExprEntryKind::AtEnd
+                    | ExprEntryKind::Overall
+                    | ExprEntryKind::Always
+                    | ExprEntryKind::Sometime
+                    | ExprEntryKind::Within
+                    | ExprEntryKind::AtMostOnce
+                    | ExprEntryKind::SometimeAfter
+                    | ExprEntryKind::SometimeBefore
+                    | ExprEntryKind::AlwaysWithin
+                    | ExprEntryKind::HoldDuring
+                    | ExprEntryKind::HoldAfter => {
+                        stack.push(RenderOp::Write(")"));
                         for &child_id in children.iter().rev() {
                             stack.push(RenderOp::Write(" "));
                             stack.push(RenderOp::Process(child_id, 0));
                         }
-                        stack.push(RenderOp::Write(node.kind().to_pddl_keyword()));
-                        stack.push(RenderOp::Write(LPAREN));
-                        stack.push(RenderOp::Indent(indent));
-                    }
-                    // --- DURATIVE & SPECIALS ---
-                    ExprKind::When => {
-                        stack.push(RenderOp::Write(RPAREN));
-                        if let Some(&effect_id) = children.get(1) {
-                            stack.push(RenderOp::Process(effect_id, 0));
-                            stack.push(RenderOp::Write(" "));
-                        }
-                        if let Some(&cond_id) = children.get(0) {
-                            stack.push(RenderOp::Process(cond_id, 0));
-                        }
-                        stack.push(RenderOp::Write("when "));
-                        stack.push(RenderOp::Write(LPAREN));
+                        stack.push(RenderOp::Write(kind.to_pddl_keyword()));
+                        stack.push(RenderOp::Write("("));
                         stack.push(RenderOp::Indent(indent));
                     }
 
-                    ExprKind::Metric => {
-                        stack.push(RenderOp::Write(RPAREN));
+                    // --- EFFETS CONDITIONNELS (when) ---
+                    ExprEntryKind::When => {
+                        stack.push(RenderOp::Write(")"));
+
+                        if let Some(&effect_id) = children.get(1) {
+                            stack.push(RenderOp::Process(effect_id, indent + 1));
+                            stack.push(RenderOp::Indent(indent + 1));
+                            stack.push(RenderOp::Newline);
+                        }
+
+                        if let Some(&cond_id) = children.get(0) {
+                            stack.push(RenderOp::Process(cond_id, indent + 1));
+                            stack.push(RenderOp::Indent(indent + 1));
+                            stack.push(RenderOp::Newline);
+                        }
+
+                        stack.push(RenderOp::Write("when"));
+                        stack.push(RenderOp::Write("("));
+                        stack.push(RenderOp::Indent(indent));
+                    }
+
+                    // --- MÉTRIQUES ---
+                    ExprEntryKind::Metric(op) => {
+                        stack.push(RenderOp::Write(")"));
                         if let Some(&goal_id) = children.get(1) {
                             stack.push(RenderOp::Process(goal_id, 0));
                             stack.push(RenderOp::Write(" "));
                         }
                         if let Some(&opt_id) = children.get(0) {
-                            stack.push(RenderOp::WriteContent(opt_id)); // minimize / maximize
+                            stack.push(RenderOp::WriteContent(opt_id));
                         }
-                        stack.push(RenderOp::Write("(:metric "));
+                        stack.push(RenderOp::WriteDynamic(format!("(:metric {} ", op)));
                         stack.push(RenderOp::Indent(indent));
                     }
 
-                    // --- HTN & CONSTRAINTS ---
-                    ExprKind::LabeledTask => {
-                        stack.push(RenderOp::Write(RPAREN));
+                    // --- HTN & CONTRAINTES D'ORDONNANCEMENT ---
+                    ExprEntryKind::LabeledTask => {
+                        stack.push(RenderOp::Write(")"));
                         if let Some(&task_id) = children.get(1) {
                             stack.push(RenderOp::Process(task_id, 0));
                             stack.push(RenderOp::Write(" "));
@@ -193,62 +241,49 @@ pub fn render(
                         if let Some(&id_id) = children.get(0) {
                             stack.push(RenderOp::Process(id_id, 0));
                         }
-                        stack.push(RenderOp::Write(LPAREN));
+                        stack.push(RenderOp::Write("("));
                         stack.push(RenderOp::Indent(indent));
                     }
-                    ExprKind::TimedInitialLiteral => {
-                        stack.push(RenderOp::Write(RPAREN));
-
-                        // 2. L'atome ou l'effet (ex: (at a b))
+                    ExprEntryKind::TimedInitialLiteral => {
+                        stack.push(RenderOp::Write(")"));
                         if let Some(&effect_id) = children.get(1) {
                             stack.push(RenderOp::Process(effect_id, 0));
                             stack.push(RenderOp::Write(" "));
                         }
-
-                        // 1. Le temps (ex: 1)
                         if let Some(&time_id) = children.get(0) {
                             stack.push(RenderOp::Process(time_id, 0));
                         }
-
-                        stack.push(RenderOp::Write(" "));
-                        stack.push(RenderOp::Write(AT));
-                        stack.push(RenderOp::Write(LPAREN));
+                        stack.push(RenderOp::Write(" (at "));
                         stack.push(RenderOp::Indent(indent));
                     }
-                    // --- CONTRAINTE D'ORDONNANCEMENT SIMPLE (< id1 id2) ---
-                    ExprKind::TaskOrderingConstraint => {
-                        stack.push(RenderOp::Write(RPAREN));
-
-                        let children = node.children();
-                        // On suppose que children[0] est id1 et children[1] est id2
-                        for (_, &child_id) in children.iter().enumerate().rev() {
+                    ExprEntryKind::TaskOrderingConstraint(op) => {
+                        stack.push(RenderOp::Write(")"));
+                        for (i, &child_id) in children.iter().enumerate().rev() {
                             stack.push(RenderOp::Process(child_id, 0));
-                            stack.push(RenderOp::Write(" "));
+                            if i > 0 {
+                                stack.push(RenderOp::Write(" "));
+                            }
                         }
-
-                        // On affiche le contenu (le symbole '<')
-                        stack.push(RenderOp::WriteContent(id));
-
-                        stack.push(RenderOp::Write(LPAREN));
+                        stack.push(RenderOp::WriteDynamic(op.to_string()));
+                        stack.push(RenderOp::Write("("));
                         stack.push(RenderOp::Indent(indent));
                     }
-                    Kind::Object
-                    | Kind::Variable
-                    | Kind::FunctionSymbol
-                    | Kind::PredicateSymbol
-                    | Kind::TaskSymbol
-                    | Kind::PrefName
-                    | Kind::Preference
-                    | Kind::TaskLabel
-                    | Kind::Number => {
+
+                    // --- FEUILLES TERMINALES STANDARD ---
+                    ExprEntryKind::Variable(_)
+                    | ExprEntryKind::Object(_)
+                    | ExprEntryKind::PredicateSymbol(_)
+                    | ExprEntryKind::FunctionSymbol(_)
+                    | ExprEntryKind::TaskSymbol(_)
+                    | ExprEntryKind::PrefName(_)
+                    | ExprEntryKind::TaskLabel(_)
+                    | ExprEntryKind::Number(_) => {
                         stack.push(RenderOp::WriteContent(id));
                     }
-                    Kind::TotalTime
-                    | Kind::IsViolated
-                    | Kind::Length
-                    | Kind::Serial
-                    | Kind::Parallel => { stack.push(RenderOp::Write(node.kind().to_pddl_keyword()));}
 
+                    _ => {
+                        stack.push(RenderOp::WriteDynamic(kind.to_pddl_keyword().to_string()));
+                    }
                 }
             }
         }
@@ -256,53 +291,37 @@ pub fn render(
     Ok(())
 }
 
-fn render_exp_content(
-    f: &mut fmt::Formatter<'_>,
-    content: &Content,
-    ctx: &RenderContext,
-) -> std::fmt::Result {
-    match content {
-        Content::None => write!(f, "None"),
-
-        Content::Variable(id) => {
-            write!(f, "?x{}", id.as_usize())
-        },
-        Content::Object(id) => {
-            write!(f, "{}", ctx.resolve_object(*id))
-        },
-        Content::PredicateSymbol(id) => {
-            write!(f, "{}", ctx.resolve_predicate(*id))
-        },
-        Content::FunctionSymbol(id) => {
-            write!(f, "{}", ctx.resolve_functor(*id))
-        },
-        Content::TaskSymbol(id) => {
-            write!(f, "{}", ctx.resolve_task_symbol(*id))
-        },
-
-        Content::TaskLabelSymbol(id) => {
-            write!(f, "t{}",  id.as_usize())
-        },
-
-        Content::PreferenceSymbol(_id) => {
-            write!(f, "TO DO")
-            //write!(f, "pref{}", ctx.resolve_preference(*id))
+/// Helper factorisant le déroulement des opérations infixées standard PDDL (=, +, -, etc.)
+fn render_infix_operation(
+    op_symbol: String,
+    children: &[ExprId],
+    indent: usize,
+    stack: &mut Vec<RenderOp>,
+) {
+    stack.push(RenderOp::Write(")"));
+    for (i, &child_id) in children.iter().enumerate().rev() {
+        stack.push(RenderOp::Process(child_id, 0));
+        if i > 0 {
+            stack.push(RenderOp::Write(" "));
         }
+    }
+    stack.push(RenderOp::WriteDynamic(op_symbol));
+    stack.push(RenderOp::Write("("));
+    stack.push(RenderOp::Indent(indent));
+}
 
-        // --- Valeurs et Opérateurs (Inchangés car techniques) ---
-        Content::Number(val)        => write!(f, "{}", val),
-        Content::Comparison(op)    => write!(f, "{}", op),
-        Content::Assignment(op)      => write!(f, "{}", op),
-        Content::ArithmeticOp(op)  => write!(f, "{}", op),
-        Content::OptimizationOp(opt) => write!(f, "{}", opt),
-
-        // --- Listes typées ---
-        Content::QuantifierVariables(vars) =>
-            typed_list::render_typed_variable_list(f, vars.as_slice(), ctx),
-
-        // Pour les autres IDs techniques, on peut garder le Display par défaut ou enrichir
-        Content::FunctionSkeleton(_) => Ok(()),
-        Content::TaskSkeleton(_) => Ok(()),
-        Content::AtomSkeleton(_) => Ok(())
+/// Résolution et affichage direct des feuilles terminales depuis le nouveau modèle
+fn render_terminal_node(f: &mut Formatter<'_>, id: ExprId, ctx: &RenderContext) -> fmt::Result {
+    let kind = ctx.store()[id].kind();
+    match kind {
+        ExprEntryKind::Variable(v_id) => write!(f, "?x{}", v_id.as_usize()),
+        ExprEntryKind::Object(obj_id) => write!(f, "{}", ctx.resolve_object(*obj_id)),
+        ExprEntryKind::PredicateSymbol(p_id) => write!(f, "{}", ctx.resolve_predicate(*p_id)),
+        ExprEntryKind::FunctionSymbol(func_id) => write!(f, "{}", ctx.resolve_functor(*func_id)),
+        ExprEntryKind::TaskSymbol(t_id) => write!(f, "{}", ctx.resolve_task_symbol(*t_id)),
+        ExprEntryKind::TaskLabel(l_id) => write!(f, "t{}", l_id.as_usize()),
+        ExprEntryKind::Number(val) => write!(f, "{}", val),
+        ExprEntryKind::PrefName(p_id) => write!(f, "pref_{}", p_id.as_usize()),
+        _ => Ok(()),
     }
 }

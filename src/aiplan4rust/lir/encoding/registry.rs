@@ -1,7 +1,7 @@
 //! Encoding Context Management
 //!
 //! This module defines the `EncodingContext`, the central structure used during
-//! the logical encoding pass. It links syntactic declarations (AST) to their
+//! the logical encoding_old pass. It links syntactic declarations (AST) to their
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use crate::aiplan4rust::interner::SymbolInterner;
@@ -10,13 +10,15 @@ use crate::aiplan4rust::lang::{
     PreferenceSymbolId, SymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId,
     VariableId,
 };
+use crate::aiplan4rust::lir::encoding::expr::Step;
+use crate::aiplan4rust::lir::encoding::EncodingError;
+use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
-use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::tree::NodeId;
 use std::collections::HashMap;
 
-/// Context used during the encoding of actions, methods, and logic.
+/// Context used during the encoding_old of actions, methods, and logic.
 ///
 /// This structure acts as a bridge between the semantic analysis and the LIR.
 /// It carries the necessary mappings to resolve names into indices.
@@ -62,6 +64,14 @@ pub struct EncodingRegistry {
 
     task_label_to_id: HashMap<SymbolId, TaskLabelSymbolId>,
     task_label_id_to_symbol: Vec<SymbolId>,
+
+    // --- WORKSPACE BUFFERS (Reusable memory) ---
+    /// Reusable stack for tree traversal (Step::Enter / Step::Exit).
+    /// Using NodeId (usize) avoids lifetime issues.
+    pub(crate) stack_buffer: Vec<Step>,
+
+    /// Reusable stack for sub-expression results (ExprId).
+    pub(crate) results_buffer: Vec<ExprId>,
 }
 
 impl EncodingRegistry {
@@ -107,6 +117,11 @@ impl EncodingRegistry {
             preference_symbol_to_id: HashMap::new(),
             task_label_to_id: HashMap::new(),
             task_label_id_to_symbol: Vec::new(),
+
+            // --- Initialisation des buffers réutilisables ---
+            // On pré-alloue une petite capacité pour éviter les premiers "grow"
+            stack_buffer: Vec::with_capacity(64),
+            results_buffer: Vec::with_capacity(64),
         }
     }
 
@@ -156,18 +171,21 @@ impl EncodingRegistry {
     }
 
     /// Version avec erreur fatale
-    pub fn try_resolve_type_symbol(&self, symbol: NodeId) -> Result<TypeId, LirError> {
+    pub fn try_resolve_type_symbol(&self, symbol: NodeId) -> Result<TypeId, EncodingError> {
         self.resolve_type_symbol(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol))
     }
 
     pub fn resolve_type_symbol_by_name(&self, name_id: SymbolId) -> Option<TypeId> {
         self.type_symbol_to_id.get(&name_id).copied()
     }
 
-    pub fn try_resolve_type_symbol_by_name(&self, name_id: SymbolId) -> Result<TypeId, LirError> {
+    pub fn try_resolve_type_symbol_by_name(
+        &self,
+        name_id: SymbolId,
+    ) -> Result<TypeId, EncodingError> {
         self.resolve_type_symbol_by_name(name_id)
-            .ok_or_else(|| LirError::type_not_found(name_id))
+            .ok_or_else(|| EncodingError::type_not_found(name_id))
     }
 
     /// Récupère l'ID d'un prédicat par le NodeId de son symbole de déclaration.
@@ -176,27 +194,33 @@ impl EncodingRegistry {
     }
 
     /// Version avec erreur fatale si le prédicat n'est pas lié dans le registre.
-    pub fn try_resolve_predicate(&self, symbol: NodeId) -> Result<PredicateSymbolId, LirError> {
+    pub fn try_resolve_predicate(
+        &self,
+        symbol: NodeId,
+    ) -> Result<PredicateSymbolId, EncodingError> {
         self.resolve_predicate(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol))
     }
 
     pub fn resolve_atom_skeleton(&self, symbol: NodeId) -> Option<AtomSkeletonId> {
         self.atom_skeleton_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_atom_skeleton(&self, symbol: NodeId) -> Result<AtomSkeletonId, LirError> {
+    pub fn try_resolve_atom_skeleton(
+        &self,
+        symbol: NodeId,
+    ) -> Result<AtomSkeletonId, EncodingError> {
         self.resolve_atom_skeleton(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol.clone()))
     }
 
     pub fn resolve_functor_symbol(&self, symbol: NodeId) -> Option<FunctionSymbolId> {
         self.functor_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_functor(&self, symbol: NodeId) -> Result<FunctionSymbolId, LirError> {
+    pub fn try_resolve_functor(&self, symbol: NodeId) -> Result<FunctionSymbolId, EncodingError> {
         self.resolve_functor_symbol(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol))
     }
 
     pub fn resolve_function_skeleton(&self, symbol: NodeId) -> Option<FunctionSkeletonId> {
@@ -206,18 +230,18 @@ impl EncodingRegistry {
     pub fn try_resolve_function_skeleton(
         &self,
         symbol: NodeId,
-    ) -> Result<FunctionSkeletonId, LirError> {
+    ) -> Result<FunctionSkeletonId, EncodingError> {
         self.resolve_function_skeleton(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol.clone()))
     }
 
     pub fn resolve_object(&self, symbol: NodeId) -> Option<ObjectId> {
         self.object_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_object(&self, symbol: NodeId) -> Result<ObjectId, LirError> {
+    pub fn try_resolve_object(&self, symbol: NodeId) -> Result<ObjectId, EncodingError> {
         self.resolve_object(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol.clone()))
     }
 
     /// Résout un ObjectID à partir de son nom (StringID).
@@ -233,9 +257,9 @@ impl EncodingRegistry {
     pub fn try_resolve_object_symbol_by_name(
         &self,
         name_id: SymbolId,
-    ) -> Result<ObjectId, LirError> {
+    ) -> Result<ObjectId, EncodingError> {
         self.resolve_object_symbol_by_name(name_id)
-            .ok_or_else(|| LirError::object_not_found(name_id))
+            .ok_or_else(|| EncodingError::object_not_found(name_id))
     }
 
     /// Enregistre une variable liée à un nœud AST.
@@ -262,11 +286,11 @@ impl EncodingRegistry {
         self.variable_to_id.get(&decl_id).copied()
     }
 
-    pub fn try_resolve_variable(&self, decl_id: NodeId) -> Result<VariableId, LirError> {
+    pub fn try_resolve_variable(&self, decl_id: NodeId) -> Result<VariableId, EncodingError> {
         self.variable_to_id
             .get(&decl_id)
             .copied()
-            .ok_or_else(|| LirError::variable_not_found(decl_id))
+            .ok_or_else(|| EncodingError::variable_not_found(decl_id))
     }
 
     pub fn clear_variables(&mut self) {
@@ -278,27 +302,33 @@ impl EncodingRegistry {
         self.task_symbol_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_task_symbol(&self, symbol: NodeId) -> Result<TaskSymbolId, LirError> {
+    pub fn try_resolve_task_symbol(&self, symbol: NodeId) -> Result<TaskSymbolId, EncodingError> {
         self.resolve_task_symbol(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol))
     }
 
     pub fn resolve_task_skeleton(&self, symbol: NodeId) -> Option<TaskSkeletonId> {
         self.task_skeleton_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_task_skeleton(&self, symbol: NodeId) -> Result<TaskSkeletonId, LirError> {
+    pub fn try_resolve_task_skeleton(
+        &self,
+        symbol: NodeId,
+    ) -> Result<TaskSkeletonId, EncodingError> {
         self.resolve_task_skeleton(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol.clone()))
     }
 
     pub fn resolve_preference(&self, symbol: NodeId) -> Option<PreferenceSymbolId> {
         self.preference_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_preference(&self, symbol: NodeId) -> Result<PreferenceSymbolId, LirError> {
+    pub fn try_resolve_preference(
+        &self,
+        symbol: NodeId,
+    ) -> Result<PreferenceSymbolId, EncodingError> {
         self.resolve_preference(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(symbol.clone()))
     }
 
     pub fn register_type_symbol(&mut self, symbol: SymbolId, node_id: NodeId) -> TypeId {
@@ -389,9 +419,9 @@ impl EncodingRegistry {
     pub fn try_resolve_preference_by_name(
         &self,
         symbol: SymbolId,
-    ) -> Result<PreferenceSymbolId, LirError> {
+    ) -> Result<PreferenceSymbolId, EncodingError> {
         self.resolve_preference_by_name(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(NodeId::default()))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(NodeId::default()))
         // Note: On peut améliorer l'erreur si tu as un variant spécifique
     }
 
@@ -411,9 +441,12 @@ impl EncodingRegistry {
         self.task_label_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_task_label(&self, symbol: SymbolId) -> Result<TaskLabelSymbolId, LirError> {
+    pub fn try_resolve_task_label(
+        &self,
+        symbol: SymbolId,
+    ) -> Result<TaskLabelSymbolId, EncodingError> {
         self.resolve_task_label(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(NodeId::default()))
+            .ok_or_else(|| EncodingError::symbol_binding_failed(NodeId::default()))
     }
     /// La méthode dont tu as besoin dans finalize_task_network
     pub fn resolve_task_label_symbol(&self, id: TaskLabelSymbolId) -> SymbolId {

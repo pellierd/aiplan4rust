@@ -1,63 +1,31 @@
-//! Typed Symbol Encoding
-//!
-//! This module provides utilities to encoding PDDL symbols (such as constants, objects,
-//! or parameters) and bind them to their respective types during LIR translation.
-//!
-//! It processes nodes that pair identifiers with their typing definitions, ensuring
-//! that types are resolved against the provided `EncodingContext`.
-
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{TypedSymbol, Type, TypeId, VariableId, ObjectId};
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedSymbol, VariableId};
+use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::encoding::{ty, EncodingError};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::encoding::{ty, EncodingRegistry};
 
-/// Encodes a `TypedSymbol` (an identifier associated with a Type) from the syntax tree.
-///
-/// This function extracts a symbol name and resolves its associated typing(s). It is
-/// commonly used for parsing action parameters, constants in a domain, or objects
-/// in a problem definition.
-///
-/// # Arguments
-///
-/// * `subtree` - The syntax subtree representing the symbol and its optional typing.
-/// * `evaluator` - The encoding context used to resolve typing identifiers.
-///
-/// # Returns
-///
-/// * `Ok(TypedSymbol<TypeID>)` - The encoded symbol with its resolved numeric TypeIDs.
-/// * `Err(LirError)` - If the identifier is missing or typing resolution fails.
-///
-/// # Errors
-///
-/// This function will return an error if:
-/// * The first child (the symbol name) cannot be resolved to a valid identifier.
-/// * The second child (the typing definition), if present, fails the encoding process
-///   (e.g., refers to an unregistered typing).
 pub fn encode_typed_type(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &EncodingRegistry,
-) -> Result<TypedSymbol<TypeId, TypeId>, LirError> {
-    let typed_symbol_node = subtree.node();
+) -> Result<TypedSymbol<TypeId, TypeId>, EncodingError> {
     let ast = subtree.tree();
-    let children = typed_symbol_node.children();
+    let children = subtree.node().children();
 
-    // The first child is the symbol/identifier (e.g., the 'x' in 'x - type1')
-    let symbol_node = ast.try_node(children[0])?;
-    let symbol_id = symbol_node.try_ident()?;
+    // 1. On récupère le StringID du type à gauche du tiret
+    let symbol_node_id = children[0];
+    let symbol_id = ast.try_node(symbol_node_id)?.try_ident()?;
 
+    // 2. Résolution du TypeId. On utilise resolve_type_symbol_by_name car
+    // c'est la définition même du type.
     let type_id = registry.try_resolve_type_symbol_by_name(symbol_id)?;
 
-    // The second child contains the typing definitions (e.g., 'type1' or an 'either' block)
+    // 3. Encodage du parent (à droite du tiret)
     let ty = if children.len() > 1 {
         let ty_node_id = children[1];
-        let ty_node = ast.try_node(ty_node_id)?;
-        // Delegate to the typing encoding module to resolve the TypeID(s)
-        ty::encode(&SyntaxSubtree::new(ty_node, ty_node_id, ast), registry)?
+        let ty_subtree = SyntaxSubtree::new(ast.try_node(ty_node_id)?, ty_node_id, ast);
+        ty::encode(&ty_subtree, registry)?
     } else {
-        // Fallback to an empty Type (representing 'object' or untyped) if no typing is provided
-        Type::new()
+        Type::default()
     };
 
     Ok(TypedSymbol::new(type_id, ty))
@@ -66,51 +34,51 @@ pub fn encode_typed_type(
 pub fn encode_typed_object(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &EncodingRegistry,
-) -> Result<TypedSymbol<ObjectId, TypeId>, LirError> {
-    let typed_symbol_node = subtree.node();
+) -> Result<TypedSymbol<ObjectId, TypeId>, EncodingError> {
     let ast = subtree.tree();
+    let children = subtree.node().children();
 
-    // 1. Récupération du StringID (le usize)
-    let symbol_node_id = typed_symbol_node.try_child(0)?;
-    let symbol_node = ast.try_node(symbol_node_id)?;
-    let symbol_id = symbol_node.try_ident()?; // Récupère le StringID (usize)
+    // 1. On récupère le StringID de l'objet (ex: 'robot1')
+    let symbol_node_id = children[0];
+    let symbol_id = ast.try_node(symbol_node_id)?.try_ident()?;
 
-    // 2. Résolution globale par StringID
+    // 2. Résolution de l'ObjectId via le nom
     let object_id = registry.try_resolve_object_symbol_by_name(symbol_id)?;
 
     // 3. Encodage du typing (à droite du tiret)
-    let ty = if typed_symbol_node.children().len() > 1 {
-        let ty_node_id = typed_symbol_node.children()[1];
-        let ty_node = ast.try_node(ty_node_id)?;
-        ty::encode(&SyntaxSubtree::new(ty_node, ty_node_id, ast), registry)?
+    let ty = if children.len() > 1 {
+        let ty_node_id = children[1];
+        let ty_subtree = SyntaxSubtree::new(ast.try_node(ty_node_id)?, ty_node_id, ast);
+        ty::encode(&ty_subtree, registry)?
     } else {
-        Type::new()
+        Type::default()
     };
 
     Ok(TypedSymbol::new(object_id, ty))
 }
+
 pub fn encode_typed_variable(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<TypedSymbol<VariableId, TypeId>, LirError> {
-    let typed_symbol_node = subtree.node();
+) -> Result<TypedSymbol<VariableId, TypeId>, EncodingError> {
     let ast = subtree.tree();
-    let children = typed_symbol_node.children();
+    let children = subtree.node().children();
 
-    let variable_node_id = typed_symbol_node.try_child(0)?;
-    let variable_node = ast.try_node(variable_node_id)?;
-    let variable_symbol = variable_node.try_ident()?;
+    // 1. On récupère les infos de la variable (ex: '?x')
+    let variable_node_id = children[0];
+    let variable_symbol = ast.try_node(variable_node_id)?.try_ident()?;
+
+    // 2. Enregistrement de la variable dans le registre
+    // On lie le NodeId de l'AST à un nouveau VariableId LIR
     let variable_id = registry.register_variable(variable_node_id, variable_symbol);
 
-    // The second child contains the typing definitions (e.g., 'type1' or an 'either' block)
+    // 3. Encodage du typing (à droite du tiret)
     let ty = if children.len() > 1 {
         let ty_node_id = children[1];
-        let ty_node = ast.try_node(ty_node_id)?;
-        // Delegate to the typing encoding module to resolve the TypeID(s)
-        ty::encode(&SyntaxSubtree::new(ty_node, ty_node_id, ast), registry)?
+        let ty_subtree = SyntaxSubtree::new(ast.try_node(ty_node_id)?, ty_node_id, ast);
+        ty::encode(&ty_subtree, registry)?
     } else {
-        // Fallback to an empty Type (representing 'object' or untyped) if no typing is provided
-        Type::new()
+        Type::default()
     };
 
     Ok(TypedSymbol::new(variable_id, ty))

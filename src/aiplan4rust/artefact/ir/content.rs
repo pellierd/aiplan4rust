@@ -68,12 +68,11 @@
 
 use crate::aiplan4rust::artefact::ir::kind::IRKind;
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeFormat, SerdeSerializable, SerializationError};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-
 
 /// Enum representing the actual content of an IR artifact.
 /// Each variant corresponds directly to an `IRKind` and stores the format.

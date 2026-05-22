@@ -6,12 +6,12 @@ use crate::aiplan4rust::lang::{
     AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, PreferenceSymbolId, SymbolId,
     TaskSkeletonId, Type, TypeId,
 };
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::expr::ExprError;
-use crate::aiplan4rust::lir::problem::symbol_registry::IndexTableError;
-use crate::aiplan4rust::lir::store::encoding::EncodingError;
-use crate::aiplan4rust::lir::store::expr::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::normalization::NormalizationError;
+use crate::aiplan4rust::lir::encoding::EncodingError;
+use crate::aiplan4rust::lir::expr::ops::error::ExprOpErrorHC;
+use crate::aiplan4rust::lir::normalization::NormalizationError;
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
+use crate::aiplan4rust::lir::store::expr_old::ExprError;
+use crate::aiplan4rust::lir::store::problem_old::symbol_registry::IndexTableError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;

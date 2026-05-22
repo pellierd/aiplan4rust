@@ -1,27 +1,26 @@
-use std::backtrace::Backtrace;
-use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::lir::problem::symbol_registry::IndexTableError;
+use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaRegistryError;
+use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
+use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
+use crate::aiplan4rust::grounding::binding::BindingError;
+use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type};
-use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
-use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaRegistryError;
-use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
-use crate::aiplan4rust::grounding::binding::BindingError;
-use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
-use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
-use crate::aiplan4rust::lir::expr::ExprError;
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
+use crate::aiplan4rust::lir::store::expr_old::ExprError;
+use crate::aiplan4rust::lir::store::problem_old::symbol_registry::IndexTableError;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::analysis::inertia::table::InertiaTableError;
+use std::backtrace::Backtrace;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum GroundingError {
-
     #[error(transparent)]
     Registry(#[from] ValueRegistryError),
-    
+
     #[error(transparent)]
     ExprOp(#[from] ExprOpError),
 
@@ -55,7 +54,6 @@ pub enum GroundingError {
     #[error(transparent)]
     DomainIteratorError(#[from] BindingsIteratorError),
 
-
     #[error(transparent)]
     Lir(#[from] LirError),
 
@@ -68,13 +66,11 @@ pub enum GroundingError {
 }
 
 impl GroundingError {
-
     pub fn non_flattened_type_error(ty: &Type<SymbolId>) -> GroundingError {
         let bt = Backtrace::capture();
         eprintln!(
             "[DEBUG] NonFlattenedType encountered: {:?}\nBacktrace:\n{}",
-            ty,
-            bt
+            ty, bt
         );
 
         GroundingError::NonFlattenedType(ty.clone())

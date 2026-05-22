@@ -5,14 +5,13 @@
 //! consisting of a head (name and parameters) and a body (logical expression).
 
 use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
-use crate::aiplan4rust::lir::problem::symbol_registry::SymbolRegistry;
+use crate::aiplan4rust::lir::expr::ExprId;
+use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::renderers;
-use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::fmt::Formatter;
 
 /// Represents a derived predicate in a PDDL problem.
 ///
@@ -33,7 +32,7 @@ pub struct DerivedPredicate {
     head: AtomicFormulaSkeleton,
 
     /// The logical expression defining the derived predicate.
-    body: Expr,
+    body: ExprId,
 
     variable_symbols: SymbolRegistry<VariableId>,
 }
@@ -63,7 +62,7 @@ impl DerivedPredicate {
     /// let body = Expr::empty_or();
     /// let dp = DerivedPredicate::new(id, head, body);
     /// ```
-    pub fn new(header_id: AtomSkeletonId, head: AtomicFormulaSkeleton, body: Expr) -> Self {
+    pub fn new(header_id: AtomSkeletonId, head: AtomicFormulaSkeleton, body: ExprId) -> Self {
         Self {
             head_id: header_id,
             head,
@@ -116,16 +115,8 @@ impl DerivedPredicate {
     ///
     /// # Returns
     /// Immutable reference to the `Expr` defining the derived predicate.
-    pub fn body(&self) -> &Expr {
-        &self.body
-    }
-
-    /// Returns a mutable reference to the predicate's body expression.
-    ///
-    /// # Returns
-    /// Mutable reference to the `Expr` defining the derived predicate.
-    pub fn body_mut(&mut self) -> &mut Expr {
-        &mut self.body
+    pub fn body(&self) -> ExprId {
+        self.body
     }
 
     /// Sets the predicate's body expression.
@@ -135,7 +126,7 @@ impl DerivedPredicate {
     ///
     /// # Returns
     /// Nothing.
-    pub fn set_body(&mut self, body: Expr) {
+    pub fn set_body(&mut self, body: ExprId) {
         self.body = body;
     }
 
@@ -151,25 +142,16 @@ impl DerivedPredicate {
     }
 }
 
-/// Implements [`fmt::Display`] for `DerivedPredicate`.
-///
-/// This allows printing the derived predicate in a human-readable format using
-/// the debug renderer.
-impl fmt::Display for DerivedPredicate {
-    /// Formats the derived predicate into the given formatter.
-    ///
-    /// # Parameters
-    /// - `f`: The [`fmt::Formatter`] to write the output into.
-    ///
-    /// # Returns
-    /// [`fmt::Result`] indicating whether writing was successful.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        renderers::default::render_derived_predicate(f, self)
+impl LiftedSyntaxDisplay for DerivedPredicate {
+    /// Rendu PDDL propre (ex: (:derived (p ?x) (and ...)))
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::derived_predicate::render(f, self, ctx)
     }
 }
 
-impl LiftedSyntaxDisplay for DerivedPredicate {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
-        renderers::syntax::derived_predicate::render(f, self, ctx)
+impl LiftedDebugDisplay for DerivedPredicate {
+    /// Rendu structurel pour le debug (Head ID, Body Expr Tree, Local Symbols)
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::derived_predicate::render(f, self, ctx)
     }
 }

@@ -417,7 +417,7 @@ mod tests {
         // 3. Construction de l'expression P(?x)
         let var_node = builder.variable(0);
         let atom_node = builder.atomic_formula_with_skeleton(pred_id, vec![var_node], skel_id);
-        let expr = builder.finish();
+        let expr_old = builder.finish();
 
         // 4. Configuration de l'Inertie
         let mut i_table = InertiaTable::empty();
@@ -433,7 +433,7 @@ mod tests {
 
         // 6. Évaluation
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer).unwrap();
+        let res = registry.evaluate_predicate_internal(atom_node, &expr_old, &mut buffer).unwrap();
 
         // Analyse : N(2) == MAX(2) + Inertie Négative => TRUE
         assert_eq!(
@@ -506,7 +506,7 @@ mod tests {
         let arg_const = builder.constant(obj10);
         let arg_var = builder.variable(1);
         let atom_node = builder.atomic_formula_with_skeleton(pred_id, vec![arg_const, arg_var], skel_id);
-        let expr = builder.finish();
+        let expr_old = builder.finish();
 
         // 4. Setup Inertie (Inerte Positif)
         let mut i_table = InertiaTable::empty();
@@ -523,7 +523,7 @@ mod tests {
         // On simule que la constante '10' est déjà résolue dans le buffer
         buffer.push(obj10);
 
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer)
+        let res = registry.evaluate_predicate_internal(atom_node, &expr_old, &mut buffer)
             .expect("Evaluation should not fail");
 
         // ANALYSE :
@@ -583,13 +583,13 @@ mod tests {
         let arg_var = builder.variable(0);
         let arg_const = builder.constant(obj51);
         let atom_node = builder.atomic_formula_with_skeleton(pred_id, vec![arg_var, arg_const], skel_id);
-        let expr = builder.finish();
+        let expr_old = builder.finish();
 
         let mut buffer = ArgumentBuffer::new();
         // extract_mask_dynamic va trouver la constante 51 en deuxième position.
         // Masque attendu (Big Endian) : 0b01 (décimal 1)
 
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer)
+        let res = registry.evaluate_predicate_internal(atom_node, &expr_old, &mut buffer)
             .expect("Evaluation should not fail");
 
         // ANALYSE :
@@ -660,11 +660,11 @@ mod tests {
         let arg_var = builder.variable(0);
         let arg_const = builder.constant(obj51);
         let atom_node = builder.atomic_formula_with_skeleton(pred_id, vec![arg_var, arg_const], skel_id);
-        let expr = builder.finish();
+        let expr_old = builder.finish();
 
         let mut buffer = ArgumentBuffer::new();
 
-        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer)
+        let res = registry.evaluate_predicate_internal(atom_node, &expr_old, &mut buffer)
             .expect("Evaluation should not fail");
 
         // ANALYSE :

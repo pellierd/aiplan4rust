@@ -1,25 +1,21 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::lir::expr::{ops, Expr, ExprKind, ExprNode};
-use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::grounding::binding::Bindings;
-use crate::aiplan4rust::grounding::binding::BindingError;
 use crate::aiplan4rust::grounding::binding::Bindable;
-use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
+use crate::aiplan4rust::grounding::binding::BindingError;
+use crate::aiplan4rust::grounding::binding::Bindings;
+use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::store::expr_old::{ops, Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::tree::NodeId;
+use std::collections::HashMap;
 
 /// Instancie une nouvelle Expr à partir d'un sous-arbre de la source.
 /// Si la source n'a pas de racine, retourne une expression vide sans erreur.
 
-pub fn apply(
-    expr: &Expr,
-    bindings: &Bindings,
-) -> Result<Expr, BindingError> {
+pub fn apply(expr: &Expr, bindings: &Bindings) -> Result<Expr, BindingError> {
     let root_id = match expr.root_id() {
         Some(id) => id,
         None => return Ok(Expr::new()),
     };
     apply_with(expr, root_id, bindings, None)
 }
-
 
 pub fn apply_with(
     expr: &Expr,
@@ -46,7 +42,6 @@ pub fn apply_with(
                 // 3. Simplification
                 ops::simplify_subexpr_with(&mut target, new_id, evaluator)?;
 
-
                 id_map.insert(old_id, new_id);
             } else {
                 stack.push((old_id, true));
@@ -57,16 +52,15 @@ pub fn apply_with(
         } else {
             // Reconstruction
             let old_children = expr.try_node(old_id)?.children();
-            let new_children: Vec<NodeId> = old_children.iter()
+            let new_children: Vec<NodeId> = old_children
+                .iter()
                 .map(|c| *id_map.get(c).expect("Enfant manquant"))
                 .collect();
 
             let content = expr.try_node(old_id)?.content().clone();
 
-            let new_id = target.alloc_with_children(
-                ExprNode::new(kind, content, None),
-                new_children
-            );
+            let new_id =
+                target.alloc_with_children(ExprNode::new(kind, content, None), new_children);
             ops::simplify_subexpr_with(&mut target, new_id, evaluator)?;
 
             id_map.insert(old_id, new_id);
@@ -87,7 +81,6 @@ pub fn apply_in_place(
 ) -> Result<NodeId, BindingError> {
     apply_in_place_with(expr, root_id, substitution, None)
 }
-
 
 /// Grounde une expression en clonant le sous-arbre et en simplifiant au fur et à mesure.
 /// Idéal pour instancier des effets ou des préconditions depuis un domaine "lifted".
@@ -120,7 +113,6 @@ pub fn apply_in_place_with(
                 // Utilise le logic_engine interne
                 ops::simplify_subexpr_with(expr, new_id, evaluator)?;
 
-
                 id_map.insert(old_id, new_id);
             } else {
                 // --- 2. NOEUDS COMPLEXES (Connecteurs logiques) ---
@@ -138,16 +130,14 @@ pub fn apply_in_place_with(
             // Ici, tous les enfants de old_id ont déjà été créés dans target
             let old_children = expr.try_node(old_id)?.children().to_vec();
 
-            let new_children: Vec<NodeId> = old_children.iter()
+            let new_children: Vec<NodeId> = old_children
+                .iter()
                 .map(|c| *id_map.get(c).expect("L'enfant doit avoir été traité"))
                 .collect();
 
             // On alloue un nouveau noeud identique mais avec les nouveaux enfants
             let content = expr.try_node(old_id)?.content().clone();
-            let new_id = expr.alloc_with_children(
-                ExprNode::new(kind, content, None),
-                new_children
-            );
+            let new_id = expr.alloc_with_children(ExprNode::new(kind, content, None), new_children);
 
             // Simplification logique finale (ex: AND(True, True) -> True)
             ops::simplify_subexpr_with(expr, new_id, evaluator)?;
@@ -159,25 +149,26 @@ pub fn apply_in_place_with(
 
 /// Définit la "frontière" : ce qui doit être cloné/substitué d'un bloc.
 fn is_atomic_block(kind: ExprKind) -> bool {
-    matches!(kind,
-        ExprKind::AtomicFormula |
-        ExprKind::Function  |
-        ExprKind::Assignment        |
-        ExprKind::Comparison         |
-        ExprKind::Arithmetic     |
-        ExprKind::Task          |
-        ExprKind::Variable      |
-        ExprKind::Object      |
-        ExprKind::Number
+    matches!(
+        kind,
+        ExprKind::AtomicFormula
+            | ExprKind::Function
+            | ExprKind::Assignment
+            | ExprKind::Comparison
+            | ExprKind::Arithmetic
+            | ExprKind::Task
+            | ExprKind::Variable
+            | ExprKind::Object
+            | ExprKind::Number
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::{VariableId, ObjectId, CompareOp};
     use crate::aiplan4rust::grounding::binding::{apply, Bindings};
     use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-    use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent, ExprBuilder};
+    use crate::aiplan4rust::lang::{CompareOp, ObjectId, VariableId};
+    use crate::aiplan4rust::lir::store::expr_old::{ExprBuilder, ExprContent, ExprKind};
 
     #[test]
     fn test_grounding_engine_basic_substitution() -> Result<(), Box<dyn std::error::Error>> {
@@ -218,21 +209,32 @@ mod tests {
         if let ExprContent::Object(id) = arg_node.content() {
             assert_eq!(*id, obj_1, "L'ID de l'objet substitué est incorrect");
         } else {
-            panic!("L'argument est resté une Variable ou n'est pas une constante. Content: {:?}", arg_node.content());
+            panic!(
+                "L'argument est resté une Variable ou n'est pas une constante. Content: {:?}",
+                arg_node.content()
+            );
         }
 
         // 5. PREUVE DE L'OPTION A
         // La racine "officielle" de l'expression n'a pas dû bouger
-        assert_eq!(expr.root_id(), Some(root), "La racine globale ne devrait pas changer avec ground_from");
+        assert_eq!(
+            expr.root_id(),
+            Some(root),
+            "La racine globale ne devrait pas changer avec ground_from"
+        );
 
         // Le nouveau noeud doit être différent de l'ancien (car c'est un clone)
-        assert_ne!(new_root, root, "Le grounding devrait créer de nouveaux noeuds");
+        assert_ne!(
+            new_root, root,
+            "Le grounding devrait créer de nouveaux noeuds"
+        );
 
         Ok(())
     }
 
     #[test]
-    fn test_grounding_engine_fcomp_recursive_substitution() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_grounding_engine_fcomp_recursive_substitution() -> Result<(), Box<dyn std::error::Error>>
+    {
         let mut builder = ExprBuilder::new();
         let var_x = VariableId::from(1);
         let obj_truck = ObjectId::from(500);
@@ -271,9 +273,15 @@ mod tests {
         let arg_node = expr.try_node(arg_id)?;
 
         if let ExprContent::Object(id) = arg_node.content() {
-            assert_eq!(*id, obj_truck, "L'objet substitué dans le terme fonctionnel est incorrect");
+            assert_eq!(
+                *id, obj_truck,
+                "L'objet substitué dans le terme fonctionnel est incorrect"
+            );
         } else {
-            panic!("La variable ?x n'a pas été substituée par l'objet 500. Contenu actuel : {:?}", arg_node.content());
+            panic!(
+                "La variable ?x n'a pas été substituée par l'objet 500. Contenu actuel : {:?}",
+                arg_node.content()
+            );
         }
 
         // Vérifier également que le deuxième membre de la comparaison (10.0) est toujours là
@@ -301,7 +309,8 @@ mod tests {
     //         Puisque AND(..., faux) est FAUX, le moteur de simplification
     //         doit réduire l'ID racine à un noeud représentant FALSE (EmptyOr).
     // =========================================================================
-    fn test_grounding_engine_and_propagation_false_via_math() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_grounding_engine_and_propagation_false_via_math(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut builder = ExprBuilder::new();
 
         // 1. Construction : (And (at ?x) (= 1.0 2.0))
@@ -401,7 +410,11 @@ mod tests {
         let child_and_id = not_node.children()[0];
         let and_node = expr.try_node(child_and_id)?;
         assert_eq!(and_node.kind(), ExprKind::And);
-        assert_eq!(and_node.children().len(), 2, "Le AND doit avoir exactement 2 enfants");
+        assert_eq!(
+            and_node.children().len(),
+            2,
+            "Le AND doit avoir exactement 2 enfants"
+        );
 
         // --- Niveau 2 : Atomes substitués ---
         let new_p_x_id = and_node.children()[0];
@@ -416,7 +429,11 @@ mod tests {
         let p_val_node = expr.try_node(p_args[1])?;
 
         if let ExprContent::Object(id) = p_val_node.content() {
-            assert_eq!(*id, ObjectId::from(100), "L'atome P devrait avoir l'objet 100");
+            assert_eq!(
+                *id,
+                ObjectId::from(100),
+                "L'atome P devrait avoir l'objet 100"
+            );
         } else {
             panic!("Le premier enfant du AND n'a pas été substitué en Constant");
         }
@@ -429,7 +446,11 @@ mod tests {
         let q_val_node = expr.try_node(q_args[1])?;
 
         if let ExprContent::Object(id) = q_val_node.content() {
-            assert_eq!(*id, ObjectId::from(200), "L'atome Q devrait avoir l'objet 200");
+            assert_eq!(
+                *id,
+                ObjectId::from(200),
+                "L'atome Q devrait avoir l'objet 200"
+            );
         } else {
             panic!("Le second enfant du AND n'a pas été substitué en Constant");
         }
@@ -513,9 +534,16 @@ mod tests {
         assert_ne!(new_root, root, "Le root ID doit être différent (clone)");
 
         if let ExprContent::Object(id) = node.content() {
-            assert_eq!(*id, ObjectId::from(100), "La variable racine aurait dû devenir l'objet 100");
+            assert_eq!(
+                *id,
+                ObjectId::from(100),
+                "La variable racine aurait dû devenir l'objet 100"
+            );
         } else {
-            panic!("La racine devrait être une Constant après binding, mais c'est un {:?}", node.kind());
+            panic!(
+                "La racine devrait être une Constant après binding, mais c'est un {:?}",
+                node.kind()
+            );
         }
 
         Ok(())
@@ -557,7 +585,11 @@ mod tests {
         let arg_x_id = children[1];
         let arg_x_node = expr.try_node(arg_x_id)?;
         if let ExprContent::Object(id) = arg_x_node.content() {
-            assert_eq!(*id, ObjectId::from(100), "La variable ?x aurait dû être remplacée par 100");
+            assert_eq!(
+                *id,
+                ObjectId::from(100),
+                "La variable ?x aurait dû être remplacée par 100"
+            );
         } else {
             panic!("Le premier argument devrait être une Constant");
         }
@@ -571,7 +603,10 @@ mod tests {
             panic!("Le second argument devrait toujours être la Variable(99)");
         }
 
-        assert_ne!(new_root, root, "Le root ID doit être différent car c'est un clone");
+        assert_ne!(
+            new_root, root,
+            "Le root ID doit être différent car c'est un clone"
+        );
 
         Ok(())
     }
@@ -610,8 +645,7 @@ mod tests {
 
         // CRUCIAL : Même si le contenu est le même (?x), l'ID doit être différent
         assert_ne!(
-            old_child_id,
-            new_child_id,
+            old_child_id, new_child_id,
             "L'enfant (Variable) doit avoir été cloné : il doit posséder un NodeId unique"
         );
 

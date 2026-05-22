@@ -1,7 +1,7 @@
-use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use super::{action, derived_predicate, expr, method};
+use crate::aiplan4rust::lang::AtomSkeletonId;
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
+use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
 
 pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, ExprOpError> {
     let max_preds = problem.predicate_defs().len();
@@ -25,12 +25,24 @@ pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, ExprOp
     // --- 1. Global Constraints ---
     if let Some(root) = problem.domain_constraints_mut().root_id() {
         scratchpad.clear();
-        expr::to_pnf(root, problem.domain_constraints_mut(), &mut scratchpad, &mut dfs_stack, false)?;
+        expr::to_pnf(
+            root,
+            problem.domain_constraints_mut(),
+            &mut scratchpad,
+            &mut dfs_stack,
+            false,
+        )?;
         negated_atoms.extend_from_slice(&scratchpad);
     }
     if let Some(root) = problem.problem_constraints_mut().root_id() {
         scratchpad.clear();
-        expr::to_pnf(root, problem.problem_constraints_mut(), &mut scratchpad, &mut dfs_stack, false)?;
+        expr::to_pnf(
+            root,
+            problem.problem_constraints_mut(),
+            &mut scratchpad,
+            &mut dfs_stack,
+            false,
+        )?;
         negated_atoms.extend_from_slice(&scratchpad);
     }
 
@@ -40,17 +52,33 @@ pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, ExprOp
     }
 
     for action_def in problem.action_defs_mut() {
-        action::to_pnf(action_def, &mut negated_atoms, &mut scratchpad, &mut dfs_stack)?;
+        action::to_pnf(
+            action_def,
+            &mut negated_atoms,
+            &mut scratchpad,
+            &mut dfs_stack,
+        )?;
     }
 
     for method_def in problem.method_defs_mut() {
-        method::to_pnf(method_def, &mut negated_atoms, &mut scratchpad, &mut dfs_stack)?;
+        method::to_pnf(
+            method_def,
+            &mut negated_atoms,
+            &mut scratchpad,
+            &mut dfs_stack,
+        )?;
     }
 
     // --- 3. Problem Instance Specifics (Goal) ---
     if let Some(root) = problem.goal_mut().root_id() {
         scratchpad.clear();
-        expr::to_pnf(root, problem.goal_mut(), &mut scratchpad, &mut dfs_stack, false)?;
+        expr::to_pnf(
+            root,
+            problem.goal_mut(),
+            &mut scratchpad,
+            &mut dfs_stack,
+            false,
+        )?;
         negated_atoms.extend_from_slice(&scratchpad);
     }
 

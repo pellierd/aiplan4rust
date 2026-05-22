@@ -18,13 +18,13 @@
 //! > we treat them as fluents for simplicity and safety, avoiding the need for
 //! > a dependency graph analysis of axioms.
 
-use std::collections::HashSet;
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
+use crate::aiplan4rust::lir::store::expr_old::{Expr, ExprContent, ExprKind};
+use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
 use crate::analysis::inertia::table::InertiaTableError;
+use std::collections::HashSet;
 
 /// Analyzes a lifted planning problem to determine the inertia of all predicates and functions.
 ///
@@ -97,11 +97,7 @@ fn collect_all_action_fluents(
 ) -> Result<(), InertiaTableError> {
     // Collect fluents from standard instantaneous actions
     for action in problem.action_defs() {
-        collect_fluents_from_effect(
-            action.effect(),
-            fluent_predicates,
-            fluent_functions
-        )?;
+        collect_fluents_from_effect(action.effect(), fluent_predicates, fluent_functions)?;
     }
 
     Ok(())
@@ -284,12 +280,20 @@ pub fn collect_initial_facts(
 
         match node.content() {
             // Predicates: categorized as Fluent if inside a TIL, otherwise Static (Positive).
-            ExprContent::AtomSkeleton(id) if within_til => { fluent_predicates.insert(*id); }
-            ExprContent::AtomSkeleton(id) => { static_predicates.insert(*id); }
+            ExprContent::AtomSkeleton(id) if within_til => {
+                fluent_predicates.insert(*id);
+            }
+            ExprContent::AtomSkeleton(id) => {
+                static_predicates.insert(*id);
+            }
 
             // Functions: categorized as Fluent if inside a TIL, otherwise Static.
-            ExprContent::FunctionSkeleton(id) if within_til => { fluent_functions.insert(*id); }
-            ExprContent::FunctionSkeleton(id) => { static_functions.insert(*id); }
+            ExprContent::FunctionSkeleton(id) if within_til => {
+                fluent_functions.insert(*id);
+            }
+            ExprContent::FunctionSkeleton(id) => {
+                static_functions.insert(*id);
+            }
 
             // For structural nodes (And, Not, etc.), propagate the temporal context to children.
             _ => {

@@ -13,7 +13,7 @@
 //!
 //! - `tasks`: an [`Expr`] representing the subtask set (possibly partially ordered).
 //! - `ordering_constraints`: an [`Expr`] describing the order relationships between tasks.
-//! - `logical_constraints`: an [`Expr`] encoding additional logical conditions on the task execution.
+//! - `logical_constraints`: an [`Expr`] encoding_old additional logical conditions on the task execution.
 //!
 //! # Construction Example
 //!
@@ -35,14 +35,13 @@
 //! The logic used are built from the [`Expr`] representation, which supports
 //! logical combinations, references to task calls, and symbolic constructs parsed from ASTs.
 
-use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
-
 use crate::aiplan4rust::lang::TaskSkeletonId;
-use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::renderers;
-use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use core::fmt::Formatter;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
 ///
@@ -55,12 +54,12 @@ use crate::aiplan4rust::tree::NodeId;
 /// where tasks might have partial or total ordering and other logical dependencies.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct TaskNetwork {
-    tasks: Expr,
-    ordering_constraints: Expr,
-    logical_constraints: Expr,
+    tasks: ExprId,
+    ordering_constraints: ExprId,
+    logical_constraints: ExprId,
     is_declared_total_ordered: bool,
     task_def: Vec<TaskSkeletonId>,
-    task_nodes: Vec<NodeId>,
+    task_nodes: Vec<ExprId>,
 }
 
 #[allow(dead_code)]
@@ -89,12 +88,12 @@ impl TaskNetwork {
     /// );
     /// ```
     pub fn new(
-        tasks: Expr,
-        ordering_constraints: Expr,
-        logical_constraints: Expr,
+        tasks: ExprId,
+        ordering_constraints: ExprId,
+        logical_constraints: ExprId,
         is_declared_total_ordered: bool,
         task_def: Vec<TaskSkeletonId>,
-        task_nodes: Vec<NodeId>,
+        task_nodes: Vec<ExprId>,
     ) -> Self {
         Self {
             tasks,
@@ -111,19 +110,8 @@ impl TaskNetwork {
     /// # Returns
     ///
     /// A reference to the [`Expr`] representing the tasks.
-    pub fn tasks(&self) -> &Expr {
-        &self.tasks
-    }
-
-    /// Returns a mutable reference to the tasks expression.
-    ///
-    /// This allows modifying the tasks contained in the network.
-    ///
-    /// # Returns
-    ///
-    /// A mutable reference to the [`Expr`] representing the tasks.
-    pub fn tasks_mut(&mut self) -> &mut Expr {
-        &mut self.tasks
+    pub fn tasks(&self) -> ExprId {
+        self.tasks
     }
 
     /// Sets the tasks expression.
@@ -131,7 +119,7 @@ impl TaskNetwork {
     /// # Parameters
     ///
     /// - `tasks`: The new [`Expr`] representing the tasks to replace the current one.
-    pub fn set_tasks(&mut self, tasks: Expr) {
+    pub fn set_tasks(&mut self, tasks: ExprId) {
         self.tasks = tasks;
     }
 
@@ -140,19 +128,8 @@ impl TaskNetwork {
     /// # Returns
     ///
     /// A reference to the [`Expr`] representing the ordering constraints.
-    pub fn ordering_constraints(&self) -> &Expr {
-        &self.ordering_constraints
-    }
-
-    /// Returns a mutable reference to the ordering constraints expression.
-    ///
-    /// This allows modifying the ordering constraints.
-    ///
-    /// # Returns
-    ///
-    /// A mutable reference to the [`Expr`] representing the ordering constraints.
-    pub fn ordering_constraints_mut(&mut self) -> &mut Expr {
-        &mut self.ordering_constraints
+    pub fn ordering_constraints(&self) -> ExprId {
+        self.ordering_constraints
     }
 
     /// Sets the ordering constraints expression.
@@ -160,7 +137,7 @@ impl TaskNetwork {
     /// # Parameters
     ///
     /// - `ordering_constraints`: The new [`Expr`] representing the ordering constraints.
-    pub fn set_ordering_constraints(&mut self, ordering_constraints: Expr) {
+    pub fn set_ordering_constraints(&mut self, ordering_constraints: ExprId) {
         self.ordering_constraints = ordering_constraints;
     }
 
@@ -169,19 +146,8 @@ impl TaskNetwork {
     /// # Returns
     ///
     /// A reference to the [`Expr`] representing the logical constraints.
-    pub fn logical_constraints(&self) -> &Expr {
-        &self.logical_constraints
-    }
-
-    /// Returns a mutable reference to the logical constraints expression.
-    ///
-    /// This allows modifying the logical constraints.
-    ///
-    /// # Returns
-    ///
-    /// A mutable reference to the [`Expr`] representing the logical constraints.
-    pub fn logical_constraints_mut(&mut self) -> &mut Expr {
-        &mut self.logical_constraints
+    pub fn logical_constraints(&self) -> ExprId {
+        self.logical_constraints
     }
 
     /// Sets the logical constraints expression.
@@ -189,7 +155,7 @@ impl TaskNetwork {
     /// # Parameters
     ///
     /// - `logical_constraints`: The new [`Expr`] representing the logical constraints.
-    pub fn set_logical_constraints(&mut self, logical_constraints: Expr) {
+    pub fn set_logical_constraints(&mut self, logical_constraints: ExprId) {
         self.logical_constraints = logical_constraints;
     }
 
@@ -210,38 +176,22 @@ impl TaskNetwork {
     pub fn set_declared_total_ordered(&mut self, value: bool) {
         self.is_declared_total_ordered = value;
     }
-}
 
-impl Display for TaskNetwork {
-    /// Formats the `TaskNetwork` as a human-readable string.
-    ///
-    /// This implementation uses the debug renderer to display the tasks,
-    /// ordering constraints, and logical constraints in a readable form.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Write;
-    /// # let network: TaskNetwork = todo!();
-    /// let mut s = String::new();
-    /// write!(&mut s, "{}", network).unwrap();
-    /// println!("{}", s);
-    /// ```
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        renderers::default::render_task_network(f, self)
+    pub fn is_empty(&self) -> bool {
+        self.task_def.is_empty()
     }
 }
 
 impl LiftedSyntaxDisplay for TaskNetwork {
+    /// Rendu PDDL/HDDL (le "beau" texte pour l'export ou l'utilisateur).
     fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
-        renderers::syntax::task_network::render_task_network(f, self, ctx)
+        renderers::syntax::task_network::render(f, self, ctx)
+    }
+}
+
+impl LiftedDebugDisplay for TaskNetwork {
+    /// Rendu structurel (l'arbre technique avec IDs et structure interne).
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::task_network::render(f, self, ctx)
     }
 }

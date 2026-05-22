@@ -39,32 +39,37 @@
 //!
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
-
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{
     ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
     MethodSymbolId, ObjectId, PredicateSymbolId, PreferenceSymbolId, Requirement, SymbolId,
-    TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedSymbol,
+    TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol,
 };
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::{
+use crate::aiplan4rust::lir::expr::{ExprId, ExprStore};
+use crate::aiplan4rust::lir::problem::error::LiftedProblemError;
+use crate::aiplan4rust::lir::problem::skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
-use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::lir::{
-    renderers, ActionDef, DerivedPredicateDef, InitialTaskNetwork, LirError, MethodDef,
+use crate::aiplan4rust::lir::problem::SymbolRegistry;
+use crate::aiplan4rust::lir::problem::{
+    ActionDef, DerivedPredicateDef, DomainDef, InitialTaskNetwork, MethodDef, ProblemDef,
 };
+// Regroupement des imports de rendu
+use crate::aiplan4rust::lir::renderers::display::{LiftedDebugDisplay, LiftedSyntaxDisplay};
+use crate::aiplan4rust::lir::renderers::{self, RenderContext};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
+
+use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::fmt;
-use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
     /// Interner for efficient string storage and deduplication.
     interner: SymbolInterner,
+
+    store: ExprStore,
+
     /// The symbolic name of the planning domain.
     domain_name: SymbolId,
     /// The symbolic name of the planning problem instance.
@@ -92,9 +97,9 @@ pub struct Problem {
 
     // --- DEFINITIONS (Lifted Structure / Skeletons) ---
     /// List of typing definitions, including hierarchy (parent-child relations).
-    type_defs: Vec<TypedSymbol<TypeId, TypeId>>,
+    type_defs: TypedList<TypeId, TypeId>,
     /// List of objects defined in the domain or problem, associated with their types.
-    object_defs: Vec<TypedSymbol<ObjectId, TypeId>>,
+    object_defs: TypedList<ObjectId, TypeId>,
     /// Signatures of all predicates (name and typed parameters).
     predicate_defs: Vec<AtomicFormulaSkeleton>,
     /// Signatures of all functions (name, typed parameters, and return typing).
@@ -102,15 +107,12 @@ pub struct Problem {
     /// Signatures of all abstract tasks for HTN planning.
     task_defs: Vec<AtomicTaskSkeleton>,
     /// List of preference definitions (the logical formula associated with a preference label).
-    preference_defs: Vec<Expr>,
+    preference_defs: Vec<ExprId>,
 
     /// Index marking the boundary between domain constants and problem-specific objects.
     constant_offset: usize,
 
     // --- LOGIC & ACTIONS ---
-    /// Global constraints defined at the domain level.
-    domain_constraints: Expr,
-
     /// Predicates whose truth value is derived from other facts via axioms.
     derived_predicate_defs: Vec<DerivedPredicateDef>,
     predicate_derivations: Vec<Vec<DerivedPredicateDefId>>,
@@ -123,19 +125,22 @@ pub struct Problem {
 
     // --- PROBLEM INSTANCE SPECIFICS ---
     /// Initial state description (facts and initial functional values).
-    init: Expr,
+    init: ExprId,
 
     /// Target state or condition to be satisfied.
-    goal: Expr,
+    goal: ExprId,
+
+    /// Global constraints defined at the domain level.
+    domain_constraints: ExprId,
 
     /// Constraints specific to this problem instance.
-    problem_constraints: Expr,
+    problem_constraints: ExprId,
 
     /// Optimization objective (e.g., minimize plan-length or total-cost).
-    metric_spec: Expr,
+    metric_spec: ExprId,
 
     /// Specification for plan length (deprecated since PDDL 2.1).
-    length_spec: Expr,
+    length_spec: ExprId,
 
     /// The top-level task hierarchy to decompose in HTN problems.
     initial_task_network: InitialTaskNetwork,
@@ -149,7 +154,7 @@ impl Problem {
     /// # Example
     ///
     /// ```
-    /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
+    /// use aiplan4rust::aiplan4rust::lir::store::problem_old::LiftedProblem;
     /// let problem = LiftedProblem::new();
     /// assert!(problem.action_defs().is_empty());
     /// assert!(problem.type_symbols().is_empty());
@@ -157,13 +162,14 @@ impl Problem {
     pub(crate) fn new(requirements: HashSet<Requirement>) -> Self {
         Self {
             interner: SymbolInterner::new(),
+            store: ExprStore::default(),
             domain_name: SymbolId::default(),
             problem_name: SymbolId::default(),
             requirements,
             type_symbols: SymbolRegistry::new(),
-            type_defs: Vec::new(),
+            type_defs: TypedList::new(),
             object_symbols: SymbolRegistry::new(),
-            object_defs: Vec::new(),
+            object_defs: TypedList::new(),
             constant_offset: 0,
             predicate_symbols: SymbolRegistry::new(),
             predicate_defs: Vec::new(),
@@ -173,18 +179,18 @@ impl Problem {
             task_defs: Vec::new(),
             preference_symbols: SymbolRegistry::new(),
             preference_defs: Vec::new(),
-            domain_constraints: Expr::empty_or(),
             derived_predicate_defs: Vec::new(),
             predicate_derivations: Vec::new(),
             action_defs: Vec::new(),
             action_symbols: SymbolRegistry::new(),
             method_defs: Vec::new(),
             method_symbols: SymbolRegistry::new(),
-            init: Expr::empty_and(),
-            goal: Expr::empty_or(),
-            problem_constraints: Expr::empty_or(),
-            metric_spec: Expr::metric_none(),
-            length_spec: Expr::empty_length_spec(),
+            init: ExprId::EMPTY_AND,
+            goal: ExprId::EMPTY_OR,
+            domain_constraints: ExprId::EMPTY_AND,
+            problem_constraints: ExprId::EMPTY_AND,
+            metric_spec: ExprId::NONE,
+            length_spec: ExprId::NONE,
             initial_task_network: InitialTaskNetwork::default(), // Add for HDDL
         }
     }
@@ -213,6 +219,33 @@ impl Problem {
     /// problem to a grounded one without cloning.
     pub fn take_interner(&mut self) -> SymbolInterner {
         std::mem::take(&mut self.interner)
+    }
+
+    /// Returns a reference to the expression store used by the problem.
+    pub fn store(&self) -> &ExprStore {
+        &self.store
+    }
+
+    /// Returns a mutable reference to the expression store.
+    /// Useful for operations that need to add or normalize expressions.
+    pub fn store_mut(&mut self) -> &mut ExprStore {
+        &mut self.store
+    }
+
+    /// Replaces the current store with a new one.
+    ///
+    /// # Arguments
+    /// * `store` - The new `ExprStore` to use.
+    pub fn set_store(&mut self, store: ExprStore) {
+        self.store = store;
+    }
+
+    /// Takes ownership of the store, leaving an empty one in its place.
+    ///
+    /// This is crucial for moving the optimized IR to the next stage (grounding)
+    /// without performing expensive deep clones of the hash-consing tables.
+    pub fn take_store(&mut self) -> ExprStore {
+        std::mem::take(&mut self.store)
     }
 
     /// Returns the ID of the domain name.
@@ -388,7 +421,7 @@ impl Problem {
     ///
     /// # Returns
     /// A slice of [`TypedSymbol<TypeId, TypeId>`].
-    pub fn type_defs(&self) -> &[TypedSymbol<TypeId, TypeId>] {
+    pub fn type_defs(&self) -> &TypedList<TypeId, TypeId> {
         &self.type_defs
     }
 
@@ -399,7 +432,7 @@ impl Problem {
     ///
     /// # Returns
     /// A mutable slice of [`TypedSymbol<TypeId, TypeId>`].
-    pub fn type_defs_mut(&mut self) -> &mut [TypedSymbol<TypeId, TypeId>] {
+    pub fn type_defs_mut(&mut self) -> &mut TypedList<TypeId, TypeId> {
         &mut self.type_defs
     }
 
@@ -424,7 +457,10 @@ impl Problem {
     /// * `Ok(TypeID)` - The ID of the successfully updated typing.
     /// * `Err(LirError::TypeDefinitionOrphan)` - If the ID's index exceeds the
     ///   allocated definitions, indicating the symbol was never registered via `add_type_symbol`.
-    pub fn add_type_defs(&mut self, ty: TypedSymbol<TypeId, TypeId>) -> Result<TypeId, LirError> {
+    pub fn add_type_defs(
+        &mut self,
+        ty: TypedSymbol<TypeId, TypeId>,
+    ) -> Result<TypeId, LiftedProblemError> {
         let id = ty.symbol();
         let idx = id.as_usize();
 
@@ -432,7 +468,7 @@ impl Problem {
         // If the index is out of bounds, it means the definition is an "orphan"
         // without a corresponding registered symbol.
         if idx >= self.type_defs.len() {
-            return Err(LirError::type_definition_orphan(id));
+            return Err(LiftedProblemError::type_definition_orphan(id));
         }
 
         self.type_defs[idx] = ty;
@@ -443,7 +479,7 @@ impl Problem {
     ///
     /// # Returns
     /// The [`Vec<TypedSymbol<TypeId, TypeId>>`] previously owned by the problem.
-    pub fn take_type_defs(&mut self) -> Vec<TypedSymbol<TypeId, TypeId>> {
+    pub fn take_type_defs(&mut self) -> TypedList<TypeId, TypeId> {
         std::mem::take(&mut self.type_defs)
     }
 
@@ -477,9 +513,12 @@ impl Problem {
     /// # Returns
     /// * `Ok(&TypedSymbol)` on success.
     /// * `Err(LirError::TypeDefinitionOrphan)` if the definition does not exist.
-    pub fn try_get_type(&self, id: TypeId) -> Result<&TypedSymbol<TypeId, TypeId>, LirError> {
+    pub fn try_get_type(
+        &self,
+        id: TypeId,
+    ) -> Result<&TypedSymbol<TypeId, TypeId>, LiftedProblemError> {
         self.get_type_def(id)
-            .ok_or_else(|| LirError::type_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::type_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable typing definition or returns an error.
@@ -493,9 +532,9 @@ impl Problem {
     pub fn try_get_type_mut(
         &mut self,
         id: TypeId,
-    ) -> Result<&mut TypedSymbol<TypeId, TypeId>, LirError> {
+    ) -> Result<&mut TypedSymbol<TypeId, TypeId>, LiftedProblemError> {
         self.get_type_def_mut(id)
-            .ok_or_else(|| LirError::type_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::type_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the object symbol table.
@@ -529,7 +568,7 @@ impl Problem {
     ///
     /// # Returns
     /// A slice of [`TypedSymbol<ObjectId, TypeId>`].
-    pub fn object_defs(&self) -> &[TypedSymbol<ObjectId, TypeId>] {
+    pub fn object_defs(&self) -> &TypedList<ObjectId, TypeId> {
         &self.object_defs
     }
 
@@ -537,7 +576,7 @@ impl Problem {
     ///
     /// # Returns
     /// A mutable slice of [`TypedSymbol<ObjectId, TypeId>`].
-    pub fn object_defs_mut(&mut self) -> &mut [TypedSymbol<ObjectId, TypeId>] {
+    pub fn object_defs_mut(&mut self) -> &mut TypedList<ObjectId, TypeId> {
         &mut self.object_defs
     }
 
@@ -565,7 +604,7 @@ impl Problem {
     pub fn add_object_def(
         &mut self,
         obj: TypedSymbol<ObjectId, TypeId>,
-    ) -> Result<ObjectId, LirError> {
+    ) -> Result<ObjectId, LiftedProblemError> {
         let id = obj.symbol();
         let idx = id.as_usize();
 
@@ -573,7 +612,7 @@ impl Problem {
         // If the index is out of bounds, this definition has no corresponding
         // symbol entry, making it an "orphan".
         if idx >= self.object_defs.len() {
-            return Err(LirError::object_definition_orphan(id));
+            return Err(LiftedProblemError::object_definition_orphan(id));
         }
 
         self.object_defs[idx] = obj;
@@ -584,7 +623,7 @@ impl Problem {
     ///
     /// # Returns
     /// The [`Vec<TypedSymbol<ObjectId, TypeId>>`] previously owned by the problem.
-    pub fn take_object_defs(&mut self) -> Vec<TypedSymbol<ObjectId, TypeId>> {
+    pub fn take_object_defs(&mut self) -> TypedList<ObjectId, TypeId> {
         std::mem::take(&mut self.object_defs)
     }
 
@@ -605,9 +644,12 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::ObjectDefinitionOrphan` if the ID is not registered.
-    pub fn try_get_object(&self, id: ObjectId) -> Result<&TypedSymbol<ObjectId, TypeId>, LirError> {
+    pub fn try_get_object(
+        &self,
+        id: ObjectId,
+    ) -> Result<&TypedSymbol<ObjectId, TypeId>, LiftedProblemError> {
         self.get_object_def(id)
-            .ok_or_else(|| LirError::object_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::object_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable object definition or returns an error.
@@ -617,9 +659,9 @@ impl Problem {
     pub fn try_get_object_mut(
         &mut self,
         id: ObjectId,
-    ) -> Result<&mut TypedSymbol<ObjectId, TypeId>, LirError> {
+    ) -> Result<&mut TypedSymbol<ObjectId, TypeId>, LiftedProblemError> {
         self.get_object_def_mut(id)
-            .ok_or_else(|| LirError::object_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::object_definition_orphan(id))
     }
 
     /// Checks if there are any objects defined specifically in the problem
@@ -630,17 +672,21 @@ impl Problem {
 
     /// Returns a slice of the definitions that are considered Domain Constants.
     pub fn domain_constant_def(&self) -> &[TypedSymbol<ObjectId, TypeId>] {
-        &self.object_defs[..self.constant_offset]
+        // On utilise as_slice() de TypedList pour obtenir le slice complet,
+        // puis on applique le range.
+        &self.object_defs.as_slice()[..self.constant_offset]
     }
 
     /// Checks if the domain has any constant definitions.
     pub fn has_domain_constant_defs(&self) -> bool {
+        // Cette logique reste identique : l'offset indique la frontière.
         self.constant_offset > 0
     }
 
     /// Returns a slice of the definitions that are considered Problem Objects.
     pub fn problem_object_def(&self) -> &[TypedSymbol<ObjectId, TypeId>] {
-        &self.object_defs[self.constant_offset..]
+        // Slice à partir de l'offset jusqu'à la fin.
+        &self.object_defs.as_slice()[self.constant_offset..]
     }
 
     /// Sets the constant offset based on the current number of symbols.
@@ -759,9 +805,9 @@ impl Problem {
     pub fn try_get_predicate(
         &self,
         id: AtomSkeletonId,
-    ) -> Result<&AtomicFormulaSkeleton, LirError> {
+    ) -> Result<&AtomicFormulaSkeleton, LiftedProblemError> {
         self.get_predicate_def(id)
-            .ok_or_else(|| LirError::predicate_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::predicate_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable predicate definition or returns an error.
@@ -771,9 +817,9 @@ impl Problem {
     pub fn try_get_predicate_mut(
         &mut self,
         id: AtomSkeletonId,
-    ) -> Result<&mut AtomicFormulaSkeleton, LirError> {
+    ) -> Result<&mut AtomicFormulaSkeleton, LiftedProblemError> {
         self.get_predicate_def_mut(id)
-            .ok_or_else(|| LirError::predicate_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::predicate_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the function symbol table.
@@ -904,9 +950,9 @@ impl Problem {
     pub fn try_get_function(
         &self,
         id: FunctionSkeletonId,
-    ) -> Result<&AtomicFunctionSkeleton, LirError> {
+    ) -> Result<&AtomicFunctionSkeleton, LiftedProblemError> {
         self.get_function_def(id)
-            .ok_or_else(|| LirError::function_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::function_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable definition or returns a specialized error.
@@ -920,9 +966,9 @@ impl Problem {
     pub fn try_get_function_mut(
         &mut self,
         id: FunctionSkeletonId,
-    ) -> Result<&mut AtomicFunctionSkeleton, LirError> {
+    ) -> Result<&mut AtomicFunctionSkeleton, LiftedProblemError> {
         self.get_function_def_mut(id)
-            .ok_or_else(|| LirError::function_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::function_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the task symbol table.
@@ -1049,9 +1095,12 @@ impl Problem {
     ///
     /// # Errors
     /// Returns [`LirError::TaskDefinitionOrphan`] if the skeleton ID is invalid.
-    pub fn try_get_task(&self, id: TaskSkeletonId) -> Result<&AtomicTaskSkeleton, LirError> {
+    pub fn try_get_task(
+        &self,
+        id: TaskSkeletonId,
+    ) -> Result<&AtomicTaskSkeleton, LiftedProblemError> {
         self.get_task_def(id)
-            .ok_or_else(|| LirError::task_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::task_definition_orphan(id))
     }
 
     /// Attempts to retrieve a mutable task definition or returns a specialized error.
@@ -1067,9 +1116,9 @@ impl Problem {
     pub fn try_get_task_mut(
         &mut self,
         id: TaskSkeletonId,
-    ) -> Result<&mut AtomicTaskSkeleton, LirError> {
+    ) -> Result<&mut AtomicTaskSkeleton, LiftedProblemError> {
         self.get_task_def_mut(id)
-            .ok_or_else(|| LirError::task_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::task_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the preference symbol table.
@@ -1088,13 +1137,8 @@ impl Problem {
     }
 
     /// Returns a slice of all preference definitions (logical expressions) in the problem.
-    pub fn preference_defs(&self) -> &[Expr] {
+    pub fn preference_defs(&self) -> &[ExprId] {
         &self.preference_defs
-    }
-
-    /// Returns a mutable slice of all preference definitions.
-    pub fn preference_defs_mut(&mut self) -> &mut [Expr] {
-        &mut self.preference_defs
     }
 
     /// Checks if any preference definitions have been registered.
@@ -1109,7 +1153,7 @@ impl Problem {
     pub fn add_preference_def(
         &mut self,
         symbol_id: PreferenceSymbolId,
-        condition: Expr,
+        condition: ExprId,
     ) -> PreferenceSymbolId {
         // On s'assure que le vecteur de defs reste synchronisé avec le registre de symboles
         // Idéalement, preference_defs[id] correspond au symbole d'ID 'id'.
@@ -1126,36 +1170,22 @@ impl Problem {
     }
 
     /// Takes ownership of the preference definitions, leaving an empty vector.
-    pub fn take_preference_defs(&mut self) -> Vec<Expr> {
+    pub fn take_preference_defs(&mut self) -> Vec<ExprId> {
         std::mem::take(&mut self.preference_defs)
     }
 
     /// Returns a reference to a preference expression if it exists.
-    pub fn get_preference_def(&self, id: PreferenceSymbolId) -> Option<&Expr> {
-        self.preference_defs.get(id.as_usize())
-    }
-
-    /// Returns a mutable reference to a preference expression if it exists.
-    pub fn get_preference_def_mut(&mut self, id: PreferenceSymbolId) -> Option<&mut Expr> {
-        self.preference_defs.get_mut(id.as_usize())
+    pub fn get_preference_def(&self, id: PreferenceSymbolId) -> Option<ExprId> {
+        self.preference_defs.get(id.as_usize()).copied()
     }
 
     /// Attempts to retrieve a preference definition or returns a specialized error.
     ///
     /// # Errors
     /// Returns [`LirError::PreferenceDefinitionOrphan`] if the ID is invalid.
-    pub fn try_get_preference(&self, id: PreferenceSymbolId) -> Result<&Expr, LirError> {
+    pub fn try_get_preference(&self, id: PreferenceSymbolId) -> Result<ExprId, LiftedProblemError> {
         self.get_preference_def(id)
-            .ok_or_else(|| LirError::preference_definition_orphan(id))
-    }
-
-    /// Attempts to retrieve a mutable preference definition or returns a specialized error.
-    pub fn try_get_preference_mut(
-        &mut self,
-        id: PreferenceSymbolId,
-    ) -> Result<&mut Expr, LirError> {
-        self.get_preference_def_mut(id)
-            .ok_or_else(|| LirError::preference_definition_orphan(id))
+            .ok_or_else(|| LiftedProblemError::preference_definition_orphan(id))
     }
 
     /// Returns a reference to the global domain constraints.
@@ -1166,19 +1196,8 @@ impl Problem {
     ///
     /// # Returns
     /// A reference to the [`Expr`] representing the constraints.
-    pub fn domain_constraints(&self) -> &Expr {
-        &self.domain_constraints
-    }
-
-    /// Returns a mutable reference to the global domain constraints.
-    ///
-    /// This allows for in-place modification of constraints during
-    /// simplification or transformation logic.
-    ///
-    /// # Returns
-    /// A mutable reference to the [`Expr`] representing the constraints.
-    pub fn domain_constraints_mut(&mut self) -> &mut Expr {
-        &mut self.domain_constraints
+    pub fn domain_constraints(&self) -> ExprId {
+        self.domain_constraints
     }
 
     /// Sets the global domain constraints.
@@ -1187,7 +1206,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `constraints`: The new [`Expr`] to be applied as the domain's global constraints.
-    pub fn set_domain_constraints(&mut self, constraints: Expr) {
+    pub fn set_domain_constraints(&mut self, constraints: ExprId) {
         self.domain_constraints = constraints;
     }
 
@@ -1212,6 +1231,27 @@ impl Problem {
     /// A mutable slice of [`LiftedDerivedPredicate`].
     pub fn derived_predicate_defs_mut(&mut self) -> &mut [DerivedPredicateDef] {
         &mut self.derived_predicate_defs
+    }
+
+    /// Checks if a predicate ID corresponds to a derived predicate (axiom).
+    ///
+    /// Derived predicates are defined by rules rather than being directly
+    /// modified by action effects.
+    ///
+    /// # Performance
+    /// This check is currently **O(N)** where N is the number of derived predicates.
+    /// If performance becomes a bottleneck (e.g., in a large domain with many axioms),
+    /// consider using a `HashSet` or a `BitSet` for **O(1)** lookups.
+    ///
+    /// # Arguments
+    /// * `id` - The unique identifier of the predicate skeleton to check.
+    ///
+    /// # Returns
+    /// `true` if the predicate is derived, `false` otherwise.
+    pub fn is_derived_predicate(&self, id: AtomSkeletonId) -> bool {
+        self.derived_predicate_defs
+            .iter()
+            .any(|d| d.header_id() == id)
     }
 
     /// Adds a new derived predicate to the problem.
@@ -1376,19 +1416,8 @@ impl Problem {
     ///
     /// # Returns
     /// A reference to the [`Expr`] representing the initial state.
-    pub fn init(&self) -> &Expr {
-        &self.init
-    }
-
-    /// Returns a mutable reference to the initial state expression.
-    ///
-    /// This is used to perform in-place transformations, such as typing-checking
-    /// atoms in the initial state or normalizing numeric assignments.
-    ///
-    /// # Returns
-    /// A mutable reference to the [`Expr`] representing the initial state.
-    pub fn init_mut(&mut self) -> &mut Expr {
-        &mut self.init
+    pub fn init(&self) -> ExprId {
+        self.init
     }
 
     /// Sets the initial state expression.
@@ -1398,7 +1427,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `init_expr`: The new [`Expr`] representing the starting state.
-    pub fn set_init(&mut self, init_expr: Expr) {
+    pub fn set_init(&mut self, init_expr: ExprId) {
         self.init = init_expr;
     }
 
@@ -1409,20 +1438,8 @@ impl Problem {
     ///
     /// # Returns
     /// A reference to the [`Expr`] representing the goal conditions.
-    pub fn goal(&self) -> &Expr {
-        &self.goal
-    }
-
-    /// Returns a mutable reference to the goal expression.
-    ///
-    /// This is used for goal-specific transformations, such as converting
-    /// the goal to Negation Normal Form (NNF) or extracting specific
-    /// sub-goals for heuristic calculations.
-    ///
-    /// # Returns
-    /// A mutable reference to the [`Expr`] representing the goal conditions.
-    pub fn goal_mut(&mut self) -> &mut Expr {
-        &mut self.goal
+    pub fn goal(&self) -> ExprId {
+        self.goal
     }
 
     /// Sets the goal expression.
@@ -1432,7 +1449,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `goal_expr`: The new [`Expr`] representing the target state conditions.
-    pub fn set_goal(&mut self, goal_expr: Expr) {
+    pub fn set_goal(&mut self, goal_expr: ExprId) {
         self.goal = goal_expr;
     }
 
@@ -1444,20 +1461,8 @@ impl Problem {
     ///
     /// # Returns
     /// A reference to the [`Expr`] representing the problem constraints.
-    pub fn problem_constraints(&self) -> &Expr {
-        &self.problem_constraints
-    }
-
-    /// Returns a mutable reference to the global problem constraints.
-    ///
-    /// This allows for the manipulation of trajectory constraints, such as
-    /// simplifying temporal ops formulas or converting them into
-    /// state-monitor automata.
-    ///
-    /// # Returns
-    /// A mutable reference to the [`Expr`] representing the problem constraints.
-    pub fn problem_constraints_mut(&mut self) -> &mut Expr {
-        &mut self.problem_constraints
+    pub fn problem_constraints(&self) -> ExprId {
+        self.problem_constraints
     }
 
     /// Sets the global problem constraints.
@@ -1467,7 +1472,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `constraints`: The new [`Expr`] to be applied as the problem's constraints.
-    pub fn set_problem_constraints(&mut self, constraints: Expr) {
+    pub fn set_problem_constraints(&mut self, constraints: ExprId) {
         self.problem_constraints = constraints;
     }
 
@@ -1479,20 +1484,8 @@ impl Problem {
     ///
     /// # Returns
     /// A reference to the [`Expr`] representing the optimization metric.
-    pub fn metric_spec(&self) -> &Expr {
-        &self.metric_spec
-    }
-
-    /// Returns a mutable reference to the metric specification.
-    ///
-    /// This allows for the modification of the optimization objective,
-    /// such as scaling costs or simplification the metric expression for
-    /// specific solver requirements.
-    ///
-    /// # Returns
-    /// A mutable reference to the [`Expr`] representing the optimization metric.
-    pub fn metric_spec_mut(&mut self) -> &mut Expr {
-        &mut self.metric_spec
+    pub fn metric_spec(&self) -> ExprId {
+        self.metric_spec
     }
 
     /// Sets the metric specification.
@@ -1502,7 +1495,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `metric`: The new [`Expr`] representing the plan's optimization goal.
-    pub fn set_metric_spec(&mut self, metric: Expr) {
+    pub fn set_metric_spec(&mut self, metric: ExprId) {
         self.metric_spec = metric;
     }
 
@@ -1514,20 +1507,8 @@ impl Problem {
     ///
     /// # Returns
     /// A reference to the [`Expr`] representing the length constraints.
-    pub fn length_spec(&self) -> &Expr {
-        &self.length_spec
-    }
-
-    /// Returns a mutable reference to the length specification.
-    ///
-    /// This allows for the modification of length-related constraints,
-    /// such as dynamically adjusting plan bounds during iterative
-    /// deepening search.
-    ///
-    /// # Returns
-    /// A mutable reference to the [`Expr`] representing the length constraints.
-    pub fn length_spec_mut(&mut self) -> &mut Expr {
-        &mut self.length_spec
+    pub fn length_spec(&self) -> ExprId {
+        self.length_spec
     }
 
     /// Sets the length specification.
@@ -1537,7 +1518,7 @@ impl Problem {
     ///
     /// # Parameters
     /// * `length_spec`: The new [`Expr`] defining the plan length bounds.
-    pub fn set_length_spec(&mut self, length_spec: Expr) {
+    pub fn set_length_spec(&mut self, length_spec: ExprId) {
         self.length_spec = length_spec;
     }
 
@@ -1618,21 +1599,42 @@ impl Problem {
     }
 }
 
-impl Display for Problem {
-    /// Implements standard Rust [`Display`] for the problem.
-    ///
-    /// Delegates to the debug interner-aware renderer for the entire problem.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write the output into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::default::render_problem(f, self)
+impl LiftedSyntaxDisplay for Problem {
+    /// Rendu syntaxique complet (PDDL/HDDL) du problème.
+    /// Note : En PDDL, un "Problem" est généralement rendu séparément du "Domain",
+    /// mais cette structure LIR contient les deux. Le renderer décidera quoi afficher.
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::domain::render(f, &DomainDef::new(self), ctx)?;
+        writeln!(f, "\n")?;
+        renderers::syntax::problem::render(f, &ProblemDef::new(self), ctx)
+    }
+
+    /// Point d'entrée principal pour générer du code PDDL/HDDL à partir d'un Problem.
+    fn fmt_syntax_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let ctx = RenderContext::new(self);
+        self.fmt_syntax(f, &ctx)
     }
 }
 
+impl LiftedDebugDisplay for Problem {
+    /// Rendu structurel technique de l'intégralité du problème (Squelettes, Actions, Methods, Init, Goal).
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::problem::render(f, self, ctx)
+    }
+
+    /// Point d'entrée principal pour inspecter la structure interne (Debug).
+    fn fmt_debug_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let ctx = RenderContext::new(self);
+        self.fmt_debug(f, &ctx)
+    }
+}
+
+/// Implémentation de Display pour le Problem.
+/// Par convention, on utilise souvent le rendu Debug pour le type racine 'Problem'
+/// afin de voir toute la structure technique lors d'un `println!("{:?}", prob)`.
+impl std::fmt::Display for Problem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.fmt_debug_self(f)
+    }
+}
 impl SerdeSerializable for Problem {}

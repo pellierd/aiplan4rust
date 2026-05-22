@@ -1,12 +1,11 @@
-use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
-use crate::aiplan4rust::lir::expr::ExprError;
+use crate::aiplan4rust::lir::store::expr_old::ExprError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum InertiaError {
-
     /// An error related to arena allocation.
     #[error(transparent)]
     Arena(#[from] ArenaError),
@@ -35,15 +34,12 @@ pub enum InertiaError {
         func_id: FunctionSkeletonId,
         arity: usize,
     },
-
 }
 
-
 impl InertiaError {
-
     /// Creates a new error indicating that inertia information is missing for a predicate.
     ///
-    /// This error occurs when a predicate is encountered during the encoding or
+    /// This error occurs when a predicate is encountered during the encoding_old or
     /// analysis phase but has no corresponding entry in the inertia table,
     /// suggesting it was skipped during the initial state or effect scanning pass.
     ///

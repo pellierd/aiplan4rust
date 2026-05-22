@@ -6,11 +6,10 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingRegistry};
-use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingError, EncodingRegistry};
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
 use crate::aiplan4rust::lir::problem::action::Action;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -22,8 +21,9 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+    builder: &mut ExprBuilder, // Injection indispensable du builder
+) -> Result<(), EncodingError> {
     let node = subtree.node();
     let ast = subtree.tree();
     let kind = node.kind();
@@ -59,8 +59,8 @@ pub fn encode(
             // Encodage du corps d'une action simple
             let def_body_node = ast.try_node(node.try_child(2)?)?;
 
-            let mut precondition = Expr::empty_or();
-            let mut effect = Expr::empty_or();
+            let mut precondition = ExprId::EMPTY_AND;
+            let mut effect = ExprId::EMPTY_OR;
 
             for &child_id in def_body_node.children() {
                 let child_node = ast.try_node(child_id)?;
@@ -71,6 +71,7 @@ pub fn encode(
                         precondition = expr::encode(
                             &SyntaxSubtree::new(pre_node, pre_node_id, ast),
                             registry,
+                            builder,
                         )?;
                     }
                     AstKind::EffectDef => {
@@ -79,9 +80,10 @@ pub fn encode(
                         effect = expr::encode(
                             &SyntaxSubtree::new(eff_node, eff_node_id, ast),
                             registry,
+                            builder,
                         )?;
                     }
-                    _ => return Err(LirError::action_ast_kind_error(child_node.kind())),
+                    _ => return Err(EncodingError::unsupported_ast_node_kind(child_node.kind())),
                 }
             }
 
@@ -113,6 +115,7 @@ pub fn encode(
             let duration = expr::encode(
                 &SyntaxSubtree::new(actual_duration_node, actual_duration_id, ast),
                 registry,
+                builder,
             )?;
 
             // 2. Conditions temporelles (:condition ...)
@@ -121,12 +124,17 @@ pub fn encode(
             let condition = expr::encode(
                 &SyntaxSubtree::new(condition_node, condition_id, ast),
                 registry,
+                builder,
             )?;
 
             // 3. Effets temporels (:effect ...)
             let eff_node_id = def_body_node.try_child(2)?;
             let eff_node = ast.try_node(eff_node_id)?;
-            let effect = expr::encode(&SyntaxSubtree::new(eff_node, eff_node_id, ast), registry)?;
+            let effect = expr::encode(
+                &SyntaxSubtree::new(eff_node, eff_node_id, ast),
+                registry,
+                builder,
+            )?;
 
             let variable_symbols = registry.get_variable_symbols();
             let action =
@@ -134,7 +142,7 @@ pub fn encode(
                     .with_variable_symbols(variable_symbols);
             ir.add_action_def(action);
         }
-        _ => return Err(LirError::action_ast_kind_error(kind)),
+        _ => return Err(EncodingError::unsupported_ast_node_kind(kind)),
     }
 
     Ok(())

@@ -38,15 +38,15 @@
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::lir::encoding::{domain, encoding, EncodingRegistry};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::store::encoding::encoding::encode_domain as new_encode_domain;
-use crate::aiplan4rust::lir::store::encoding::encoding::encode_problem as new_encode_problem;
-use crate::aiplan4rust::lir::store::encoding::EncodingRegistry as NewEncodingRegistry;
-use crate::aiplan4rust::lir::store::expr::{ExprBuilder, ExprStore};
-use crate::aiplan4rust::lir::store::normalization;
-use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
-use crate::aiplan4rust::lir::{passes, LirError};
+use crate::aiplan4rust::lir::encoding::encoding::encode_domain as new_encode_domain;
+use crate::aiplan4rust::lir::encoding::encoding::encode_problem as new_encode_problem;
+use crate::aiplan4rust::lir::encoding::EncodingRegistry as NewEncodingRegistry;
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprStore};
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::store::encoding_old::{domain, encoding, EncodingRegistry};
+use crate::aiplan4rust::lir::store::passes;
+use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::{normalization, LirError};
 use crate::LirEncoderResult;
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked

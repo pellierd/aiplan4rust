@@ -1,568 +1,381 @@
-//! # LIR Expression Encoder
-//!
-//! This module provides the ops to transform a PDDL-based Abstract Syntax Tree (AST)
-//! into a Lifted Intermediate Representation (LIR) [`Expr`].
-//!
-//! ## Overview
-//!
-//! The encoding process takes a [`SyntaxSubtree<AstNode>`] and produces a flat,
-//! index-based expression tree. Unlike the source AST, the LIR expression is optimized
-//! for planning tasks, with symbols already resolved to internal identifiers
-//! (Predicates, Functions, Variables) via an [`EncodingRegistry`].
-//!
-//! ## Architecture
-//!
-//! The encoder is built around three main pillars:
-//!
-//! 1.  **Iterative Traversal**: To handle potentially deep PDDL logic without
-//!     risking stack overflows, the encoder uses an explicit [`Vec`]-based stack
-//!     instead of recursion.
-//! 2.  **Symbol Resolution**: During encoding, every identifier in the AST is
-//!     resolved against the [`SymbolTable`] to ensure semantic correctness and
-//!     link usages to their declarations.
-//! 3.  **Flat Storage**: The resulting [`Expr`] stores nodes in a contiguous vector.
-//!     Parent-child relationships are maintained using stable indices ([`NodeId`]).
-//!
-//! ## Key Components
-//!
-//! * [`encode`]: The entry point that orchestrates the full tree transformation.
-//! * [`alloc_node`]: Manages the dual task of translating AST data and persisting it
-//!   into the LIR storage.
-//! * [`encode_content`]: The semantic core that resolves symbols, constants, and
-//!   quantifier scopes.
-//!
-//! ## Scoping and Variables
-//!
-//! When encountering quantifiers (e.g., `forall`, `exists`), this module registers
-//! local variables within the [`EncodingRegistry`]. These variables are then
-//! available for resolution by child nodes (the quantifier's body) during the
-//! traversal.
-
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
+use crate::aiplan4rust::lir::encoding::error::EncodingError;
+use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::encoding::typed_list;
+use crate::aiplan4rust::lir::expr::ExprBuilder;
+use crate::aiplan4rust::lir::expr::ExprId;
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree};
 
-/// Encodes an AST subtree into a LIR Expression.
-/// This is the "free function" version of the previous TryFrom.
-/// Encodes an AST subtree into a Lifted Intermediate Representation (LIR) [`Expr`].
-///
-/// This function serves as the primary orchestrator for the expression encoding process.
-/// It performs a non-recursive, stack-based traversal of the provided AST subtree,
-/// transforming each [`AstNode`] into a LIR-compatible [`ExprNode`].
-///
-/// # Arguments
-///
-/// * `subtree` - The source [`SyntaxSubtree`] containing the AST nodes to be encoded.
-/// * `evaluator` - The mutable [`EncodingRegistry`] used for symbol resolution,
-///   skeleton lookups, and managing local variable scopes.
-///
-/// # Returns
-///
-/// * `Ok(Expr)` - A complete LIR expression containing allocated nodes and a valid root ID.
-/// * `Err(LirError)` - If any part of the encoding or symbol resolution fails.
-///
-/// # Process Flow
-///
-/// 1. **Initialization**: Creates a new, empty [`Expr`] container.
-/// 2. **Root Allocation**: Encodes and allocates the root AST node. This ID is set as the
-///    entry point of the LIR expression.
-/// 3. **Iterative Traversal**: Uses a manual stack to visit every child node. This avoids
-///    stack overflow issues associated with deep recursion in complex logic.
-/// 4. **Incremental Building**: For each node popped from the stack:
-///     - It is encoded and allocated via [`alloc_node`].
-///     - Its valid children are pushed back onto the stack for subsequent processing.
-///
-/// # Example Logic
-///
-/// During traversal, the function maintains a mapping between the current AST node and
-/// its parent in the LIR. This ensures that even though the storage is a flat vector,
-/// the tree hierarchy is perfectly preserved.
+/// Encode un AST en LIR en utilisant un itérateur post-ordre (Bottom-Up).
+pub enum Step {
+    Enter(NodeId),
+    Exit(NodeId, usize),
+}
+
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<Expr, LirError> {
-    let mut expr = Expr::new();
-    let root_ast = subtree.node();
-    let root_ast_id = subtree.node_id();
+    builder: &mut ExprBuilder,
+) -> Result<ExprId, EncodingError> {
+    // On récupère les buffers du registry pour éviter toute allocation
+    let mut stack = std::mem::take(&mut registry.stack_buffer);
+    let mut results = std::mem::take(&mut registry.results_buffer);
 
-    // 1. Process and allocate the root of the expression tree
-    let root_id = alloc_node(&mut expr, root_ast, root_ast_id, subtree, None, registry)?;
-    expr.set_root_id(root_id)?;
+    stack.clear();
+    results.clear();
 
-    // 2. Initialize the traversal stack: (AST Node, AST ID, LIR Parent ID)
-    let mut stack: Vec<(&AstNode, NodeId, NodeId)> = Vec::new();
-    push_children_to_stack(&mut stack, subtree, root_ast, root_id)?;
+    stack.push(Step::Enter(subtree.node_id()));
 
-    // 3. Process remaining nodes until the stack is empty
-    while let Some((current_ast_node, current_ast_id, parent_id)) = stack.pop() {
-        let node_id = alloc_node(
-            &mut expr,
-            current_ast_node,
-            current_ast_id,
-            subtree,
-            Some(parent_id),
-            registry,
-        )?;
+    while let Some(step) = stack.pop() {
+        match step {
+            Step::Enter(ast_id) => {
+                let ast_node = subtree.tree().try_node(ast_id)?;
+                let kind = ast_node.kind();
 
-        // Schedule children of the current node to be processed next
-        push_children_to_stack(&mut stack, subtree, current_ast_node, node_id)?;
-    }
+                // --- PHASE PRE-ORDER : Scopes ---
+                if matches!(kind, AstKind::Forall | AstKind::Exists) {
+                    let tl_id = ast_node.children()[0];
+                    let tl_node = subtree.tree().try_node(tl_id)?;
+                    register_local_variables(tl_node, subtree, registry)?;
+                }
 
-    Ok(expr)
-}
+                // 1. ON EMPLE LE EXIT EN PREMIER
+                // Il sera tout en bas par rapport à ses enfants, donc il sortira en dernier.
 
-/// Encodes an AST node and allocates it within the LIR expression storage.
-///
-/// This function serves as the primary bridge between the AST and the LIR storage.
-/// It orchestrates the transformation of a single node and manages the pointers
-/// required to maintain tree integrity within the flat vector storage of the [`Expr`].
-///
-/// # Arguments
-///
-/// * `logic` - The mutable LIR [`Expr`] container where the node will be persisted.
-/// * `ast_node` - A reference to the source node from the AST.
-/// * `ast_node_id` - The unique identifier of the node in the source AST, essential for
-///   resolving symbol declarations.
-/// * `subtree` - The context of the current AST subtree, used for recursive lookups.
-/// * `parent_id` - The identifier of the parent node in the **LIR** (not the AST).
-///   If `None`, this node is treated as the root.
-/// * `evaluator` - The evaluator used for symbol resolution and tracking local scopes.
-///
-/// # Returns
-///
-/// * `Ok(NodeId)` - The new identifier of the allocated node within the LIR expression.
-/// * `Err(LirError)` - If the node fails to encoding or if a parent-child link cannot be established.
-///
-/// # Process
-///
-/// 1. **Encoding**: Calls [`encode_node`] to resolve symbols and map AST kinds to LIR kinds.
-/// 2. **Storage**: Allocates a slot in the `Expr` vector and stores the resulting [`ExprNode`].
-/// 3. **Linking**: If a `parent_id` is provided, the function mutates the parent node in
-///    the LIR to add the new node's ID to its list of children.
-fn alloc_node(
-    expr: &mut Expr,
-    ast_node: &AstNode,
-    ast_node_id: NodeId,
-    subtree: &SyntaxSubtree<AstNode>,
-    parent_id: Option<NodeId>,
-    registry: &mut EncodingRegistry,
-) -> Result<NodeId, LirError> {
-    // Transform AST data into LIR data structure
-    let expr_node = encode_node(ast_node, ast_node_id, parent_id, subtree, registry)?;
+                // On doit calculer children_to_process AVANT ou stocker les IDs
+                let mut children_to_process = 0;
+                let mut children_stack = Vec::new(); // Temporaire pour l'ordre
 
-    // Persist the node into the expression's internal buffer
-    let expr_node_id = expr.alloc(expr_node);
-
-    // Maintain tree integrity by registering this node with its parent
-    if let Some(pid) = parent_id {
-        expr.try_node_mut(pid)?.add_child(expr_node_id);
-    }
-
-    Ok(expr_node_id)
-}
-
-/// Schedules the children of an AST node to be processed by pushing them onto the traversal stack.
-///
-/// This helper manages the iterative tree traversal by converting the AST parent-child
-/// relationship into stack operations. It specifically filters out structural "meta-nodes"
-/// (like [`AstKind::TypedList`]) that should not appear as independent nodes in the LIR.
-///
-/// # Arguments
-///
-/// * `stack` - The mutable traversal stack holding a triplet:
-///     1. `&'a AstNode`: A reference to the next AST node to process.
-///     2. `NodeId`: The unique identifier of the node in the source AST (used for symbol lookup).
-///     3. `NodeId`: The ID of the already-allocated parent in the **LIR** storage.
-/// * `subtree` - The syntax context used to look up child nodes by their IDs.
-/// * `ast_node` - The current AST node whose children are being scheduled.
-/// * `parent_id` - The LIR identifier of the node currently being processed, which will
-///   act as the parent for these children.
-///
-/// # Returns
-///
-/// * `Ok(())` - If all valid children were successfully pushed onto the stack.
-/// * `Err(LirError)` - If a child ID reference in the AST is dangling or invalid.
-///
-/// # Technical Details
-///
-/// * **Stack Order (LIFO):** Children are pushed in **reverse order**. This ensures that when
-///   popped, they are processed in the original left-to-right order found in the PDDL source.
-/// * **Filtered Nodes:** Nodes of typing [`AstKind::TypedList`] are ignored here. Because they
-///   represent structural groupings (like variable declarations), they are typically
-///   collapsed or handled by the parent's `encode_content` ops.
-fn push_children_to_stack<'a>(
-    stack: &mut Vec<(&'a AstNode, NodeId, NodeId)>,
-    subtree: &'a SyntaxSubtree<'a, AstNode>,
-    ast_node: &'a AstNode,
-    parent_id: NodeId,
-) -> Result<(), LirError> {
-    // We iterate in reverse to maintain left-to-right processing order in the stack (LIFO)
-    for &child_id in ast_node.children().iter().rev() {
-        let child_node = subtree.tree().try_node(child_id)?;
-
-        // Skip TypedList meta-nodes as they are handled during parent content resolution
-        if child_node.kind() == AstKind::TypedList {
-            continue;
-        }
-
-        // Schedule the node for the next iteration of the encoder loop
-        stack.push((child_node, child_id, parent_id));
-    }
-    Ok(())
-}
-
-/// Encodes a single AST node into its LIR representation ([`ExprNode`]).
-///
-/// This function acts as a coordinator that:
-/// 1.  Translates the raw [`AstKind`] into a LIR-compatible [`ExprKind`].
-/// 2.  Resolves the node's semantic payload (identifiers, constants, or structural skeletons)
-///     via [`encode_content`].
-/// 3.  Wraps the results into a new [`ExprNode`], preserving the hierarchical link to the parent.
-///
-/// # Arguments
-///
-/// * `ast_node` - The source node from the Abstract Syntax Tree.
-/// * `ast_node_id` - The unique identifier of the node in the source AST. This is required
-///   to resolve symbol usages against the global symbol table.
-/// * `parent_id` - The identifier of the parent node in the **LIR** expression (not the AST).
-/// * `subtree` - The syntax subtree context, used for navigating children or sibling data.
-/// * `evaluator` - The central evaluator used for symbol resolution and state management.
-///
-/// # Returns
-///
-/// * `Ok(ExprNode)` - A fully initialized LIR node ready for allocation.
-/// * `Err(LirError)` - If the node kind is invalid for an expression or if symbol resolution fails.
-///
-/// # Technical Note
-///
-/// This function is "pure" in the sense that it does not modify the `Expr` container itself;
-/// it only produces the data structure. The actual insertion into the expression's
-/// internal storage is handled by the caller (typically via [`alloc_node`]).
-fn encode_node(
-    ast_node: &AstNode,
-    ast_node_id: NodeId,
-    parent_id: Option<NodeId>,
-    subtree: &SyntaxSubtree<AstNode>,
-    registry: &mut EncodingRegistry,
-) -> Result<ExprNode, LirError> {
-    // 1. Map the AST kind to a LIR kind (e.g., AstKind::And -> ExprKind::And)
-    let kind = encode_kind(ast_node.kind())?;
-
-    // 2. Resolve IDs, Skeletons, or Literals based on the node's category
-    let content = encode_content(ast_node, ast_node_id, subtree, registry)?;
-
-    // 3. Assemble the node with its parent reference
-    Ok(ExprNode::new(kind, content, parent_id))
-}
-
-/// Resolves and encodes the semantic content of an AST node into LIR [`ExprContent`].
-///
-/// This function is the semantic heart of the encoder. It performs symbol resolution by
-/// bridging the gap between raw AST identifiers and the internal LIR evaluator.
-///
-/// # Arguments
-///
-/// * `ast_node` - The current node being processed from the AST.
-/// * `ast_node_id` - The unique identifier of the node in the source AST (used for symbol lookups).
-/// * `subtree` - The context of the current AST subtree for navigating children (e.g., signatures).
-/// * `evaluator` - The mutable encoding evaluator used for symbol table lookups and variable registration.
-///
-/// # Returns
-///
-/// * `Ok(ExprContent)` - The resolved LIR content, which can be:
-///     - A **Skeleton ID** for complex terms (Atomic Formulas, Function Terms, Tasks).
-///     - A **Logical ID** for atomic symbols (Predicates, Functors, Constants, Variables).
-///     - A **Literal Value** or **Operator** for leaf nodes.
-/// * `Err(LirError)` - If a symbol cannot be resolved or if the content is semantically invalid.
-///
-/// # Resolution Logic
-///
-/// 1. **Complex Terms**: For nodes like `AtomicFormula`, it resolves the first child (the predicate)
-///    to find its corresponding structural skeleton in the evaluator.
-/// 2. **Quantifiers**: It extracts variable signatures, encodes them via [`typed_list`],
-///    and registers them in the local scope of the [`EncodingRegistry`].
-/// 3. **Atomic Symbols**: It uses the `ast_node_id` to query the symbol table and retrieve
-///    the unique internal ID (e.g., a specific `VariableId` or `PredicateId`).
-/// 4. **Primitives**: Maps raw `AstContent` (Floats, Operators) directly to `ExprContent`.
-fn encode_content(
-    ast_node: &AstNode,
-    ast_node_id: NodeId,
-    subtree: &SyntaxSubtree<AstNode>,
-    registry: &mut EncodingRegistry,
-) -> Result<ExprContent, LirError> {
-    match ast_node.kind() {
-        // --- Complex Terms (Signatures / Skeletons) ---
-        // These nodes represent "calls" (e.g., p(x, y)). We resolve the structural
-        // skeleton which contains the symbol ID and the expected argument types.
-        AstKind::AtomicFormula => {
-            let predicate_node_id = ast_node.children()[0];
-            //let atom_skeleton_declaration = registry.symbol_table()
-            //    .try_resolve_declaration_by_usage(predicate_node_id, SymbolKind::Predicate)?;
-
-            // Utilisation de la nouvelle fonction factorisée (remplace tout l'ancien bloc)
-            let predicate_node = subtree.tree().try_node(predicate_node_id)?;
-            let predicate_symbol = predicate_node.try_ident()?;
-
-            let declaration = registry.symbol_table().resolve_usage(predicate_node_id)?;
-
-            // Apply redirection when declaration are defined in domain
-            let effective_id = declaration.alias().unwrap_or(declaration.source());
-
-            // On résout le squelette en utilisant la source de la déclaration (le NodeId original)
-            let atom_skeleton_id = registry.try_resolve_atom_skeleton(effective_id)?;
-
-            Ok(ExprContent::AtomSkeleton(atom_skeleton_id))
-        }
-
-        AstKind::Function => {
-            let function_id = ast_node.children()[0];
-            let function_node = subtree.tree().try_node(function_id)?;
-            let symbol = function_node.try_ident()?;
-
-            let function_skeleton_id =
-                match symbol {
-                    SymbolInterner::TOTAL_TIME_SYMBOL_ID => registry
-                        .try_resolve_function_skeleton(EncodingRegistry::TOTAL_TIME_NODE_ID)?,
-                    SymbolInterner::TOTAL_COST_SYMBOL_ID => registry
-                        .try_resolve_function_skeleton(EncodingRegistry::TOTAL_COST_NODE_ID)?,
-                    _ => {
-                        // Utilisation directe de resolve_primary_declaration
-                        let declaration = registry.symbol_table().resolve_usage(function_id)?;
-
-                        // Apply redirection when declaration are defined in domain
-                        let effective_id = declaration.alias().unwrap_or(declaration.source());
-
-                        registry.try_resolve_function_skeleton(effective_id)?
+                for &child_id in ast_node.children().iter().rev() {
+                    let child_node = subtree.tree().try_node(child_id)?;
+                    if child_node.kind() != AstKind::TypedList {
+                        children_stack.push(child_id);
+                        children_to_process += 1;
                     }
-                };
-            Ok(ExprContent::FunctionSkeleton(function_skeleton_id))
-        }
-        AstKind::Task => {
-            // L'identifiant de la task est le premier enfant
-            let task_node_id = ast_node.children()[0];
-            let task_node = subtree.tree().try_node(task_node_id)?;
-            let symbol = task_node.try_ident()?;
+                }
 
-            // 1. Résolution unifiée : On demande à la table ce qui a été décidé en Phase 4.
-            // resolve_primary_declaration s'occupe de suivre le lien déjà calculé.
-            let declaration = registry.symbol_table().resolve_usage(task_node_id)?;
+                // L'ordre critique pour une pile LIFO :
+                // [BAS] EXIT -> ENFANT_1 -> ENFANT_2 -> ENFANT_N [HAUT]
 
-            // Apply redirection when declaration are defined in domain
-            let effective_id = declaration.alias().unwrap_or(declaration.source());
+                stack.push(Step::Exit(ast_id, children_to_process));
 
-            // 2. On récupère le Skeleton ID.
-            // Ton registry doit être capable de donner un TaskSkeleton que la source soit une Task ou une Action.
-            let task_skeleton_id = registry.try_resolve_task_skeleton(effective_id)?;
-
-            Ok(ExprContent::TaskSkeleton(task_skeleton_id))
-        }
-
-        // --- Quantifiers (Scope Management) ---
-        AstKind::Forall | AstKind::Exists => {
-            let children = ast_node.children();
-            let typed_list_node = subtree.tree().try_node(children[0])?;
-            let typed_list_tree = SyntaxSubtree::new(typed_list_node, children[0], subtree.tree());
-
-            // 1. Encode the variable signatures (names and types)
-            let vars = typed_list::encode_variable_list(&typed_list_tree, registry)?;
-
-            // 2. Register variables in the local scope.
-            // Since we use an iterative traversal, variables are registered in the
-            // evaluator using their unique NodeId. This ensures children nodes
-            // can resolve these variables even without a recursive call stack.
-            for &typed_variable_node_id in typed_list_node.children() {
-                let typed_variable_node = subtree.tree().try_node(typed_variable_node_id)?;
-                let variable_node_id = typed_variable_node.try_child(0)?;
-                let variable_node = subtree.tree().try_node(variable_node_id)?;
-                let variable_symbol = variable_node.try_ident()?;
-                registry.register_variable(variable_node_id, variable_symbol);
+                for child_id in children_stack {
+                    stack.push(Step::Enter(child_id));
+                }
             }
 
-            Ok(ExprContent::QuantifierVariables(vars))
-        }
+            Step::Exit(ast_id, children_count) => {
+                let ast_node = subtree.tree().try_node(ast_id)?;
+                let kind = ast_node.kind();
 
-        // --- Atomic Symbols (Identities) ---
-        // These nodes represent the symbols themselves. We resolve their
-        // logical ID from the evaluator based on their declaration NodeId.
-        AstKind::PredicateSymbol => {
-            let predicate_node = subtree.tree().try_node(ast_node_id)?;
-            let symbol = predicate_node.try_ident()?;
-
-            // 1. On récupère la déclaration (O(1) via resolved_declaration)
-            let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
-
-            // --- CORRECTION ICI ---
-            // Si la déclaration a un alias (NodeId du domaine), on prend l'alias.
-            // Sinon on prend la source normale (NodeId local).
-            let effective_id = declaration.alias().unwrap_or(declaration.source());
-
-            // 2. On transforme la source de la déclaration en ID logique de prédicat
-            let predicate_id = registry.try_resolve_predicate(effective_id)?;
-
-            Ok(ExprContent::PredicateSymbol(predicate_id))
-        }
-        AstKind::FunctionSymbol => {
-            let symbol = ast_node.try_ident()?;
-
-            let functor_id = match symbol {
-                SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
-                    registry.try_resolve_functor(EncodingRegistry::TOTAL_TIME_NODE_ID)?
+                // --- PHASE POST-ORDER : Construction ---
+                // On pointe directement dans le buffer sans allouer
+                let results_len = results.len();
+                if results_len < children_count {
+                    // C'EST ICI QUE LE BUG SERA DÉMASQUÉ
+                    panic!(
+                        "DÉCALAGE PILE : Le nœud {:?} (ID #{}) attend {} enfants, mais results n'en a que {}. \
+            Contenu AST du nœud : {:?}",
+                        kind, ast_id, children_count, results_len, ast_node.content()
+                    );
                 }
-                SymbolInterner::TOTAL_COST_SYMBOL_ID => {
-                    registry.try_resolve_functor(EncodingRegistry::TOTAL_COST_NODE_ID)?
-                }
-                _ => {
-                    // Utilisation de resolve_primary_declaration pour bousiller la dépendance au cache
-                    let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
-                    // Apply redirection when declaration are defined in domain
-                    let effective_id = declaration.alias().unwrap_or(declaration.source());
-                    registry.try_resolve_functor(effective_id)?
-                }
-            };
 
-            Ok(ExprContent::FunctionSymbol(functor_id))
+                let start_idx = results.len() - children_count;
+                let children_ids = &results[start_idx..];
+
+                let expr_id = match kind {
+                    // 1. Termes Complexes
+                    AstKind::AtomicFormula => {
+                        let predicate_usage_id = ast_node.children()[0];
+                        let decl = registry.symbol_table().resolve_usage(predicate_usage_id)?;
+                        let effective_id = decl.alias().unwrap_or(decl.source());
+                        let pred_id = registry.try_resolve_predicate(effective_id)?;
+                        let skel_id = registry.try_resolve_atom_skeleton(effective_id)?;
+                        builder.atomic_formula(pred_id, &children_ids[1..], skel_id)
+                    }
+
+                    AstKind::Function => {
+                        let function_id = ast_node.children()[0];
+                        let symbol = subtree.tree().try_node(function_id)?.try_ident()?;
+                        let effective_id = match symbol {
+                            SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
+                                EncodingRegistry::TOTAL_TIME_NODE_ID
+                            }
+                            SymbolInterner::TOTAL_COST_SYMBOL_ID => {
+                                EncodingRegistry::TOTAL_COST_NODE_ID
+                            }
+                            _ => {
+                                let decl = registry.symbol_table().resolve_usage(function_id)?;
+                                decl.alias().unwrap_or(decl.source())
+                            }
+                        };
+                        let skel_id = registry.try_resolve_function_skeleton(effective_id)?;
+                        let func_id = registry.try_resolve_functor(effective_id)?;
+                        builder.function_term(func_id, &children_ids[1..], skel_id)
+                    }
+
+                    AstKind::Task => {
+                        let task_usage_id = ast_node.children()[0];
+                        let decl = registry.symbol_table().resolve_usage(task_usage_id)?;
+                        let effective_id = decl.alias().unwrap_or(decl.source());
+                        let skel_id = registry.try_resolve_task_skeleton(effective_id)?;
+                        let task_id = registry.try_resolve_task_symbol(effective_id)?;
+                        builder.task_with_skeleton(task_id, &children_ids[1..], skel_id)
+                    }
+
+                    // 2. Logique
+                    AstKind::And => builder.and(children_ids),
+                    AstKind::Or => builder.or(children_ids),
+                    AstKind::Not => builder.not(children_ids[0]),
+                    AstKind::Imply => builder.imply(children_ids[0], children_ids[1]),
+
+                    AstKind::Forall | AstKind::Exists => {
+                        let tl_id = ast_node.children()[0];
+                        let tl_subtree = SyntaxSubtree::new(
+                            subtree.tree().try_node(tl_id)?,
+                            tl_id,
+                            subtree.tree(),
+                        );
+                        let vars = typed_list::encode_variable_list(&tl_subtree, registry)?;
+                        let body = *children_ids
+                            .last()
+                            .ok_or_else(|| EncodingError::unsupported_ast_node_kind(kind))?;
+                        if kind == AstKind::Forall {
+                            builder.forall(vars, body)?
+                        } else {
+                            builder.exists(vars, body)?
+                        }
+                    }
+
+                    // 3. Symboles Atomiques
+                    AstKind::PredicateSymbol => {
+                        let decl = registry.symbol_table().resolve_usage(ast_id)?;
+                        builder.predicate(
+                            registry
+                                .try_resolve_predicate(decl.alias().unwrap_or(decl.source()))?,
+                        )
+                    }
+
+                    // 3. Symboles de function
+                    AstKind::FunctionSymbol => {
+                        let symbol = ast_node.try_ident()?;
+
+                        // 1. On identifie l'ID de nœud effectif (en gérant les réservés)
+                        let effective_node_id = match symbol {
+                            SymbolInterner::TOTAL_TIME_SYMBOL_ID => {
+                                EncodingRegistry::TOTAL_TIME_NODE_ID
+                            }
+                            SymbolInterner::TOTAL_COST_SYMBOL_ID => {
+                                EncodingRegistry::TOTAL_COST_NODE_ID
+                            }
+                            _ => {
+                                // Pour les fonctions normales, on passe par la table des symboles
+                                let decl = registry.symbol_table().resolve_usage(ast_id)?;
+                                decl.alias().unwrap_or(decl.source())
+                            }
+                        };
+
+                        // 2. On résout le functor LIR
+                        let func_id = registry.try_resolve_functor(effective_node_id)?;
+                        builder.function_symbol(func_id)
+                    }
+
+                    AstKind::TaskSymbol => {
+                        let decl = registry.symbol_table().resolve_usage(ast_id)?;
+                        builder.task_symbol(
+                            registry
+                                .try_resolve_task_symbol(decl.alias().unwrap_or(decl.source()))?,
+                        )
+                    }
+
+                    AstKind::Variable => {
+                        let symbol_id = ast_node.try_ident()?;
+                        let effective_id =
+                            if symbol_id == SymbolInterner::DURATION_VARIABLE_SYMBOL_ID {
+                                EncodingRegistry::DURATION_VARIABLE_NODE_ID
+                            } else {
+                                registry.symbol_table().resolve_usage(ast_id)?.source()
+                            };
+                        builder.variable(registry.try_resolve_variable(effective_id)?)
+                    }
+                    AstKind::Object => {
+                        let decl = registry.symbol_table().resolve_usage(ast_id)?;
+                        builder.object(
+                            registry.try_resolve_object(decl.alias().unwrap_or(decl.source()))?,
+                        )
+                    }
+
+                    // 4. Numériques & Opérateurs
+                    AstKind::Number => builder.number(ast_node.try_number()?),
+                    AstKind::Comparison => builder.comparison(
+                        ast_node.try_compare_op()?,
+                        children_ids[0],
+                        children_ids[1],
+                    ),
+                    AstKind::Assignment => builder.assignment(
+                        ast_node.try_assign_op()?,
+                        children_ids[0],
+                        children_ids[1],
+                    ),
+                    AstKind::Arithmetic => {
+                        builder.arithmetic(ast_node.try_arithmetic_op()?, children_ids)
+                    }
+                    AstKind::Metric => {
+                        builder.metric_exp(ast_node.try_optimization_op()?, children_ids[0])
+                    }
+
+                    // 5. Temporel & Modal
+                    AstKind::AtStart => builder.at_start(children_ids[0])?,
+                    AstKind::AtEnd => builder.at_end(children_ids[0])?,
+                    AstKind::Overall => builder.overall(children_ids[0])?,
+                    AstKind::TimedInitialLiteral => {
+                        // L'enfant 0 est le temps (Number), l'enfant 1 est l'expression (AtomicFormula/Assignment)
+                        // Selon ta logique d'empilement, children_ids[0] est le temps, children_ids[1] est le fait.
+                        let time = subtree
+                            .tree()
+                            .try_node(ast_node.children()[0])?
+                            .try_number()?;
+
+                        let effect = children_ids[1];
+
+                        // On appelle le builder pour créer l'expression temporelle initiale
+                        builder.timed_initial_literal(time, effect)?
+                    }
+                    AstKind::When => builder.when(children_ids[0], children_ids[1]),
+                    AstKind::Preference => {
+                        let pref_name_id = ast_node.children()[0];
+                        let symbol = subtree.tree().try_node(pref_name_id)?.try_ident()?;
+                        let pref_symbol_id = registry.register_preference_symbol(symbol);
+                        builder.preference(pref_symbol_id, children_ids[1])
+                    }
+
+                    // 6. Contraintes (PDDL 3.0)
+                    AstKind::Always => builder.always(children_ids[0]),
+                    AstKind::Sometime => builder.sometime(children_ids[0]),
+                    AstKind::Within => {
+                        let deadline = subtree
+                            .tree()
+                            .try_node(ast_node.children()[0])?
+                            .try_number()?;
+                        builder.within(deadline, children_ids[1])
+                    }
+                    AstKind::AlwaysWithin => {
+                        let duration = subtree
+                            .tree()
+                            .try_node(ast_node.children()[0])?
+                            .try_number()?;
+                        builder.always_within(duration, children_ids[1], children_ids[2])
+                    }
+
+                    AstKind::SometimeBefore => {
+                        // children_ids[0] : la condition (ex: a atteint le but)
+                        // children_ids[1] : ce qui doit s'être passé avant (ex: a ouvert la porte)
+                        builder.sometime_before(children_ids[0], children_ids[1])
+                    }
+                    AstKind::SometimeAfter => {
+                        // (sometime-after A B)
+                        builder.sometime_after(children_ids[0], children_ids[1])
+                    }
+
+                    AstKind::AtMostOnce => {
+                        // (at-most-once A)
+                        builder.at_most_once(children_ids[0])
+                    }
+
+                    AstKind::HoldDuring => {
+                        let start = subtree
+                            .tree()
+                            .try_node(ast_node.children()[0])?
+                            .try_number()?;
+                        let end = subtree
+                            .tree()
+                            .try_node(ast_node.children()[1])?
+                            .try_number()?;
+                        // Les expressions commencent à l'index 2 dans children_ids
+                        builder.hold_during(start, end, children_ids[2])
+                    }
+
+                    AstKind::HoldAfter => {
+                        let time = subtree
+                            .tree()
+                            .try_node(ast_node.children()[0])?
+                            .try_number()?;
+                        builder.hold_after(time, children_ids[1])
+                    }
+
+                    // 7. Divers
+                    AstKind::TaskLabel => {
+                        builder.task_label(registry.try_resolve_task_label(ast_node.try_ident()?)?)
+                    }
+                    AstKind::LabeledTask => {
+                        // 1. Récupérer le label (le nom 't1', 't2', etc.)
+                        let label_node_id = ast_node.children()[0];
+                        let label_ident = subtree.tree().try_node(label_node_id)?.try_ident()?;
+
+                        // 2. Enregistrer ou résoudre le label dans le registre
+                        // On utilise register pour s'assurer qu'il existe un ID pour ce label dans la méthode
+                        let label_symbol_id = registry.register_task_label(label_ident);
+
+                        // 3. Récupérer l'ID de la tâche (déjà encodée par Step::Enter)
+                        // children_ids[0] car le label n'a pas été poussé sur la pile results
+                        let task_expr_id = children_ids[0];
+
+                        // 4. Construire le nœud LIR
+                        builder.labeled_task(label_symbol_id, task_expr_id)
+                    }
+                    AstKind::TaskOrderingConstraint => {
+                        // Dans l'AST, les enfants sont les étiquettes (TaskLabel)
+                        // children_ids contient les ExprId de ces étiquettes déjà encodées
+                        let predecessor = children_ids[0];
+                        let successor = children_ids[1];
+
+                        // On utilise la méthode de ton ExprBuilder
+                        builder.task_ordering_constraint(predecessor, successor)
+                    }
+
+                    AstKind::PrefName => builder
+                        .pref_name(registry.register_preference_symbol(ast_node.try_ident()?)),
+
+                    AstKind::IsViolated => {
+                        // L'enfant unique est le nom de la préférence (PrefName ou PredicateSymbol servant de nom)
+                        let pref_name_id = ast_node.children()[0];
+                        let symbol = subtree.tree().try_node(pref_name_id)?.try_ident()?;
+
+                        // On enregistre/récupère l'ID de la préférence dans le registry
+                        let pref_symbol_id = registry.register_preference_symbol(symbol);
+
+                        // On construit le nœud "is-violated"
+                        builder.is_violated(pref_symbol_id)
+                    }
+                    AstKind::TotalTime => builder.total_time(),
+
+                    _ => return Err(EncodingError::unsupported_ast_node_kind(kind)),
+                };
+
+                // On nettoie la section des enfants et on pousse le résultat parent
+                results.truncate(start_idx);
+                results.push(expr_id);
+            }
         }
-        AstKind::Object => {
-            let symbol_id = ast_node.try_ident()?;
-
-            // 1. Utilisation du lien direct (O(1)) établi par check_undeclared_symbols
-            let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
-
-            // 2. Résolution de l'ID de l'objet via la source de la déclaration
-            let effective_id = declaration.alias().unwrap_or(declaration.source());
-            let constant_id = registry.try_resolve_object(effective_id)?;
-
-            Ok(ExprContent::Object(constant_id))
-        }
-        AstKind::Variable => {
-            let symbol_id = ast_node.try_ident()?; // Récupère le SymbolId (?x, etc.)
-
-            let variable_id = match symbol_id {
-                // Cas spécial : ?duration
-                SymbolInterner::DURATION_VARIABLE_SYMBOL_ID => {
-                    registry.try_resolve_variable(EncodingRegistry::DURATION_VARIABLE_NODE_ID)?
-                }
-                // Cas standard : paramètres d'actions ou variables de quantificateurs
-                _ => {
-                    // Utilise ta nouvelle méthode de vissage O(1)
-                    let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
-
-                    // On utilise .source() qui est le NodeId de la déclaration
-                    registry.try_resolve_variable(declaration.source())?
-                }
-            };
-
-            Ok(ExprContent::Variable(variable_id))
-        }
-        AstKind::TaskSymbol => {
-            let task_node = subtree.tree().try_node(ast_node_id)?;
-            let symbol = task_node.try_ident()?;
-
-            // 1. Plus de "match" ou de "fallback".
-            // On fait confiance au vissage de la Phase 4.
-            let declaration = registry.symbol_table().resolve_usage(ast_node_id)?;
-
-            // 2. On récupère l'ID symbolique via la source de la déclaration.
-            let effective_id = declaration.alias().unwrap_or(declaration.source());
-            let task_symbol_id = registry.try_resolve_task_symbol(effective_id)?;
-
-            Ok(ExprContent::TaskSymbol(task_symbol_id))
-        }
-        AstKind::TaskLabel => {
-            let label_symbol_id = ast_node.try_ident()?;
-            let task_label_id = registry.try_resolve_task_label(label_symbol_id)?;
-            Ok(ExprContent::TaskLabelSymbol(task_label_id))
-        }
-
-        AstKind::PrefName => {
-            let pref_name_symbol_id = ast_node.try_ident()?;
-            let pref_id = registry.register_preference_symbol(pref_name_symbol_id);
-            Ok(ExprContent::PreferenceSymbol(pref_id))
-        }
-
-        // --- Leaf Nodes and Operators ---
-        // If the Kind is not a complex symbol, we extract the raw primitive
-        // value or the operator stored within the AST content.
-        _ => match ast_node.content() {
-            AstContent::Number(f) => Ok(ExprContent::Number(*f)),
-            AstContent::CompareOp(op) => Ok(ExprContent::Comparison(*op)),
-            AstContent::AssignOp(op) => Ok(ExprContent::Assignment(*op)),
-            AstContent::ArithmeticOp(op) => Ok(ExprContent::ArithmeticOp(*op)),
-            AstContent::OptimizationOp(op) => Ok(ExprContent::OptimizationOp(*op)),
-            AstContent::None => Ok(ExprContent::None),
-            _ => Err(ExprError::unsupported_content(*ast_node.content()).into()),
-        },
     }
+
+    results
+        .pop()
+        .ok_or_else(|| EncodingError::unsupported_ast_node_kind(AstKind::Number))
 }
 
-/// Maps a raw [`AstKind`] to its corresponding [`ExprKind`] in the LIR.
-///
-/// This function acts as a semantic filter during the encoding process. It ensures that
-/// only AST nodes that are valid within the context of an expression (e.g., logical
-/// operators, quantifiers, fluents) are translated.
-///
-/// # Arguments
-///
-/// * `kind` - The raw [`AstKind`] extracted from the AST node.
-///
-/// # Returns
-///
-/// * `Ok(ExprKind)` - The equivalent expression kind used by the Lifted Intermediate Representation.
-/// * `Err(ExprError)` - If the `AstKind` does not belong in an expression (e.g., a domain or problem definition node).
-///
-/// # Errors
-///
-/// Returns [`ExprError::InvalidAstNode`] if the provided `AstKind` cannot be mapped
-/// to an expression, preventing malformed AST structures from entering the LIR.
-fn encode_kind(kind: AstKind) -> Result<ExprKind, ExprError> {
-    match kind {
-        AstKind::And => Ok(ExprKind::And),
-        AstKind::Or => Ok(ExprKind::Or),
-        AstKind::Not => Ok(ExprKind::Not),
-        AstKind::Imply => Ok(ExprKind::Imply),
-        AstKind::Forall => Ok(ExprKind::Forall),
-        AstKind::Exists => Ok(ExprKind::Exists),
-        AstKind::PredicateSymbol => Ok(ExprKind::PredicateSymbol),
-        AstKind::Variable => Ok(ExprKind::Variable),
-        AstKind::Object => Ok(ExprKind::Object),
-        AstKind::When => Ok(ExprKind::When),
-        AstKind::FunctionSymbol => Ok(ExprKind::FunctionSymbol),
-        AstKind::TaskSymbol => Ok(ExprKind::TaskSymbol),
-        AstKind::PrefName => Ok(ExprKind::PrefName),
-        AstKind::Function => Ok(ExprKind::Function),
-        AstKind::Number => Ok(ExprKind::Number),
-        AstKind::AtomicFormula => Ok(ExprKind::AtomicFormula),
-        AstKind::Comparison => Ok(ExprKind::Comparison),
-        AstKind::Assignment => Ok(ExprKind::Assignment),
-        AstKind::Arithmetic => Ok(ExprKind::Arithmetic),
-        AstKind::AtStart => Ok(ExprKind::AtStart),
-        AstKind::AtEnd => Ok(ExprKind::AtEnd),
-        AstKind::Overall => Ok(ExprKind::Overall),
-        AstKind::Always => Ok(ExprKind::Always),
-        AstKind::Sometime => Ok(ExprKind::Sometime),
-        AstKind::Within => Ok(ExprKind::Within),
-        AstKind::AtMostOnce => Ok(ExprKind::AtMostOnce),
-        AstKind::SometimeAfter => Ok(ExprKind::SometimeAfter),
-        AstKind::SometimeBefore => Ok(ExprKind::SometimeBefore),
-        AstKind::AlwaysWithin => Ok(ExprKind::AlwaysWithin),
-        AstKind::HoldDuring => Ok(ExprKind::HoldDuring),
-        AstKind::HoldAfter => Ok(ExprKind::HoldAfter),
-        AstKind::TimedInitialLiteral => Ok(ExprKind::TimedInitialLiteral),
-        AstKind::Metric => Ok(ExprKind::Metric),
-        AstKind::TotalTime => Ok(ExprKind::TotalTime),
-        AstKind::IsViolated => Ok(ExprKind::IsViolated),
-        AstKind::Length => Ok(ExprKind::Length),
-        AstKind::Serial => Ok(ExprKind::Serial),
-        AstKind::Parallel => Ok(ExprKind::Parallel),
-        AstKind::Task => Ok(ExprKind::Task),
-        AstKind::TaskLabel => Ok(ExprKind::TaskLabel),
-        AstKind::LabeledTask => Ok(ExprKind::LabeledTask),
-        AstKind::TaskOrderingConstraint => Ok(ExprKind::TaskOrderingConstraint),
-        AstKind::Preference => Ok(ExprKind::Preference),
-        other => Err(ExprError::invalid_ast_node(other)),
+fn register_local_variables(
+    node: &AstNode,
+    subtree: &SyntaxSubtree<AstNode>,
+    reg: &mut EncodingRegistry,
+) -> Result<(), EncodingError> {
+    for &child_id in node.children() {
+        let typed_var = subtree.tree().try_node(child_id)?;
+        let var_id = typed_var.try_child(0)?;
+        let var_node = subtree.tree().try_node(var_id)?;
+        reg.register_variable(var_id, var_node.try_ident()?);
     }
+    Ok(())
 }

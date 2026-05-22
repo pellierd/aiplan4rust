@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::quantifier_expansion::expr;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
 use crate::aiplan4rust::lir::ActionDef;
 
 /// Expands all logical quantifiers (`forall` and `exists`) within an action's expressions.
@@ -45,33 +45,20 @@ pub fn expand_with(
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), GroundingError> {
-
     // 1. Expand Precondition (or Temporal Condition)
     // For durative actions, this targets the entire condition tree.
     let precondition = action.precondition_mut();
-    expr::expand_with(
-        precondition,
-        value_registry,
-        evaluator
-    )?;
+    expr::expand_with(precondition, value_registry, evaluator)?;
 
     // 2. Expand Effects
     // This handles both simple and conditional effects (when-clauses).
     let effect = action.effect_mut();
-    expr::expand_with(
-        effect,
-        value_registry,
-        evaluator
-    )?;
+    expr::expand_with(effect, value_registry, evaluator)?;
 
     // 3. Expand Duration (Temporal Actions only)
     // Essential if duration constraints involve parameters or numeric fluents.
     if let Some(duration) = action.duration_mut() {
-        expr::expand_with(
-            duration,
-            value_registry,
-            evaluator
-        )?;
+        expr::expand_with(duration, value_registry, evaluator)?;
     }
 
     Ok(())

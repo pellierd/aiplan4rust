@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::quantifier_expansion::expr;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
 use crate::aiplan4rust::lir::MethodDef;
 
 /// Expands all logical quantifiers (`forall` and `exists`) within a Method's expressions.
@@ -24,25 +24,16 @@ pub fn expand_with(
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), GroundingError> {
-
     // 1. Expand Preconditions
     // The core of the method's applicability logic.
     let precondition = method.precondition_mut();
-    expr::expand_with(
-        precondition,
-        value_registry,
-        evaluator
-    )?;
+    expr::expand_with(precondition, value_registry, evaluator)?;
 
     // 2. Expand Task Network Constraints
     // HTN Task Networks often contain constraints (ordered, at start, etc.)
     // that are stored as expressions.
-    let constraints= method.task_network_mut().logical_constraints_mut();
-    expr::expand_with(
-        constraints,
-        value_registry,
-        evaluator
-    )?;
+    let constraints = method.task_network_mut().logical_constraints_mut();
+    expr::expand_with(constraints, value_registry, evaluator)?;
 
     Ok(())
 }

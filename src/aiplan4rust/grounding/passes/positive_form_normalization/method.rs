@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr;
 use crate::aiplan4rust::lang::AtomSkeletonId;
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
 use crate::aiplan4rust::lir::MethodDef;
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Applies the Positive Normal Form (PNF) transformation to an HTN Method.
@@ -27,25 +27,23 @@ pub fn to_pnf(
     // 1. Transform Preconditions
     // Logic required for the method to be decomposing the task.
     if let Some(root_id) = method.precondition_mut().root_id() {
-        expr::to_pnf(
-            root_id,
-            method.precondition_mut(),
-            scratchpad,
-            stack,
-            false
-        )?;
+        expr::to_pnf(root_id, method.precondition_mut(), scratchpad, stack, false)?;
     }
 
     // 2. Transform Task Network Logical Constraints
     // HTN Task Networks can contain constraints (e.g., in HDDL) that
     // must be evaluated during decomposition.
-    if let Some(root_id) = method.task_network_mut().logical_constraints_mut().root_id() {
+    if let Some(root_id) = method
+        .task_network_mut()
+        .logical_constraints_mut()
+        .root_id()
+    {
         expr::to_pnf(
             root_id,
             method.task_network_mut().logical_constraints_mut(),
             scratchpad,
             stack,
-            false
+            false,
         )?;
     }
 

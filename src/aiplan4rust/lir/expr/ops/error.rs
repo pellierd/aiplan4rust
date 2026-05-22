@@ -1,131 +1,65 @@
-use ordered_float::OrderedFloat;
+use crate::aiplan4rust::error::Traceable;
+use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
+use crate::aiplan4rust::lir::expr::error::StorerError;
+use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
 use thiserror::Error;
-use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
-use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
-use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
-use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::tree::NodeId;
 
 #[derive(Error, Debug)]
-pub enum ExprOpError {
+pub enum ExprOpErrorHC {
+    #[error(transparent)]
+    Store(#[from] StorerError),
 
     #[error(transparent)]
-    Inertia(#[from] InertiaError),
+    ExpBuilder(#[from] ExprBuilderError),
 
-    /// An error originating from the logic.
-    #[error(transparent)]
-    Expr(#[from] ExprError),
-
-    /// An error originating from the syntax tree system.
-    #[error(transparent)]
-    SyntaxTree(#[from] SyntaxTreeError),
-
-    /// An error originating from the lang module
-    #[error(transparent)]
-    Lang(#[from] LangError),
-
-    /// Indicates that an unsupported or unexpected `AstContent` variant was encountered.
-    #[error("Unsupported content: {content:?}")]
-    UnsupportedContent {
-        /// The unsupported AST content variant that triggered the error.
-        content: AstContent,
+    /// Indicates an illegal nesting of temporal operators (e.g., 'at start' inside 'at end').
+    /// This is typically caught during parsing or initial expression building.
+    #[error("Illegal Temporal Nesting: Cannot nest temporal operator {nested_kind:?} inside {parent_kind:?} at node {id:?}")]
+    IllegalTemporalNesting {
+        /// The ID of the node where the violation occurred.
+        id: ExprId,
+        /// The kind of the parent temporal operator.
+        parent_kind: ExprEntryKind,
+        /// The kind of the nested temporal operator that is forbidden.
+        nested_kind: ExprEntryKind,
     },
 
-    /// Indicates that an AST node cannot be translated into the intermediate representation (IR)
-    /// because its kind is unsupported by the pipeline.
-    #[error("Unsupported AST kind: {kind:?}")]
-    InvalidAstNode {
-        /// The unsupported AST kind variant that triggered the error.
-        kind: AstKind,
-    },
+    /// A required sub-expression variant was missing from the scratchpad structural memoization cache.
+    #[error("Cache Miss: A transformed child expression was expected but missing from the local scratchpad cache.")]
+    CacheMiss,
 
-    /// Indicates an error during arithmetic evaluation of an operation with given operands.
-    #[error("Arithmetic evaluation error in operation {op:?} with operands {values:?}")]
-    ArithmeticEvaluationError {
-        /// The arithmetic operation that failed.
-        op: ArithmeticOp,
-        /// The operand values that caused the error.
-        values: Vec<OrderedFloat<f64>>,
-    },
-
-    /// Indicates that an expression node in the IR is invalid for the current transformation.
-    /// The node may be misplaced or of a typing that cannot be processed in this context.
-    #[error("Invalid expression node kind {kind:?} at node {node_id}")]
-    InvalidExprNode {
-        /// The ID of the expression node that is invalid.
-        node_id: NodeId,
-        /// The kind of the expression node that is invalid.
-        kind: ExprKind,
-    },
-
-    /// Indicates that a literal node is not properly wrapped in a temporal specifier
-    /// (`AtStart`, `AtEnd`, or `Overall`).
-    #[error("Literal at node {node_id} is missing a temporal specifier")]
-    MissingTimeSpecifier {
-        /// The node ID of the literal missing a temporal specifier.
-        node_id: NodeId,
-    },
-
+    /// A structural logic error occurred where the root node failed to be reconstructed by the NNF loop.
+    #[error("NNF Logic Error: The DFS transformation loop finished but the root expression was not successfully reconstructed.")]
+    NnfLogicError,
 }
 
-impl ExprOpError {
-    /// Captures the current call site and backtrace for debugging purposes.
-    ///
-    /// This function logs the error, the location where capture() was called,
-    /// and a full backtrace if the log level is set to Debug.
+impl ExprOpErrorHC {
+    /// Creates an `IllegalTemporalNesting` error variant and captures the call site.
     #[track_caller]
-    pub fn capture(self) -> Self {
-        if log::log_enabled!(log::Level::Debug) {
-            let caller = std::panic::Location::caller();
-            let bt = std::backtrace::Backtrace::force_capture();
-
-            log::debug!(
-                "LogicError captured at {file}:{line}:{col}\n\
-                 [Error] {error:?}\n\
-                 [Stack Trace]\n{trace}",
-                file = caller.file(),
-                line = caller.line(),
-                col = caller.column(),
-                error = self,
-                trace = bt
-            );
-        }
-        self
-    }
-
-    /// Creates an `InvalidAstNode` error variant for a given `AstKind` and captures the call site.
-    #[track_caller]
-    pub fn invalid_ast_node(kind: AstKind) -> Self {
-        ExprOpError::InvalidAstNode { kind }.capture()
-    }
-
-    /// Creates an `ArithmeticEvaluationError` variant for a failed arithmetic operation and captures the call site.
-    #[track_caller]
-    pub fn arithmetic_evaluation_error(
-        op: ArithmeticOp,
-        values: Vec<OrderedFloat<f64>>,
+    pub fn illegal_temporal_nesting(
+        id: ExprId,
+        parent_kind: ExprEntryKind,
+        nested_kind: ExprEntryKind,
     ) -> Self {
-        ExprOpError::ArithmeticEvaluationError { op, values }.capture()
+        ExprOpErrorHC::IllegalTemporalNesting {
+            id,
+            parent_kind,
+            nested_kind,
+        }
+        .trace()
     }
 
-    /// Creates an `InvalidExprNode` error variant for a node with an invalid kind and captures the call site.
+    /// Creates a `CacheMiss` error variant and captures the call site.
     #[track_caller]
-    pub fn invalid_expr_node(node_id: NodeId, kind: ExprKind) -> Self {
-        ExprOpError::InvalidExprNode { node_id, kind }.capture()
+    pub fn cache_miss() -> Self {
+        ExprOpErrorHC::CacheMiss.trace()
     }
 
-    /// Creates a `MissingTimeSpecifier` error variant for a literal node and captures the call site.
+    /// Creates a `NnfLogicError` error variant and captures the call site.
     #[track_caller]
-    pub fn missing_time_specifier(node_id: NodeId) -> Self {
-        ExprOpError::MissingTimeSpecifier { node_id }.capture()
+    pub fn nnf_logic_error() -> Self {
+        ExprOpErrorHC::NnfLogicError.trace()
     }
-
-    /// Indicates that an unsupported or unexpected `AstContent` variant was encountered.
-    /// Captures the call site for easier debugging of translation failures.
-    #[track_caller]
-    pub fn unsupported_content(content: AstContent) -> Self {
-        ExprOpError::UnsupportedContent { content }.capture()
-    }
-
 }
+
+impl Traceable for ExprOpErrorHC {}

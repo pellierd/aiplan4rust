@@ -1,11 +1,10 @@
-use thiserror::Error;
-use crate::aiplan4rust::lir::expr::ExprError;
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
+use crate::aiplan4rust::lir::store::expr_old::ExprError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum BindingError {
-
     #[error(transparent)]
     Logic(#[from] ExprOpError),
 
@@ -16,6 +15,4 @@ pub enum BindingError {
     Expr(#[from] ExprError),
 }
 
-impl BindingError {
-
-}
+impl BindingError {}

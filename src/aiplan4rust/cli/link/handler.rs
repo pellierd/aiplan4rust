@@ -24,7 +24,7 @@ use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_AR
 use crate::aiplan4rust::cli::error::CliError;
 use crate::aiplan4rust::cli::path::{default_lifted_output_path, output_path};
 use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use crate::{Frontend, Renderer, Severity};
 use clap::error::ErrorKind;

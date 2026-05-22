@@ -21,9 +21,9 @@
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTable;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
-use crate::aiplan4rust::lir::store::expr::expr::Expr;
-use crate::aiplan4rust::lir::store::expr::ExprEntryKind;
-use crate::aiplan4rust::lir::store::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::expr::expr::Expr;
+use crate::aiplan4rust::lir::expr::ExprEntryKind;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::analysis::inertia::new_table::InertiaTableError;
 use std::collections::HashSet;
 
@@ -179,7 +179,7 @@ fn build_inertia_table(
 ///
 /// # Arguments
 ///
-/// * `expr` - The effect expression to analyze.
+/// * `expr_old` - The effect expression to analyze.
 /// * `fluent_predicates` - A mutable set to be populated with IDs of modified predicates.
 /// * `fluent_functions` - A mutable set to be populated with IDs of modified numeric functions.
 ///

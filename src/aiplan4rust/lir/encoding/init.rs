@@ -1,48 +1,45 @@
 //! Initial State Encoding
 //!
-//! This module handles the translation of the PDDL `:init` section.
-//! It transforms the initial facts and assignments defined in the problem
-//! file into LIR logic.
+//! Ce module gère la traduction de la section PDDL `:init`.
+//! Il transforme les faits initiaux et les affectations numériques du fichier
+//! problème en logique LIR stockée dans le Store.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::encoding::{expr, EncodingRegistry};
+use crate::aiplan4rust::lir::encoding::{expr, EncodingError, EncodingRegistry};
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
-/// Encodes the initial state of the problem from the `:init` AST section.
+/// Encode l'état initial du problème à partir de la section AST `:init`.
 ///
-/// This function extracts the collection of ground facts and fluents. It delegates
-/// the recursive encoding to the expression module, ensuring all initial predicates
-/// and functions are correctly bound to the problem's symbol table.
+/// Cette fonction extrait la collection de faits (ground facts) et de fluents.
+/// Elle délègue l'encodage récursif au module `expr_old`, ce qui garantit que
+/// tous les prédicats et fonctions initiaux sont correctement liés aux IDs
+/// du problème (PredicateID, FunctorID) et aux objets (ObjectID).
 ///
 /// # Arguments
 ///
-/// * `subtree` - The syntax subtree corresponding to the `Init` node.
-/// * `evaluator` - The evaluator for symbol and index resolution.
-/// * `ir` - The mutable lifted problem where the initial state is registered.
+/// * `subtree` - Le sous-arbre syntaxique correspondant au nœud `Init`.
+/// * `registry` - Le registre pour la résolution des symboles (objets, prédicats).
+/// * `builder` - Le builder d'expressions pour enregistrer les faits dans le Store.
 ///
 /// # Returns
 ///
-/// * `Ok(Expr)` - An expression representing the conjunctive initial state.
-/// * `Err(LirError)` - If the initial state structure is invalid or contains
-///   unresolved symbols.
-///
-/// # Errors
-///
-/// This function returns an error if the mandatory child node (containing the
-/// list of facts) is missing or cannot be parsed as a valid expression.
+/// * `Ok(ExprId)` - L'identifiant de l'expression (souvent un AND global) dans le Store.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<Expr, LirError> {
-    // 1. Access the first child of the Init node (containing the list of initial facts)
+    builder: &mut ExprBuilder, // Injection indispensable du builder
+) -> Result<ExprId, EncodingError> {
+    // 1. Accès au premier enfant du nœud Init (la liste des faits)
     let child_id = subtree.node().try_child(0)?;
     let child_node = subtree.tree().try_node(child_id)?;
     let child_subtree = SyntaxSubtree::new(child_node, child_id, subtree.tree());
 
-    // 2. Use the free expression encoder to transform the AST into a LIR Expr.
-    // This populates the problem's binding tables (predicate_bindings).
-    expr::encode(&child_subtree, registry)
+    // 2. Utilisation de l'encodeur d'expression avec le builder.
+    // Contrairement à l'ancienne version, cela retourne un ExprId.
+    // L'expression résultante est généralement un "And" de tous les faits initiaux.
+    let init_expr_id = expr::encode(&child_subtree, registry, builder)?;
+
+    Ok(init_expr_id)
 }

@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr;
 use crate::aiplan4rust::lang::AtomSkeletonId;
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
 use crate::aiplan4rust::lir::ActionDef;
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Applies the Positive Normal Form (PNF) transformation to an action.
@@ -22,26 +22,14 @@ pub fn to_pnf(
 
     // 1. Collecte dans les préconditions
     if let Some(root_id) = action.precondition_mut().root_id() {
-        expr::to_pnf(
-            root_id,
-            action.precondition_mut(),
-            scratchpad,
-            stack,
-            false,
-        )?;
+        expr::to_pnf(root_id, action.precondition_mut(), scratchpad, stack, false)?;
     }
 
     // 2. Collecte dans les effets (conditions des 'When')
     // Note: On ne vide pas le scratchpad ici car on veut accumuler
     // les atomes des préconditions ET des effets avant le tri unique.
     if let Some(root_id) = action.effect_mut().root_id() {
-        expr::to_pnf(
-            root_id,
-            action.effect_mut(),
-            scratchpad,
-            stack,
-            true,
-        )?;
+        expr::to_pnf(root_id, action.effect_mut(), scratchpad, stack, true)?;
     }
 
     // 3. Tri et dédoublonnement local sur le buffer.

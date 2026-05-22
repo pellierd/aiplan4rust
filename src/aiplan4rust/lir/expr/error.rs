@@ -1,10 +1,12 @@
-use ordered_float::OrderedFloat;
-use thiserror::Error;
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
-use crate::aiplan4rust::lir::expr::ExprKind;
+use crate::aiplan4rust::lir::expr::ExprId;
+use crate::aiplan4rust::lir::store::expr_old::ExprKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
+use ordered_float::OrderedFloat;
+use thiserror::Error;
 
 /// Errors specific to the `logic` module, primarily related to conversion failures.
 ///
@@ -35,8 +37,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// let internal = ExprError::internal_error("Unexpected null value");
 /// ```
 #[derive(Error, Debug)]
-pub enum ExprError {
-
+pub enum StorerError {
     /// An error originating from the syntax tree system.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
@@ -150,160 +151,148 @@ pub enum ExprError {
     /// Indicates that the expected content was an optimization directive, but it was not.
     #[error("Expected optimization directive, but content was not Optimization")]
     NotOptimization,
+
+    /// Indicates that an expression ID does not exist in the store.
+    #[error("Expression with ID {id} was not found in the store")]
+    ExprNotFound {
+        /// The index/ID that failed to be retrieved.
+        id: ExprId,
+    },
 }
 
-impl ExprError {
-    /// Captures the current call site and backtrace for debugging purposes.
-    ///
-    /// This function logs the error, the location where capture() was called,
-    /// and a full backtrace if the log level is set to Debug.
-    #[track_caller]
-    pub fn capture(self) -> Self {
-        if log::log_enabled!(log::Level::Debug) {
-            let caller = std::panic::Location::caller();
-            let bt = std::backtrace::Backtrace::force_capture();
-
-            log::debug!(
-                "Error captured at {file}:{line}:{col}\n\
-                 [Error] {error:?}\n\
-                 [Stack Trace]\n{trace}",
-                file = caller.file(),
-                line = caller.line(),
-                col = caller.column(),
-                error = self,
-                trace = bt
-            );
-        }
-        self
-    }
-
+impl StorerError {
     /// Creates an `InvalidAstNode` error variant for a given `AstKind` and captures the call site.
     #[track_caller]
     pub fn invalid_ast_node(kind: AstKind) -> Self {
-        ExprError::InvalidAstNode { kind }.capture()
+        StorerError::InvalidAstNode { kind }.trace()
     }
 
     /// Creates an `ArithmeticEvaluationError` variant for a failed arithmetic operation and captures the call site.
     #[track_caller]
-    pub fn arithmetic_evaluation_error(
-        op: ArithmeticOp,
-        values: Vec<OrderedFloat<f64>>,
-    ) -> Self {
-        ExprError::ArithmeticEvaluationError { op, values }.capture()
+    pub fn arithmetic_evaluation_error(op: ArithmeticOp, values: Vec<OrderedFloat<f64>>) -> Self {
+        StorerError::ArithmeticEvaluationError { op, values }.trace()
     }
 
     /// Creates an `InvalidExprNode` error variant for a node with an invalid kind and captures the call site.
     #[track_caller]
     pub fn invalid_expr_node(node_id: NodeId, kind: ExprKind) -> Self {
-        ExprError::InvalidExprNode { node_id, kind }.capture()
+        StorerError::InvalidExprNode { node_id, kind }.trace()
     }
 
     /// Creates a `MissingTimeSpecifier` error variant for a literal node and captures the call site.
     #[track_caller]
     pub fn missing_time_specifier(node_id: NodeId) -> Self {
-        ExprError::MissingTimeSpecifier { node_id }.capture()
+        StorerError::MissingTimeSpecifier { node_id }.trace()
     }
 
     /// Indicates that an unsupported or unexpected `AstContent` variant was encountered.
     /// Captures the call site for easier debugging of translation failures.
     #[track_caller]
     pub fn unsupported_content(content: AstContent) -> Self {
-        ExprError::UnsupportedContent { content }.capture()
+        StorerError::UnsupportedContent { content }.trace()
     }
 
     /// Constructs a `NotQuantifierVariables` error and captures the call site.
     #[track_caller]
     pub fn not_quantifier_variables() -> Self {
-        ExprError::NotQuantifierVariables.capture()
+        StorerError::NotQuantifierVariables.trace()
     }
 
     /// Constructs a `NotAtomSkeleton` error and captures the call site.
     #[track_caller]
     pub fn not_atom_skeleton() -> Self {
-        ExprError::NotAtomSkeleton.capture()
+        StorerError::NotAtomSkeleton.trace()
     }
 
     /// Constructs a `NotConstant` error and captures the call site.
     #[track_caller]
     pub fn not_constant() -> Self {
-        ExprError::NotConstant.capture()
+        StorerError::NotConstant.trace()
     }
 
     /// Constructs a `NotVariable` error and captures the call site.
     #[track_caller]
     pub fn not_variable() -> Self {
-        ExprError::NotVariable.capture()
+        StorerError::NotVariable.trace()
     }
 
     /// Constructs a `NotFunctionSkeleton` error and captures the call site.
     #[track_caller]
     pub fn not_function_skeleton() -> Self {
-        ExprError::NotFunctionSkeleton.capture()
+        StorerError::NotFunctionSkeleton.trace()
     }
 
     /// Constructs a `NotPredicate` error and captures the call site.
     #[track_caller]
     pub fn not_predicate() -> Self {
-        ExprError::NotPredicate.capture()
+        StorerError::NotPredicate.trace()
     }
 
     /// Constructs a `NotFunctor` error and captures the call site.
     #[track_caller]
     pub fn not_functor() -> Self {
-        ExprError::NotFunctor.capture()
+        StorerError::NotFunctor.trace()
     }
 
     /// Constructs a `NotTaskSymbol` error and captures the call site.
     #[track_caller]
     pub fn not_task_symbol() -> Self {
-        ExprError::NotTaskSymbol.capture()
+        StorerError::NotTaskSymbol.trace()
     }
 
     /// Constructs a `NotTaskId` error and captures the call site.
     #[track_caller]
     pub fn not_task_id() -> Self {
-        ExprError::NotTaskId.capture()
+        StorerError::NotTaskId.trace()
     }
 
     /// Constructs a `NotTaskSkeleton` error and captures the call site.
     #[track_caller]
     pub fn not_task_skeleton() -> Self {
-        ExprError::NotTaskSkeleton.capture()
+        StorerError::NotTaskSkeleton.trace()
     }
 
     /// Constructs a `NotPreference` error and captures the call site.
     #[track_caller]
     pub fn not_preference() -> Self {
-        ExprError::NotPreference.capture()
+        StorerError::NotPreference.trace()
     }
 
     /// Constructs a `NotFloat` error and captures the call site.
     #[track_caller]
     pub fn not_float() -> Self {
-        ExprError::NotFloat.capture()
+        StorerError::NotFloat.trace()
     }
 
     /// Constructs a `NotBinaryComp` error and captures the call site.
     #[track_caller]
     pub fn not_binary_comp() -> Self {
-        ExprError::NotBinaryComp.capture()
+        StorerError::NotBinaryComp.trace()
     }
 
     /// Constructs a `NotAssignOp` error and captures the call site.
     #[track_caller]
     pub fn not_assign_op() -> Self {
-        ExprError::NotAssignOp.capture()
+        StorerError::NotAssignOp.trace()
     }
 
     /// Constructs a `NotArithmeticOp` error and captures the call site.
     #[track_caller]
     pub fn not_arithmetic_op() -> Self {
-        ExprError::NotArithmeticOp.capture()
+        StorerError::NotArithmeticOp.trace()
     }
 
     /// Constructs a `NotOptimization` error and captures the call site.
     #[track_caller]
     pub fn not_optimization() -> Self {
-        ExprError::NotOptimization.capture()
+        StorerError::NotOptimization.trace()
+    }
+
+    /// Creates an `ExprNotFound` error and captures the call site.
+    #[track_caller]
+    pub fn expr_not_found(id: ExprId) -> Self {
+        StorerError::ExprNotFound { id }.trace()
     }
 }
+
+impl Traceable for StorerError {}

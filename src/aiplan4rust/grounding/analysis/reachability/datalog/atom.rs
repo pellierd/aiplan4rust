@@ -89,7 +89,7 @@ impl Atom {
 
     /// Updates the skeleton identifier (predicate ID).
     ///
-    /// This is primarily used during the encoding phase to transform a base
+    /// This is primarily used during the encoding_old phase to transform a base
     /// predicate ID into a shifted ID (e.g., applying the `negation_offset`
     /// to represent a delete effect in the Datalog engine).
     #[inline]
@@ -114,7 +114,7 @@ impl Atom {
 
     /// Returns a mutable slice of the atom's terms.
     ///
-    /// This is primarily used during the encoding phase for variable aliasing,
+    /// This is primarily used during the encoding_old phase for variable aliasing,
     /// logic, or grounding, allowing in-place modification of terms
     /// without reallocating the underlying vector.
     #[inline]

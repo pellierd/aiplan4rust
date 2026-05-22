@@ -11,14 +11,13 @@
 
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{Requirement, SymbolId, Type, TypeId, TypedList};
-use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::{
     action, constants_def, constraints, derived_predicate, functions_def, method, predicates_def,
-    preference, task, types_def,
+    preference, task, types_def, EncodingError, EncodingRegistry,
 };
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::expr::ExprBuilder;
+use crate::aiplan4rust::lir::problem::skeleton::AtomicFunctionSkeleton;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 
@@ -40,7 +39,7 @@ use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 /// # Returns
 ///
 /// * `Ok(())` - If the domain was successfully encoded.
-/// * `Err(LirError)` - If an error occurred during encoding (e.g., syntax mismatch,
+/// * `Err(LirError)` - If an error occurred during encoding_old (e.g., syntax mismatch,
 ///   duplicate definitions, or failed symbol resolution).
 ///
 /// # Errors
@@ -51,8 +50,9 @@ use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 pub(crate) fn encode(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+    builder: &mut ExprBuilder, // Injection indispensable du builder
+) -> Result<(), EncodingError> {
     // 1. Collection Phase: Populate IR skeletons and mapping tables.
     // This is separated to avoid simultaneous mutable borrows of the IR
     // while traversing the symbol tables.
@@ -64,12 +64,12 @@ pub(crate) fn encode(
     // 3. Logic Encoding Phase:
     // At this stage, the symbol registry is populated, allowing 'encode_logic'
     // to resolve atom parameters and fluents while modifying the 'ir'.
-    encode_logic(syntax_tree, registry, ir)?;
+    encode_logic(syntax_tree, registry, ir, builder)?;
 
     Ok(())
 }
 
-/// Performs the first pass of the domain encoding by collecting all structural definitions.
+/// Performs the first pass of the domain encoding_old by collecting all structural definitions.
 ///
 /// This function traverses the domain's Abstract Syntax Tree (AST) to extract:
 /// - Basic metadata (Domain name).
@@ -94,8 +94,8 @@ pub(crate) fn encode(
 fn collect_definitions(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
 
@@ -116,13 +116,13 @@ fn collect_definitions(
     Ok(())
 }
 
-/// Performs the second pass of the domain encoding by processing the behavioral ops.
+/// Performs the second pass of the domain encoding_old by processing the behavioral ops.
 ///
 /// This function relies on the `EncodingContext` populated during the first pass
 /// (`collect_definitions`) to resolve predicate and function identifiers into their
 /// corresponding LIR indices.
 ///
-/// It handles the encoding of:
+/// It handles the encoding_old of:
 /// - Global domain constraints.
 /// - Action bodies (preconditions and effects).
 /// - Durative actions, derived predicates, and HTN methods.
@@ -130,13 +130,13 @@ fn collect_definitions(
 /// # Arguments
 ///
 /// * `context` - The linked semantic context containing the domain AST.
-/// * `ctx` - The encoding context used to resolve symbols (predicates, functions, etc.).
+/// * `ctx` - The encoding_old context used to resolve symbols (predicates, functions, etc.).
 /// * `ir` - The mutable LiftedProblem where the encoded ops is stored.
 ///
 /// # Returns
 ///
 /// * `Ok(())` - If all logical elements were successfully encoded and bound.
-/// * `Err(LirError)` - If an expression fails to encoding or if a symbol remains unresolved.
+/// * `Err(LirError)` - If an expression fails to encoding_old or if a symbol remains unresolved.
 ///
 /// # Note
 ///
@@ -145,21 +145,22 @@ fn collect_definitions(
 fn encode_logic(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+    builder: &mut ExprBuilder, // Injection indispensable du builder
+) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
 
         match node.kind() {
             AstKind::Constraints => {
-                let constraints = constraints::encode(&subtree, registry)?;
+                let constraints = constraints::encode(&subtree, registry, builder)?;
                 ir.set_domain_constraints(constraints);
             }
             AstKind::ActionDef | AstKind::DurativeActionDef => {
-                action::encode(&subtree, registry, ir)?
+                action::encode(&subtree, registry, ir, builder)?
             }
-            AstKind::DerivedDef => derived_predicate::encode(&subtree, registry, ir)?,
-            AstKind::MethodDef => method::encode(&subtree, registry, ir)?,
+            AstKind::DerivedDef => derived_predicate::encode(&subtree, registry, ir, builder)?,
+            AstKind::MethodDef => method::encode(&subtree, registry, ir, builder)?,
             _ => {}
         }
     }
@@ -167,7 +168,7 @@ fn encode_logic(
     Ok(())
 }
 
-/// Injects predefined system functions (built-ins) into the encoding registry.
+/// Injects predefined system functions (built-ins) into the encoding_old registry.
 ///
 /// This step is mandatory for supporting special PDDL functions such as `total-cost`
 /// (required by the `:action-costs` requirement) and `total-time` (used in temporal
@@ -181,7 +182,7 @@ fn encode_logic(
 ///
 /// 1. They are mapped to reserved **virtual** [`NodeId`]s (defined in [`EncodingRegistry`]).
 /// 2. They are registered exclusively in the [`EncodingRegistry`] to allow symbol
-///    resolution during expression encoding.
+///    resolution during expression encoding_old.
 /// 3. They are **not** added to the problem definitions ([`ir.function_defs`]). This
 ///    prevents indexing mismatches between the LIR vectors and the AST nodes.
 ///
@@ -197,12 +198,12 @@ fn encode_logic(
 ///
 /// # Arguments
 ///
-/// * `registry` - The encoding registry where system function signatures are injected.
+/// * `registry` - The encoding_old registry where system function signatures are injected.
 /// * `ir` - The lifted problem, used as a read-only reference to check active requirements.
 pub fn encode_builtin_functions(
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+) -> Result<(), EncodingError> {
     let reqs = ir.requirements();
 
     let has_action_costs = reqs.contains(&Requirement::ActionCosts);
@@ -236,7 +237,7 @@ pub fn encode_builtin_functions(
     Ok(())
 }
 
-/// Injects a system-defined function into both the LIR and the encoding registry.
+/// Injects a system-defined function into both the LIR and the encoding_old registry.
 ///
 /// This helper synchronizes the creation of a built-in function by:
 /// 1. Inserting the [`FunctionSymbol`] into the [`LiftedProblem`].
@@ -260,11 +261,11 @@ pub fn encode_builtin_functions(
 /// conflict in the registry.
 fn register_builtin_function(
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut NewLiftedProblem,
     symbol_id: SymbolId,
     virtual_node_id: NodeId,
     return_type: TypeId,
-) -> Result<(), LirError> {
+) -> Result<(), EncodingError> {
     // 1. Register the function symbol and its virtual mapping
     let sym = ir.add_function_symbol(symbol_id);
     registry.register_functor(virtual_node_id, sym);

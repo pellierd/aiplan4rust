@@ -1,16 +1,16 @@
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lir::encoding::{expr, EncodingRegistry};
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::encoding::{expr, EncodingError, EncodingRegistry};
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
-// lir/encoding/constraints.rs
+// lir/encoding_old/constraints.rs
 
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<Expr, LirError> {
+    builder: &mut ExprBuilder, // Injection indispensable du builder
+) -> Result<ExprId, EncodingError> {
     let node = subtree.node();
 
     // Sécurité au cas où la grammaire changerait,
@@ -21,5 +21,5 @@ pub fn encode(
 
     // On encode directement l'enfant (le ConGD ou PrefConGD)
     // Le LIR résultant aura pour racine le 'and', le 'always', ou la 'preference'
-    expr::encode(&child_subtree, registry)
+    expr::encode(&child_subtree, registry, builder)
 }

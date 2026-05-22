@@ -1,14 +1,13 @@
 //! PDDL Type Definition Encoding
 //!
-//! This module implements the two-pass encoding process for PDDL types:
+//! This module implements the two-pass encoding_old process for PDDL types:
 //! 1. **Phase 1 (Discovery):** Scans all typing names to populate the evaluator with unique `TypeID`s.
 //! 2. **Phase 2 (Definition):** Resolves inheritance relationships and adds full typing declarations to the LIR.
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingRegistry};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingError, EncodingRegistry};
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -27,7 +26,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `registry` - The encoding registry used to map type symbols to unique IDs.
+/// * `registry` - The encoding_old registry used to map type symbols to unique IDs.
 /// * `ir` - The mutable Lifted Problem where the final typing declarations are stored.
 ///
 /// # Returns
@@ -37,8 +36,8 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+) -> Result<(), EncodingError> {
     // Phase 1: Register all typing symbols to generate their TypeIDs
     collect_type_ids(subtree, registry, ir)?;
 
@@ -65,7 +64,7 @@ pub fn encode(
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `evaluator` - The mutable encoding context where typing symbols are mapped to `TypeID`s.
+/// * `evaluator` - The mutable encoding_old context where typing symbols are mapped to `TypeID`s.
 ///
 /// # Returns
 ///
@@ -74,8 +73,8 @@ pub fn encode(
 fn collect_type_ids(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+) -> Result<(), EncodingError> {
     let tree = subtree.tree();
     let list_node = tree.try_node(subtree.node().try_child(0)?)?;
 
@@ -112,7 +111,7 @@ fn collect_type_ids(
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `evaluator` - The encoding context where `TypeIDs` were registered in Phase 1.
+/// * `evaluator` - The encoding_old context where `TypeIDs` were registered in Phase 1.
 /// * `ir` - The mutable reference to the `LiftedProblem` where declarations are stored.
 ///
 /// # Returns
@@ -123,13 +122,13 @@ fn collect_type_ids(
 /// # Errors
 ///
 /// This function will return an error if:
-/// * `typed_symbol::encoding` fails (e.g., a parent typing was not declared in Phase 1).
+/// * `typed_symbol::encoding_old` fails (e.g., a parent typing was not declared in Phase 1).
 /// * The AST structure prevents navigating to the child nodes of the typing list.
 fn encode_definitions(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+) -> Result<(), EncodingError> {
     let tree = subtree.tree();
     let list_node_id = subtree.node().try_child(0)?;
     let list_node = tree.try_node(list_node_id)?;
@@ -153,10 +152,7 @@ fn encode_definitions(
 /// The `number` type is required for any domain involving numeric fluents or
 /// action costs. Note that this type is a primitive and does not have an
 /// entry in the AST-based type hierarchy.
-fn encode_builtin_types(
-    registry: &mut EncodingRegistry,
-    ir: &LiftedProblem,
-) {
+fn encode_builtin_types(registry: &mut EncodingRegistry, ir: &NewLiftedProblem) {
     let reqs = ir.requirements();
 
     // The 'number' type is required for Numeric Fluents or Action Costs.

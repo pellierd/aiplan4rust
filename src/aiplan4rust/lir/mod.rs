@@ -9,7 +9,7 @@
 //!
 //! - [`encoder`]: Provides the `LirBuilder` for constructing LIR entities
 //!   using a builder pattern.
-//! - [`expr`]: Contains definitions related to logic used within the LIR.
+//! - [`expr_old`]: Contains definitions related to logic used within the LIR.
 //! - [`problem`]: Defines the `LiftedProblem` struct representing a lifted syntax problem.
 //! - [`action`]: Defines the `LiftedAction` struct for parameterized actions.
 //! - [`method`]: Contains `LiftedMethod` representing hierarchical syntax methods.
@@ -43,22 +43,23 @@
 //! enabling complex task decompositions and parameterized syntax domains.
 
 pub mod encoder;
-pub mod expr;
 
-pub mod encoding;
+pub(crate) mod encoding;
 pub mod error;
-mod passes;
+pub mod expr;
+pub(crate) mod normalization;
 pub mod problem;
-pub mod renderers;
+mod renderers;
 pub mod result;
 pub mod store;
 
 pub use encoder::LirEncoder;
 pub use error::LirError;
-pub use expr::Expr;
-pub use problem::action::Action as ActionDef;
-pub use problem::derived_predicate::DerivedPredicate as DerivedPredicateDef;
-pub use problem::initial_task_network::InitialTaskNetwork;
-pub use problem::method::Method as MethodDef;
-pub use problem::task_network::TaskNetwork;
 pub use result::Result as LirEncoderResult;
+use store::expr_old;
+pub use store::expr_old::Expr;
+pub use store::problem_old::action::Action as ActionDef;
+pub use store::problem_old::derived_predicate::DerivedPredicate as DerivedPredicateDef;
+pub use store::problem_old::initial_task_network::InitialTaskNetwork;
+pub use store::problem_old::method::Method as MethodDef;
+pub use store::problem_old::task_network::TaskNetwork;

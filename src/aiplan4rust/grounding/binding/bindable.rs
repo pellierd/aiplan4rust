@@ -1,6 +1,6 @@
 use crate::aiplan4rust::grounding::binding::error::BindingError;
 use crate::aiplan4rust::grounding::binding::Bindings;
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
+use crate::aiplan4rust::lir::store::expr_old::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 pub trait Bindable {
@@ -10,7 +10,7 @@ pub trait Bindable {
 }
 
 impl Bindable for Expr {
-    fn apply(&mut self, root_id: NodeId, sub: &Bindings) -> Result<(), BindingError>{
+    fn apply(&mut self, root_id: NodeId, sub: &Bindings) -> Result<(), BindingError> {
         // On utilise un parcours post-order ou un simple stack
         let mut stack = vec![root_id];
 

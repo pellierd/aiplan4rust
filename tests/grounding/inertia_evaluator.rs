@@ -10,8 +10,8 @@ use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry
 use aiplan4rust::aiplan4rust::lang::{
     AtomSkeletonId, ObjectId, PredicateSymbolId, Type, TypeId, VariableId,
 };
-use aiplan4rust::aiplan4rust::lir::expr::ops::{StaticEvaluator, StaticValue};
-use aiplan4rust::aiplan4rust::lir::expr::{Expr, ExprBuilder, ExprKind};
+use aiplan4rust::aiplan4rust::lir::store::expr_old::ops::{StaticEvaluator, StaticValue};
+use aiplan4rust::aiplan4rust::lir::store::expr_old::{Expr, ExprBuilder, ExprKind};
 // ExprKind est ici
 use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
 

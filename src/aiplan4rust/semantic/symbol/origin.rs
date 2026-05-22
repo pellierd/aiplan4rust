@@ -49,7 +49,7 @@ pub enum Origin {
     ///
     /// Used when a domain constant is specialized or redefined in a problem file.
     /// This allows the linker to unify the symbol while preventing duplicate
-    /// encoding in the final representation (LIR).
+    /// encoding_old in the final representation (LIR).
     Shared,
 
     /// Symbol origin is unknown or undetermined.

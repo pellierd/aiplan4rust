@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
+use crate::aiplan4rust::lir::store::expr_old::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 /// Encodes logical negations into atomic predicate identifiers using a bit-mask (MSB).
@@ -19,7 +19,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// 3. **Simplification**: Double negations (`NOT NOT`) must be simplified out.
 ///
 /// # Parameters
-/// * `node_id`: The root [`NodeId`] from which to start the encoding traversal.
+/// * `node_id`: The root [`NodeId`] from which to start the encoding_old traversal.
 /// * `logic`: A mutable reference to the [`Expr`] arena for in-place tree mutation.
 /// * `negated_atoms`: A mutable reference to a caller-owned [`Vec`]. This vector will be
 ///   populated with the [`AtomSkeletonId`] of every atom that gets negated during this pass.
@@ -132,7 +132,7 @@ pub fn to_pnf(
 /// and collecting the resulting negated atom identifier.
 ///
 /// This function implements the core "lowering" logic of the PNF (Prenex Normal Form)
-/// encoding phase. It performs an in-place mutation of the expression arena.
+/// encoding_old phase. It performs an in-place mutation of the expression arena.
 ///
 /// # Parameters
 /// * `curr_id`: The [`NodeId`] of the `Not` node currently being processed.
@@ -190,7 +190,7 @@ fn handle_not_node(
 
         ExprKind::AtomicFormula => {
             // Check the current negation state of the atom.
-            // PNF encoding requires that we don't flip a bit that is already set (logic error).
+            // PNF encoding_old requires that we don't flip a bit that is already set (logic error).
             let is_negated =
                 if let ExprContent::AtomSkeleton(id) = expr.try_node(child_id)?.content() {
                     id.is_negated()

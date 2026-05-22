@@ -4,7 +4,7 @@
 //! problem from their semantic/syntactic representation into a Lifted Intermediate
 //! Representation (LIR).
 //!
-//! The encoding process is designed to be performed in two main phases:
+//! The encoding_old process is designed to be performed in two main phases:
 //! 1. **Domain Encoding**: Captures structural definitions (types, predicates, functions, and actions).
 //! 2. **Problem Encoding**: Captures state-specific data (objects, initial state, and goals).
 //!
@@ -12,9 +12,9 @@
 //! mappings to ensure that references in the ops (logic/effects) point to the
 //! correct LIR indices.
 
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::encoding::{domain, problem, EncodingRegistry};
+use crate::aiplan4rust::lir::encoding::{domain, problem, EncodingError, EncodingRegistry};
+use crate::aiplan4rust::lir::expr::ExprBuilder;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::Tree;
 
@@ -22,7 +22,7 @@ use crate::aiplan4rust::tree::Tree;
 ///
 /// This function processes the domain AST to populate the `LiftedProblem` with
 /// structural definitions. It also fills the mapping tables required for
-/// symbol resolution in the problem encoding phase.
+/// symbol resolution in the problem encoding_old phase.
 ///
 /// # Arguments
 ///
@@ -38,28 +38,29 @@ use crate::aiplan4rust::tree::Tree;
 pub fn encode_domain(
     syntax_tree: &Tree<AstNode>,
     context: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
-    domain::encode(syntax_tree, context, ir)
+    ir: &mut NewLiftedProblem,
+    builder: &mut ExprBuilder,
+) -> Result<(), EncodingError> {
+    domain::encode(syntax_tree, context, ir, builder)
 }
 
 /// Extracts and encodes all problem-level elements into the LIR.
 ///
 /// This function processes the problem AST, utilizing the indices and definitions
-/// collected during the domain encoding phase to resolve references in the initial
+/// collected during the domain encoding_old phase to resolve references in the initial
 /// state and goal specifications.
 ///
 /// # Arguments
 ///
 /// * `context` - The linked semantic context containing the problem's AST and arena.
 /// * `ir` - The mutable `LiftedProblem` where problem-specific data (objects, init, goal) is stored.
-/// * `ast_pred_to_idx` - A reference to the predicate mapping populated during domain encoding.
-/// * `ast_func_to_idx` - A reference to the function mapping populated during domain encoding.
+/// * `ast_pred_to_idx` - A reference to the predicate mapping populated during domain encoding_old.
+/// * `ast_func_to_idx` - A reference to the function mapping populated during domain encoding_old.
 ///
 /// # Returns
 ///
 /// * `Ok(())` - Successfully encoded the problem.
-/// * `Err(LirError)` - If an error occurs during object resolution or expression encoding.
+/// * `Err(LirError)` - If an error occurs during object resolution or expression encoding_old.
 ///
 /// # Errors
 ///
@@ -68,7 +69,8 @@ pub fn encode_domain(
 pub fn encode_problem(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
-    problem::encode(syntax_tree, registry, ir)
+    ir: &mut NewLiftedProblem,
+    builder: &mut ExprBuilder,
+) -> Result<(), EncodingError> {
+    problem::encode(syntax_tree, registry, ir, builder)
 }

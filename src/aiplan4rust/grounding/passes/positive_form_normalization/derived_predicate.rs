@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr;
 use crate::aiplan4rust::lang::AtomSkeletonId;
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
 use crate::aiplan4rust::lir::DerivedPredicateDef;
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Applies the Positive Normal Form (PNF) transformation to a derived predicate.
@@ -27,13 +27,7 @@ pub fn to_pnf(
     // Derived predicates define a formula (the body) that implies the head.
     // We apply PNF to the entire body to eliminate structural negation.
     if let Some(root_id) = predicate.body_mut().root_id() {
-        expr::to_pnf(
-            root_id,
-            predicate.body_mut(),
-            scratchpad,
-            stack,
-            false
-        )?;
+        expr::to_pnf(root_id, predicate.body_mut(), scratchpad, stack, false)?;
     }
 
     // 1. Tri et dédoublonnement local (essentiel si le corps est complexe)

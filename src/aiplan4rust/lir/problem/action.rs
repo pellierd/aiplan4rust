@@ -3,16 +3,15 @@
 //! Cette structure unifiée simplifie le grounding tout en préservant la sémantique PDDL.
 //! L'interface est conçue pour ressembler à une structure à plat pour la facilité d'usage.
 
-use std::fmt;
-use std::fmt::Formatter;
-use crate::aiplan4rust::lang::{ActionSymbolId, TypeId, VariableId};
 use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::expr::Expr;
-use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::lang::{ActionSymbolId, TypeId, VariableId};
+use crate::aiplan4rust::lir::expr::ExprId;
+use crate::aiplan4rust::lir::problem::skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::renderers;
-use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
-use crate::aiplan4rust::lir::problem::symbol_registry::SymbolRegistry;
+use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use core::fmt::Formatter;
+use serde::{Deserialize, Serialize};
 
 /// Représente une action dans le LIR, qui peut être soit instantanée, soit durative.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,7 +23,6 @@ pub struct Action {
     body: ActionBody,
 
     variable_symbols: SymbolRegistry<VariableId>,
-
 }
 
 /// Énumération interne pour distinguer les types d'actions tout en gardant un LIR unifié.
@@ -33,22 +31,22 @@ pub struct Action {
 pub enum ActionBody {
     /// Action instantanée standard.
     Snap {
-        precondition: Expr,
-        effect: Expr,
+        precondition: ExprId,
+        effect: ExprId,
     },
     /// Action temporelle avec durée et conditions temporelles.
     Durative {
-        duration: Expr,
-        condition: Expr,
-        effect: Expr,
+        duration: ExprId,
+        condition: ExprId,
+        effect: ExprId,
     },
 }
 
 impl Default for ActionBody {
     fn default() -> Self {
         Self::Snap {
-            precondition: Expr::default(),
-            effect: Expr::default(),
+            precondition: ExprId::default(),
+            effect: ExprId::default(),
         }
     }
 }
@@ -69,13 +67,16 @@ impl Action {
     pub fn new_snap(
         name: ActionSymbolId,
         parameters: TypedList<VariableId, TypeId>,
-        precondition: Expr,
-        effect: Expr,
+        precondition: ExprId,
+        effect: ExprId,
     ) -> Self {
         Self {
             header: NamedTypedList::new(name, parameters),
-            body: ActionBody::Snap { precondition, effect },
-            variable_symbols: SymbolRegistry::new()
+            body: ActionBody::Snap {
+                precondition,
+                effect,
+            },
+            variable_symbols: SymbolRegistry::new(),
         }
     }
 
@@ -83,14 +84,18 @@ impl Action {
     pub fn new_durative(
         name: ActionSymbolId,
         parameters: TypedList<VariableId, TypeId>,
-        duration: Expr,
-        condition: Expr,
-        effect: Expr,
+        duration: ExprId,
+        condition: ExprId,
+        effect: ExprId,
     ) -> Self {
         Self {
             header: NamedTypedList::new(name, parameters),
-            body: ActionBody::Durative { duration, condition, effect },
-            variable_symbols: SymbolRegistry::new()
+            body: ActionBody::Durative {
+                duration,
+                condition,
+                effect,
+            },
+            variable_symbols: SymbolRegistry::new(),
         }
     }
 
@@ -136,21 +141,14 @@ impl Action {
 
     /// Retourne la condition logique de l'action.
     /// Renvoie 'precondition' pour les actions simples et 'condition' pour les duratives.
-    pub fn precondition(&self) -> &Expr {
+    pub fn precondition(&self) -> ExprId {
         match &self.body {
-            ActionBody::Snap { precondition, .. } => precondition,
-            ActionBody::Durative { condition, .. } => condition,
+            ActionBody::Snap { precondition, .. } => *precondition,
+            ActionBody::Durative { condition, .. } => *condition,
         }
     }
 
-    pub fn precondition_mut(&mut self) -> &mut Expr {
-        match &mut self.body {
-            ActionBody::Snap { precondition, .. } => precondition,
-            ActionBody::Durative { condition, .. } => condition,
-        }
-    }
-
-    pub fn set_precondition(&mut self, expr: Expr) {
+    pub fn set_precondition(&mut self, expr: ExprId) {
         match &mut self.body {
             ActionBody::Snap { precondition, .. } => *precondition = expr,
             ActionBody::Durative { condition, .. } => *condition = expr,
@@ -158,21 +156,14 @@ impl Action {
     }
 
     /// Retourne l'expression de l'effet (commun aux deux types).
-    pub fn effect(&self) -> &Expr {
+    pub fn effect(&self) -> ExprId {
         match &self.body {
-            ActionBody::Snap { effect, .. } => effect,
-            ActionBody::Durative { effect, .. } => effect,
+            ActionBody::Snap { effect, .. } => *effect,
+            ActionBody::Durative { effect, .. } => *effect,
         }
     }
 
-    pub fn effect_mut(&mut self) -> &mut Expr {
-        match &mut self.body {
-            ActionBody::Snap { effect, .. } => effect,
-            ActionBody::Durative { effect, .. } => effect,
-        }
-    }
-
-    pub fn set_effect(&mut self, expr: Expr) {
+    pub fn set_effect(&mut self, expr: ExprId) {
         match &mut self.body {
             ActionBody::Snap { effect, .. } => *effect = expr,
             ActionBody::Durative { effect, .. } => *effect = expr,
@@ -180,21 +171,14 @@ impl Action {
     }
 
     /// Retourne la durée si l'action est durative, sinon None.
-    pub fn duration(&self) -> Option<&Expr> {
+    pub fn duration(&self) -> Option<ExprId> {
         match &self.body {
-            ActionBody::Durative { duration, .. } => Some(duration),
+            ActionBody::Durative { duration, .. } => Some(*duration),
             ActionBody::Snap { .. } => None,
         }
     }
 
-    pub fn duration_mut(&mut self) -> Option<&mut Expr> {
-        match &mut self.body {
-            ActionBody::Durative { duration, .. } => Some(duration),
-            ActionBody::Snap { .. } => None,
-        }
-    }
-
-    pub fn set_duration(&mut self, expr: Expr) {
+    pub fn set_duration(&mut self, expr: ExprId) {
         match &mut self.body {
             ActionBody::Durative { duration, .. } => *duration = expr,
             ActionBody::Snap { .. } => {
@@ -206,10 +190,14 @@ impl Action {
 
     /// Accès en lecture seule à la table des noms (symboles) des variables.
     /// À utiliser pour le rendu ou les messages d'erreur.
-    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> { &self.variable_symbols }
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> {
+        &self.variable_symbols
+    }
 
     /// Accès mutable à la table des noms des variables.
-    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> { &mut self.variable_symbols }
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> {
+        &mut self.variable_symbols
+    }
 
     // --- Helpers Internes ---
 
@@ -218,14 +206,16 @@ impl Action {
     }
 }
 
-impl fmt::Display for Action {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        renderers::default::render_action(f, self)
+impl LiftedSyntaxDisplay for Action {
+    /// Rendu PDDL propre (soit (:action ...) soit (:durative-action ...)).
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::action::render(f, self, ctx)
     }
 }
 
-impl LiftedSyntaxDisplay for Action {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
-        renderers::syntax::action::render(f, self, ctx)
+impl LiftedDebugDisplay for Action {
+    /// Rendu structurel pour le debug (Type d'action, Header ID, Body Expr Trees, Local Symbols).
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::debug::action::render(f, self, ctx)
     }
 }

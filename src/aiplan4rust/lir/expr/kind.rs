@@ -1,80 +1,41 @@
-//! Module defining the `Kind` enum representing the classification of expression components
-//! in the LIR (Logical Intermediate Representation) for AI syntax.
-//!
-//! # Overview
-//!
-//! The `Kind` enum categorizes various syntactic and semantic entities used in logic,
-//! including logical operators, terms, predicates, task symbols, and temporal constructs.
-//! It serves as an abstraction layer over raw AST kinds (`AstKind`) used during parsing,
-//! enabling a more domain-specific representation of expression nodes.
-//!
-//! This module also provides:
-//! - Conversion (`TryFrom`) from the generic `AstKind` into the more specialized `Kind`,
-//!   with error handling for unsupported kinds.
-//! - A `Display` implementation for readable string representation of each kind.
-//!
-//! # Enum Variants
-//!
-//! Variants include (but are not limited to):
-//! - Logical operators: `And`, `Or`, `Not`, `Imply`, `Forall`, `Exists`
-//! - Constants and variables: `Constant`, `Variable`
-//! - Function and predicate symbols: `FunctionSymbol`, `Predicate`
-//! - Task-related constructs: `TaskSymbol`, `Task`, `TaskID`, `TaggedTask`, `TaskOrderingConstraint`
-//! - Temporal and metric constructs: `AtStart`, `AtEnd`, `Always`, `Sometime`, `Metric`, `TotalTime`
-//! - Types and typing constructs: `Type`, `PrimitiveType`, `TypedList`, `TypedSymbol`
-//!
-//! # Conversion from AST
-//!
-//! The `TryFrom<AstKind>` implementation attempts to convert a generic AST kind into
-//! a `Kind`. Unsupported AST kinds result in an `ExprError` to signal that conversion
-//! is not possible in the current context.
-//!
-//! # Usage Example
-//!
-//! ```rust
-//! use crate::aiplan4rust::lir::logic::Kind;
-//! use crate::aiplan4rust::syntax::ast::AstKind;
-//! use std::convert::TryFrom;
-//!
-//! let ast_kind = AstKind::And;
-//! let kind = Kind::try_from(ast_kind).expect("Supported kind");
-//! assert_eq!(kind.to_string(), "And");
-//! ```
-//!
-//! # Errors
-//!
-//! Converting from `AstKind` to `Kind` may fail with [`ExprError`] if the AST kind
-//! is unsupported.
-//!
-
-use crate::aiplan4rust::lir::expr::error::ExprError;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::lang::{
+    ArithmeticOp, AssignOp, AtomSkeletonId, CompareOp, FunctionSkeletonId, FunctionSymbolId,
+    ObjectId, OptimizationOp, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId,
+    TaskSkeletonId, TaskSymbolId, TypeId, TypedList, VariableId,
+};
+use crate::aiplan4rust::serialization::deserialize_ordered_float;
+use crate::aiplan4rust::serialization::serialize_ordered_float;
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
-pub enum Kind {
-    Object,
-    Variable,
-    FunctionSymbol,
-    PredicateSymbol,
-    TaskSymbol,
-    PrefName,
-    Function,
-    Number,
-    AtomicFormula,
+#[derive(Clone, Debug, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
+pub enum ExprEntryKind {
+    Object(ObjectId),
+    Variable(VariableId),
+    FunctionSymbol(FunctionSymbolId),
+    PredicateSymbol(PredicateSymbolId),
+    TaskSymbol(TaskSymbolId),
+    PrefName(PreferenceSymbolId),
+    Function(FunctionSkeletonId),
+    #[serde(
+        serialize_with = "serialize_ordered_float",
+        deserialize_with = "deserialize_ordered_float"
+    )]
+    Number(OrderedFloat<f64>),
+    AtomicFormula(AtomSkeletonId),
     And,
     #[default]
     Or,
     Not,
     Imply,
-    Forall,
-    Exists,
+    Forall(TypedList<VariableId, TypeId>),
+    Exists(TypedList<VariableId, TypeId>),
     Preference,
     When,
-    Comparison,
-    Assignment,
-    Arithmetic,
+    Comparison(CompareOp),
+    Assignment(AssignOp),
+    Arithmetic(ArithmeticOp),
     AtStart,
     AtEnd,
     Overall,
@@ -88,181 +49,146 @@ pub enum Kind {
     HoldDuring,
     HoldAfter,
     TimedInitialLiteral,
-    Metric,
+    Metric(OptimizationOp),
     TotalTime,
+    TotalCost,
     IsViolated,
     Length,
     Serial,
     Parallel,
-    Task,
-    TaskLabel,
-    LabeledTask,            // check
-    TaskOrderingConstraint, // check
+    Task(TaskSkeletonId),
+    TaskLabel(TaskLabelSymbolId),
+    LabeledTask,                       // check
+    TaskOrderingConstraint(CompareOp), // check
 }
 
-impl Kind {
+impl ExprEntryKind {
     pub fn to_pddl_keyword(&self) -> &'static str {
         match self {
             // Leaves and terminals (content is handled by the Content module)
-            Kind::Object
-            | Kind::Variable
-            | Kind::FunctionSymbol
-            | Kind::PredicateSymbol
-            | Kind::TaskSymbol
-            | Kind::PrefName
-            | Kind::Function
-            | Kind::Number
-            | Kind::AtomicFormula
-            | Kind::Task
-            | Kind::TaskLabel
-            | Kind::LabeledTask => "",
+            ExprEntryKind::Object(_)
+            | ExprEntryKind::Variable(_)
+            | ExprEntryKind::FunctionSymbol(_)
+            | ExprEntryKind::PredicateSymbol(_)
+            | ExprEntryKind::TaskSymbol(_)
+            | ExprEntryKind::PrefName(_)
+            | ExprEntryKind::Function(_)
+            | ExprEntryKind::Number(_)
+            | ExprEntryKind::AtomicFormula(_)
+            | ExprEntryKind::Task(_)
+            | ExprEntryKind::TaskLabel(_)
+            | ExprEntryKind::LabeledTask => "",
 
             // Logical Connectives
-            Kind::And => "and",
-            Kind::Or => "or",
-            Kind::Not => "not",
-            Kind::Imply => "imply",
-            Kind::Forall => "forall",
-            Kind::Exists => "exists",
-            Kind::When => "when",
+            ExprEntryKind::And => "and",
+            ExprEntryKind::Or => "or",
+            ExprEntryKind::Not => "not",
+            ExprEntryKind::Imply => "imply",
+            ExprEntryKind::Forall(_) => "forall",
+            ExprEntryKind::Exists(_) => "exists",
+            ExprEntryKind::When => "when",
 
             // Quantifiers and Preferences
-            Kind::Preference => "preference",
-            Kind::IsViolated => "is-violated",
+            ExprEntryKind::Preference => "preference",
+            ExprEntryKind::IsViolated => "is-violated",
 
             // Numerical Comparisons and Operations
             // Note: Usually handled by Content (e.g., <, >, +, -)
-            Kind::Comparison | Kind::Arithmetic => "",
-            Kind::Assignment => "",
+            ExprEntryKind::Comparison(_) | ExprEntryKind::Arithmetic(_) => "",
+            ExprEntryKind::Assignment(_) => "",
 
             // Temporal (PDDL 2.1+)
-            Kind::AtStart => "at start",
-            Kind::AtEnd => "at end",
-            Kind::Overall => "overall",
+            ExprEntryKind::AtStart => "at start",
+            ExprEntryKind::AtEnd => "at end",
+            ExprEntryKind::Overall => "overall",
 
             // Modal Constraints / Trajectories (PDDL 3.0)
-            Kind::Always => "always",
-            Kind::Sometime => "sometime",
-            Kind::Within => "within",
-            Kind::AtMostOnce => "at-most-once",
-            Kind::SometimeAfter => "sometime-after",
-            Kind::SometimeBefore => "sometime-before",
-            Kind::AlwaysWithin => "always-within",
-            Kind::HoldDuring => "hold-during",
-            Kind::HoldAfter => "hold-after",
+            ExprEntryKind::Always => "always",
+            ExprEntryKind::Sometime => "sometime",
+            ExprEntryKind::Within => "within",
+            ExprEntryKind::AtMostOnce => "at-most-once",
+            ExprEntryKind::SometimeAfter => "sometime-after",
+            ExprEntryKind::SometimeBefore => "sometime-before",
+            ExprEntryKind::AlwaysWithin => "always-within",
+            ExprEntryKind::HoldDuring => "hold-during",
+            ExprEntryKind::HoldAfter => "hold-after",
 
             // Temporal Planning and Metrics
-            Kind::TimedInitialLiteral => "at",
-            Kind::Metric => "metric",
-            Kind::TotalTime => "total-time",
+            ExprEntryKind::TimedInitialLiteral => "at",
+            ExprEntryKind::Metric(_) => "metric",
+            ExprEntryKind::TotalTime => "total-time",
+            ExprEntryKind::TotalCost => "total-cost",
 
             // HTN and specific extensions
-            Kind::TaskOrderingConstraint => "ordering",
-            Kind::Serial => "serial",
-            Kind::Parallel => "parallel",
-            Kind::Length => "length",
+            ExprEntryKind::TaskOrderingConstraint(_) => "ordering",
+            ExprEntryKind::Serial => "serial",
+            ExprEntryKind::Parallel => "parallel",
+            ExprEntryKind::Length => "length",
         }
     }
 }
 
-impl fmt::Display for Kind {
+impl fmt::Display for ExprEntryKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Kind::Object => "Constant",
-            Kind::Variable => "Variable",
-            Kind::FunctionSymbol => "FunctionSymbol",
-            Kind::PredicateSymbol => "Predicate",
-            Kind::TaskSymbol => "TaskSymbol",
-            Kind::PrefName => "PrefName",
-            Kind::Function => "FunctionTerm",
-            Kind::Number => "Number",
-            Kind::AtomicFormula => "AtomicFormula",
-            Kind::And => "And",
-            Kind::Or => "Or",
-            Kind::Not => "Not",
-            Kind::Imply => "Imply",
-            Kind::Forall => "Forall",
-            Kind::Exists => "Exists",
-            Kind::Preference => "Preference",
-            Kind::When => "When",
-            Kind::Comparison => "FComp",
-            Kind::Assignment => "Assign",
-            Kind::Arithmetic => "Operation",
-            Kind::AtStart => "AtStart",
-            Kind::AtEnd => "AtEnd",
-            Kind::Overall => "Overall",
-            Kind::Always => "Always",
-            Kind::Sometime => "Sometime",
-            Kind::Within => "Within",
-            Kind::AtMostOnce => "AtMostOnce",
-            Kind::SometimeAfter => "SometimeAfter",
-            Kind::SometimeBefore => "SometimeBefore",
-            Kind::AlwaysWithin => "AlwaysWithin",
-            Kind::HoldDuring => "HoldDuring",
-            Kind::HoldAfter => "HoldAfter",
-            Kind::TimedInitialLiteral => "TimedInitialLiteral",
-            Kind::Metric => "Metric",
-            Kind::TotalTime => "TotalTime",
-            Kind::IsViolated => "IsViolated",
-            Kind::Length => "Length",
-            Kind::Serial => "Serial",
-            Kind::Parallel => "Parallel",
-            Kind::Task => "Task",
-            Kind::TaskLabel => "TaskID",
-            Kind::LabeledTask => "TaggedTask",
-            Kind::TaskOrderingConstraint => "TaskOrderingConstraint",
-        };
-        write!(f, "{}", s)
-    }
-}
+        match self {
+            // --- Terminaux avec valeurs (Utilise leur propre Display) ---
+            ExprEntryKind::Object(id) => write!(f, "Object({})", id),
+            ExprEntryKind::Variable(id) => write!(f, "Variable({})", id),
+            ExprEntryKind::Number(n) => write!(f, "Number({})", n),
 
-impl TryFrom<AstKind> for Kind {
-    type Error = ExprError;
+            // --- Symboles et Squelettes ---
+            ExprEntryKind::PredicateSymbol(id) => write!(f, "Predicate({})", id),
+            ExprEntryKind::FunctionSymbol(id) => write!(f, "Functor({})", id),
+            ExprEntryKind::TaskSymbol(id) => write!(f, "TaskSymbol({})", id),
+            ExprEntryKind::PrefName(id) => write!(f, "PrefName({})", id),
+            ExprEntryKind::TaskLabel(id) => write!(f, "TaskLabel({})", id),
 
-    fn try_from(kind: AstKind) -> Result<Self, Self::Error> {
-        match kind {
-            AstKind::And => Ok(Kind::And),
-            AstKind::Or => Ok(Kind::Or),
-            AstKind::Not => Ok(Kind::Not),
-            AstKind::Imply => Ok(Kind::Imply),
-            AstKind::Forall => Ok(Kind::Forall),
-            AstKind::Exists => Ok(Kind::Exists),
-            AstKind::PredicateSymbol => Ok(Kind::PredicateSymbol),
-            AstKind::Variable => Ok(Kind::Variable),
-            AstKind::Object => Ok(Kind::Object),
-            AstKind::FunctionSymbol => Ok(Kind::FunctionSymbol),
-            AstKind::TaskSymbol => Ok(Kind::TaskSymbol),
-            AstKind::PrefName => Ok(Kind::PrefName),
-            AstKind::Function => Ok(Kind::Function),
-            AstKind::Number => Ok(Kind::Number),
-            AstKind::AtomicFormula => Ok(Kind::AtomicFormula),
-            AstKind::Comparison => Ok(Kind::Comparison),
-            AstKind::Assignment => Ok(Kind::Assignment),
-            AstKind::Arithmetic => Ok(Kind::Arithmetic),
-            AstKind::AtStart => Ok(Kind::AtStart),
-            AstKind::AtEnd => Ok(Kind::AtEnd),
-            AstKind::Overall => Ok(Kind::Overall),
-            AstKind::Always => Ok(Kind::Always),
-            AstKind::Sometime => Ok(Kind::Sometime),
-            AstKind::Within => Ok(Kind::Within),
-            AstKind::AtMostOnce => Ok(Kind::AtMostOnce),
-            AstKind::SometimeAfter => Ok(Kind::SometimeAfter),
-            AstKind::SometimeBefore => Ok(Kind::SometimeBefore),
-            AstKind::AlwaysWithin => Ok(Kind::AlwaysWithin),
-            AstKind::HoldDuring => Ok(Kind::HoldDuring),
-            AstKind::HoldAfter => Ok(Kind::HoldAfter),
-            AstKind::TimedInitialLiteral => Ok(Kind::TimedInitialLiteral),
-            AstKind::Metric => Ok(Kind::Metric),
-            AstKind::TotalTime => Ok(Kind::TotalTime),
-            AstKind::IsViolated => Ok(Kind::IsViolated),
-            AstKind::Length => Ok(Kind::Length),
-            AstKind::Serial => Ok(Kind::Serial),
-            AstKind::Parallel => Ok(Kind::Parallel),
-            AstKind::Task => Ok(Kind::Task),
-            AstKind::TaskLabel => Ok(Kind::TaskLabel),
-            AstKind::LabeledTask => Ok(Kind::LabeledTask),
-            AstKind::TaskOrderingConstraint => Ok(Kind::TaskOrderingConstraint),
-            other => Err(ExprError::invalid_ast_node(other)),
+            ExprEntryKind::AtomicFormula(id) => write!(f, "Atome({})", id),
+            ExprEntryKind::Function(id) => write!(f, "Function({})", id),
+            ExprEntryKind::Task(id) => write!(f, "Task({})", id),
+
+            // --- Opérateurs (Utilise leur propre Display) ---
+            ExprEntryKind::Comparison(op) => write!(f, "Comparison({})", op),
+            ExprEntryKind::Assignment(op) => write!(f, "Assign({})", op),
+            ExprEntryKind::Arithmetic(op) => write!(f, "Op({})", op),
+
+            // --- Quantificateurs (Affiche le nombre de variables) ---
+            ExprEntryKind::Forall(vars) => write!(f, "Forall({})", vars.len()),
+            ExprEntryKind::Exists(vars) => write!(f, "Exists({})", vars.len()),
+
+            // --- Connecteurs simples (Juste le nom) ---
+            ExprEntryKind::And => write!(f, "And"),
+            ExprEntryKind::Or => write!(f, "Or"),
+            ExprEntryKind::Not => write!(f, "Not"),
+            ExprEntryKind::Imply => write!(f, "Imply"),
+            ExprEntryKind::When => write!(f, "When"),
+            ExprEntryKind::Preference => write!(f, "Preference"),
+
+            // --- Temporel et Modalités ---
+            ExprEntryKind::AtStart => write!(f, "AtStart"),
+            ExprEntryKind::AtEnd => write!(f, "AtEnd"),
+            ExprEntryKind::Overall => write!(f, "Overall"),
+            ExprEntryKind::Always => write!(f, "Always"),
+            ExprEntryKind::Sometime => write!(f, "Sometime"),
+            ExprEntryKind::Within => write!(f, "Within"),
+            ExprEntryKind::AtMostOnce => write!(f, "AtMostOnce"),
+            ExprEntryKind::SometimeAfter => write!(f, "SometimeAfter"),
+            ExprEntryKind::SometimeBefore => write!(f, "SometimeBefore"),
+            ExprEntryKind::AlwaysWithin => write!(f, "AlwaysWithin"),
+            ExprEntryKind::HoldDuring => write!(f, "HoldDuring"),
+            ExprEntryKind::HoldAfter => write!(f, "HoldAfter"),
+
+            // --- Metrics et HTN ---
+            ExprEntryKind::TimedInitialLiteral => write!(f, "TimedInitialLiteral"),
+            ExprEntryKind::Metric(_) => write!(f, "Metric"),
+            ExprEntryKind::TotalTime => write!(f, "TotalTime"),
+            ExprEntryKind::TotalCost => write!(f, "TotalCost"),
+            ExprEntryKind::IsViolated => write!(f, "IsViolated"),
+            ExprEntryKind::Length => write!(f, "Length"),
+            ExprEntryKind::Serial => write!(f, "Serial"),
+            ExprEntryKind::Parallel => write!(f, "Parallel"),
+            ExprEntryKind::LabeledTask => write!(f, "LabeledTask"),
+            ExprEntryKind::TaskOrderingConstraint(_) => write!(f, "Ordering"),
         }
     }
 }

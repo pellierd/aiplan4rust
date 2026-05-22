@@ -6,7 +6,7 @@ use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{
     AtomSkeletonId, CompareOp, ObjectId, Requirement, Type, TypedList, TypedSymbol, VariableId,
 };
-use crate::aiplan4rust::lir::expr::ExprBuilder;
+use crate::aiplan4rust::lir::expr_old::ExprBuilder;
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::ActionDef;

@@ -1,9 +1,9 @@
 use super::*;
-use crate::aiplan4rust::lang::CompareOp;
-use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent};
-use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr::to_pnf;
+use crate::aiplan4rust::lang::CompareOp;
+use crate::aiplan4rust::lir::store::expr_old::builder::ExprBuilder;
+use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
+use crate::aiplan4rust::lir::store::expr_old::{ExprContent, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 /// **Test Goal**: Verify the structural transformation of a negated atom into a single negated LIR node (Logical Mode).
@@ -34,12 +34,17 @@ fn test_encode_simple_atom_negation_logical() -> Result<(), ExprOpError> {
         &mut expr,
         &mut negated_atoms,
         &mut dfs_stack,
-        false
-    ).expect("PNF encoding failed");
+        false,
+    )
+    .expect("PNF encoding_old failed");
 
     // 3. Validation
     let root = expr.try_root_node()?;
-    assert_eq!(root.kind(), ExprKind::AtomicFormula, "Logical 'Not' should be absorbed");
+    assert_eq!(
+        root.kind(),
+        ExprKind::AtomicFormula,
+        "Logical 'Not' should be absorbed"
+    );
 
     if let ExprContent::AtomSkeleton(id) = root.content() {
         assert!(id.is_negated(), "The MSB bit (negation) should be true");
@@ -77,13 +82,21 @@ fn test_encode_effect_negation_preservation() -> Result<(), ExprOpError> {
         &mut expr,
         &mut negated_atoms,
         &mut dfs_stack,
-        true
-    ).expect("PNF encoding failed");
+        true,
+    )
+    .expect("PNF encoding_old failed");
 
     // 3. Validation
     let root = expr.try_root_node()?;
-    assert_eq!(root.kind(), ExprKind::Not, "Effect 'Not' (Delete) should be preserved");
-    assert!(negated_atoms.is_empty(), "Delete effects should not populate negated_atoms");
+    assert_eq!(
+        root.kind(),
+        ExprKind::Not,
+        "Effect 'Not' (Delete) should be preserved"
+    );
+    assert!(
+        negated_atoms.is_empty(),
+        "Delete effects should not populate negated_atoms"
+    );
 
     Ok(())
 }
@@ -124,22 +137,37 @@ fn test_encode_comparison_stays_unchanged() -> Result<(), ExprOpError> {
         &mut expr,
         &mut negated_atoms,
         &mut dfs_stack,
-        false
+        false,
     )?;
 
     // 4. Validation: Structure preservation
     let root = expr.try_root_node()?;
-    assert_eq!(root.kind(), ExprKind::Not, "Root should still be a Not node for comparisons");
+    assert_eq!(
+        root.kind(),
+        ExprKind::Not,
+        "Root should still be a Not node for comparisons"
+    );
 
     let child_id = root.children()[0];
     let child = expr.try_node(child_id)?;
-    assert_eq!(child.kind(), ExprKind::Comparison, "Child should still be a Comparison node");
+    assert_eq!(
+        child.kind(),
+        ExprKind::Comparison,
+        "Child should still be a Comparison node"
+    );
 
     // Verify that operands (?x and ?y) are still attached
-    assert_eq!(child.children().len(), 2, "Comparison should still have 2 children");
+    assert_eq!(
+        child.children().len(),
+        2,
+        "Comparison should still have 2 children"
+    );
 
     // 5. Validation: Collection (Side-effect check)
-    assert!(negated_atoms.is_empty(), "Negated comparisons must NOT be added to negated_atoms");
+    assert!(
+        negated_atoms.is_empty(),
+        "Negated comparisons must NOT be added to negated_atoms"
+    );
 
     Ok(())
 }
@@ -194,7 +222,7 @@ fn test_detect_unsupported_node_under_not() -> Result<(), ExprOpError> {
 }
 
 /// **Test Goal**: Ensure the encoder rejects double negations (`NOT NOT`), enforcing
-/// that the tree has been simplified prior to PNF encoding.
+/// that the tree has been simplified prior to PNF encoding_old.
 ///
 /// **Input**:
 /// - A `Not` node pointing to another `Not` node: `(not (not A))`.
@@ -202,7 +230,7 @@ fn test_detect_unsupported_node_under_not() -> Result<(), ExprOpError> {
 ///
 /// **Expected Output**:
 /// - The function returns an `Err(ExprOpError::InvalidExprNode)`.
-/// - This confirms that the encoding pass relies on a prior simplification step.
+/// - This confirms that the encoding_old pass relies on a prior simplification step.
 #[test]
 fn test_detect_double_negation_failure() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
@@ -240,7 +268,7 @@ fn test_detect_double_negation_failure() -> Result<(), ExprOpError> {
     Ok(())
 }
 
-/// **Test Goal**: Verify PNF encoding on a mixed formula containing both an atom and a comparison.
+/// **Test Goal**: Verify PNF encoding_old on a mixed formula containing both an atom and a comparison.
 ///
 /// **Input**:
 /// - A conjunction: `(and (not (at-robot)) (not (= ?x ?y)))`.
@@ -278,7 +306,7 @@ fn test_mixed_complex_pnf() -> Result<(), ExprOpError> {
         &mut expr,
         &mut negated_atoms,
         &mut dfs_stack,
-        false // Mode logique
+        false, // Mode logique
     )?;
 
     // 5. Validation: Tree Structure
@@ -288,14 +316,24 @@ fn test_mixed_complex_pnf() -> Result<(), ExprOpError> {
     // First child: Not(At) must have been flattened into a negated AtomicFormula
     let first_child_id = root.children()[0];
     let first_child = expr.try_node(first_child_id)?;
-    assert_eq!(first_child.kind(), ExprKind::AtomicFormula, "Atoms under Not should be absorbed");
+    assert_eq!(
+        first_child.kind(),
+        ExprKind::AtomicFormula,
+        "Atoms under Not should be absorbed"
+    );
 
     if let ExprContent::AtomSkeleton(id) = first_child.content() {
-        assert!(id.is_negated(), "The AtomicFormula skeleton should have its MSB bit set");
+        assert!(
+            id.is_negated(),
+            "The AtomicFormula skeleton should have its MSB bit set"
+        );
 
         // Validation: Collection side-effect
         assert_eq!(negated_atoms.len(), 1, "Only the atom should be collected");
-        assert_eq!(negated_atoms[0], *id, "The collected ID must match the negated atom's ID");
+        assert_eq!(
+            negated_atoms[0], *id,
+            "The collected ID must match the negated atom's ID"
+        );
     } else {
         panic!("First child content should be an AtomSkeleton");
     }
@@ -303,12 +341,20 @@ fn test_mixed_complex_pnf() -> Result<(), ExprOpError> {
     // Second child: Not(Comparison) must remain unchanged (Not -> Comparison)
     let second_child_id = root.children()[1];
     let second_child = expr.try_node(second_child_id)?;
-    assert_eq!(second_child.kind(), ExprKind::Not, "Negation above Comparison must be preserved");
+    assert_eq!(
+        second_child.kind(),
+        ExprKind::Not,
+        "Negation above Comparison must be preserved"
+    );
 
     let inner_comp_id = second_child.children()[0];
     let inner_comp = expr.try_node(inner_comp_id)?;
     assert_eq!(inner_comp.kind(), ExprKind::Comparison);
-    assert_eq!(inner_comp.children().len(), 2, "Comparison should still have its two variables");
+    assert_eq!(
+        inner_comp.children().len(),
+        2,
+        "Comparison should still have its two variables"
+    );
 
     Ok(())
 }
@@ -353,21 +399,33 @@ fn test_pnf_traverses_quantifiers_with_correct_args() -> Result<(), ExprOpError>
         &mut expr,
         &mut negated_atoms,
         &mut dfs_stack,
-        false
+        false,
     )?;
 
     // --- Validation: Quantifier Level ---
     let root = expr.try_root_node()?;
-    assert_eq!(root.kind(), ExprKind::Forall, "Root must remain a Forall node");
+    assert_eq!(
+        root.kind(),
+        ExprKind::Forall,
+        "Root must remain a Forall node"
+    );
 
     // --- Validation: Atom Level ---
     let body_id = root.children()[0];
     let body_node = expr.try_node(body_id)?;
-    assert_eq!(body_node.kind(), ExprKind::AtomicFormula, "The inner Not should be absorbed");
+    assert_eq!(
+        body_node.kind(),
+        ExprKind::AtomicFormula,
+        "The inner Not should be absorbed"
+    );
 
     if let ExprContent::AtomSkeleton(id) = body_node.content() {
         assert!(id.is_negated(), "The atom's MSB bit must be set to true");
-        assert_eq!(negated_atoms.len(), 1, "The nested negated atom should be collected");
+        assert_eq!(
+            negated_atoms.len(),
+            1,
+            "The nested negated atom should be collected"
+        );
         assert_eq!(negated_atoms[0], *id);
     } else {
         panic!("Expected AtomSkeleton content in the body node");
@@ -375,7 +433,11 @@ fn test_pnf_traverses_quantifiers_with_correct_args() -> Result<(), ExprOpError>
 
     // --- Validation: Arguments Integrity ---
     // The argument ?x should be preserved at the second index (index 1).
-    assert_eq!(body_node.children()[1], arg_x, "The variable argument ?x must be preserved");
+    assert_eq!(
+        body_node.children()[1],
+        arg_x,
+        "The variable argument ?x must be preserved"
+    );
 
     Ok(())
 }
@@ -423,7 +485,10 @@ fn test_detect_forbidden_double_negation_in_bit() -> Result<(), ExprOpError> {
     );
 
     // The collection should be empty or reflect the failure state
-    assert!(negated_atoms.is_empty(), "No atoms should be indexed upon failure");
+    assert!(
+        negated_atoms.is_empty(),
+        "No atoms should be indexed upon failure"
+    );
 
     Ok(())
 }
@@ -487,10 +552,17 @@ fn test_pnf_descends_into_quantifiers() -> Result<(), ExprOpError> {
     );
 
     if let ExprContent::AtomSkeleton(id) = child.content() {
-        assert!(id.is_negated(), "The MSB bit of the AtomSkeletonId should be true");
+        assert!(
+            id.is_negated(),
+            "The MSB bit of the AtomSkeletonId should be true"
+        );
 
         // Verification of side-effect collection
-        assert_eq!(negated_atoms.len(), 1, "The nested negated atom should be indexed");
+        assert_eq!(
+            negated_atoms.len(),
+            1,
+            "The nested negated atom should be indexed"
+        );
         assert_eq!(negated_atoms[0], *id);
     } else {
         panic!("Child content should be an AtomSkeleton");
@@ -550,13 +622,24 @@ fn test_pnf_deep_nesting() -> Result<(), ExprOpError> {
     }
 
     let final_node = expr.try_node(curr_id)?;
-    assert_eq!(final_node.kind(), ExprKind::AtomicFormula, "Leaf should be an atom now");
+    assert_eq!(
+        final_node.kind(),
+        ExprKind::AtomicFormula,
+        "Leaf should be an atom now"
+    );
 
     if let ExprContent::AtomSkeleton(id) = final_node.content() {
-        assert!(id.is_negated(), "The deep atom should be successfully negated");
+        assert!(
+            id.is_negated(),
+            "The deep atom should be successfully negated"
+        );
 
         // 6. Validation: Collection across depth
-        assert_eq!(negated_atoms.len(), 1, "The atom should be collected regardless of depth");
+        assert_eq!(
+            negated_atoms.len(),
+            1,
+            "The atom should be collected regardless of depth"
+        );
         assert_eq!(negated_atoms[0], *id);
     } else {
         panic!("Leaf content should be an AtomSkeleton");
@@ -624,13 +707,24 @@ fn test_pnf_traverses_multiple_quantifier_layers() -> Result<(), ExprOpError> {
     let final_atom_id = exists_node.children()[0];
     let final_atom = expr.try_node(final_atom_id)?;
 
-    assert_eq!(final_atom.kind(), ExprKind::AtomicFormula, "Le nœud 'Not' devrait être absorbé");
+    assert_eq!(
+        final_atom.kind(),
+        ExprKind::AtomicFormula,
+        "Le nœud 'Not' devrait être absorbé"
+    );
 
     if let ExprContent::AtomSkeleton(id) = final_atom.content() {
-        assert!(id.is_negated(), "L'atome imbriqué doit avoir son bit MSB activé");
+        assert!(
+            id.is_negated(),
+            "L'atome imbriqué doit avoir son bit MSB activé"
+        );
 
         // 6. Validation : Collecte de l'effet de bord
-        assert_eq!(negated_atoms.len(), 1, "L'atome profond doit être collecté dans negated_atoms");
+        assert_eq!(
+            negated_atoms.len(),
+            1,
+            "L'atome profond doit être collecté dans negated_atoms"
+        );
         assert_eq!(negated_atoms[0], *id);
     } else {
         panic!("Contenu AtomSkeleton attendu");

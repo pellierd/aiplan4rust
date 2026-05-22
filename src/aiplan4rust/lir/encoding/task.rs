@@ -1,6 +1,6 @@
 //! HTN Abstract Task Encoding
 //!
-//! This module handles the encoding and registration of abstract (compound) tasks.
+//! This module handles the encoding_old and registration of abstract (compound) tasks.
 //!
 //! In HTN planning, an abstract task represents a high-level objective. It
 //! acts as a contract: any method claiming to decompose this task must
@@ -11,12 +11,12 @@
 //! task's symbol node to its internal ID.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lir::problem::atomic_skeleton::task::Task;
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::encoding::EncodingRegistry;
+use crate::aiplan4rust::lir::encoding::{typed_list, EncodingError};
+use crate::aiplan4rust::lir::problem::skeleton::task::Task;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Encodes an HTN abstract task signature and registers it within the LIR context.
 ///
@@ -42,8 +42,8 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+) -> Result<(), EncodingError> {
     let node = subtree.node();
     let tree = subtree.tree();
 
@@ -67,17 +67,14 @@ pub fn encode(
 
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(parameters_node, parameters_id, tree),
-        registry
+        registry,
     )?;
 
     // 3. CONSTRUCTION : On utilise task_symbol_id au lieu de name_str_id
     // La signature contient maintenant l'ID typé
     let variable_symbols = registry.get_variable_symbols();
-    let task_skeleton = Task::new(
-        task_symbol_id,
-        parameters
-    )
-        .with_variable_symbols(variable_symbols);
+    let task_skeleton =
+        Task::new(task_symbol_id, parameters).with_variable_symbols(variable_symbols);
 
     // 4. STOCKAGE : On enregistre le squelette
     // Note: add_task_def ne renvoie plus que le skeleton_id puisque le symbol_id est déjà connu

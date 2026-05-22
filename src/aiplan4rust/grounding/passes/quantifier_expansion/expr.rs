@@ -1,31 +1,29 @@
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::grounding::binding;
+use crate::aiplan4rust::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::grounding::binding::Bindings;
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::grounding::binding;
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::expr::{ops, Expr, ExprContent, ExprKind};
-use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::store::expr_old::{ops, Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
-pub fn expand(
-    expr: &mut Expr,
-    value_registry: &ValueRegistry,
-) -> Result<(), GroundingError> {
+pub fn expand(expr: &mut Expr, value_registry: &ValueRegistry) -> Result<(), GroundingError> {
     expand_with(expr, value_registry, None)
 }
 pub fn expand_with(
     expr: &mut Expr,
     value_registry: &ValueRegistry,
-    evaluator: Option<& dyn StaticEvaluator>,
+    evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), GroundingError> {
     let mut global_change = false;
 
     // L'astuce : On ne collecte que les IDs des nœuds Forall et Exists
     // Mais attention : en post-ordre pour respecter l'imbrication !
     // 1. Collecte des IDs en post-ordre pour traiter les imbrications de l'intérieur vers l'extérieur
-    let quantifier_ids: Vec<NodeId> = expr.postorder()
+    let quantifier_ids: Vec<NodeId> = expr
+        .postorder()
         .ids()
         .filter(|(_, node)| is_quantifier(node.kind()))
         .map(|(id, _)| id)
@@ -53,7 +51,7 @@ pub fn expand_with(
             ops::simplify_subexpr_with(expr, node_id, evaluator)?;
             global_change = true;
         }
-}
+    }
 
     if global_change {
         ops::simplify_with(expr, evaluator)?;
@@ -71,7 +69,7 @@ fn expand_quantified_expr(
     expr: &mut Expr,
     node_id: NodeId,
     value_registry: &ValueRegistry,
-    evaluator: Option<& dyn StaticEvaluator>,
+    evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<bool, GroundingError> {
     // --- 1. EXTRACTION ---
     let (variables, body_id, is_forall) = {
@@ -96,12 +94,12 @@ fn expand_quantified_expr(
     let mut instances = Vec::new();
 
     while let Some(bindings) = iterator.next() {
-
         // Appel de la fonction de clonage qui renvoie un NodeId (simplifié)
         let result_id = binding::apply_in_place_with(expr, body_id, &bindings, evaluator)?;
         let body_node = expr.try_node(result_id)?;
         // --- DÉTECTION DES CONSTANTES VIA L'ARÈNE ---
-        if body_node.is_empty_or() { // Représente FALSE
+        if body_node.is_empty_or() {
+            // Représente FALSE
             if is_forall {
                 // FORALL + un seul FALSE = FALSE GLOBAL
                 expr.set_to_bool(node_id, false)?;
@@ -111,7 +109,8 @@ fn expand_quantified_expr(
             continue;
         }
 
-        if body_node.is_empty_and() { // Représente TRUE
+        if body_node.is_empty_and() {
+            // Représente TRUE
             if !is_forall {
                 // EXISTS + un seul TRUE = TRUE GLOBAL
                 expr.set_to_bool(node_id, true)?;
@@ -130,7 +129,11 @@ fn expand_quantified_expr(
         // Si tout a été filtré (ex: Forall où tout est True), le résultat est la valeur neutre
         expr.set_to_bool(node_id, is_forall)?;
     } else {
-        let new_kind = if is_forall { ExprKind::And } else { ExprKind::Or };
+        let new_kind = if is_forall {
+            ExprKind::And
+        } else {
+            ExprKind::Or
+        };
         let node_mut = expr.try_node_mut(node_id)?;
         node_mut.set_kind(new_kind);
         node_mut.set_content(ExprContent::None);
@@ -142,8 +145,6 @@ fn expand_quantified_expr(
 
     Ok(true)
 }
-
-
 
 /// Gère les cas limites des domaines vides pour les quantificateurs.
 ///
@@ -170,9 +171,11 @@ fn handle_empty_domains(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::{VariableId, TypeId, ObjectId, TypedList, Type, TypedSymbol, PredicateSymbolId};
     use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-    use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind};
+    use crate::aiplan4rust::lang::{
+        ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
+    };
+    use crate::aiplan4rust::lir::store::expr_old::{ExprBuilder, ExprKind};
 
     #[test]
     fn test_expand_forall_quantifier() -> Result<(), Box<dyn std::error::Error>> {
@@ -212,7 +215,11 @@ mod tests {
         let node = expr.try_node(root_id)?;
 
         // Ensure the Forall was converted to an AND
-        assert_eq!(node.kind(), ExprKind::And, "Forall should be expanded to And");
+        assert_eq!(
+            node.kind(),
+            ExprKind::And,
+            "Forall should be expanded to And"
+        );
 
         // Ensure we have 2 children (one for each robot)
         let children = node.children();
@@ -239,7 +246,10 @@ mod tests {
 
         // 1. On prépare la liste d'objets
         let mut objects = TypedList::new();
-        objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
+        objects.push(TypedSymbol::new(
+            ObjectId::from(999),
+            Type::primitive(type_autre),
+        ));
 
         // 2. On construit le registre directement.
         // Comme l'objet 999 appartient au typing 1, from_objects va créer :
@@ -264,7 +274,10 @@ mod tests {
         let node = expr.try_node(root_id)?;
 
         // Forall sur ensemble vide est toujours Vrai (And vide)
-        assert!(node.is_empty_and(), "Un Forall vide devrait se simplifier en TRUE (And vide)");
+        assert!(
+            node.is_empty_and(),
+            "Un Forall vide devrait se simplifier en TRUE (And vide)"
+        );
 
         Ok(())
     }
@@ -332,8 +345,14 @@ mod tests {
 
         // Initialisation directe
         let mut typed_objects = TypedList::new();
-        typed_objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(TypeId::from(0))));
-        typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
+        typed_objects.push(TypedSymbol::new(
+            ObjectId::from(1),
+            Type::primitive(TypeId::from(0)),
+        ));
+        typed_objects.push(TypedSymbol::new(
+            ObjectId::from(2),
+            Type::primitive(TypeId::from(0)),
+        ));
 
         let registry = ValueRegistry::from_objects(typed_objects);
 
@@ -354,7 +373,10 @@ mod tests {
         expand_with(&mut expr, &registry, None)?;
 
         let root = expr.try_node(expr.try_root_id()?)?;
-        assert!(root.is_empty_and(), "L'existence d'une instance vraie doit rendre le EXISTS vrai");
+        assert!(
+            root.is_empty_and(),
+            "L'existence d'une instance vraie doit rendre le EXISTS vrai"
+        );
         Ok(())
     }
 
@@ -368,7 +390,10 @@ mod tests {
 
         // Initialisation avec un objet dans le typing 1 pour que l'index 0 soit alloué
         let mut objects = TypedList::new();
-        objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
+        objects.push(TypedSymbol::new(
+            ObjectId::from(999),
+            Type::primitive(type_autre),
+        ));
 
         let registry = ValueRegistry::from_objects(objects);
 
@@ -398,7 +423,10 @@ mod tests {
         let var_x = VariableId::from(1);
 
         let mut objects = TypedList::new();
-        objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
+        objects.push(TypedSymbol::new(
+            ObjectId::from(999),
+            Type::primitive(type_autre),
+        ));
 
         let registry = ValueRegistry::from_objects(objects);
 
@@ -412,7 +440,10 @@ mod tests {
         let mut expr = builder.finish();
 
         expand_with(&mut expr, &registry, None)?;
-        assert!(expr.try_node(expr.try_root_id()?)?.is_empty_or(), "∃x ∈ ∅ doit être FALSE");
+        assert!(
+            expr.try_node(expr.try_root_id()?)?.is_empty_or(),
+            "∃x ∈ ∅ doit être FALSE"
+        );
         Ok(())
     }
 
@@ -421,8 +452,14 @@ mod tests {
         let mut builder = ExprBuilder::new();
 
         let mut typed_objects = TypedList::new();
-        typed_objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(TypeId::from(0))));
-        typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
+        typed_objects.push(TypedSymbol::new(
+            ObjectId::from(1),
+            Type::primitive(TypeId::from(0)),
+        ));
+        typed_objects.push(TypedSymbol::new(
+            ObjectId::from(2),
+            Type::primitive(TypeId::from(0)),
+        ));
 
         let registry = ValueRegistry::from_objects(typed_objects);
 
@@ -464,8 +501,14 @@ mod tests {
         let mut builder = ExprBuilder::new();
 
         let mut typed_objects = TypedList::new();
-        typed_objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(TypeId::from(0))));
-        typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
+        typed_objects.push(TypedSymbol::new(
+            ObjectId::from(1),
+            Type::primitive(TypeId::from(0)),
+        ));
+        typed_objects.push(TypedSymbol::new(
+            ObjectId::from(2),
+            Type::primitive(TypeId::from(0)),
+        ));
 
         let registry = ValueRegistry::from_objects(typed_objects);
 
@@ -489,7 +532,10 @@ mod tests {
         expand_with(&mut expr, &registry, None)?;
 
         let root = expr.try_node(expr.try_root_id()?)?;
-        assert!(root.is_empty_or(), "Un Forall avec une instance Fausse doit être Faux");
+        assert!(
+            root.is_empty_or(),
+            "Un Forall avec une instance Fausse doit être Faux"
+        );
         Ok(())
     }
 
@@ -505,11 +551,17 @@ mod tests {
 
         // Construct: (exists (?x ?y - type_u) (P ?x ?y))
         let mut vars = TypedList::new();
-        vars.push(TypedSymbol::new(VariableId::from(1), Type::primitive(type_u)));
-        vars.push(TypedSymbol::new(VariableId::from(2), Type::primitive(type_u)));
+        vars.push(TypedSymbol::new(
+            VariableId::from(1),
+            Type::primitive(type_u),
+        ));
+        vars.push(TypedSymbol::new(
+            VariableId::from(2),
+            Type::primitive(type_u),
+        ));
 
         let x = builder.variable(VariableId::from(1));
-        let y =builder.variable(VariableId::from(2));
+        let y = builder.variable(VariableId::from(2));
         let atom = builder.atomic_formula(PredicateSymbolId::from(1), vec![x, y]);
 
         let exists = builder.exists(vars, atom);
@@ -521,7 +573,11 @@ mod tests {
         let root = expr.try_node(expr.try_root_id()?)?;
         assert_eq!(root.kind(), ExprKind::Or);
         // 2 objets, 2 variables -> 2^2 = 4 instances attendues
-        assert_eq!(root.children().len(), 4, "Le produit cartésien des domaines n'est pas respecté");
+        assert_eq!(
+            root.children().len(),
+            4,
+            "Le produit cartésien des domaines n'est pas respecté"
+        );
         Ok(())
     }
 
@@ -560,12 +616,16 @@ mod tests {
 
         let root = expr.try_node(expr.try_root_id()?)?;
         // L'imbrication doit résulter en une simplification totale vers TRUE (And vide)
-        assert!(root.is_empty_and(), "L'imbrication aurait dû se simplifier en TRUE (And vide)");
+        assert!(
+            root.is_empty_and(),
+            "L'imbrication aurait dû se simplifier en TRUE (And vide)"
+        );
         Ok(())
     }
 
     #[test]
-    fn test_expand_quantifier_already_simplified_by_child() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_expand_quantifier_already_simplified_by_child() -> Result<(), Box<dyn std::error::Error>>
+    {
         let mut builder = ExprBuilder::new();
 
         let type_u = TypeId::from(0);
@@ -574,7 +634,10 @@ mod tests {
 
         let mut objects = TypedList::new();
         objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(type_u)));
-        objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
+        objects.push(TypedSymbol::new(
+            ObjectId::from(999),
+            Type::primitive(type_autre),
+        ));
 
         let registry = ValueRegistry::from_objects(objects);
 
@@ -605,7 +668,10 @@ mod tests {
 
         let root = expr.try_node(expr.try_root_id()?)?;
         // Un Forall dont l'instance est False (car l'exists était vide) doit être False (Or vide)
-        assert!(root.is_empty_or(), "Le Forall aurait dû être court-circuité en FALSE (Or vide)");
+        assert!(
+            root.is_empty_or(),
+            "Le Forall aurait dû être court-circuité en FALSE (Or vide)"
+        );
         Ok(())
     }
 }

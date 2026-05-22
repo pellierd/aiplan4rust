@@ -5,10 +5,11 @@
 //! initial task networks. It populates the final `LiftedProblem` IR.
 
 use crate::aiplan4rust::lir::encoding::{
-    constraints, expr, goal, init, initial_task_network, objects_def, preference, EncodingRegistry,
+    constraints, expr, goal, init, initial_task_network, objects_def, preference, EncodingError,
+    EncodingRegistry,
 };
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::expr::ExprBuilder;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 
@@ -16,7 +17,7 @@ use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 ///
 /// This function performs a pre-order traversal of the problem's syntax tree. It
 /// resolves symbols (predicates and functions) using the mapping indices provided
-/// from the domain encoding phase.
+/// from the domain encoding_old phase.
 ///
 /// # Arguments
 ///
@@ -35,34 +36,35 @@ use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 /// This function returns an error if:
 /// * Symbol resolution fails for the initial state or goal.
 /// * The problem name or object definitions are malformed.
-/// * A logical expression (metric, constraint, length) fails to encoding.
+/// * A logical expression (metric, constraint, length) fails to encoding_old.
 /// Encodes a high-level AST into a Lifted Intermediate Representation (LIR).
 ///
-/// the encoding process is organized into three distinct phases:
+/// the encoding_old process is organized into three distinct phases:
 /// 1. **Built-in Initialization**: Set up system-defined symbols (e.g., `total-time`).
 /// 2. **Structural Collection**: Map domain/problem declarations (types, functions, etc.).
 /// 3. **Logic Encoding**: Transform expressions, initial state, and goals into LIR.
 ///
 /// # Errors
 ///
-/// Returns a [`LirError`] if any phase of the encoding fails (e.g., symbol resolution error).
+/// Returns a [`LirError`] if any phase of the encoding_old fails (e.g., symbol resolution error).
 pub fn encode(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+    builder: &mut ExprBuilder,
+) -> Result<(), EncodingError> {
     // Phase 1: Structural Declarations.
     // Collect and register user-defined types, constants, predicates, and functions.
     collect_problem_definitions(syntax_tree, registry, ir)?;
 
     // Phase 2: Problem Logic.
     // Encode the initial state, goal conditions, and metric expressions.
-    encode_problem_logic(syntax_tree, registry, ir)?;
+    encode_problem_logic(syntax_tree, registry, ir, builder)?;
 
     Ok(())
 }
 
-/// Performs the first pass of the problem encoding by collecting structural definitions.
+/// Performs the first pass of the problem encoding_old by collecting structural definitions.
 ///
 /// This function traverses the AST in preorder to extract non-logical metadata
 /// and structural elements required to initialize the [`LiftedProblem`].
@@ -90,8 +92,8 @@ pub fn encode(
 pub fn collect_problem_definitions(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
 
@@ -113,7 +115,7 @@ pub fn collect_problem_definitions(
     Ok(())
 }
 
-/// Performs the second pass of the problem encoding by transforming logic and expressions.
+/// Performs the second pass of the problem encoding_old by transforming logic and expressions.
 ///
 /// This phase evaluates the functional and relational components of the AST. It relies
 /// on the mappings established in Phase 1 (Structural Collection) to resolve
@@ -142,45 +144,46 @@ pub fn collect_problem_definitions(
 pub fn encode_problem_logic(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
+    ir: &mut NewLiftedProblem,
+    builder: &mut ExprBuilder,
+) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
 
         match node.kind() {
             // Initial state: grounded facts and numeric fluents
             AstKind::Init => {
-                let init = init::encode(&subtree, registry)?;
+                let init = init::encode(&subtree, registry, builder)?;
                 ir.set_init(init);
             }
 
             // Goal conditions: logical expressions to be satisfied
             AstKind::Goal => {
-                let goal_expr = goal::encode(&subtree, registry)?;
+                let goal_expr = goal::encode(&subtree, registry, builder)?;
                 ir.set_goal(goal_expr);
             }
 
             // Temporal or state-based constraints
             AstKind::Constraints => {
-                let constraints = constraints::encode(&subtree, registry)?;
+                let constraints = constraints::encode(&subtree, registry, builder)?;
                 ir.set_problem_constraints(constraints);
             }
 
             // Optimization objective (e.g., minimize total-time)
             AstKind::Metric => {
-                let metric = expr::encode(&subtree, registry)?;
+                let metric = expr::encode(&subtree, registry, builder)?;
                 ir.set_metric_spec(metric);
             }
 
             // Plan length specifications (often for search guidance)
             AstKind::Length => {
-                let length = expr::encode(&subtree, registry)?;
+                let length = expr::encode(&subtree, registry, builder)?;
                 ir.set_length_spec(length);
             }
 
             // Initial Task Network for Hierarchical Task Networks (HTN)
             AstKind::InitialTaskNetwork => {
-                let network = initial_task_network::encode(&subtree, registry)?;
+                let network = initial_task_network::encode(&subtree, registry, builder)?;
                 ir.set_initial_task_network(network);
             }
 

@@ -1,48 +1,43 @@
 //! Goal Condition Encoding
 //!
-//! This module handles the translation of the PDDL `:goal` section.
-//! It transforms the goal's logical requirements into a LIR expression
-//! that must be satisfied in any valid plan prefix or final state.
+//! Ce module gère la traduction de la section PDDL `:goal`.
+//! Il transforme les exigences logiques du but en une expression LIR
+//! qui doit être satisfaite dans l'état final.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::encoding::{expr, EncodingRegistry};
+use crate::aiplan4rust::lir::encoding::{expr, EncodingError, EncodingRegistry};
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
-/// Encodes the goal condition of the problem from the `:goal` AST section.
+/// Encode la condition de but du problème à partir de la section AST `:goal`.
 ///
-/// This function extracts the logical root of the goal specification and delegates
-/// its recursive encoding to the expression module. It ensures that all symbols
-/// (predicates, constants, variables) within the goal are correctly resolved.
+/// Cette fonction extrait la racine logique de la spécification du but et délègue
+/// son encodage récursif au module `expr_old`. Elle garantit que tous les symboles
+/// (prédicats, objets) au sein du but sont correctement résolus.
 ///
 /// # Arguments
 ///
-/// * `subtree` - The syntax subtree corresponding to the `Goal` node.
-/// * `evaluator` - The evaluator used for symbol lookup and scoping.
-/// * `ir` - The mutable lifted problem where goal-related bindings are registered.
+/// * `subtree` - Le sous-arbre syntaxique correspondant au nœud `Goal`.
+/// * `registry` - Le registre pour la résolution des symboles.
+/// * `builder` - Le builder d'expressions pour enregistrer le but dans le Store.
 ///
 /// # Returns
 ///
-/// * `Ok(Expr)` - The encoded logical expression representing the goal.
-/// * `Err(LirError)` - If the goal structure is malformed or symbol resolution fails.
-///
-/// # Errors
-///
-/// This function returns an error if:
-/// * The mandatory child node representing the goal's ops is missing.
-/// * The underlying expression fails to encoding (e.g., unknown predicate).
+/// * `Ok(ExprId)` - L'identifiant de l'expression de but dans le Store.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<Expr, LirError> {
-    // 1. Access the first child of the Goal node (the root of the logical expression)
+    builder: &mut ExprBuilder, // Injection du builder
+) -> Result<ExprId, EncodingError> {
+    // 1. Accès au premier enfant du nœud Goal (la racine de l'expression logique)
     let child_id = subtree.node().try_child(0)?;
     let child_node = subtree.tree().try_node(child_id)?;
     let child_subtree = SyntaxSubtree::new(child_node, child_id, subtree.tree());
 
-    // 2. Encode using the context to resolve symbols (objects, predicates, etc.)
-    // We pass ir mutably to register bindings if necessary.
-    expr::encode(&child_subtree, registry)
+    // 2. Encodage récursif de l'expression de but.
+    // Comme pour l'init, cela retourne maintenant un ExprId pointant vers le Store.
+    let goal_expr_id = expr::encode(&child_subtree, registry, builder)?;
+
+    Ok(goal_expr_id)
 }

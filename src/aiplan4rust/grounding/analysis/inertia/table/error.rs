@@ -32,7 +32,7 @@ impl InertiaTableError {
     /// Creates a new [`InertiaTableError::MissingPredicateInertia`] error.
     ///
     /// This error occurs when a predicate is encountered during the grounding or
-    /// encoding phase but has no corresponding entry in the inertia table.
+    /// encoding_old phase but has no corresponding entry in the inertia table.
     /// This usually suggests the predicate was not correctly indexed during
     /// the initial state or action effect analysis.
     ///

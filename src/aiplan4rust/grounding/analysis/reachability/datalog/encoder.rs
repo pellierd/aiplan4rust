@@ -6,8 +6,8 @@ use crate::aiplan4rust::lang::{ActionSymbolId, CompareOp};
 use crate::aiplan4rust::lang::{
     AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
 };
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
-use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::store::expr_old::{Expr, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::store::problem_old::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::ActionDef;
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 use crate::analysis::reachability::datalog::cause::Cause;
@@ -34,7 +34,7 @@ use std::collections::HashMap;
 /// # Internal Architecture
 ///
 /// - **ID Space Separation**: Clearly partitions the predicate ID space into "Base"
-///   (original PDDL domain) and "Auxiliary" (generated during encoding).
+///   (original PDDL domain) and "Auxiliary" (generated during encoding_old).
 /// - **Structural Deduplication**: Uses a cache to ensure that logically identical
 ///   sub-formulas within the same context are mapped to the same auxiliary predicate,
 ///   minimizing the number of rules.
@@ -86,7 +86,7 @@ impl DatalogEncoder {
     /// 1. **Base Predicates**: IDs below `base_id`, which correspond to the
     ///    original domain symbols resolved via the global interner.
     /// 2. **Auxiliary Predicates**: IDs starting from `base_id`, which are
-    ///    generated during the encoding process (e.g., for actions, types, or
+    ///    generated during the encoding_old process (e.g., for actions, types, or
     ///    logical connectives).
     ///
     /// # Causality Tracking
@@ -517,7 +517,7 @@ impl DatalogEncoder {
     /// # Arguments
     ///
     /// * `logic` - The global expression tree containing the node.
-    /// * `node_id` - The starting point for the encoding (root of the sub-tree).
+    /// * `node_id` - The starting point for the encoding_old (root of the sub-tree).
     /// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
     /// * `parameters` - The typed parameters available in the current context (e.g., action parameters).
     ///
