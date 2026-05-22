@@ -8,7 +8,7 @@ use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::table::builder::build;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;

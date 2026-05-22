@@ -1,6 +1,6 @@
 //! PDDL Type Definition Encoding
 //!
-//! This module implements the two-pass encoding_old process for PDDL types:
+//! This module implements the two-pass encoding process for PDDL types:
 //! 1. **Phase 1 (Discovery):** Scans all typing names to populate the evaluator with unique `TypeID`s.
 //! 2. **Phase 2 (Definition):** Resolves inheritance relationships and adds full typing declarations to the LIR.
 
@@ -26,7 +26,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `registry` - The encoding_old registry used to map type symbols to unique IDs.
+/// * `registry` - The encoding registry used to map type symbols to unique IDs.
 /// * `ir` - The mutable Lifted Problem where the final typing declarations are stored.
 ///
 /// # Returns
@@ -64,7 +64,7 @@ pub fn encode(
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `evaluator` - The mutable encoding_old context where typing symbols are mapped to `TypeID`s.
+/// * `evaluator` - The mutable encoding context where typing symbols are mapped to `TypeID`s.
 ///
 /// # Returns
 ///
@@ -111,7 +111,7 @@ fn collect_type_ids(
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `evaluator` - The encoding_old context where `TypeIDs` were registered in Phase 1.
+/// * `evaluator` - The encoding context where `TypeIDs` were registered in Phase 1.
 /// * `ir` - The mutable reference to the `LiftedProblem` where declarations are stored.
 ///
 /// # Returns
@@ -122,7 +122,7 @@ fn collect_type_ids(
 /// # Errors
 ///
 /// This function will return an error if:
-/// * `typed_symbol::encoding_old` fails (e.g., a parent typing was not declared in Phase 1).
+/// * `typed_symbol::encoding` fails (e.g., a parent typing was not declared in Phase 1).
 /// * The AST structure prevents navigating to the child nodes of the typing list.
 fn encode_definitions(
     subtree: &SyntaxSubtree<AstNode>,

@@ -445,7 +445,7 @@ impl<'a> InertiaEvaluator<'a> {
 
         // On vérifie tous les enfants à partir de l'index 1 (les arguments)
         for &child_id in children.iter().skip(1) {
-            // Accès sécurisé au store
+            // Accès sécurisé au old
             if let Ok(child_entry) = store.fetch(child_id) {
                 // Si l'un des arguments est une variable (non encore instanciée),
                 // l'expression n'est pas "grounded".
@@ -682,11 +682,11 @@ impl<'a> InertiaEvaluator<'a> {
 
 impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
     fn evaluate(&self, expr: Expr<'_>) -> Option<StaticValue> {
-        // 1. On récupère directement le node_ref via le store
-        // Si store.fetch(id) renvoie déjà un ExprNodeRef, on l'utilise tel quel.
+        // 1. On récupère directement le node_ref via le old
+        // Si old.fetch(id) renvoie déjà un ExprNodeRef, on l'utilise tel quel.
         let node_ref = expr.store().fetch(expr.root_id()).ok()?;
 
-        // On récupère le store pour les appels internes
+        // On récupère le old pour les appels internes
         let store = expr.store();
 
         // 2. Préparation du buffer

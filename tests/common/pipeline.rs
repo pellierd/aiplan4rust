@@ -468,10 +468,10 @@ pub fn link(
     Some(linker_result)
 }
 
-/// Performs LIR (Low-level Intermediate Representation) encoding_old from a linked context.
+/// Performs LIR (Low-level Intermediate Representation) encoding from a linked context.
 ///
 /// This function extracts the linked semantic context from a [`LinkerResult`],
-/// initializes the [`LirEncoder`], and generates the Datalog-based encoding_old
+/// initializes the [`LirEncoder`], and generates the Datalog-based encoding
 /// required for the grounding engine.
 ///
 /// # Parameters
@@ -482,21 +482,21 @@ pub fn link(
 ///
 /// # Returns
 ///
-/// - `Some(LirEncoderResult)`: If encoding_old completes successfully and produces a valid
+/// - `Some(LirEncoderResult)`: If encoding completes successfully and produces a valid
 ///   lifted problem, even if warnings were reported.
-/// - `None`: If encoding_old fails, if the linker result contains no context, or if
+/// - `None`: If encoding fails, if the linker result contains no context, or if
 ///   no lifted problem was produced.
 ///
 /// # Behavior
 ///
 /// - Takes ownership of the semantic context via [`LinkerResult::take_linked_semantic_context`].
-/// - All diagnostics generated during encoding_old are written to a `.lir.diag` file.
+/// - All diagnostics generated during encoding are written to a `.lir.diag` file.
 /// - Verifies the presence of the lifted problem within the result; returns `None` if missing.
 ///
 /// # Side Effects
 ///
 /// Writes a diagnostic file to disk in the same directory as the problem:
-/// - `<problem>.lir.diag`: Contains all diagnostics from the LIR encoding_old process.
+/// - `<problem>.lir.diag`: Contains all diagnostics from the LIR encoding process.
 ///
 /// # Example
 ///
@@ -505,7 +505,7 @@ pub fn link(
 /// let lir_result = encode(linker_result, &d_path, &p_path);
 ///
 /// if let Some(res) = lir_result {
-///     println!("LIR encoding_old successful with {} rules.", res.rules().len());
+///     println!("LIR encoding successful with {} rules.", res.rules().len());
 /// }
 /// ```
 ///
@@ -524,7 +524,7 @@ pub fn encode(
     // 2. Initialize the LIR encoder
     let mut lir_builder = LirEncoder::new();
 
-    // 3. Execute encoding_old
+    // 3. Execute encoding
     match lir_builder.encode(linked_context) {
         Ok(result) => {
             // Utilisation de la nouvelle fonction de diagnostic factorisée

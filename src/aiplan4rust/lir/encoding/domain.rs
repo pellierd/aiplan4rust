@@ -33,13 +33,13 @@ use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 ///
 /// * `context` - The linked semantic context containing the domain AST and symbol table.
 /// * `ir` - The mutable LiftedProblem to be populated.
-/// * `ast_pred_to_idx` - A mutable map to store the mapping between predicate AST nodes and their LIR indices.
-/// * `ast_func_to_idx` - A mutable map to store the mapping between function AST nodes and their LIR indices.
+/// * `ast_pred_to_idx` - A mutable map to old the mapping between predicate AST nodes and their LIR indices.
+/// * `ast_func_to_idx` - A mutable map to old the mapping between function AST nodes and their LIR indices.
 ///
 /// # Returns
 ///
 /// * `Ok(())` - If the domain was successfully encoded.
-/// * `Err(LirError)` - If an error occurred during encoding_old (e.g., syntax mismatch,
+/// * `Err(LirError)` - If an error occurred during encoding (e.g., syntax mismatch,
 ///   duplicate definitions, or failed symbol resolution).
 ///
 /// # Errors
@@ -69,7 +69,7 @@ pub(crate) fn encode(
     Ok(())
 }
 
-/// Performs the first pass of the domain encoding_old by collecting all structural definitions.
+/// Performs the first pass of the domain encoding by collecting all structural definitions.
 ///
 /// This function traverses the domain's Abstract Syntax Tree (AST) to extract:
 /// - Basic metadata (Domain name).
@@ -116,13 +116,13 @@ fn collect_definitions(
     Ok(())
 }
 
-/// Performs the second pass of the domain encoding_old by processing the behavioral ops.
+/// Performs the second pass of the domain encoding by processing the behavioral ops.
 ///
 /// This function relies on the `EncodingContext` populated during the first pass
 /// (`collect_definitions`) to resolve predicate and function identifiers into their
 /// corresponding LIR indices.
 ///
-/// It handles the encoding_old of:
+/// It handles the encoding of:
 /// - Global domain constraints.
 /// - Action bodies (preconditions and effects).
 /// - Durative actions, derived predicates, and HTN methods.
@@ -130,13 +130,13 @@ fn collect_definitions(
 /// # Arguments
 ///
 /// * `context` - The linked semantic context containing the domain AST.
-/// * `ctx` - The encoding_old context used to resolve symbols (predicates, functions, etc.).
+/// * `ctx` - The encoding context used to resolve symbols (predicates, functions, etc.).
 /// * `ir` - The mutable LiftedProblem where the encoded ops is stored.
 ///
 /// # Returns
 ///
 /// * `Ok(())` - If all logical elements were successfully encoded and bound.
-/// * `Err(LirError)` - If an expression fails to encoding_old or if a symbol remains unresolved.
+/// * `Err(LirError)` - If an expression fails to encoding or if a symbol remains unresolved.
 ///
 /// # Note
 ///
@@ -168,7 +168,7 @@ fn encode_logic(
     Ok(())
 }
 
-/// Injects predefined system functions (built-ins) into the encoding_old registry.
+/// Injects predefined system functions (built-ins) into the encoding registry.
 ///
 /// This step is mandatory for supporting special PDDL functions such as `total-cost`
 /// (required by the `:action-costs` requirement) and `total-time` (used in temporal
@@ -182,7 +182,7 @@ fn encode_logic(
 ///
 /// 1. They are mapped to reserved **virtual** [`NodeId`]s (defined in [`EncodingRegistry`]).
 /// 2. They are registered exclusively in the [`EncodingRegistry`] to allow symbol
-///    resolution during expression encoding_old.
+///    resolution during expression encoding.
 /// 3. They are **not** added to the problem definitions ([`ir.function_defs`]). This
 ///    prevents indexing mismatches between the LIR vectors and the AST nodes.
 ///
@@ -198,7 +198,7 @@ fn encode_logic(
 ///
 /// # Arguments
 ///
-/// * `registry` - The encoding_old registry where system function signatures are injected.
+/// * `registry` - The encoding registry where system function signatures are injected.
 /// * `ir` - The lifted problem, used as a read-only reference to check active requirements.
 pub fn encode_builtin_functions(
     registry: &mut EncodingRegistry,
@@ -237,7 +237,7 @@ pub fn encode_builtin_functions(
     Ok(())
 }
 
-/// Injects a system-defined function into both the LIR and the encoding_old registry.
+/// Injects a system-defined function into both the LIR and the encoding registry.
 ///
 /// This helper synchronizes the creation of a built-in function by:
 /// 1. Inserting the [`FunctionSymbol`] into the [`LiftedProblem`].

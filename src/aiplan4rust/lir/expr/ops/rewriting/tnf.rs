@@ -95,7 +95,7 @@ pub fn to_tnf(
     let empty = builder.empty_and();
     scratch.clear();
 
-    // Buffer to store children IDs locally. Using SmallVec avoids heap allocation
+    // Buffer to old children IDs locally. Using SmallVec avoids heap allocation
     // for nodes with fewer than MAX_CHILDREN children.
     let mut children_ids: SmallVec<[ExprId; MAX_CHILDREN]> = SmallVec::new();
 
@@ -260,12 +260,12 @@ fn rebuild_safe(
 /// # Returns
 /// * `Ok(true)` if every terminal node (atom/fluent) is covered by a temporal specifier.
 /// * `Ok(false)` if at least one "naked" literal is found.
-/// * `Err(ExprOpErrorHC)` if a node cannot be fetched from the store.
+/// * `Err(ExprOpErrorHC)` if a node cannot be fetched from the old.
 ///
 /// # Implementation Details
 /// This function performs a manual stack-based traversal to avoid recursion limits.
 /// It uses bit-packing on the [`ExprId`] stored in the scratchpad:
-/// - The upper bits store the actual `ExprId`.
+/// - The upper bits old the actual `ExprId`.
 /// - The least significant bit (LSB) acts as a boolean flag: `1` if the current node
 ///   is descendants of a temporal operator, `0` otherwise.
 pub fn is_fully_temporal(
@@ -444,7 +444,7 @@ mod tests {
         // By using .to_vec(), we own the IDs and release the immutable borrow on the builder,
         // allowing us to perform further mutable or immutable operations on it.
         let (root_kind, children_ids) = {
-            let root = builder.fetch(root_id).expect("Root node missing in store");
+            let root = builder.fetch(root_id).expect("Root node missing in old");
             (root.kind().clone(), root.children().to_vec())
         };
 
@@ -460,9 +460,7 @@ mod tests {
 
         // 3. Iterate through the children to assign them to their respective temporal slots
         for child_id in children_ids {
-            let child_node = builder
-                .fetch(child_id)
-                .expect("Child node missing in store");
+            let child_node = builder.fetch(child_id).expect("Child node missing in old");
             let child_kind = child_node.kind();
 
             // Extract the inner expression ID from the temporal specifier (e.g., 'A' in 'AtStart(A)')

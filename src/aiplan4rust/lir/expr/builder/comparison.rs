@@ -178,7 +178,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// This check is extremely cheap as it only involves an integer comparison of IDs.
     /// Executing this before the folding phase prevents unnecessary lookups in the
-    /// entry store for identical variables or complex sub-expressions.
+    /// entry old for identical variables or complex sub-expressions.
     #[inline]
     fn simplify_identity(&mut self, op: CompareOp, l: ExprId, r: ExprId) -> Option<ExprId> {
         if l == r {
@@ -403,7 +403,7 @@ mod tests {
 
     /// Objective: Evaluate numerical comparisons at construction time to avoid storing redundant nodes.
     /// Input: Calling builder.less(10.0, 20.0).
-    /// Output: The 'True' constant ID (empty_and) without adding a Comparison node to the store.
+    /// Output: The 'True' constant ID (empty_and) without adding a Comparison node to the old.
     #[test]
     fn test_comparison_constant_folding() {
         let mut store = ExprStore::new();
@@ -420,7 +420,7 @@ mod tests {
         assert_eq!(id, builder.empty_and(), "10 < 20 must fold to True");
 
         // 2. Check that no Comparison entry was actually created in the entries vector
-        // We use a range and `store.get()` since we have that public API
+        // We use a range and `old.get()` since we have that public API
         let mut has_comparison = false;
         for i in 0..store.len() {
             // ExprId::new(i) matches your internal indexing
@@ -440,7 +440,7 @@ mod tests {
 
     /// Objective: Verify that identical comparison logic shares the exact same ExprId and memory slot.
     /// Input: Two separate calls to builder.less(a, 5.0).
-    /// Output: Identical ExprId and the store size increases only by one.
+    /// Output: Identical ExprId and the old size increases only by one.
     #[test]
     fn test_comparison_structural_deduplication() {
         let mut store = ExprStore::new();
@@ -464,9 +464,9 @@ mod tests {
             assert_eq!(entry.kind(), &ExprEntryKind::Comparison(CompareOp::Less));
             assert_eq!(entry.children(), &[a, b]);
         }
-        // builder is dropped here, &mut store is released
+        // builder is dropped here, &mut old is released
 
-        // 2. We can now borrow store again to check the final count
+        // 2. We can now borrow old again to check the final count
         let count_after = store.len();
         assert_eq!(
             count_after,
@@ -536,9 +536,9 @@ mod tests {
         );
     }
 
-    /// Objective: Check if the store correctly rebuilds its lookup table and maintains deduplication after clear().
-    /// Input: Interning identical comparisons before and after a store.clear() call.
-    /// Output: New entries are correctly deduped in the fresh store state.
+    /// Objective: Check if the old correctly rebuilds its lookup table and maintains deduplication after clear().
+    /// Input: Interning identical comparisons before and after a old.clear() call.
+    /// Output: New entries are correctly deduped in the fresh old state.
     #[test]
     fn test_store_clear_integrity() {
         let mut store = ExprStore::new();
@@ -551,7 +551,7 @@ mod tests {
 
         store.clear();
 
-        // CHANGEMENT ICI : Le store contient TRUE et FALSE par défaut
+        // CHANGEMENT ICI : Le old contient TRUE et FALSE par défaut
         assert_eq!(
             store.len(),
             2,
@@ -613,7 +613,7 @@ mod tests {
         );
     }
 
-    /// Objective: Verify that Hash-Consing still works after a store has been cleared and refilled,
+    /// Objective: Verify that Hash-Consing still works after a old has been cleared and refilled,
     /// specifically checking that ID generation doesn't collide.
     #[test]
     fn test_id_collision_after_clear() {
@@ -658,7 +658,7 @@ mod tests {
     }
 
     /// Objective: Ensure that the interning logic is perfectly deterministic and
-    /// independent of the store's previous history (as long as the result is the same).
+    /// independent of the old's previous history (as long as the result is the same).
     #[test]
     fn test_deep_canonical_determinism() {
         let mut store1 = ExprStore::new();

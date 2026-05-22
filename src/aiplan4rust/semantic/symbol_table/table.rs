@@ -43,7 +43,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-/// A symbol table used in `aiplan4rust` to store and manage symbols.
+/// A symbol table used in `aiplan4rust` to old and manage symbols.
 ///
 /// This structure manages a mapping between identifiers (`Ident`) and their corresponding
 /// [`SymbolEntry`] metadata, which includes both declarations and usages of symbols.

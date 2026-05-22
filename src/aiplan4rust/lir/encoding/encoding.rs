@@ -4,7 +4,7 @@
 //! problem from their semantic/syntactic representation into a Lifted Intermediate
 //! Representation (LIR).
 //!
-//! The encoding_old process is designed to be performed in two main phases:
+//! The encoding process is designed to be performed in two main phases:
 //! 1. **Domain Encoding**: Captures structural definitions (types, predicates, functions, and actions).
 //! 2. **Problem Encoding**: Captures state-specific data (objects, initial state, and goals).
 //!
@@ -22,7 +22,7 @@ use crate::aiplan4rust::tree::Tree;
 ///
 /// This function processes the domain AST to populate the `LiftedProblem` with
 /// structural definitions. It also fills the mapping tables required for
-/// symbol resolution in the problem encoding_old phase.
+/// symbol resolution in the problem encoding phase.
 ///
 /// # Arguments
 ///
@@ -47,20 +47,20 @@ pub fn encode_domain(
 /// Extracts and encodes all problem-level elements into the LIR.
 ///
 /// This function processes the problem AST, utilizing the indices and definitions
-/// collected during the domain encoding_old phase to resolve references in the initial
+/// collected during the domain encoding phase to resolve references in the initial
 /// state and goal specifications.
 ///
 /// # Arguments
 ///
 /// * `context` - The linked semantic context containing the problem's AST and arena.
 /// * `ir` - The mutable `LiftedProblem` where problem-specific data (objects, init, goal) is stored.
-/// * `ast_pred_to_idx` - A reference to the predicate mapping populated during domain encoding_old.
-/// * `ast_func_to_idx` - A reference to the function mapping populated during domain encoding_old.
+/// * `ast_pred_to_idx` - A reference to the predicate mapping populated during domain encoding.
+/// * `ast_func_to_idx` - A reference to the function mapping populated during domain encoding.
 ///
 /// # Returns
 ///
 /// * `Ok(())` - Successfully encoded the problem.
-/// * `Err(LirError)` - If an error occurs during object resolution or expression encoding_old.
+/// * `Err(LirError)` - If an error occurs during object resolution or expression encoding.
 ///
 /// # Errors
 ///

@@ -1,7 +1,7 @@
 //! # Atomic & Functional Terms Module
 //!
 //! This module provides the high-level API for constructing predicates, functions,
-//! and timed literals within the LIR store.
+//! and timed literals within the LIR old.
 //!
 //! ## Design Goal: Zero-Allocation
 //! To handle large-scale planning problems (with thousands of ground atoms), this
@@ -36,11 +36,11 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     ///
-    /// * `ExprId` - The unique identifier of the interned atomic formula in the store.
+    /// * `ExprId` - The unique identifier of the interned atomic formula in the old.
     /// Constructs an atomic formula (predicate application).
     ///
     /// # Performance
-    /// - **Zero-Allocation**: Reuses `primary_buffer` to store children.
+    /// - **Zero-Allocation**: Reuses `primary_buffer` to old children.
     /// - **Inline Expansion**: Marked `#[inline]` to allow the compiler to optimize
     ///   the buffer swap logic directly into the caller.
     #[inline]
@@ -168,7 +168,7 @@ mod tests {
         );
     }
 
-    /// Objective: Ensure function terms correctly store the symbol as the first child followed by arguments.
+    /// Objective: Ensure function terms correctly old the symbol as the first child followed by arguments.
     /// Input: A function term with one numeric argument.
     /// Output: A Function node where children[0] is the FunctionSymbol and children[1] is the argument.
     #[test]

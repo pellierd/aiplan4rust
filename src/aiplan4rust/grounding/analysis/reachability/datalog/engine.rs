@@ -11,8 +11,8 @@ use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{
     ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol, VariableId,
 };
-use crate::aiplan4rust::lir::store::expr_old::{Expr, ExprKind};
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::old::expr::{Expr, ExprKind};
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::aiplan4rust::lir::ActionDef;
 use crate::analysis::inertia::InertiaTable;
 use crate::analysis::reachability::datalog::cause::Cause;

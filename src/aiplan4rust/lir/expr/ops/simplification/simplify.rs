@@ -1,21 +1,21 @@
-/*use crate::aiplan4rust::lir::expr_old::ops::{StaticEvaluator, StaticValue};
-use crate::aiplan4rust::lir::store::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::store::{ExprBuilder, ExprEntryKind, ExprId, ExprStore};
+/*use crate::aiplan4rust::lir::expr::ops::{StaticEvaluator, StaticValue};
+use crate::aiplan4rust::lir::old::ops::error::ExprOpErrorHC;
+use crate::aiplan4rust::lir::old::{ExprBuilder, ExprEntryKind, ExprId, ExprStore};
 use fxhash::FxHashMap;
 
 pub fn simplify(
     root: ExprId,
-    store: &mut ExprStore,
+    old: &mut ExprStore,
     evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<ExprId, ExprOpErrorHC> {
     let mut substitution_map: FxHashMap<ExprId, ExprId> = FxHashMap::debug();
 
     // Correction ici : on déstructure le tuple renvoyé par l'itérateur
-    let postorder_ids: Vec<ExprId> = store.postorder(root).map(|(id, _, _)| id).collect();
+    let postorder_ids: Vec<ExprId> = old.postorder(root).map(|(id, _, _)| id).collect();
 
-    // On utilise le store directement si le builder ne l'expose pas en pub
+    // On utilise le old directement si le builder ne l'expose pas en pub
     for old_id in postorder_ids {
-        let old_entry = &store[old_id];
+        let old_entry = &old[old_id];
 
         let new_children: Vec<ExprId> = old_entry
             .children()
@@ -26,7 +26,7 @@ pub fn simplify(
         let kind = old_entry.kind().clone();
 
         // On crée le builder à l'intérieur ou on le réutilise
-        let mut builder = ExprBuilder::new(store);
+        let mut builder = ExprBuilder::new(old);
 
         // Note : Si 'reconstruct' n'existe pas, utilise le nom exact (ex: construct)
         let reconstructed_id = builder.reconstruct(kind, new_children);
@@ -80,6 +80,6 @@ fn is_evaluable(kind: &ExprEntryKind, has_evaluator: bool) -> bool {
 
 // --- Wrappers de commodité ---
 
-pub fn simplify_default(root: ExprId, store: &mut ExprStore) -> Result<ExprId, ExprOpErrorHC> {
-    simplify(root, store, None)
+pub fn simplify_default(root: ExprId, old: &mut ExprStore) -> Result<ExprId, ExprOpErrorHC> {
+    simplify(root, old, None)
 }*/

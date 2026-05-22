@@ -19,7 +19,7 @@ pub fn render(
         write!(f, ":subtasks ")?;
     }
 
-    // Rendu récursif via le module expr_old (va gérer les (and ...), les labels et les tasks)
+    // Rendu récursif via le module expr (va gérer les (and ...), les labels et les tasks)
     expr::render(f, network.tasks(), ctx)?;
 
     // 2. Ordering Constraints

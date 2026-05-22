@@ -87,7 +87,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Implementation Details
     /// To bypass the Rust borrow checker and maintain zero-allocation, this function
-    /// leverages disjoint field access (`self.store` vs `self.primary_buffer`) and
+    /// leverages disjoint field access (`self.old` vs `self.primary_buffer`) and
     /// uses `secondary_buffer` as a temporary staging area for flattening.
     pub fn reduce(&mut self, kind: ExprEntryKind, children: &[ExprId]) -> ExprId {
         let (neutral, absorbing) = match kind {
@@ -108,7 +108,7 @@ impl<'a> ExprBuilder<'a> {
                 continue;
             }
 
-            // Access store directly to allow simultaneous mutable access to buffers
+            // Access old directly to allow simultaneous mutable access to buffers
             if let Some(node) = self.store.get(child) {
                 if node.kind() == &kind {
                     // Stage children in secondary_buffer to avoid double-borrowing self
@@ -275,7 +275,7 @@ impl<'a> ExprBuilder<'a> {
     /// Merges consecutive `When` nodes that share the same effect into a single conditional node.
     ///
     /// This function performs a logical fusion: `(when C1 E) AND (when C2 E)` becomes `(when (C1 OR C2) E)`.
-    /// This significantly reduces the number of nodes in the store and simplifies downstream processing.
+    /// This significantly reduces the number of nodes in the old and simplifies downstream processing.
     ///
     /// # Algorithm
     /// 1. **Isolation**: Copies `When` IDs to `secondary_buffer` to free up `primary_buffer`.
@@ -504,7 +504,7 @@ impl<'a> ExprBuilder<'a> {
         }
 
         // 2. Double Negation Elimination ( !!A -> A )
-        // We peek into the store to see if the expression is already a Not node.
+        // We peek into the old to see if the expression is already a Not node.
         if let Some(node) = self.get(expr) {
             if let ExprEntryKind::Not = node.kind() {
                 // By construction, a Not node always has exactly one child.
@@ -564,7 +564,7 @@ impl<'a> ExprBuilder<'a> {
     /*/// Creates a conditional effect node: `(when condition effect)`.
     ///
     /// This function applies several "smart" simplifications to avoid creating
-    /// redundant nodes in the store:
+    /// redundant nodes in the old:
     ///
     /// 1. **Direct Application**: If the condition is always True, it returns the effect.
     /// 2. **No-op (Condition False)**: If the condition is False, the effect never triggers.
@@ -660,8 +660,8 @@ impl<'a> ExprBuilder<'a> {
         }
 
         // 3. Clear and reuse our internal buffers (0 allocations on the heap!)
-        self.primary_buffer.clear(); // Will store facts guaranteed by the condition
-        self.secondary_buffer.clear(); // Will store the remaining, non-redundant effects
+        self.primary_buffer.clear(); // Will old facts guaranteed by the condition
+        self.secondary_buffer.clear(); // Will old the remaining, non-redundant effects
 
         // Populate primary_buffer with facts from the condition
         match cond_entry.kind() {

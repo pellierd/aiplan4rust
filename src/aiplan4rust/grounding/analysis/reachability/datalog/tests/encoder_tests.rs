@@ -6,9 +6,9 @@ use crate::aiplan4rust::lang::{
     AtomSkeletonId, CompareOp, ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol,
     VariableId,
 };
-use crate::aiplan4rust::lir::expr_old::ExprBuilder;
+use crate::aiplan4rust::lir::expr::ExprBuilder;
 
-/// Initialize a standardized execution environment for Datalog encoding_old tests.
+/// Initialize a standardized execution environment for Datalog encoding tests.
 ///
 /// # Setup Details
 /// - **Encoder**: A `DatalogEncoder` initialized with an auxiliary predicate offset of 100
@@ -70,9 +70,9 @@ fn test_complex_logical_flattening() -> Result<(), DatalogError> {
     let root = builder.and(vec![p10, or_branch]);
 
     builder.set_root(root)?;
-    let expr_old = builder.finish();
+    let expr = builder.finish();
 
-    let result = encoder.encode_preconditions(&expr_old, &mut rules, &params)?;
+    let result = encoder.encode_preconditions(&expr, &mut rules, &params)?;
 
     // --- Industrial Requirement: Correct Rule Chaining ---
     // The OR branch must be decoupled into its own predicate to maintain
@@ -278,7 +278,7 @@ fn test_or_optimization() -> Result<(), DatalogError> {
     Ok(())
 }
 
-/// (like numeric comparisons) results in no encoding_old output.
+/// (like numeric comparisons) results in no encoding output.
 ///
 /// # Input
 /// - Logic: `(OR (>= (fuel) 10))` -> Represented as FComp in the AST.
@@ -414,7 +414,7 @@ fn test_aux_predicate_arguments() -> Result<(), DatalogError> {
 /// - All predicates share the same variable `?v0`.
 ///
 /// # Expected Output
-/// - A successful encoding_old (no panic/stack overflow).
+/// - A successful encoding (no panic/stack overflow).
 /// - A non-empty set of Datalog rules representing the chain.
 /// - The final head atom must be correctly linked to the bottom of the chain.
 #[test]
@@ -983,10 +983,10 @@ fn test_encode_effects_nested_when() -> Result<(), DatalogError> {
     let root = builder.when(c1_node, inner_when);
     builder.set_root(root)?;
 
-    let expr_old = builder.finish();
+    let expr = builder.finish();
 
     // 2. Encode
-    encoder.encode_effects(&expr_old, &action_atom, &mut rules, &params, 0)?;
+    encoder.encode_effects(&expr, &action_atom, &mut rules, &params, 0)?;
 
     // 3. Prepare atoms for verification via Rule exploration
     // On cherche l'atome qui a le squelette ID qu'on a fixé (1 et 2)
@@ -1383,7 +1383,7 @@ fn test_aliasing_propagation_to_effects() -> Result<(), DatalogError> {
     let pre_logic = b_pre.and(vec![p10, eq]);
     b_pre.set_root(pre_logic)?;
 
-    // Trigger aliasing by encoding_old preconditions first
+    // Trigger aliasing by encoding preconditions first
     let action_atom = Atom::new(
         AtomSkeletonId::from(100),
         vec![Term::Variable(VariableId::from(0))],
@@ -1508,7 +1508,7 @@ fn test_aliasing_variable_to_constant() -> Result<(), DatalogError> {
 
 /// # Objective
 /// Verify that trivial equalities like (= ?v0 ?v0) are gracefully ignored
-/// and don't affect the encoding_old logic or produce errors.
+/// and don't affect the encoding logic or produce errors.
 #[test]
 fn test_trivial_self_equality() -> Result<(), DatalogError> {
     let (mut encoder, params) = setup_env();
@@ -1834,17 +1834,17 @@ fn test_or_with_not_conflict_ignored() -> Result<(), DatalogError> {
     let root_or = builder.or(vec![p10, not_true]);
 
     // On finalise l'expression (contient les deux arbres)
-    let expr_old = builder.finish();
+    let expr = builder.finish();
 
     // A. Test du bloc AND : le NOT(True) doit faire échouer tout le bloc
-    let result_and = encoder.encode_expr(&expr_old, root_and, &mut rules, &params)?;
+    let result_and = encoder.encode_expr(&expr, root_and, &mut rules, &params)?;
     assert!(
         result_and.is_none(),
         "Le AND devrait être None car une branche est NOT(True)"
     );
 
     // B. Test du bloc OR : la branche NOT(True) est ignorée, P10 survit
-    let result_or = encoder.encode_expr(&expr_old, root_or, &mut rules, &params)?;
+    let result_or = encoder.encode_expr(&expr, root_or, &mut rules, &params)?;
 
     let atom = result_or.expect("Le OR devrait survivre grâce à P10");
     assert_eq!(atom.skeleton_id().as_usize(), 10);

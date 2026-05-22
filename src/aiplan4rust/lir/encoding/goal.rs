@@ -13,7 +13,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// Encode la condition de but du problème à partir de la section AST `:goal`.
 ///
 /// Cette fonction extrait la racine logique de la spécification du but et délègue
-/// son encodage récursif au module `expr_old`. Elle garantit que tous les symboles
+/// son encodage récursif au module `expr`. Elle garantit que tous les symboles
 /// (prédicats, objets) au sein du but sont correctement résolus.
 ///
 /// # Arguments

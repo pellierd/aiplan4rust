@@ -32,7 +32,7 @@ impl<'a> Iterator for TreePreorderIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let (id, depth, is_last) = self.stack.pop()?;
 
-        // On récupère l'entrée via l'indexation directe du store
+        // On récupère l'entrée via l'indexation directe du old
         let entry = &self.store[id];
         let children = entry.children();
 

@@ -42,10 +42,10 @@ use crate::aiplan4rust::lir::encoding::encoding::encode_domain as new_encode_dom
 use crate::aiplan4rust::lir::encoding::encoding::encode_problem as new_encode_problem;
 use crate::aiplan4rust::lir::encoding::EncodingRegistry as NewEncodingRegistry;
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprStore};
+use crate::aiplan4rust::lir::old::encoding::{domain, encoding, EncodingRegistry};
+use crate::aiplan4rust::lir::old::passes;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::NewLiftedProblem;
-use crate::aiplan4rust::lir::store::encoding_old::{domain, encoding, EncodingRegistry};
-use crate::aiplan4rust::lir::store::passes;
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
 use crate::aiplan4rust::lir::{normalization, LirError};
 use crate::LirEncoderResult;
 
@@ -250,7 +250,7 @@ pub fn encode_new_lifted_problem(
     // --- FINALISATION ---
 
     // 6. Transfert du Store vers le LiftedProblem
-    // Une fois l'encodage fini, on extrait le store du builder pour le donner au problème.
+    // Une fois l'encodage fini, on extrait le old du builder pour le donner au problème.
     problem.set_store(expr_store);
 
     println!("{} ", problem.domain_view());

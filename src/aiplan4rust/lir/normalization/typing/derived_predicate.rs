@@ -38,7 +38,7 @@ use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 ///
 /// # Arguments
 /// * `derived_predicate` - A mutable reference to the [`DerivedPredicate`] to transform.
-/// * `store` - A mutable reference to the global expression store hosting the node entries.
+/// * `old` - A mutable reference to the global expression old hosting the node entries.
 /// * `registry` - A mutable reference to the [`TypeRegistry`] used to unify and resolve type signatures.
 /// * `pad` - An external, reusable memory arena tracking the traversal state, buffers, and ID translation cache.
 ///

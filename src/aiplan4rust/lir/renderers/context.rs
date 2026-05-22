@@ -78,7 +78,7 @@ impl<'a> RenderContext<'a> {
         self.interner
     }
 
-    /// Returns a reference to the expression store used by the problem.
+    /// Returns a reference to the expression old used by the problem.
     pub fn store(&self) -> &ExprStore {
         &self.store
     }

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::analysis::reachability::datalog::atom::Atom;
 use crate::analysis::reachability::datalog::renderers::RenderContext;
 use crate::analysis::reachability::datalog::term::Term;

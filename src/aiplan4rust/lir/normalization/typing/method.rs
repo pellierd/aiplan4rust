@@ -38,7 +38,7 @@ use crate::aiplan4rust::lir::problem::MethodDef;
 ///
 /// # Arguments
 /// * `method` - A mutable reference to the [`MethodDef`] to be transformed.
-/// * `store` - A mutable reference to the global expression store hosting the node entries.
+/// * `old` - A mutable reference to the global expression old hosting the node entries.
 /// * `registry` - A mutable reference to the [`TypeRegistry`] used to unify and resolve type signatures.
 /// * `scratch` - An external, reusable memory arena tracking the traversal state, buffers, and ID translation cache.
 ///
@@ -57,7 +57,7 @@ pub fn normalize(
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
     // 1. Process the primary source of types: the method's parameter list.
-    // Since the parameter list is a flat, local structure outside the hash-consed store,
+    // Since the parameter list is a flat, local structure outside the hash-consed old,
     // we mutate it directly in-place without any structural replication.
     typed_list::normalize_typed_variable_list(method.parameters_mut(), registry)?;
 

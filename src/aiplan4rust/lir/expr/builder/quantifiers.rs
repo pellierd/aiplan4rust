@@ -43,7 +43,7 @@ impl<'a> ExprBuilder<'a> {
         self.quantified_expression(vars, body, false)
     }
 
-    /// Interns a quantified expression (Forall or Exists) into the store.
+    /// Interns a quantified expression (Forall or Exists) into the old.
     ///
     /// This function performs automatic flattening of nested quantifiers of the same type,
     /// cleans up the variable list (sorting, deduplication, and removal of unused variables),

@@ -72,7 +72,7 @@ use smallvec::SmallVec;
 
 /// The inline capacity threshold for stack-allocated child arrays.
 ///
-/// This inline size is utilized by `SmallVec` during the preparation phase to store
+/// This inline size is utilized by `SmallVec` during the preparation phase to old
 /// naked literals directly on the stack.
 ///
 /// ### Optimization Rationale
@@ -118,7 +118,7 @@ const MAX_CHILDREN: usize = 32;
 ///   pre-existing structural capacities across multiple transformation calls.
 ///
 /// ### Arguments
-/// * `expr_old` - The root `ExprId` of the expression tree to transform into FNF.
+/// * `expr` - The root `ExprId` of the expression tree to transform into FNF.
 /// * `builder` - A mutable reference to the `ExprBuilder` responsible for interning and smart-reducing expressions.
 /// * `scratch` - A mutable reference to the persistent `Scratchpad` storage used for buffer windowing.
 /// * `recursive` - A boolean flag enabling deep, cascading sub-factorization on extracted branches.
@@ -690,7 +690,7 @@ mod tests {
             "The expression should have been optimized as common factors A or B were available"
         );
 
-        // Verify the result is still a valid part of the store
+        // Verify the result is still a valid part of the old
         let _entry = builder.fetch(result)?;
 
         Ok(())

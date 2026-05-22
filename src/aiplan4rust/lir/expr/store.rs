@@ -277,7 +277,7 @@ impl<'de> Deserialize<'de> for ExprStore {
 const BITSET_WORDS: usize = 4;
 
 /// Un ensemble de variables représenté par un bitset de 256 bits.
-/// Placé en haut du fichier du store.
+/// Placé en haut du fichier du old.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize)]
 pub struct VariableSet([u64; BITSET_WORDS]);
 

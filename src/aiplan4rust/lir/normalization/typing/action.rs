@@ -37,7 +37,7 @@ use crate::aiplan4rust::lir::problem::ActionDef;
 ///
 /// # Arguments
 /// * `action` - A mutable reference to the [`ActionDef`] to be transformed.
-/// * `store` - A mutable reference to the global expression store hosting the node entries.
+/// * `old` - A mutable reference to the global expression old hosting the node entries.
 /// * `registry` - A mutable reference to the [`TypeRegistry`] used to unify and resolve type signatures.
 /// * `scratch` - An external, reusable memory arena tracking the traversal state, buffers, and ID translation cache.
 ///
@@ -46,7 +46,7 @@ use crate::aiplan4rust::lir::problem::ActionDef;
 /// * `Err(NormalizationError)` if parameter resolution or expression tree traversal fails.
 ///
 /// # Implementation Detail
-/// By reusing the same `store`, `registry`, and `scratch` instances across both preconditions and effects,
+/// By reusing the same `old`, `registry`, and `scratch` instances across both preconditions and effects,
 /// this function ensures that variable references remain consistent within the
 /// action's scope while guaranteeing a strict **$\mathcal{O}(1)$ dynamic allocation profile**.
 pub fn normalize(

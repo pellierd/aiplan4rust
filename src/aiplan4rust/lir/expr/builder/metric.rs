@@ -43,7 +43,7 @@ impl<'a> ExprBuilder<'a> {
     /// # Arguments
     ///
     /// * `opt` - The [`OptimizationOp`] defining the direction (Minimize/Maximize).
-    /// * `expr_old` - The [`ExprId`] of the functional expression to be optimized.
+    /// * `expr` - The [`ExprId`] of the functional expression to be optimized.
     ///
     /// # Returns
     ///
@@ -56,7 +56,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Arguments
     ///
-    /// * `expr_old` - The [`ExprId`] representing the value to minimize (e.g., total-cost).
+    /// * `expr` - The [`ExprId`] representing the value to minimize (e.g., total-cost).
     ///
     /// # Returns
     ///
@@ -69,7 +69,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Arguments
     ///
-    /// * `expr_old` - The [`ExprId`] representing the value to maximize (e.g., reward).
+    /// * `expr` - The [`ExprId`] representing the value to maximize (e.g., reward).
     ///
     /// # Returns
     ///
@@ -81,7 +81,7 @@ impl<'a> ExprBuilder<'a> {
     /// Returns the unique identifier for the `total-time` (makespan) variable.
     ///
     /// This represents the duration of the entire plan. Hash-Consing ensures
-    /// that this variable is canonical and unique across the expression store.
+    /// that this variable is canonical and unique across the expression old.
     ///
     /// # Returns
     ///

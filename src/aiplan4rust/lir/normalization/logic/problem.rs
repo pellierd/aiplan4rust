@@ -17,7 +17,7 @@ use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 /// # Arguments
 ///
 /// * `problem` - A mutable reference to the `LiftedProblem` to normalize.
-/// * `store` - The central `ExprStore` containing the expression nodes.
+/// * `old` - The central `ExprStore` containing the expression nodes.
 /// * `scratch` - A reusable `Scratchpad` to avoid heap allocations during rewrite passes.
 ///
 /// # Errors

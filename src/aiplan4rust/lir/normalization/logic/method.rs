@@ -8,7 +8,7 @@ use crate::aiplan4rust::lir::problem::MethodDef;
 /// Normalizes a `Method` using the canonical expression normalization pipeline.
 ///
 /// This function applies simplification and rewriting passes to the method's
-/// `precondition` via `expr_old::normalize` and forwards the normalization to its
+/// `precondition` via `expr::normalize` and forwards the normalization to its
 /// underlying `task_network`.
 ///
 /// The declared `task` atom itself remains structural and unchanged.
@@ -16,7 +16,7 @@ use crate::aiplan4rust::lir::problem::MethodDef;
 /// # Arguments
 ///
 /// * `method` - A mutable reference to the `MethodDef` to normalize.
-/// * `store` - The central `ExprStore` containing the expression nodes.
+/// * `old` - The central `ExprStore` containing the expression nodes.
 /// * `scratch` - A reusable `Scratchpad` to avoid heap allocations during rewrite passes.
 ///
 /// # Errors

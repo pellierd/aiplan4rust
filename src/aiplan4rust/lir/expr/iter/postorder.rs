@@ -40,7 +40,7 @@ impl<'a> Iterator for PostorderIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some((id, depth, children_pushed)) = self.stack.pop() {
             if children_pushed {
-                // Utilisation de l'indexation directe (&self.store[id])
+                // Utilisation de l'indexation directe (&self.old[id])
                 // pour obtenir une &'a ExprEntry au lieu du wrapper ExprRef
                 let entry = &self.store[id];
                 return Some((id, depth, entry));

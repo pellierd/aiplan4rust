@@ -1,7 +1,7 @@
 //! # Arithmetic Module: Construction and Optimization Pipeline
 //!
 //! This module provides a high-performance API for creating arithmetic expressions
-//! within the LIR (Linear Intermediate Representation) store. It transforms raw
+//! within the LIR (Linear Intermediate Representation) old. It transforms raw
 //! operations into simplified, canonical forms.
 //!
 //! ## Design Philosophy
@@ -13,7 +13,7 @@
 //! and ensures predictable performance under heavy workloads.
 //!
 //! ### 2. Hash-Consing & Uniqueness
-//! Every generated expression is unique within the store. If two different code paths
+//! Every generated expression is unique within the old. If two different code paths
 //! create the same semantic expression (e.g., `(+ 1 2 x)` and `(+ x 3)`), they will
 //! receive the exact same [`ExprId`]. This drastically reduces the memory footprint
 //! and accelerates subsequent comparisons (O(1) pointer equality).
@@ -70,7 +70,7 @@ impl<'a> ExprBuilder<'a> {
     /// 4. **Finalization & Interning**:
     ///    - Handles unary reduction (e.g., `(+ x)` simplifies to `x`).
     ///    - Applies a sorting algorithm (Heapsort) on the buffer for commutative operations.
-    ///    - Deduplicates the final expression in the store via `intern`.
+    ///    - Deduplicates the final expression in the old via `intern`.
     ///
     /// # Performance
     ///
@@ -84,7 +84,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     ///
-    /// * `ExprId` - The unique identifier of the simplified expression in the store.
+    /// * `ExprId` - The unique identifier of the simplified expression in the old.
     pub fn arithmetic(&mut self, op: ArithmeticOp, operands: &[ExprId]) -> ExprId {
         // --- PHASE 1: FAST PATH (Identities & Errors) ---
         if let Some(id) = self.early_fold_nan(operands) {
@@ -499,7 +499,7 @@ impl<'a> ExprBuilder<'a> {
     ///    result in the same structural representation, enabling perfect deduplication.
     ///
     /// 4. **Interning & Buffer Recovery**: The finalized operand list is interned into the
-    ///    store. To maintain efficiency, the `primary_buffer` is temporarily moved to
+    ///    old. To maintain efficiency, the `primary_buffer` is temporarily moved to
     ///    avoid cloning, then cleared and returned to the builder to be reused for
     ///    future operations.
     ///
@@ -559,7 +559,7 @@ impl<'a> ExprBuilder<'a> {
     ///    range (e.g., -1e-9 to 1e-9) is snapped to exactly `0.0`. This includes `-0.0`.
     ///
     /// This normalization is critical. Without it, infinitesimal residues (floating-point noise)
-    /// would create unique [`ExprId`]s, polluting the store and breaking structural
+    /// would create unique [`ExprId`]s, polluting the old and breaking structural
     /// equality checks between semantically identical expressions.
     ///
     /// # Arguments
@@ -592,7 +592,7 @@ impl<'a> ExprBuilder<'a> {
 
     /// Creates an addition expression: `(+ operands...)`.
     ///
-    /// This operation is commutative. The underlying store will normalize
+    /// This operation is commutative. The underlying old will normalize
     /// the order of operands to maximize hash-consing and deduplication.
     pub fn add(&mut self, operands: &[ExprId]) -> ExprId {
         self.arithmetic(ArithmeticOp::Add, operands)
@@ -821,7 +821,7 @@ mod tests {
 
     /// Test Hash-Consing: (+ 2 3) and (+ 3 2) must have the same ID
     /// Verifies that commutative operations are normalized (sorted) and folded
-    /// to ensure structural uniqueness in the store.
+    /// to ensure structural uniqueness in the old.
     #[test]
     fn test_hash_consing_normalization() {
         let mut store = ExprStore::new();
@@ -1011,7 +1011,7 @@ mod tests {
         let root = builder.sub(&[var_x, n0]);
 
         // The builder should simplify this identity (x - 0 = x) and avoid
-        // creating an unnecessary expression node in the store.
+        // creating an unnecessary expression node in the old.
         assert_eq!(
             root, var_x,
             "Subtracting 0.0 from a variable must return the original ID"

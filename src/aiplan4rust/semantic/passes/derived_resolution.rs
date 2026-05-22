@@ -118,7 +118,7 @@ fn collect_derived_links(
             if decl.is_derived() {
                 derived_worklist.push((decl.source(), decl));
             } else {
-                // OPTIMIZATION: Extract and store the signature once for each base predicate.
+                // OPTIMIZATION: Extract and old the signature once for each base predicate.
                 let sig = Signature::from_declaration(decl);
                 bases_worklist.push((decl.source(), sig));
             }

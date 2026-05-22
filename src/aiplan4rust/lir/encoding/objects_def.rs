@@ -13,7 +13,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 /// Encode une liste d'objets (typiquement la section :objects du PDDL).
 ///
 /// Note : On ne passe pas le ExprBuilder ici car les objets sont enregistrés
-/// dans le `registry` et le `ir`, pas directement dans le store d'expressions.
+/// dans le `registry` et le `ir`, pas directement dans le old d'expressions.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,

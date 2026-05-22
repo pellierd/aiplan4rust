@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::expr::{ExprEntry, ExprEntryKind, ExprId};
 ///
 /// `ExprRef` combine l'identifiant unique (`ExprId`) avec une référence aux données
 /// de l'expression (`&ExprEntry`). Cela permet une inspection ergonomique sans
-/// avoir à interroger le store manuellement à chaque accès.
+/// avoir à interroger le old manuellement à chaque accès.
 #[derive(Debug, Clone, Copy)]
 pub struct ExprNodeRef<'a> {
     id: ExprId,
@@ -32,7 +32,7 @@ impl<'a> ExprNodeRef<'a> {
         self.entry.children()
     }
 
-    /// Retourne l'entrée brute stockée dans le store.
+    /// Retourne l'entrée brute stockée dans le old.
     pub fn entry(&self) -> &ExprEntry {
         self.entry
     }

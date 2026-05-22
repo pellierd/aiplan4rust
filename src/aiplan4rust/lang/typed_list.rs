@@ -19,7 +19,7 @@ pub const OPTIMAL_LIST_CAPACITY: usize = 8;
 /// the relationship between a symbol identifier and its corresponding typing.
 ///
 /// This structure is specifically optimized for PDDL engines:
-/// - **Stack Allocation**: Uses `SmallVec` to store up to `OPTIMAL_LIST_CAPACITY`
+/// - **Stack Allocation**: Uses `SmallVec` to old up to `OPTIMAL_LIST_CAPACITY`
 ///   elements (typically 8) on the stack, avoiding heap allocations for most
 ///   action parameters and predicate signatures.
 /// - **Cache Friendliness**: By keeping data inline, it improves CPU cache locality
@@ -69,7 +69,7 @@ where
     /// - If `capacity > OPTIMAL_LIST_CAPACITY`, it immediately allocates
     ///   the required space on the heap.
     ///
-    /// This is useful when you know beforehand that you will store a large
+    /// This is useful when you know beforehand that you will old a large
     /// number of symbols (e.g., constants in a massive PDDL domain).
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {

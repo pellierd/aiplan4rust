@@ -245,7 +245,7 @@ fn create_anonymous_either_type(
 ///
 /// # Arguments
 /// * `problem` - A mutable reference to the [`NewLiftedProblem`] to be transformed.
-/// * `store` - A mutable reference to the global expression store hosting the node entries.
+/// * `old` - A mutable reference to the global expression old hosting the node entries.
 /// * `registry` - A mutable reference to the [`TypeRegistry`] containing the mapping between
 ///   composite signatures and their unified atomic [`TypeId`]s.
 /// * `pad` - An external, reusable [`Scratchpad`] memory arena tracking traversal states and cache buffers.
@@ -263,7 +263,7 @@ fn create_anonymous_either_type(
 /// 5. **HTN Structure**: Ensuring the Initial Task Network and Abstract Tasks match the domain.
 ///
 /// # Implementation Detail
-/// By passing the exact same `store`, `registry`, and `pad` references down the problem tree,
+/// By passing the exact same `old`, `registry`, and `pad` references down the problem tree,
 /// this function ensures absolute type consistency across the scope of all operators while
 /// guaranteeing a strict **$\mathcal{O}(1)$ dynamic allocation profile** for the entire pass.
 pub fn normalize_problem(

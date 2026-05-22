@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::quantifier_expansion::expr;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::old::expr::ops::StaticEvaluator;
 use crate::aiplan4rust::lir::MethodDef;
 
 /// Expands all logical quantifiers (`forall` and `exists`) within a Method's expressions.

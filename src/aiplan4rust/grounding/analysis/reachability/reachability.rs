@@ -14,7 +14,7 @@ pub fn compute_reachability(
     fluent_reg: &mut FluentRegistry,
 ) -> Result<ValueRegistry, GroundingError> {
     // 1. Initialisation : Objets statiques + Fluents de l'état initial
-    let mut store = ValueRegistry::from_problem(problem, fluent_reg)?;
+    let mut old = ValueRegistry::from_problem(problem, fluent_reg)?;
 
     let mut global_changed = true;
     let mut round = 0;
@@ -31,7 +31,7 @@ pub fn compute_reachability(
             let param_domains: Vec<_> = action
                 .parameters()
                 .iter()
-                .map(|p| store.get_domain_of_type(p.ty()))
+                .map(|p| old.get_domain_of_type(p.ty()))
                 .collect();
 
             // Création de l'itérateur sur le produit cartésien des domaines
@@ -39,7 +39,7 @@ pub fn compute_reachability(
 
             while let Some(combo) = it.next() {
                 // ÉVALUATION DES PRÉCONDITIONS (Approche optimiste pour l'attaignabilité)
-                if action.is_potentially_applicable(problem, &combo, &store)? {
+                if action.is_potentially_applicable(problem, &combo, &old)? {
 
                     // ANALYSE DES EFFETS via l'arbre syntaxique
                     let effect_expr = action.effect();
@@ -73,8 +73,8 @@ pub fn compute_reachability(
                                         problem,
                                         fluent_reg
                                     )? {
-                                        // On utilise la méthode register du store
-                                        if store.register(obj_id, target_types) {
+                                        // On utilise la méthode register du old
+                                        if old.register(obj_id, target_types) {
                                             global_changed = true;
                                             round_has_discoveries = true;
                                         }
@@ -91,7 +91,7 @@ pub fn compute_reachability(
 
         // 3. Synchronisation : Mise à jour des domaines pour le prochain round
         if round_has_discoveries {
-            store.sync();
+            old.sync();
         }
 
         // Sécurité contre les boucles infinies
@@ -102,7 +102,7 @@ pub fn compute_reachability(
         }*/
     }
 
-    Ok(store)
+    Ok(old)
 }
 
 /// Helper pour résoudre un nœud en ObjectId (Constant ou Fluent) selon le contexte.

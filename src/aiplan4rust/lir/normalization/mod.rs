@@ -1,6 +1,6 @@
 //! # LIR Transformation Passes
 //!
-//! This module manages the post-encoding_old pipeline for the Lifted Intermediate Representation (LIR).
+//! This module manages the post-encoding pipeline for the Lifted Intermediate Representation (LIR).
 //! It organizes various transformation "finalization" that refine the raw encoded problem into a
 //! standardized format suitable for the grounding engine.
 //!

@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
-// lir/encoding_old/constraints.rs
+// lir/encoding/constraints.rs
 
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,

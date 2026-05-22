@@ -11,7 +11,7 @@
 //! ## Memory Optimization & Architectural Flow
 //! To ensure high performance and prevent stack overflows on deep expression trees,
 //! this module avoids recursion entirely. It coordinates with an external, reusable
-//! [`Scratchpad`] fetched directly from the infrastructure module (`lir::store::expr_old::iter`).
+//! [`Scratchpad`] fetched directly from the infrastructure module (`lir::old::expr::iter`).
 //!
 //! By operating via the scratchpad's internal contiguous buffers, the normalization pipeline
 //! unrolls the tree traversal into an iterative downward discovery and bottom-up reconstruction pass.
@@ -79,7 +79,7 @@ use crate::aiplan4rust::lir::normalization::typing::{typed_symbol, TypeRegistry}
 ///
 /// # Arguments
 /// * `root` - The initial root identifier of the expression tree to normalize.
-/// * `store` - A mutable reference to the global expression store hosting the node entries.
+/// * `old` - A mutable reference to the global expression old hosting the node entries.
 /// * `registry` - A mutable reference to the environment's canonical type definitions and unifier.
 /// * `scratch` - An external, reusable memory arena tracking the traversal state, buffers, and ID translation cache.
 ///

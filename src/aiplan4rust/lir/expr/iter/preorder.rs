@@ -40,7 +40,7 @@ impl<'a> Iterator for PreorderIter<'a> {
         while let Some((id, depth)) = self.stack.pop() {
             // Dans un DAG (Hash-Consing), on ne visite chaque nœud unique qu'une seule fois
             if self.visited.insert(id) {
-                // Utilisation de l'indexation directe via l'impl Index du store
+                // Utilisation de l'indexation directe via l'impl Index du old
                 // Cela garantit une référence &'a ExprEntry
                 let entry = &self.store[id];
 

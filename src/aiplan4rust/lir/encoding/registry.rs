@@ -1,7 +1,7 @@
 //! Encoding Context Management
 //!
 //! This module defines the `EncodingContext`, the central structure used during
-//! the logical encoding_old pass. It links syntactic declarations (AST) to their
+//! the logical encoding pass. It links syntactic declarations (AST) to their
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use crate::aiplan4rust::interner::SymbolInterner;
@@ -18,7 +18,7 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::tree::NodeId;
 use std::collections::HashMap;
 
-/// Context used during the encoding_old of actions, methods, and logic.
+/// Context used during the encoding of actions, methods, and logic.
 ///
 /// This structure acts as a bridge between the semantic analysis and the LIR.
 /// It carries the necessary mappings to resolve names into indices.

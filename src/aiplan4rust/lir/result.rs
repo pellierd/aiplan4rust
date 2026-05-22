@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::NewLiftedProblem;
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
 use std::fmt;
 
 /// Represents the outcome of the IR (Intermediate Representation) building phase.

@@ -21,8 +21,8 @@
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
-use crate::aiplan4rust::lir::store::expr_old::{Expr, ExprContent, ExprKind};
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::old::expr::{Expr, ExprContent, ExprKind};
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::analysis::inertia::table::InertiaTableError;
 use std::collections::HashSet;
 
@@ -248,10 +248,10 @@ pub fn collect_fluents_from_effect(
 /// # Arguments
 ///
 /// * `init_expr` - The expression representing the problem's initial state.
-/// * `static_predicates` - A set to store IDs of predicates that remain constant.
-/// * `static_functions` - A set to store IDs of numeric functions that remain constant.
-/// * `fluent_predicates` - A set to store IDs of predicates modified by TILs or actions.
-/// * `fluent_functions` - A set to store IDs of functions modified by TILs or effects.
+/// * `static_predicates` - A set to old IDs of predicates that remain constant.
+/// * `static_functions` - A set to old IDs of numeric functions that remain constant.
+/// * `fluent_predicates` - A set to old IDs of predicates modified by TILs or actions.
+/// * `fluent_functions` - A set to old IDs of functions modified by TILs or effects.
 ///
 /// # Errors
 ///

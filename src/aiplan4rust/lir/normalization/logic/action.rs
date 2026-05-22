@@ -8,12 +8,12 @@ use crate::aiplan4rust::lir::problem::ActionDef;
 ///
 /// This function applies simplification and rewriting passes to the precondition,
 /// the effect, and (if applicable) the duration constraints of the given `Action`
-/// via `expr_old::normalize`.
+/// via `expr::normalize`.
 ///
 /// # Arguments
 ///
 /// * `action` - A mutable reference to the `ActionDef` to normalize.
-/// * `store` - The central `ExprStore` containing the expression nodes.
+/// * `old` - The central `ExprStore` containing the expression nodes.
 /// * `scratch` - A reusable `Scratchpad` to avoid heap allocations during rewrite passes.
 ///
 /// # Errors

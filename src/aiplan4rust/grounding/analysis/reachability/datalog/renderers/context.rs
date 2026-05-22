@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 
 /// Objet contexte pour le rendu, contenant uniquement les données nécessaires
 /// pour traduire les IDs bruts en symboles lisibles.

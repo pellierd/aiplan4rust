@@ -3,9 +3,9 @@ use crate::aiplan4rust::grounding::passes::quantifier_expansion::{
     action, derived_predicate, expr, method,
 };
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
-use crate::aiplan4rust::lir::store::renderers_old::RenderContext;
+use crate::aiplan4rust::lir::old::expr::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::old::renderers::RenderContext;
 use crate::aiplan4rust::lir::ActionDef;
 
 /// Fully expands all logical quantifiers across the entire planning problem.
@@ -58,7 +58,7 @@ pub fn expand_with(
                 struct ActionDisplay<'a>(&'a ActionDef, &'a RenderContext<'a>);
                 impl std::fmt::Display for ActionDisplay<'_> {
                     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                        crate::aiplan4rust::lir::store::renderers_old::syntax::action::render(
+                        crate::aiplan4rust::lir::old::renderers::syntax::action::render(
                             f, self.0, self.1,
                         )
                     }
@@ -86,7 +86,7 @@ pub fn expand_with(
                 struct ActionDisplay<'a>(&'a ActionDef, &'a RenderContext<'a>);
                 impl std::fmt::Display for ActionDisplay<'_> {
                     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                        crate::aiplan4rust::lir::store::renderers_old::syntax::action::render(
+                        crate::aiplan4rust::lir::old::renderers::syntax::action::render(
                             f, self.0, self.1,
                         )
                     }

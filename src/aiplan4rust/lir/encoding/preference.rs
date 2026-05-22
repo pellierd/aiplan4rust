@@ -45,7 +45,7 @@ pub fn encode(
     ir.add_preference_symbol(label_symbol);
 
     // 3. MAPPING : On lie le NodeId de l'AST à l'ID du LIR
-    // Indispensable pour que expr_old::encode puisse résoudre le symbole plus tard
+    // Indispensable pour que expr::encode puisse résoudre le symbole plus tard
     registry.register_preference(label_node_id, preference_id);
 
     // NOTE: On n'encode PAS la logique ici (condition_expr).

@@ -1,9 +1,9 @@
 use super::*;
 use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr::to_pnf;
 use crate::aiplan4rust::lang::CompareOp;
-use crate::aiplan4rust::lir::store::expr_old::builder::ExprBuilder;
-use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
-use crate::aiplan4rust::lir::store::expr_old::{ExprContent, ExprKind};
+use crate::aiplan4rust::lir::old::expr::builder::ExprBuilder;
+use crate::aiplan4rust::lir::old::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::old::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 /// **Test Goal**: Verify the structural transformation of a negated atom into a single negated LIR node (Logical Mode).
@@ -36,7 +36,7 @@ fn test_encode_simple_atom_negation_logical() -> Result<(), ExprOpError> {
         &mut dfs_stack,
         false,
     )
-    .expect("PNF encoding_old failed");
+    .expect("PNF encoding failed");
 
     // 3. Validation
     let root = expr.try_root_node()?;
@@ -84,7 +84,7 @@ fn test_encode_effect_negation_preservation() -> Result<(), ExprOpError> {
         &mut dfs_stack,
         true,
     )
-    .expect("PNF encoding_old failed");
+    .expect("PNF encoding failed");
 
     // 3. Validation
     let root = expr.try_root_node()?;
@@ -222,7 +222,7 @@ fn test_detect_unsupported_node_under_not() -> Result<(), ExprOpError> {
 }
 
 /// **Test Goal**: Ensure the encoder rejects double negations (`NOT NOT`), enforcing
-/// that the tree has been simplified prior to PNF encoding_old.
+/// that the tree has been simplified prior to PNF encoding.
 ///
 /// **Input**:
 /// - A `Not` node pointing to another `Not` node: `(not (not A))`.
@@ -230,7 +230,7 @@ fn test_detect_unsupported_node_under_not() -> Result<(), ExprOpError> {
 ///
 /// **Expected Output**:
 /// - The function returns an `Err(ExprOpError::InvalidExprNode)`.
-/// - This confirms that the encoding_old pass relies on a prior simplification step.
+/// - This confirms that the encoding pass relies on a prior simplification step.
 #[test]
 fn test_detect_double_negation_failure() -> Result<(), ExprOpError> {
     let mut builder = ExprBuilder::new();
@@ -268,7 +268,7 @@ fn test_detect_double_negation_failure() -> Result<(), ExprOpError> {
     Ok(())
 }
 
-/// **Test Goal**: Verify PNF encoding_old on a mixed formula containing both an atom and a comparison.
+/// **Test Goal**: Verify PNF encoding on a mixed formula containing both an atom and a comparison.
 ///
 /// **Input**:
 /// - A conjunction: `(and (not (at-robot)) (not (= ?x ?y)))`.

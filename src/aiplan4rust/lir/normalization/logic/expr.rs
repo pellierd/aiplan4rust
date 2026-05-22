@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 
 /// Fonction de normalisation indépendante.
 ///
-/// Elle prend une racine et un store, et orchestre les transformations
+/// Elle prend une racine et un old, et orchestre les transformations
 /// sans être liée à une instance de `Expr` ou de `LiftedProblem`.
 pub fn normalize(
     root: ExprId,
@@ -856,7 +856,7 @@ mod tests {
         let children = entry.children();
         assert_eq!(children.len(), 2, "Addition should still have 2 children");
 
-        // Find the multiplication child inside the store
+        // Find the multiplication child inside the old
         let mut mul_child_entry = None;
         for &child_id in children {
             let child = store.fetch(child_id)?;

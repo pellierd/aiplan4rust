@@ -154,7 +154,7 @@ impl Problem {
     /// # Example
     ///
     /// ```
-    /// use aiplan4rust::aiplan4rust::lir::store::problem_old::LiftedProblem;
+    /// use aiplan4rust::aiplan4rust::lir::old::problem::LiftedProblem;
     /// let problem = LiftedProblem::new();
     /// assert!(problem.action_defs().is_empty());
     /// assert!(problem.type_symbols().is_empty());
@@ -221,26 +221,26 @@ impl Problem {
         std::mem::take(&mut self.interner)
     }
 
-    /// Returns a reference to the expression store used by the problem.
+    /// Returns a reference to the expression old used by the problem.
     pub fn store(&self) -> &ExprStore {
         &self.store
     }
 
-    /// Returns a mutable reference to the expression store.
+    /// Returns a mutable reference to the expression old.
     /// Useful for operations that need to add or normalize expressions.
     pub fn store_mut(&mut self) -> &mut ExprStore {
         &mut self.store
     }
 
-    /// Replaces the current store with a new one.
+    /// Replaces the current old with a new one.
     ///
     /// # Arguments
-    /// * `store` - The new `ExprStore` to use.
+    /// * `old` - The new `ExprStore` to use.
     pub fn set_store(&mut self, store: ExprStore) {
         self.store = store;
     }
 
-    /// Takes ownership of the store, leaving an empty one in its place.
+    /// Takes ownership of the old, leaving an empty one in its place.
     ///
     /// This is crucial for moving the optimized IR to the next stage (grounding)
     /// without performing expensive deep clones of the hash-consing tables.

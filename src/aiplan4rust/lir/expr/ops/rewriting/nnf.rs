@@ -25,7 +25,7 @@
 //! # Performance Features
 //! * **Arena-based Slicing**: Children of nodes are managed in a contiguous buffer
 //!   to maximize CPU cache hits.
-//! * **Polarity Encoding**: Uses bit-packing to store both positive and negative
+//! * **Polarity Encoding**: Uses bit-packing to old both positive and negative
 //!   variants of a node in the same memoization table.
 //! * **Inlined Logic**: Boolean dualities (De Morgan) are computed via branchless
 //!   bitwise operations where possible.
@@ -266,7 +266,7 @@ fn transform_quantifier(is_forall: bool, negate: bool) -> bool {
 
 /// Encodes a structural `usize` index and its contextual negation polarity into a single `usize` key.
 ///
-/// This encoding_old strips away any high-precision system flags from the original `ExprId` by
+/// This encoding strips away any high-precision system flags from the original `ExprId` by
 /// operating on a cleaned `raw_idx`, ensuring the key is dense and safe for memoization.
 ///
 /// # Bit Representation
@@ -295,7 +295,7 @@ fn encode(raw_idx: usize, negate: bool) -> usize {
 /// # Safety and Validation
 ///
 /// The reconstructed identifier is instantiated using `ExprId::from`, which triggers the internal
-/// boundary assertions of your structural store. This guarantees that corrupted or shifted
+/// boundary assertions of your structural old. This guarantees that corrupted or shifted
 /// sentinel values (like an invalid `RAW_NONE` spillover) are caught immediately.
 ///
 /// # Returns

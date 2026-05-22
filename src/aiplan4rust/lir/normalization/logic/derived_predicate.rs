@@ -7,13 +7,13 @@ use crate::aiplan4rust::lir::problem::DerivedPredicateDef;
 /// Normalizes the logical expression of a `DerivedPredicate`.
 ///
 /// This function applies the canonical normalization pipeline directly to the `body`
-/// (the condition) of the derived predicate via `expr_old::normalize`. The `head`
+/// (the condition) of the derived predicate via `expr::normalize`. The `head`
 /// (predicate symbol and parameters definition) remains structural and unchanged.
 ///
 /// # Arguments
 ///
 /// * `derived_predicate` - A mutable reference to the `DerivedPredicateDef` to normalize.
-/// * `store` - The central `ExprStore` containing the expression nodes.
+/// * `old` - The central `ExprStore` containing the expression nodes.
 /// * `scratch` - A reusable `Scratchpad` to avoid heap allocations during rewrite passes.
 ///
 /// # Errors

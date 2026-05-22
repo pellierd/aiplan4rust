@@ -670,10 +670,10 @@ pub fn write_linking_diag_to_file(
     });
 }
 
-/// Writes LIR encoding_old diagnostics to a `.lir.diag` file next to the given problem file.
+/// Writes LIR encoding diagnostics to a `.lir.diag` file next to the given problem file.
 ///
 /// This function collects diagnostics from the [`DiagnosticManager`] during the LIR
-/// (Low-level Intermediate Representation) encoding_old phase and writes them to a
+/// (Low-level Intermediate Representation) encoding phase and writes them to a
 /// human-readable text file. The output file is named after the problem file
 /// with the suffix `.lir.diag`.
 ///

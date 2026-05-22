@@ -1,7 +1,7 @@
 use super::{action, derived_predicate, expr, method};
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::old::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 
 pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, ExprOpError> {
     let max_preds = problem.predicate_defs().len();

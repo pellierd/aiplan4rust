@@ -13,7 +13,7 @@
 //!
 //! - `tasks`: an [`Expr`] representing the subtask set (possibly partially ordered).
 //! - `ordering_constraints`: an [`Expr`] describing the order relationships between tasks.
-//! - `logical_constraints`: an [`Expr`] encoding_old additional logical conditions on the task execution.
+//! - `logical_constraints`: an [`Expr`] encoding additional logical conditions on the task execution.
 //!
 //! # Construction Example
 //!

@@ -44,7 +44,7 @@ use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 /// # }
 /// ```
 pub fn normalize(problem: &mut NewLiftedProblem) -> Result<(), NormalizationError> {
-    // 1. Extract the expression store to decouple ownership and bypass Borrow Checker aliasing constraints.
+    // 1. Extract the expression old to decouple ownership and bypass Borrow Checker aliasing constraints.
     let mut store = problem.take_store();
 
     // 2. Allocate a single Scratchpad memory buffer to be reused throughout the entire pipeline.
@@ -56,7 +56,7 @@ pub fn normalize(problem: &mut NewLiftedProblem) -> Result<(), NormalizationErro
     // 4. Execute Pass 2: Type Normalization (Discovery, unification, and atomic materialization).
     typing::normalize(problem, &mut store, &mut scratch)?;
 
-    // 5. Restore the finalized and canonicalized expression store back to the problem structure.
+    // 5. Restore the finalized and canonicalized expression old back to the problem structure.
     problem.set_store(store);
 
     Ok(())

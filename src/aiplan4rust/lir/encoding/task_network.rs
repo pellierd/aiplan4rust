@@ -155,7 +155,7 @@ fn finalize_task_network(
                     task_defs[index] = *skeleton_id;
 
                     // task_nodes[index] = task_node_id
-                    // node_id est l'ExprId actuel dans le store
+                    // node_id est l'ExprId actuel dans le old
                     task_nodes[index] = node_id;
 
                     // On reset pour la tâche suivante

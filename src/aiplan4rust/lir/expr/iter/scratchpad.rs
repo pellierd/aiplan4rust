@@ -39,7 +39,7 @@ pub struct Scratchpad {
     ends_buffer: Vec<ExprId>,
     overalls_buffer: Vec<ExprId>,
 
-    /// Buffer pour extraire les enfants du store sans allocation.
+    /// Buffer pour extraire les enfants du old sans allocation.
     children_buffer: Vec<ExprId>,
     build_buffer: Vec<ExprId>,
 }

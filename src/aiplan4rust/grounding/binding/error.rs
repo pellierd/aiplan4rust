@@ -1,5 +1,5 @@
-use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
-use crate::aiplan4rust::lir::store::expr_old::ExprError;
+use crate::aiplan4rust::lir::old::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::old::expr::ExprError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use thiserror::Error;
 

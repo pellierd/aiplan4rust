@@ -1,7 +1,7 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::lir::expr::ExprId;
-use crate::aiplan4rust::lir::store::expr_old::ExprKind;
+use crate::aiplan4rust::lir::old::expr::ExprKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
@@ -152,8 +152,8 @@ pub enum StorerError {
     #[error("Expected optimization directive, but content was not Optimization")]
     NotOptimization,
 
-    /// Indicates that an expression ID does not exist in the store.
-    #[error("Expression with ID {id} was not found in the store")]
+    /// Indicates that an expression ID does not exist in the old.
+    #[error("Expression with ID {id} was not found in the old")]
     ExprNotFound {
         /// The index/ID that failed to be retrieved.
         id: ExprId,

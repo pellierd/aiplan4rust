@@ -13,7 +13,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// Encode l'état initial du problème à partir de la section AST `:init`.
 ///
 /// Cette fonction extrait la collection de faits (ground facts) et de fluents.
-/// Elle délègue l'encodage récursif au module `expr_old`, ce qui garantit que
+/// Elle délègue l'encodage récursif au module `expr`, ce qui garantit que
 /// tous les prédicats et fonctions initiaux sont correctement liés aux IDs
 /// du problème (PredicateID, FunctorID) et aux objets (ObjectID).
 ///

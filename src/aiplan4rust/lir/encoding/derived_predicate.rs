@@ -1,6 +1,6 @@
 //! Derived Predicate Encoding
 //!
-//! This module handles the encoding_old of PDDL derived predicates (axioms).
+//! This module handles the encoding of PDDL derived predicates (axioms).
 //! Derived predicates allow the domain to define new relations based on
 //! existing ones, which are automatically updated as the state changes.
 
@@ -15,13 +15,13 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a derived predicate (axiom) from the syntax tree into the LIR.
 ///
-/// This function translates a PDDL `:derived` definition by encoding_old its "head"
+/// This function translates a PDDL `:derived` definition by encoding its "head"
 /// (the predicate signature and its parameters) and its "body" (the logical
 /// condition that defines the predicate).
 ///
 /// # Arguments
 /// * `subtree` - The syntax subtree representing the `:derived` definition node.
-/// * `registry` - The encoding_old registry used to manage symbol resolution and variable indices.
+/// * `registry` - The encoding registry used to manage symbol resolution and variable indices.
 /// * `ir` - The mutable `LiftedProblem` where the resulting definition is registered.
 ///
 /// # Returns
@@ -76,7 +76,7 @@ pub fn encode(
 
     // --- STEP 4: Body Encoding ---
     // Since the registry now contains exactly the head variables, the body
-    // encoding_old will correctly map variable references to indices (0, 1, ...).
+    // encoding will correctly map variable references to indices (0, 1, ...).
     let body_node_id = node.try_child(1)?;
     let body_node = ast.try_node(body_node_id)?;
     let body = expr::encode(

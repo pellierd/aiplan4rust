@@ -1,4 +1,4 @@
-// On suppose que ton itérateur est défini dans le module store
+// On suppose que ton itérateur est défini dans le module old
 use crate::aiplan4rust::lir::expr::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::lir::expr::{ExprId, ExprNodeRef, ExprStore};
 
@@ -20,19 +20,19 @@ impl<'a> Expr<'a> {
         Self { root, store }
     }
 
-    /// Retourne l'identifiant de la racine dans le store.
+    /// Retourne l'identifiant de la racine dans le old.
     pub fn root_id(&self) -> ExprId {
         self.root
     }
 
-    /// Retourne une référence vers le store associé.
+    /// Retourne une référence vers le old associé.
     pub fn store(&self) -> &'a ExprStore {
         self.store
     }
 
     /// Accède directement au nœud racine sous forme de `ExprNodeRef`.
     pub fn root_node(&self) -> Option<ExprNodeRef<'_>> {
-        // On suppose que ton store a une méthode get(id) qui renvoie un ExprNodeRef
+        // On suppose que ton old a une méthode get(id) qui renvoie un ExprNodeRef
         self.store.get(self.root)
     }
 

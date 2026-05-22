@@ -1,6 +1,6 @@
 use crate::aiplan4rust::grounding::binding::error::BindingError;
 use crate::aiplan4rust::grounding::binding::Bindings;
-use crate::aiplan4rust::lir::store::expr_old::{Expr, ExprKind};
+use crate::aiplan4rust::lir::old::expr::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 pub trait Bindable {

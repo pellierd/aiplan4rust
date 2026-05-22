@@ -179,13 +179,13 @@ fn build_inertia_table(
 ///
 /// # Arguments
 ///
-/// * `expr_old` - The effect expression to analyze.
+/// * `expr` - The effect expression to analyze.
 /// * `fluent_predicates` - A mutable set to be populated with IDs of modified predicates.
 /// * `fluent_functions` - A mutable set to be populated with IDs of modified numeric functions.
 ///
 /// # Errors
 ///
-/// Returns an [`InertiaTableError`] if the expression store cannot be accessed or
+/// Returns an [`InertiaTableError`] if the expression old cannot be accessed or
 /// if the tree structure is invalid.
 fn collect_fluents_from_effect(
     expr: Expr<'_>,
@@ -229,10 +229,10 @@ fn collect_fluents_from_effect(
 /// # Arguments
 ///
 /// * `init_expr` - The expression representing the problem's initial state.
-/// * `static_predicates` - A set to store IDs of predicates that remain constant.
-/// * `static_functions` - A set to store IDs of numeric functions that remain constant.
-/// * `fluent_predicates` - A set to store IDs of predicates modified by TILs or actions.
-/// * `fluent_functions` - A set to store IDs of functions modified by TILs or effects.
+/// * `static_predicates` - A set to old IDs of predicates that remain constant.
+/// * `static_functions` - A set to old IDs of numeric functions that remain constant.
+/// * `fluent_predicates` - A set to old IDs of predicates modified by TILs or actions.
+/// * `fluent_functions` - A set to old IDs of functions modified by TILs or effects.
 ///
 /// # Errors
 ///
@@ -250,7 +250,7 @@ fn collect_initial_facts(
     let mut stack = vec![(init_expr.root_id(), false)];
 
     while let Some((node_id, is_timed)) = stack.pop() {
-        // Fetch the node from the store associated with the expression handle.
+        // Fetch the node from the old associated with the expression handle.
         let node = init_expr.store().fetch(node_id)?;
 
         // Determine if the current context is temporal (within a TIL).

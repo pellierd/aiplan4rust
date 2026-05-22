@@ -1,6 +1,6 @@
 use crate::aiplan4rust::grounding::passes::positive_form_normalization::expr;
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::store::expr_old::ops::ExprOpError;
+use crate::aiplan4rust::lir::old::expr::ops::ExprOpError;
 use crate::aiplan4rust::lir::MethodDef;
 use crate::aiplan4rust::tree::NodeId;
 

@@ -68,7 +68,7 @@
 
 use crate::aiplan4rust::artefact::ir::kind::IRKind;
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeFormat, SerdeSerializable, SerializationError};
 use serde::{Deserialize, Serialize};
@@ -107,7 +107,7 @@ impl IRContent {
     /// - `&self`: Reference to the current `IRContent`.
     ///
     /// # Returns
-    /// - `SerdeFormat`: The serialization format used to store this content.
+    /// - `SerdeFormat`: The serialization format used to old this content.
     pub fn format(&self) -> SerdeFormat {
         match self {
             IRContent::ParsedDomain(_, fmt) => *fmt,

@@ -15,7 +15,7 @@ impl<'a> ExprBuilder<'a> {
     /// Wraps an expression with an 'At Start' temporal constraint.
     ///
     /// # Arguments
-    /// * `expr_old` - The `ExprId` of the formula to be constrained to the start of the action.
+    /// * `expr` - The `ExprId` of the formula to be constrained to the start of the action.
     ///
     /// # Returns
     /// * `Ok(ExprId)` - The identifier for the interned `AtStart` node.
@@ -33,7 +33,7 @@ impl<'a> ExprBuilder<'a> {
     /// Wraps an expression with an 'At End' temporal constraint.
     ///
     /// # Arguments
-    /// * `expr_old` - The `ExprId` of the formula to be constrained to the end of the action.
+    /// * `expr` - The `ExprId` of the formula to be constrained to the end of the action.
     ///
     /// # Returns
     /// * `Ok(ExprId)` - The identifier for the interned `AtEnd` node.
@@ -51,7 +51,7 @@ impl<'a> ExprBuilder<'a> {
     /// Wraps an expression with an 'Overall' (invariant) temporal constraint.
     ///
     /// # Arguments
-    /// * `expr_old` - The `ExprId` of the formula that must hold true throughout the action.
+    /// * `expr` - The `ExprId` of the formula that must hold true throughout the action.
     ///
     /// # Returns
     /// * `Ok(ExprId)` - The identifier for the interned `Overall` node.
@@ -70,13 +70,13 @@ impl<'a> ExprBuilder<'a> {
     /// illegal PDDL nesting.
     ///
     /// # Arguments
-    /// * `expr_old` - The `ExprId` of the sub-expression to be wrapped.
+    /// * `expr` - The `ExprId` of the sub-expression to be wrapped.
     /// * `attempted_kind` - The `ExprEntryKind` of the temporal operator being applied
     ///   (e.g., `AtStart`, `AtEnd`, or `Overall`).
     ///
     /// # Returns
     /// * `Ok(())` - If the expression is not a temporal operator and can be safely wrapped.
-    /// * `Err(ExprBuilderError::InvalidTemporalInvariant)` - If `expr_old` is already a
+    /// * `Err(ExprBuilderError::InvalidTemporalInvariant)` - If `expr` is already a
     ///   temporal operator, containing both the existing and attempted kinds for diagnostics.
     ///
     /// # Errors
@@ -113,7 +113,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// * `time` - The timestamp when the expression becomes effective.
     ///   Accepts any type convertible into `OrderedFloat<f64>` (e.g., `f64`, `OrderedFloat`).
-    /// * `expr_old` - The [`ExprId`] of the formula or assignment to trigger at `time`.
+    /// * `expr` - The [`ExprId`] of the formula or assignment to trigger at `time`.
     ///
     /// # Returns
     ///
@@ -140,7 +140,7 @@ impl<'a> ExprBuilder<'a> {
         let time_node = self.number(val);
 
         // Intern the binary relation [Time, Expression]
-        // This ensures the (Time, Expr) pair is unique in the store.
+        // This ensures the (Time, Expr) pair is unique in the old.
         Ok(self.intern(ExprEntryKind::TimedInitialLiteral, &[time_node, expr]))
     }
 }
@@ -261,7 +261,7 @@ mod tests {
         );
     }
 
-    /// Verifies that temporal nodes remain valid after a store cache rebuild.
+    /// Verifies that temporal nodes remain valid after a old cache rebuild.
     #[test]
     fn test_temporal_consistency_after_rebuild() {
         let mut store = ExprStore::new();
@@ -273,9 +273,9 @@ mod tests {
             let mut builder = ExprBuilder::new(&mut store);
             p = builder.predicate(1);
             start_p = builder.at_start(p).unwrap();
-        } // builder is dropped here, releasing the borrow on store
+        } // builder is dropped here, releasing the borrow on old
 
-        // 2. Now store is free to be borrowed mutably again
+        // 2. Now old is free to be borrowed mutably again
         store.rebuild_caches();
 
         // 3. Second scope: Create a new builder to verify consistency
@@ -318,7 +318,7 @@ mod tests {
     /// This test checks two critical invariants:
     /// 1. **Zero Normalization**: 0.0 and -0.0 must result in the same ExprId.
     ///    This is guaranteed by `OrderedFloat` and internal number interning,
-    ///    ensuring that the sign of zero doesn't duplicate nodes in the store.
+    ///    ensuring that the sign of zero doesn't duplicate nodes in the old.
     /// 2. **Result Handling**: Since the builder now returns a `Result`, we ensure
     ///    that valid timestamps can be unwrapped correctly.
     #[test]

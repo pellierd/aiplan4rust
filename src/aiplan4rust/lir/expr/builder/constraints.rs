@@ -32,11 +32,11 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Trivial Simplifications
     ///
-    /// 1. **Tautology Folding**: If `expr_old` is already logically `True`, the requirement
+    /// 1. **Tautology Folding**: If `expr` is already logically `True`, the requirement
     ///    that it must "always" be true is redundant. Returns `True`.
     ///
     /// # Parameters
-    /// * `expr_old` - The [`ExprId`] of the condition that must persist throughout the plan.
+    /// * `expr` - The [`ExprId`] of the condition that must persist throughout the plan.
     pub fn always(&mut self, expr: ExprId) -> ExprId {
         // Optimization: always(True) is simply True.
         if expr == self.empty_and() {
@@ -50,11 +50,11 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Trivial Simplifications
     ///
-    /// 1. **Contradiction Folding**: If `expr_old` is logically `False`, the requirement
+    /// 1. **Contradiction Folding**: If `expr` is logically `False`, the requirement
     ///    that it must happen "sometime" can never be met. Returns `False`.
     ///
     /// # Parameters
-    /// * `expr_old` - The [`ExprId`] of the goal or condition to be achieved at some point.
+    /// * `expr` - The [`ExprId`] of the goal or condition to be achieved at some point.
     pub fn sometime(&mut self, expr: ExprId) -> ExprId {
         // Optimization: sometime(False) is an impossible goal, thus False.
         if expr == self.empty_or() {
@@ -71,7 +71,7 @@ impl<'a> ExprBuilder<'a> {
     /// depends entirely on the state transitions over time, even for constant values.
     ///
     /// # Parameters
-    /// * `expr_old` - The [`ExprId`] of the condition to monitor for state flips.
+    /// * `expr` - The [`ExprId`] of the condition to monitor for state flips.
     pub fn at_most_once(&mut self, expr: ExprId) -> ExprId {
         self.intern(ExprEntryKind::AtMostOnce, &[expr])
     }
@@ -119,7 +119,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Trivial Simplifications
     ///
-    /// 1. **Tautology Folding**: If `expr_old` is already `True`, the constraint that it
+    /// 1. **Tautology Folding**: If `expr` is already `True`, the constraint that it
     ///    must happen within a certain time is already satisfied. Returns `True`.
     /// 2. **Impossible Deadline**: If the `value` (deadline) is significantly negative,
     ///    it is physically impossible to satisfy the condition. Returns `False`.
@@ -127,7 +127,7 @@ impl<'a> ExprBuilder<'a> {
     /// # Parameters
     /// * `value` - The maximum time allowed for the expression to become true.
     ///   Accepts any type convertible into `f64` (e.g., `f64`, `OrderedFloat`).
-    /// * `expr_old` - The [`ExprId`] of the condition to monitor.
+    /// * `expr` - The [`ExprId`] of the condition to monitor.
     pub fn within<V>(&mut self, value: V, expr: ExprId) -> ExprId
     where
         V: Into<f64>,
@@ -183,7 +183,7 @@ impl<'a> ExprBuilder<'a> {
     /// # Trivial Simplifications
     ///
     /// To optimize the expression graph, the following rules are applied:
-    /// 1. **Tautology Folding**: If `expr_old` is already logically `True`, the constraint is
+    /// 1. **Tautology Folding**: If `expr` is already logically `True`, the constraint is
     ///    always satisfied regardless of the time interval. Returns `True`.
     /// 2. **Impossible Interval**: If `start` is significantly greater than `end`, the interval
     ///    is physically unreachable in a forward-moving timeline. Returns `False`.
@@ -193,7 +193,7 @@ impl<'a> ExprBuilder<'a> {
     ///   Accepts any type convertible into `f64` (e.g., `f64`, `OrderedFloat`).
     /// * `end` - The timestamp marking the end of the required period.
     ///   Accepts any type convertible into `f64`.
-    /// * `expr_old` - The [`ExprId`] of the condition to monitor.
+    /// * `expr` - The [`ExprId`] of the condition to monitor.
     pub fn hold_during<S, E>(&mut self, start: S, end: E, expr: ExprId) -> ExprId
     where
         S: Into<f64>,
@@ -223,13 +223,13 @@ impl<'a> ExprBuilder<'a> {
     /// # Trivial Simplifications
     ///
     /// To optimize the expression graph, the following rule is applied:
-    /// 1. **Tautology Folding**: If `expr_old` is already logically `True`, the constraint
+    /// 1. **Tautology Folding**: If `expr` is already logically `True`, the constraint
     ///    is satisfied for any future state. Returns `True`.
     ///
     /// # Parameters
     /// * `time` - The timestamp after which the condition must remain True.
     ///   Accepts any type that can be converted into `f64` (e.g., `f64`, `OrderedFloat`).
-    /// * `expr_old` - The [`ExprId`] of the condition to monitor.
+    /// * `expr` - The [`ExprId`] of the condition to monitor.
     pub fn hold_after<T>(&mut self, time: T, expr: ExprId) -> ExprId
     where
         T: Into<f64>,

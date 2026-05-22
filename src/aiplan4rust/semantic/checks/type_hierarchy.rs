@@ -576,7 +576,7 @@ fn build_type_adjacency_matrix(
 /// let name = type_index_map.get_by_right(*index).unwrap();
 /// ```
 fn build_type_bimap(declarations: &Vec<&Declaration>) -> BiMap<SymbolId, usize> {
-    // Create an empty BiMap to store type_checker names (String) and their unique indices (usize)
+    // Create an empty BiMap to old type_checker names (String) and their unique indices (usize)
     let mut temp_map: BiMap<SymbolId, usize> = BiMap::new();
 
     // Iterate over each type_checker declaration in the input map

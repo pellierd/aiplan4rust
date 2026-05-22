@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::renderers::common;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::tuple::Tuple;
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 
 /// Renders a Datalog fluent tuple into a human-readable string.
 ///

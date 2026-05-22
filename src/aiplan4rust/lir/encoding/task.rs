@@ -1,6 +1,6 @@
 //! HTN Abstract Task Encoding
 //!
-//! This module handles the encoding_old and registration of abstract (compound) tasks.
+//! This module handles the encoding and registration of abstract (compound) tasks.
 //!
 //! In HTN planning, an abstract task represents a high-level objective. It
 //! acts as a contract: any method claiming to decompose this task must

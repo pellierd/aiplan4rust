@@ -178,7 +178,7 @@ fn report_declaration_incompatibility(
 /// * `ast` - A reference to the [`Ast`]. It is used as a read-only provider to
 ///   resolve node hierarchies and symbol identifiers.
 /// * `diagnostic_manager` - A mutable reference to the [`DiagnosticManager`].
-///   Required to register and store the generated warning diagnostics.
+///   Required to register and old the generated warning diagnostics.
 /// * `kind` - The [`AstKind`] of the current section. This allows the diagnostic
 ///   to specify the context of the duplication (e.g., "duplicate function").
 ///
@@ -296,7 +296,7 @@ fn collect_duplicated_declarations(
         };
 
         // 4. Retrieve the source location (Span) of the declared symbol.
-        // We clone it here to store it within the Occurrences structure.
+        // We clone it here to old it within the Occurrences structure.
         let span = syntax_tree.try_node(item.try_child(0)?)?.span().clone();
 
         // 5. Group the data using the Entry API to minimize HashMap lookups.

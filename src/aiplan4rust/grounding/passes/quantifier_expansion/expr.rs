@@ -5,8 +5,8 @@ use crate::aiplan4rust::grounding::binding::Bindings;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
-use crate::aiplan4rust::lir::store::expr_old::{ops, Expr, ExprContent, ExprKind};
+use crate::aiplan4rust::lir::old::expr::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::old::expr::{ops, Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
 pub fn expand(expr: &mut Expr, value_registry: &ValueRegistry) -> Result<(), GroundingError> {
@@ -175,7 +175,7 @@ mod tests {
     use crate::aiplan4rust::lang::{
         ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
     };
-    use crate::aiplan4rust::lir::store::expr_old::{ExprBuilder, ExprKind};
+    use crate::aiplan4rust::lir::old::expr::{ExprBuilder, ExprKind};
 
     #[test]
     fn test_expand_forall_quantifier() -> Result<(), Box<dyn std::error::Error>> {

@@ -4,8 +4,8 @@ use crate::aiplan4rust::grounding::passes::{positive_form_normalization, quantif
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::grounding::{config, GroundingResult};
-use crate::aiplan4rust::lir::store::problem_old::LiftedProblem;
-use crate::aiplan4rust::lir::store::renderers_old::LiftedSyntaxDisplay;
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::old::renderers::LiftedSyntaxDisplay;
 use crate::analysis::inertia::InertiaTable;
 use crate::{DatalogEngine, DiagnosticManager};
 

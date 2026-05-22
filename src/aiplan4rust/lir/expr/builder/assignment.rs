@@ -8,7 +8,7 @@
 //!
 //! The assignment builder ensures that all state-changing operations are interned
 //! in a canonical and optimized form. By intercepting "No-Op" operations early,
-//! it prevents the pollution of the LIR store with redundant nodes, simplifying
+//! it prevents the pollution of the LIR old with redundant nodes, simplifying
 //! the task for subsequent grounding and solving phases.
 //!
 //! ## Optimization Strategies
@@ -117,7 +117,7 @@ impl<'a> ExprBuilder<'a> {
         }
 
         // 4. Standard Interning
-        // If no optimizations apply, the assignment is interned into the store.
+        // If no optimizations apply, the assignment is interned into the old.
         self.intern(ExprEntryKind::Assignment(op), &[target, value])
     }
 
@@ -278,7 +278,7 @@ mod tests {
     }
 
     /// Test: (assign f1 42.0) == (assign f1 42.0)
-    /// Description: Validates that the store correctly deduplicates identical
+    /// Description: Validates that the old correctly deduplicates identical
     /// assignment operations using Hash-Consing.
     #[test]
     fn test_assignment_interning_and_deduplication() {
@@ -351,7 +351,7 @@ mod tests {
 
     /// Test: (assign target (+ 1.0 1.0)) vs (assign target 2.0) -> Same ExprId
     /// Description: Verifies that Hash-Consing works across folded expressions.
-    /// Both assignments should point to the same unique ID in the store.
+    /// Both assignments should point to the same unique ID in the old.
     #[test]
     fn test_deep_assignment_deduplication() {
         let mut store = ExprStore::new();

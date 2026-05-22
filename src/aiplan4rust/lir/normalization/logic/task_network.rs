@@ -7,13 +7,13 @@ use crate::aiplan4rust::lir::problem::TaskNetwork;
 /// Normalizes a `TaskNetwork` using the canonical expression normalization pipeline.
 ///
 /// This function applies simplification and rewriting passes exclusively to the
-/// `logical_constraints` field via `expr_old::normalize`. The `tasks` definitions and
+/// `logical_constraints` field via `expr::normalize`. The `tasks` definitions and
 /// `ordering_constraints` are purely structural and already considered to be in canonical form.
 ///
 /// # Arguments
 ///
 /// * `network` - A mutable reference to the `TaskNetwork` to normalize.
-/// * `store` - The central `ExprStore` containing the expression nodes.
+/// * `old` - The central `ExprStore` containing the expression nodes.
 /// * `scratch` - A reusable `Scratchpad` to avoid heap allocations during rewrite passes.
 ///
 /// # Errors

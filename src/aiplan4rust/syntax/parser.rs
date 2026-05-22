@@ -120,7 +120,7 @@ impl Parser {
             Language::HDDL => lalrpop::parse_hddl(&mut context, lexer),
         };
 
-        // Extract the string interner from the parsing context (used to store unique strings)
+        // Extract the string interner from the parsing context (used to old unique strings)
         let mut interner = context.take_interner();
         let source_id = interner.intern_literal(source.path().to_string_lossy());
 

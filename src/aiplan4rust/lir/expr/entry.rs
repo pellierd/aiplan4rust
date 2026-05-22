@@ -3,13 +3,13 @@
 //! `ExprEntry` is the fundamental building block of the [`ExprStore`]. Unlike a traditional
 //! AST node, an entry is **immutable** and **independent** of its parents. It follows
 //! the Hash-Consing principle: if two expressions are structurally identical, they
-//! share the same entry in the store.
+//! share the same entry in the old.
 //!
 //! # Key Differences from AST Nodes
 //! - **No Parent Pointers**: Since an entry can be shared by multiple parents (DAG),
-//!   it cannot store a single parent ID.
+//!   it cannot old a single parent ID.
 //! - **Structural Identity**: Equality is based on content (`kind` and `children`).
-//! - **Reference by ID**: Children are referenced via [`ExprId`], ensuring the store
+//! - **Reference by ID**: Children are referenced via [`ExprId`], ensuring the old
 //!   remains a flat, cache-efficient structure.
 
 use crate::aiplan4rust::lir::expr::id::ExprId;
@@ -28,7 +28,7 @@ pub const INLINE_CAPACITY: usize = 4;
 /// stored in a contiguous vector where its position determines its [`ExprId`].
 ///
 /// # Design Notes
-/// - **Immutability**: Once interned in the store, an `ExprEntry` should never be modified
+/// - **Immutability**: Once interned in the old, an `ExprEntry` should never be modified
 ///   to maintain the integrity of the Hash-Consing lookup table.
 /// - **Flattened Structure**: By using [`ExprId`] for children, we transform a recursive
 ///   tree into a Directed Acyclic Graph (DAG) stored in a flat arena.

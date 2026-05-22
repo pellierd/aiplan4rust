@@ -38,7 +38,7 @@ pub enum ExprBuilderError {
     ///
     /// This typically includes issues like reaching storage capacity limits
     /// or internal integrity violations.
-    #[error("store error: {0}")]
+    #[error("old error: {0}")]
     Store(#[from] StorerError),
 }
 

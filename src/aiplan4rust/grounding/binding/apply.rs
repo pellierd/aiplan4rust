@@ -1,8 +1,8 @@
 use crate::aiplan4rust::grounding::binding::Bindable;
 use crate::aiplan4rust::grounding::binding::BindingError;
 use crate::aiplan4rust::grounding::binding::Bindings;
-use crate::aiplan4rust::lir::store::expr_old::ops::StaticEvaluator;
-use crate::aiplan4rust::lir::store::expr_old::{ops, Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::old::expr::ops::StaticEvaluator;
+use crate::aiplan4rust::lir::old::expr::{ops, Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::NodeId;
 use std::collections::HashMap;
 
@@ -168,7 +168,7 @@ mod tests {
     use crate::aiplan4rust::grounding::binding::{apply, Bindings};
     use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
     use crate::aiplan4rust::lang::{CompareOp, ObjectId, VariableId};
-    use crate::aiplan4rust::lir::store::expr_old::{ExprBuilder, ExprContent, ExprKind};
+    use crate::aiplan4rust::lir::old::expr::{ExprBuilder, ExprContent, ExprKind};
 
     #[test]
     fn test_grounding_engine_basic_substitution() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::config::{DEFAULT_MAX_ARITY, DEFAULT_MAX_PROJ};
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{AtomSkeletonId, ObjectId};
-use crate::aiplan4rust::lir::store::problem_old::atomic_skeleton::{
+use crate::aiplan4rust::lir::old::problem::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton,
 };
 use crate::analysis::inertia::evaluator::InertiaEvaluator;
@@ -79,9 +79,9 @@ mod tests {
         FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId, Type, TypeId, TypedList,
         TypedSymbol, VariableId,
     };
-    use crate::aiplan4rust::lir::store::expr_old::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::store::expr_old::ops::StaticValue;
-    use crate::aiplan4rust::lir::store::problem_old::atomic_skeleton::AtomicFormulaSkeleton;
+    use crate::aiplan4rust::lir::old::expr::builder::ExprBuilder;
+    use crate::aiplan4rust::lir::old::expr::ops::StaticValue;
+    use crate::aiplan4rust::lir::old::problem::atomic_skeleton::AtomicFormulaSkeleton;
     use crate::analysis::inertia::evaluator::evaluator::ArgumentBuffer;
     use ordered_float::OrderedFloat;
 
@@ -417,7 +417,7 @@ mod tests {
         // 3. Construction de l'expression P(?x)
         let var_node = builder.variable(0);
         let atom_node = builder.atomic_formula_with_skeleton(pred_id, vec![var_node], skel_id);
-        let expr_old = builder.finish();
+        let expr = builder.finish();
 
         // 4. Configuration de l'Inertie
         let mut i_table = InertiaTable::empty();
@@ -433,7 +433,7 @@ mod tests {
 
         // 6. Évaluation
         let mut buffer = ArgumentBuffer::new();
-        let res = registry.evaluate_predicate_internal(atom_node, &expr_old, &mut buffer).unwrap();
+        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer).unwrap();
 
         // Analyse : N(2) == MAX(2) + Inertie Négative => TRUE
         assert_eq!(
@@ -506,7 +506,7 @@ mod tests {
         let arg_const = builder.constant(obj10);
         let arg_var = builder.variable(1);
         let atom_node = builder.atomic_formula_with_skeleton(pred_id, vec![arg_const, arg_var], skel_id);
-        let expr_old = builder.finish();
+        let expr = builder.finish();
 
         // 4. Setup Inertie (Inerte Positif)
         let mut i_table = InertiaTable::empty();
@@ -523,7 +523,7 @@ mod tests {
         // On simule que la constante '10' est déjà résolue dans le buffer
         buffer.push(obj10);
 
-        let res = registry.evaluate_predicate_internal(atom_node, &expr_old, &mut buffer)
+        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer)
             .expect("Evaluation should not fail");
 
         // ANALYSE :
@@ -583,13 +583,13 @@ mod tests {
         let arg_var = builder.variable(0);
         let arg_const = builder.constant(obj51);
         let atom_node = builder.atomic_formula_with_skeleton(pred_id, vec![arg_var, arg_const], skel_id);
-        let expr_old = builder.finish();
+        let expr = builder.finish();
 
         let mut buffer = ArgumentBuffer::new();
         // extract_mask_dynamic va trouver la constante 51 en deuxième position.
         // Masque attendu (Big Endian) : 0b01 (décimal 1)
 
-        let res = registry.evaluate_predicate_internal(atom_node, &expr_old, &mut buffer)
+        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer)
             .expect("Evaluation should not fail");
 
         // ANALYSE :
@@ -660,11 +660,11 @@ mod tests {
         let arg_var = builder.variable(0);
         let arg_const = builder.constant(obj51);
         let atom_node = builder.atomic_formula_with_skeleton(pred_id, vec![arg_var, arg_const], skel_id);
-        let expr_old = builder.finish();
+        let expr = builder.finish();
 
         let mut buffer = ArgumentBuffer::new();
 
-        let res = registry.evaluate_predicate_internal(atom_node, &expr_old, &mut buffer)
+        let res = registry.evaluate_predicate_internal(atom_node, &expr, &mut buffer)
             .expect("Evaluation should not fail");
 
         // ANALYSE :

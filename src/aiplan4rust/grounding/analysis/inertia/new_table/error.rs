@@ -8,7 +8,7 @@ use thiserror::Error;
 ///
 /// These errors typically indicate a mismatch between the symbols found in a problem
 /// and the pre-computed inertia analysis, or issues during the traversal of the
-/// expression store.
+/// expression old.
 #[derive(Error, Debug)]
 pub enum InertiaTableError {
     /// An error originating from the expression storage system (LIR).
@@ -44,7 +44,7 @@ impl InertiaTableError {
     /// Creates a new [`InertiaTableError::MissingPredicateInertia`] error.
     ///
     /// This error occurs when a predicate is encountered during the grounding or
-    /// encoding_old phase but has no corresponding entry in the inertia table.
+    /// encoding phase but has no corresponding entry in the inertia table.
     /// This usually suggests the predicate was not correctly indexed during
     /// the initial state or action effect analysis.
     ///

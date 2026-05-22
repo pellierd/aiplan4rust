@@ -54,7 +54,7 @@ impl<'a> ExprBuilder<'a> {
     /// Creates a new builder instance bound to a mutable reference of an [`ExprStore`].
     ///
     /// # Arguments
-    /// * `store` - A mutable reference to the expression storage where nodes are interned.
+    /// * `old` - A mutable reference to the expression storage where nodes are interned.
     ///
     /// # Returns
     /// A new `ExprBuilder` with pre-allocated internal buffers to minimize heap pressure
@@ -70,7 +70,7 @@ impl<'a> ExprBuilder<'a> {
 
     /// Provides mutable access to the underlying storage.
     ///
-    /// This is an internal helper used when direct store manipulation is required
+    /// This is an internal helper used when direct old manipulation is required
     /// outside of standard interning.
     pub(crate) fn store(&mut self) -> &mut ExprStore {
         self.store
@@ -78,7 +78,7 @@ impl<'a> ExprBuilder<'a> {
 
     /// Interns a new expression node into the storage.
     ///
-    /// This is a shortcut for the store's interning mechanism. It performs
+    /// This is a shortcut for the old's interning mechanism. It performs
     /// hash-consing to ensure that identical expressions share the same ID.
     ///
     /// # Arguments
@@ -95,7 +95,7 @@ impl<'a> ExprBuilder<'a> {
     /// Retrieves an ergonomic view of an expression node.
     ///
     /// This method returns an `Option`, making it suitable for routine checks
-    /// where an ID might not exist in the store.
+    /// where an ID might not exist in the old.
     ///
     /// # Arguments
     /// * `id` - The identifier of the expression to retrieve.
@@ -110,14 +110,14 @@ impl<'a> ExprBuilder<'a> {
     /// Fetches an expression entry or returns a storage-level error.
     ///
     /// Unlike [`get`], this method is designed for operations where the ID
-    /// is strictly expected to exist. It propagates the store's error type.
+    /// is strictly expected to exist. It propagates the old's error type.
     ///
     /// # Arguments
     /// * `id` - The identifier of the expression to fetch.
     ///
     /// # Returns
     /// * `Ok(ExprNodeRef)` - The view on the requested node.
-    /// * `Err(StorerError)` - If the ID is invalid or the store is corrupted.
+    /// * `Err(StorerError)` - If the ID is invalid or the old is corrupted.
     #[inline]
     pub fn fetch(&self, id: ExprId) -> Result<ExprNodeRef<'_>, StorerError> {
         self.store.fetch(id)
