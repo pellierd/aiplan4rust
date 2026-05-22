@@ -20,6 +20,7 @@ pub struct Scratchpad {
 
     // --- Buffers de factorisation (Logique pure) ---
     group_buffer: Vec<Vec<ExprId>>,
+    swap_group_buffer: Vec<Vec<ExprId>>,
     other_kids: Vec<ExprId>,
 
     // --- Buffer de statistiques (Pour ne pas réécrire plus tard) ---
@@ -53,6 +54,7 @@ impl Scratchpad {
 
             // --- Buffers de factorisation (FNF) ---
             group_buffer: Vec::with_capacity(16),
+            swap_group_buffer: Vec::with_capacity(16),
             other_kids: Vec::with_capacity(16),
             freq_map: FxHashMap::default(),
 
@@ -82,6 +84,7 @@ impl Scratchpad {
 
         // FNF
         self.group_buffer.clear();
+        self.swap_group_buffer.clear();
         self.other_kids.clear();
         self.freq_map.clear();
 
@@ -239,14 +242,48 @@ impl Scratchpad {
         &mut self.other_kids
     }
 
-    /// Centralise le comptage des fréquences pour la factorisation.
-    pub fn compute_frequencies(&mut self) {
+    /// MODIFICATION : Centralise le comptage des fréquences pour une tranche spécifique [start..end].
+    pub fn compute_frequencies_for_slice(&mut self, start: usize, end: usize) {
         self.freq_map.clear();
-        for group in &self.group_buffer {
+
+        let end = std::cmp::min(end, self.group_buffer.len());
+        if start >= end {
+            return;
+        }
+
+        for group in &self.group_buffer[start..end] {
             for &id in group {
                 *self.freq_map.entry(id).or_insert(0) += 1;
             }
         }
+    }
+
+    /// MODIFICATION : Partitionne la portion [start..end] du group_buffer selon le facteur `f`.
+    /// Les expressions contenant `f` sont placées en premier. Le facteur y est retiré.
+    /// Retourne le nombre d'éléments qui contenaient le facteur `f`.
+    pub fn partition_slice_by_factor(&mut self, start: usize, end: usize, f: ExprId) -> usize {
+        self.swap_group_buffer.clear();
+        let mut count_with_f = 0;
+
+        // Étape A : On extrait la portion via drain, et on répartit dans le swap_buffer
+        for mut group in self.group_buffer.drain(start..end) {
+            if group.binary_search(&f).is_ok() {
+                group.retain(|&x| x != f);
+                // On insère au début de swap_buffer pour regrouper ceux qui ont 'f'
+                self.swap_group_buffer.insert(count_with_f, group);
+                count_with_f += 1;
+            } else {
+                // On pousse à la fin de swap_buffer pour ceux qui n'ont pas 'f'
+                self.swap_group_buffer.push(group);
+            }
+        }
+
+        // Étape B : On réinjecte proprement la structure partitionnée
+        // sans perdre les allocations sous-jacentes du vecteur parent.
+        self.group_buffer
+            .splice(start..start, self.swap_group_buffer.drain(..));
+
+        count_with_f
     }
 
     /// Recherche le meilleur facteur commun.
