@@ -18,7 +18,7 @@
 //! This ensures a **$\mathcal{O}(1)$ dynamic allocation profile** at runtime, drastically limiting
 //! cache misses and freeing the CPU from intermediate vector allocations.
 
-use crate::aiplan4rust::lir::expr::ops::rewriting::Scratchpad;
+use crate::aiplan4rust::lir::expr::iter::Scratchpad;
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprId, ExprStore};
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::lir::normalization::typing::{typed_symbol, TypeRegistry};

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::expr::ops::rewriting::Scratchpad;
+use crate::aiplan4rust::lir::expr::iter::Scratchpad;
 use crate::aiplan4rust::lir::expr::ExprStore;
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::lir::normalization::logic::{action, derived_predicate, method};

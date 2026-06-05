@@ -1,4 +1,5 @@
-use crate::aiplan4rust::lir::expr::ops::rewriting::{fnf, nnf, tnf, Scratchpad};
+use crate::aiplan4rust::lir::expr::iter::Scratchpad;
+use crate::aiplan4rust::lir::expr::ops::{fnf, nnf, tnf};
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId, ExprStore};
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 
@@ -34,7 +35,6 @@ pub fn normalize(
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::{ArithmeticOp, AtomSkeletonId, PredicateSymbolId};
-    use crate::aiplan4rust::lir::expr::ops::rewriting::Scratchpad;
     use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprStore};
 
     /// Complex test for AND-flattening and structural deduplication.
