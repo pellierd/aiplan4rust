@@ -14,7 +14,7 @@ use crate::aiplan4rust::lir::old::problem::symbol_registry::IndexTableError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::analysis::inertia::error::InertiaError;
-use crate::analysis::inertia::new_table::InertiaTableError;
+use crate::analysis::inertia::table::InertiaTableError;
 use std::backtrace::Backtrace;
 use thiserror::Error;
 

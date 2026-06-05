@@ -6,7 +6,7 @@ use crate::common::pipeline::*;
 
 // --- Nouveaux Imports portés ---
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
-use aiplan4rust::aiplan4rust::grounding::analysis::inertia::new_table::builder::build as analyze_inertia;
+use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::aiplan4rust::lang::AtomSkeletonId;
 
 /// Teste la cohérence de la table d'inertie pour un répertoire de domaine donné.

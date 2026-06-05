@@ -1,19 +1,28 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
+use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use thiserror::Error;
 
-/// Errors encountered while interacting with the inertia analysis table.
+/// Errors encountered during inertia analysis or while interacting with the inertia table.
 ///
-/// These errors typically indicate a mismatch between the fluents found in a problem
-/// and the pre-computed inertia analysis, often due to an incomplete scanning pass.
+/// These errors typically indicate a mismatch between the symbols found in a problem
+/// and the pre-computed inertia analysis, or issues during the traversal of the
+/// expression old.
 #[derive(Error, Debug)]
 pub enum InertiaTableError {
-    /// An error originating from the syntax tree system.
+    /// An error originating from the expression storage system (LIR).
+    #[error(transparent)]
+    Store(#[from] StorerError),
+
+    /// An error originating from the syntax tree or expression structures.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
 
     /// Inertia information for a specific predicate is missing from the table.
+    ///
+    /// This usually happens if the table was built for a different version
+    /// of the problem or if a predicate was skipped during analysis.
     #[error("Inertia missing for predicate: {id:?}")]
     MissingPredicateInertia {
         /// The unique identifier of the predicate that was not found.
@@ -21,6 +30,9 @@ pub enum InertiaTableError {
     },
 
     /// Inertia information for a specific function is missing from the table.
+    ///
+    /// This usually happens if the table was built for a different version
+    /// of the problem or if a function was skipped during analysis.
     #[error("Inertia missing for function: {id:?}")]
     MissingFunctionInertia {
         /// The unique identifier of the function that was not found.

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTableError;
+use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTableError;
+use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
 use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::lir::expr::error::StorerError;

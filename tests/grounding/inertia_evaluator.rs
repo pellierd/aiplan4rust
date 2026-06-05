@@ -4,7 +4,7 @@ use aiplan4rust::aiplan4rust::arena::ArenaNode;
 use std::path::Path;
 use test_case::test_case;
 
-use aiplan4rust::aiplan4rust::grounding::analysis::inertia::new_table::builder::build as analyze_inertia;
+use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::aiplan4rust::grounding::binding::evaluator::ExprConstant;
 use aiplan4rust::aiplan4rust::grounding::config;
 use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;

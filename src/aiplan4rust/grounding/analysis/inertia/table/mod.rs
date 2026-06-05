@@ -1,7 +1,7 @@
 pub mod table;
 
-pub mod error;
 pub mod builder;
+pub mod error;
 
-pub use table::InertiaTable;
 pub use error::InertiaTableError;
+pub use table::InertiaTable;

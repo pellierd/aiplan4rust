@@ -1,4 +1,4 @@
-use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTable;
+use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::cause::Cause;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::database::Database;

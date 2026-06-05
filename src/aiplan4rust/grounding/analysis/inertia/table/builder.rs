@@ -21,8 +21,9 @@
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
-use crate::aiplan4rust::lir::old::expr::{Expr, ExprContent, ExprKind};
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::expr::expr::Expr;
+use crate::aiplan4rust::lir::expr::ExprEntryKind;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::analysis::inertia::table::InertiaTableError;
 use std::collections::HashSet;
 
@@ -47,7 +48,7 @@ use std::collections::HashSet;
 ///
 /// Returns a [`LirError`] if any expression tree traversal (actions or initial state) fails,
 /// typically due to a malformed AST or an inaccessible node.
-pub fn build(problem: &LiftedProblem) -> Result<InertiaTable, InertiaTableError> {
+pub fn build(problem: &NewLiftedProblem) -> Result<InertiaTable, InertiaTableError> {
     let mut fluent_predicates = HashSet::new();
     let mut fluent_functions = HashSet::new();
     let mut static_predicates = HashSet::new();
@@ -58,8 +59,9 @@ pub fn build(problem: &LiftedProblem) -> Result<InertiaTable, InertiaTableError>
 
     // Step 2: Scan initial state for static facts and Timed Initial Literals (TILs)
     // Note: TILs will add symbols to the fluent sets.
+    let init = Expr::new(problem.init(), problem.store());
     collect_initial_facts(
-        problem.init(),
+        init,
         &mut static_predicates,
         &mut static_functions,
         &mut fluent_predicates,
@@ -91,15 +93,15 @@ pub fn build(problem: &LiftedProblem) -> Result<InertiaTable, InertiaTableError>
 ///
 /// Returns a [`LirError`] if an error occurs while traversing an action's effect expression.
 fn collect_all_action_fluents(
-    problem: &LiftedProblem,
+    problem: &NewLiftedProblem,
     fluent_predicates: &mut HashSet<AtomSkeletonId>,
     fluent_functions: &mut HashSet<FunctionSkeletonId>,
 ) -> Result<(), InertiaTableError> {
     // Collect fluents from standard instantaneous actions
     for action in problem.action_defs() {
-        collect_fluents_from_effect(action.effect(), fluent_predicates, fluent_functions)?;
+        let effects = Expr::new(action.effect(), problem.store());
+        collect_fluents_from_effect(effects, fluent_predicates, fluent_functions)?;
     }
-
     Ok(())
 }
 
@@ -122,7 +124,7 @@ fn collect_all_action_fluents(
 ///
 /// A populated [`InertiaTable`] representing the stability of all symbols.
 fn build_inertia_table(
-    problem: &LiftedProblem,
+    problem: &NewLiftedProblem,
     fluent_predicates: HashSet<AtomSkeletonId>,
     fluent_functions: HashSet<FunctionSkeletonId>,
     constant_predicates: HashSet<AtomSkeletonId>,
@@ -130,45 +132,37 @@ fn build_inertia_table(
 ) -> InertiaTable {
     let mut table = InertiaTable::empty();
 
-    // Les prédicats dérivés sont calculés par des axiomes, donc considérés comme Fluents.
-    let derived_ids: HashSet<_> = problem
-        .derived_predicate_defs()
-        .iter()
-        .map(|d| d.header_id())
-        .collect();
-
-    // --- Catégorisation des Prédicats ---
+    // --- Predicate Categorization ---
     for (idx, _) in problem.predicate_defs().iter().enumerate() {
         let id = AtomSkeletonId::from(idx);
 
-        let inertia = if derived_ids.contains(&id) || fluent_predicates.contains(&id) {
-            // Le prédicat change de valeur (ADD et/ou DEL présents).
+        // Utilize the helper method from the Problem to check for axioms
+        let inertia = if problem.is_derived_predicate(id) || fluent_predicates.contains(&id) {
+            // Predicate changes value (via action effects, TILs, or Axioms).
             Inertia::fluent()
         } else if constant_predicates.contains(&id) {
-            // Le prédicat est présent dans l'init et n'est JAMAIS modifié.
-            // Dans IPP, c'est l'Inertie Positive ET Négative.
+            // Predicate is present in the initial state and is NEVER modified.
             Inertia::positive_negative()
         } else {
-            // Le prédicat n'est ni dans les effets, ni dans l'état initial.
-            // Il est donc "Inerte Positif" (ne peut pas être ajouté) et reste absent (False).
+            // Predicate is neither in effects nor in the initial state -> Always False.
             Inertia::negative()
         };
         table.insert_predicate(id, inertia);
     }
 
-    // --- Catégorisation des Fonctions (Numériques) ---
+    // --- Function Categorization (Numeric) ---
     for (idx, _) in problem.function_defs().iter().enumerate() {
         let id = FunctionSkeletonId::from(idx);
 
         let inertia = if fluent_functions.contains(&id) {
-            // La fonction est modifiée par des effets (assign, increase, decrease).
+            // Function is modified by effects (assign, increase, decrease, etc.).
             Inertia::fluent()
         } else if constant_functions.contains(&id) {
-            // La fonction est définie à l'initialisation et reste immuable.
+            // Function is defined at initialization and remains immutable.
             Inertia::positive_negative()
         } else {
-            // La fonction n'est ni dans les effets, ni initialisée.
-            // Elle est considérée Inerte Négative (sa valeur par défaut, souvent 0, ne peut être diminuée).
+            // Function is neither initialized nor modified.
+            // Considered Negative Inertia (its default value, usually 0, cannot be changed).
             Inertia::negative()
         };
         table.insert_function(id, inertia);
@@ -179,71 +173,58 @@ fn build_inertia_table(
 
 /// Traverses an effect expression to identify modified predicates and functions (Fluents).
 ///
-/// This function performs a depth-first search through the effect tree. It specifically
-/// handles conditional effects (`When` nodes) by only traversing the effect branch,
-/// as the condition branch is considered a read-only context.
+/// This function performs an iterative preorder traversal of the effect tree.
+/// It specifically handles conditional effects (`When` nodes) by skipping the
+/// condition branch, as conditions are read-only contexts and do not produce fluents.
 ///
 /// # Arguments
 ///
-/// * `logic` - The effect expression to analyze.
-/// * `fluent_predicates` - A set to be populated with IDs of modified predicates.
-/// * `fluent_functions` - A set to be populated with IDs of modified numeric functions.
+/// * `expr` - The effect expression to analyze.
+/// * `fluent_predicates` - A mutable set to be populated with IDs of modified predicates.
+/// * `fluent_functions` - A mutable set to be populated with IDs of modified numeric functions.
 ///
 /// # Errors
 ///
-/// Returns a [`LirError`] if the expression tree is malformed or if a node cannot be accessed.
-pub fn collect_fluents_from_effect(
-    expr: &Expr,
+/// Returns an [`InertiaTableError`] if the expression old cannot be accessed or
+/// if the tree structure is invalid.
+fn collect_fluents_from_effect(
+    expr: Expr<'_>,
     fluent_predicates: &mut HashSet<AtomSkeletonId>,
     fluent_functions: &mut HashSet<FunctionSkeletonId>,
 ) -> Result<(), InertiaTableError> {
-    // Early exit if the expression is empty
-    if expr.is_empty() {
-        return Ok(());
-    }
+    let mut it = expr.store().tree_preorder(expr.root_id());
 
-    let mut stack = vec![expr.try_root_id()?];
-
-    while let Some(node_id) = stack.pop() {
-        let node = expr.try_node(node_id)?;
-
-        match node.content() {
-            // Predicates found in an effect context are marked as Fluent
-            ExprContent::AtomSkeleton(id) => {
+    while let Some((_id, _depth, _is_last, entry)) = it.next() {
+        match entry.kind() {
+            ExprEntryKind::AtomicFormula(id) => {
                 fluent_predicates.insert(*id);
             }
 
-            // Functions found in an effect context (e.g., assignments) are marked as Fluent
-            ExprContent::FunctionSkeleton(id) => {
+            ExprEntryKind::Function(id) => {
                 fluent_functions.insert(*id);
             }
 
-            _ => {
-                // Special handling for Conditional Effects (When nodes)
-                // In PDDL/HTN, (when <condition> <effect>):
-                // - Child 0 (condition) is read-only (Static or Fluent, but not modified here).
-                // - Child 1 (effect) contains the actual modifications.
-                if node.kind() == ExprKind::When {
-                    if let Some(&effect_id) = node.children().get(1) {
-                        stack.push(effect_id);
-                    }
-                } else {
-                    // Standard recursive traversal for structural nodes (And, Not, Forall, etc.)
-                    for &child_id in node.children().iter().rev() {
-                        stack.push(child_id);
-                    }
-                }
+            ExprEntryKind::When => {
+                // A 'When' node has exactly 2 children: [0: Condition, 1: Effect].
+                // The iterator's internal stack has pushed them as: [Effect, Condition] <- Top.
+                // We skip the first child (Condition) because it contains no mutations.
+                it.skip_children(1);
+
+                // The subsequent it.next() call will proceed directly to the Effect branch.
             }
+
+            // Other structural nodes (And, etc.) are traversed normally by the iterator.
+            _ => {}
         }
     }
-
     Ok(())
 }
 
 /// Traverses the initial state expression to categorize predicates and functions based on their inertia.
 ///
-/// It distinguishes between constant initial facts (Positive inertia) and
-/// Timed Initial Literals (TILs), which are treated as Fluents because they change over time.
+/// It distinguishes between constant initial facts (Positive/Negative inertia) and
+/// Timed Initial Literals (TILs), which are treated as Fluents because they change
+/// values at specific time points.
 ///
 /// # Arguments
 ///
@@ -255,48 +236,50 @@ pub fn collect_fluents_from_effect(
 ///
 /// # Errors
 ///
-/// Returns a [`LirError`] if the expression tree is malformed or if a node cannot be accessed.
-pub fn collect_initial_facts(
-    init_expr: &Expr,
+/// Returns an [`InertiaTableError`] if the expression tree is malformed or if
+/// a node cannot be accessed.
+fn collect_initial_facts(
+    init_expr: Expr<'_>,
     static_predicates: &mut HashSet<AtomSkeletonId>,
     static_functions: &mut HashSet<FunctionSkeletonId>,
     fluent_predicates: &mut HashSet<AtomSkeletonId>,
     fluent_functions: &mut HashSet<FunctionSkeletonId>,
 ) -> Result<(), InertiaTableError> {
-    // Early exit if the expression tree is empty
-    if init_expr.is_empty() {
-        return Ok(());
-    }
-
-    // Stack stores pairs of (NodeID, is_within_temporal_context)
-    let mut stack = vec![(init_expr.try_root_id()?, false)];
+    // Stack of (NodeId, is_within_temporal_context).
+    // We use an explicit stack to avoid recursion and stay memory-efficient.
+    let mut stack = vec![(init_expr.root_id(), false)];
 
     while let Some((node_id, is_timed)) = stack.pop() {
-        let node = init_expr.try_node(node_id)?;
+        // Fetch the node from the old associated with the expression handle.
+        let node = init_expr.store().fetch(node_id)?;
 
-        // A node is considered "timed" if it is already inside a TIL block
-        // or if it specifically defines a Timed Initial Literal.
-        let within_til = is_timed || node.kind() == ExprKind::TimedInitialLiteral;
+        // Determine if the current context is temporal (within a TIL).
+        let within_til = is_timed || matches!(node.kind(), ExprEntryKind::TimedInitialLiteral);
 
-        match node.content() {
-            // Predicates: categorized as Fluent if inside a TIL, otherwise Static (Positive).
-            ExprContent::AtomSkeleton(id) if within_til => {
-                fluent_predicates.insert(*id);
-            }
-            ExprContent::AtomSkeleton(id) => {
-                static_predicates.insert(*id);
-            }
-
-            // Functions: categorized as Fluent if inside a TIL, otherwise Static.
-            ExprContent::FunctionSkeleton(id) if within_til => {
-                fluent_functions.insert(*id);
-            }
-            ExprContent::FunctionSkeleton(id) => {
-                static_functions.insert(*id);
+        match node.kind() {
+            // --- Predicates categorization ---
+            ExprEntryKind::AtomicFormula(id) => {
+                if within_til {
+                    fluent_predicates.insert(*id);
+                } else {
+                    static_predicates.insert(*id);
+                }
             }
 
-            // For structural nodes (And, Not, etc.), propagate the temporal context to children.
+            // --- Functions categorization ---
+            ExprEntryKind::Function(id) => {
+                if within_til {
+                    fluent_functions.insert(*id);
+                } else {
+                    static_functions.insert(*id);
+                }
+            }
+
+            // --- Structural Nodes (And, Or, Not, etc.) ---
             _ => {
+                // Push children onto the stack while propagating the temporal context.
+                // We iterate in reverse to maintain the natural reading order
+                // (though order is irrelevant for inertia analysis).
                 for &child_id in node.children().iter().rev() {
                     stack.push((child_id, within_til));
                 }

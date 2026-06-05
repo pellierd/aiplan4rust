@@ -8,7 +8,7 @@ use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::table::builder::build;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -34,7 +34,7 @@ impl InertiaTable {
     ///
     /// This is the standard entry point for determining which predicates
     /// and functions are constant (Inert) versus fluent.
-    pub fn build(problem: &LiftedProblem) -> Result<Self, InertiaTableError> {
+    pub fn build(problem: &NewLiftedProblem) -> Result<Self, InertiaTableError> {
         Ok(build(problem)?)
     }
 
