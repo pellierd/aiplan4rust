@@ -34,10 +34,9 @@ pub mod qnf;
 /// 8. `positive_form_normalization` (PNF):
 ///    Élimine les négations sur les fluents (ex: `(not at ?x)` -> `at_neg(?x)`).
 ///    Garantit un programme Datalog purement positif, évitant la stratification complexe.
-pub mod quantifier_expansion;
-
 pub use qnf::problem::expand;
 pub use qnf::problem::expand_with;
+
 
 pub use pnf::problem::to_pnf;
 pub use pnf::problem::to_pnf_with_scratchpad;

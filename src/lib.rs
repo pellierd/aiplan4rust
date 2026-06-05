@@ -9,7 +9,7 @@ pub use aiplan4rust::diagnostic::Renderer;
 pub use aiplan4rust::diagnostic::Severity;
 pub use aiplan4rust::grounding::analysis;
 pub use aiplan4rust::grounding::analysis::reachability::datalog::DatalogEngine;
-pub use aiplan4rust::grounding::passes::quantifier_expansion;
+pub use aiplan4rust::grounding::passes::qnf;
 pub use aiplan4rust::grounding::problem::Problem as GroundedProblem;
 pub use aiplan4rust::grounding::Grounder;
 pub use aiplan4rust::lir::LirEncoder;
