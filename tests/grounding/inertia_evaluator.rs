@@ -13,7 +13,7 @@ use aiplan4rust::aiplan4rust::lang::{
 };
 use aiplan4rust::aiplan4rust::lir::expr::Expr;
 // ExprKind est ici
-use aiplan4rust::analysis::inertia::new_evaluator::InertiaEvaluator;
+use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
 
 // IPC 1998
 #[test_case("tests/fixtures/pddl/ipc98/assembly"; "ipc98_pddl_adl_assembly")]

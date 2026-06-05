@@ -1,4 +1,4 @@
-use crate::aiplan4rust::grounding::analysis::inertia::new_evaluator::InertiaEvaluator;
+use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaEvaluator;
 use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTable;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::{pnf, qnf};

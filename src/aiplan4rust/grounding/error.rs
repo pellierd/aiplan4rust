@@ -1,5 +1,5 @@
 use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::grounding::analysis::inertia::new_evaluator::InertiaRegistryError;
+use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaRegistryError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
 use crate::aiplan4rust::grounding::binding::BindingError;
