@@ -1,10 +1,10 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::grounding::analysis::inertia::new_evaluator::InertiaRegistryError;
 use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTable;
+use crate::aiplan4rust::grounding::binding::evaluator::evaluator::ExprEvaluator;
+use crate::aiplan4rust::grounding::binding::evaluator::ExprConstant;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{AtomSkeletonId, CompareOp, FunctionSkeletonId, ObjectId};
-use crate::aiplan4rust::lir::expr::ops::simplification::evaluator::StaticEvaluator;
-use crate::aiplan4rust::lir::expr::ops::simplification::StaticValue;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprNodeRef, ExprStore};
 use crate::aiplan4rust::lir::problem::skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
@@ -25,7 +25,7 @@ type ArgumentBuffer = SmallVec<[ObjectId; ARGUMENT_BUFFER_SIZE]>;
 pub struct InertiaEvaluator<'a> {
     counting_predicates: HashMap<AtomSkeletonId, HashMap<u16, HashMap<Box<[ObjectId]>, usize>>>,
     static_functions:
-        HashMap<FunctionSkeletonId, HashMap<u16, HashMap<Box<[ObjectId]>, StaticValue>>>,
+        HashMap<FunctionSkeletonId, HashMap<u16, HashMap<Box<[ObjectId]>, ExprConstant>>>,
     inertia: &'a InertiaTable,
 
     // --- RÉFÉRENCES EMPRUNTÉES (Context) ---
@@ -33,7 +33,7 @@ pub struct InertiaEvaluator<'a> {
     function_defs: Box<[AtomicFunctionSkeleton]>, // Pour les signatures des fonctions
     value_registry: &'a ValueRegistry,
 
-    consensus_values: HashMap<FunctionSkeletonId, StaticValue>,
+    consensus_values: HashMap<FunctionSkeletonId, ExprConstant>,
 
     max_arity: usize,
     max_proj: usize,
@@ -211,8 +211,8 @@ impl<'a> InertiaEvaluator<'a> {
                 let rhs_entry = store.fetch(rhs_id)?;
 
                 let value = match rhs_entry.kind() {
-                    ExprEntryKind::Number(n) => StaticValue::Number(*n),
-                    ExprEntryKind::Object(obj_id) => StaticValue::Object(*obj_id),
+                    ExprEntryKind::Number(n) => ExprConstant::Number(*n),
+                    ExprEntryKind::Object(obj_id) => ExprConstant::Object(*obj_id),
                     _ => {
                         // Si la valeur n'est ni un nombre ni un objet, structure invalide pour l'init
                         return Ok(());
@@ -376,7 +376,7 @@ impl<'a> InertiaEvaluator<'a> {
         node: ExprNodeRef<'_>, // Le nœud de type Function(id)
         store: &ExprStore,
         buffer: &mut ArgumentBuffer,
-    ) -> Result<Option<StaticValue>, InertiaRegistryError> {
+    ) -> Result<Option<ExprConstant>, InertiaRegistryError> {
         // Dans le nouveau LIR, l'ID est dans le Kind
         let func_id = match node.kind() {
             ExprEntryKind::Function(id) => *id,
@@ -412,7 +412,7 @@ impl<'a> InertiaEvaluator<'a> {
 
                 // Standard PDDL : une fonction numérique non initialisée vaut 0.0 par défaut
                 if def.ty().is_number() {
-                    value = Some(StaticValue::Number(OrderedFloat(0.0)));
+                    value = Some(ExprConstant::Number(OrderedFloat(0.0)));
                 } else {
                     // Pour les fonctions d'objets (Object-Fluents), on renvoie None.
                     // Note : Si ton pipeline a déjà effectué le "object-fluent flattening",
@@ -607,7 +607,7 @@ impl<'a> InertiaEvaluator<'a> {
         key: FunctionSkeletonId,
         arity: usize,
         args: &[ObjectId],
-        val: StaticValue,
+        val: ExprConstant,
     ) {
         // Cas arité 0 : un seul masque possible (0)
         if arity == 0 {
@@ -680,8 +680,8 @@ impl<'a> InertiaEvaluator<'a> {
     }
 }
 
-impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
-    fn evaluate(&self, expr: Expr<'_>) -> Option<StaticValue> {
+impl<'a> ExprEvaluator for InertiaEvaluator<'a> {
+    fn evaluate(&self, expr: Expr<'_>) -> Option<ExprConstant> {
         // 1. On récupère directement le node_ref via le old
         // Si old.fetch(id) renvoie déjà un ExprNodeRef, on l'utilise tel quel.
         let node_ref = expr.store().fetch(expr.root_id()).ok()?;
@@ -698,7 +698,7 @@ impl<'a> StaticEvaluator for InertiaEvaluator<'a> {
                 .evaluate_predicate_internal(node_ref, store, &mut buffer)
                 .ok()
                 .flatten()
-                .map(StaticValue::Boolean),
+                .map(ExprConstant::Boolean),
 
             ExprEntryKind::Function(_) => self
                 .evaluate_function_internal(node_ref, store, &mut buffer)

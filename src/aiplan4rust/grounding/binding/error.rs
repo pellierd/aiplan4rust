@@ -1,3 +1,4 @@
+use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::old::expr::ops::ExprOpError;
 use crate::aiplan4rust::lir::old::expr::ExprError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
@@ -13,6 +14,9 @@ pub enum BindingError {
 
     #[error(transparent)]
     Expr(#[from] ExprError),
+
+    #[error(transparent)]
+    ExprBuilder(#[from] ExprBuilderError),
 }
 
 impl BindingError {}
