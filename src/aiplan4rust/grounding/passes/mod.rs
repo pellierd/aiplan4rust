@@ -1,5 +1,6 @@
-mod new_quantifier_expansion;
+mod pnf;
 pub mod positive_form_normalization;
+mod qnf;
 /// --- PIPELINE DE GROUNDING (Ordre de dépendance strict) ---
 ///
 /// 1. `type_inference`:

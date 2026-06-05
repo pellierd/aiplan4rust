@@ -158,6 +158,13 @@ pub enum StorerError {
         /// The index/ID that failed to be retrieved.
         id: ExprId,
     },
+
+    /// Indicates an invalid node encounter during processing.
+    #[error("Invalid node encountered at store index {expr_id}")]
+    InvalidNode {
+        /// The Hash-Consed ID of the expression node.
+        expr_id: ExprId,
+    },
 }
 
 impl StorerError {
@@ -292,6 +299,11 @@ impl StorerError {
     #[track_caller]
     pub fn expr_not_found(id: ExprId) -> Self {
         StorerError::ExprNotFound { id }.trace()
+    }
+
+    #[track_caller]
+    pub fn invalid_node(expr_id: ExprId) -> Self {
+        StorerError::InvalidNode { expr_id }.trace()
     }
 }
 

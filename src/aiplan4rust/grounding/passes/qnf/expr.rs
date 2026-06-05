@@ -2,7 +2,7 @@ use crate::aiplan4rust::grounding::binding::evaluator::ExprEvaluator;
 use crate::aiplan4rust::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::grounding::binding::{bind_with, BindingScratchpad};
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::passes::new_quantifier_expansion::ExpansionScratchpad;
+use crate::aiplan4rust::grounding::passes::qnf::ExpansionScratchpad;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId, ExprStore};
