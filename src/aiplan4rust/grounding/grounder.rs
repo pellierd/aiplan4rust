@@ -6,7 +6,7 @@ use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::grounding::{config, GroundingResult};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::DiagnosticManager;
 
 /// The `Grounder` is responsible for converting a lifted planning problem
@@ -54,7 +54,7 @@ impl Grounder {
     /// ```
     pub fn ground(
         &mut self,
-        mut lifted_problem: NewLiftedProblem,
+        mut lifted_problem: LiftedProblem,
     ) -> Result<GroundingResult, GroundingError> {
         // 1. OBJECT FLUENT FLATTENING
         // TO DO
@@ -262,7 +262,7 @@ impl Grounder {
     /// ```
     pub fn build_with_diagnostic_manager(
         &mut self,
-        lifted_problem: NewLiftedProblem,
+        lifted_problem: LiftedProblem,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<GroundingResult, GroundingError> {
         self.diagnostic_manager = diagnostic_manager;

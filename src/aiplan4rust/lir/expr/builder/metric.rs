@@ -31,7 +31,7 @@
 
 use crate::aiplan4rust::lang::OptimizationOp;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs a metric expression for plan optimization.
@@ -49,7 +49,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// * `ExprId` - The ID of the newly created Metric node.
     pub fn metric_exp(&mut self, opt: OptimizationOp, expr: ExprId) -> ExprId {
-        self.intern(ExprEntryKind::Metric(opt), &[expr])
+        self.intern(ExprKind::Metric(opt), &[expr])
     }
 
     /// Creates a minimization objective for the given expression.
@@ -87,7 +87,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// * `ExprId` - The ID of the global `total-time` variable.
     pub fn total_time(&mut self) -> ExprId {
-        self.intern(ExprEntryKind::TotalTime, &[])
+        self.intern(ExprKind::TotalTime, &[])
     }
 
     /// Returns the unique identifier for the `total-cost` variable.
@@ -99,7 +99,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// * `ExprId` - The ID of the global `total-cost` variable.
     pub fn total_cost(&mut self) -> ExprId {
-        self.intern(ExprEntryKind::TotalCost, &[])
+        self.intern(ExprKind::TotalCost, &[])
     }
 
     /// Constructs plan length constraints, potentially combining serial and parallel limits.
@@ -121,7 +121,7 @@ impl<'a> ExprBuilder<'a> {
             (Some(s), Some(p)) => {
                 let s_id = self.serial(s);
                 let p_id = self.parallel(p);
-                self.intern(ExprEntryKind::Length, &[s_id, p_id])
+                self.intern(ExprKind::Length, &[s_id, p_id])
             }
         }
     }
@@ -141,7 +141,7 @@ impl<'a> ExprBuilder<'a> {
             return self.empty_or();
         }
         let number = self.number(value);
-        self.intern(ExprEntryKind::Serial, &[number])
+        self.intern(ExprKind::Serial, &[number])
     }
 
     /// Defines a constraint on the number of parallel steps in the plan.
@@ -159,7 +159,7 @@ impl<'a> ExprBuilder<'a> {
             return self.empty_or();
         }
         let number = self.number(value);
-        self.intern(ExprEntryKind::Parallel, &[number])
+        self.intern(ExprKind::Parallel, &[number])
     }
 }
 
@@ -187,7 +187,7 @@ mod tests {
 
         // Use fetch to verify existence and retrieve the node
         let node = builder.fetch(t1).expect("total-time node should exist");
-        assert!(matches!(node.kind(), ExprEntryKind::TotalTime));
+        assert!(matches!(node.kind(), ExprKind::TotalTime));
     }
 
     /// Verifies that metrics preserve their intent even with constant expressions.
@@ -204,7 +204,7 @@ mod tests {
             .fetch(min_id)
             .expect("Metric node should be fetchable");
 
-        if let ExprEntryKind::Metric(opt) = node.kind() {
+        if let ExprKind::Metric(opt) = node.kind() {
             assert_eq!(*opt, OptimizationOp::Minimize);
             assert_eq!(node.children()[0], zero);
         } else {
@@ -224,13 +224,13 @@ mod tests {
         // Case: Serial only
         let serial_only = builder.length(Some(10.0), None);
         let s_node = builder.fetch(serial_only).unwrap();
-        assert!(matches!(s_node.kind(), ExprEntryKind::Serial));
+        assert!(matches!(s_node.kind(), ExprKind::Serial));
 
         // Case: Both
         let both = builder.length(Some(10.0), Some(20.0));
         let b_node = builder.fetch(both).expect("Length node should exist");
 
-        assert!(matches!(b_node.kind(), ExprEntryKind::Length));
+        assert!(matches!(b_node.kind(), ExprKind::Length));
         assert_eq!(b_node.children().len(), 2);
     }
 
@@ -255,13 +255,13 @@ mod tests {
 
         // 3. Vérification structurelle simplifiée
         let node = builder.fetch(res_id).unwrap();
-        assert!(matches!(node.kind(), ExprEntryKind::Serial));
+        assert!(matches!(node.kind(), ExprKind::Serial));
 
         // On récupère la valeur numérique stockée
         let num_id = node.children()[0];
         let num_val = builder.fetch(num_id).unwrap();
 
-        if let ExprEntryKind::Number(val) = num_val.kind() {
+        if let ExprKind::Number(val) = num_val.kind() {
             // On vérifie que la valeur est dans la zone de tolérance
             assert!(val.into_inner() >= -EPSILON);
         } else {
@@ -287,7 +287,7 @@ mod tests {
         let node_max = builder.fetch(max_id).unwrap();
         assert!(matches!(
             node_max.kind(),
-            ExprEntryKind::Metric(OptimizationOp::Maximize)
+            ExprKind::Metric(OptimizationOp::Maximize)
         ));
     }
 

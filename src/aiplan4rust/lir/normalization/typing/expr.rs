@@ -19,7 +19,7 @@
 //! cache misses and freeing the CPU from intermediate vector allocations.
 
 use crate::aiplan4rust::lir::expr::iter::Scratchpad;
-use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprId, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId, ExprKind, ExprStore};
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::lir::normalization::typing::{typed_symbol, TypeRegistry};
 
@@ -123,17 +123,17 @@ pub fn normalize(
 
                 // Unify and normalize type signatures within quantifier scopes
                 let kind = match node_ref.kind().clone() {
-                    ExprEntryKind::Forall(mut vars) => {
+                    ExprKind::Forall(mut vars) => {
                         for var in vars.iter_mut() {
                             typed_symbol::normalize_typed_variable(var, registry)?;
                         }
-                        ExprEntryKind::Forall(vars)
+                        ExprKind::Forall(vars)
                     }
-                    ExprEntryKind::Exists(mut vars) => {
+                    ExprKind::Exists(mut vars) => {
                         for var in vars.iter_mut() {
                             typed_symbol::normalize_typed_variable(var, registry)?;
                         }
-                        ExprEntryKind::Exists(vars)
+                        ExprKind::Exists(vars)
                     }
                     other_kind => other_kind,
                 };

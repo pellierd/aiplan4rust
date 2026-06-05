@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::fmt;
 
 /// Represents the outcome of the IR (Intermediate Representation) building phase.
@@ -19,7 +19,7 @@ pub enum Result {
     /// IR was successfully built.
     Success {
         /// The constructed lifted problem.
-        lifted_problem: NewLiftedProblem,
+        lifted_problem: LiftedProblem,
         /// Diagnostics collected during the build.
         diagnostic_manager: DiagnosticManager,
     },
@@ -41,10 +41,7 @@ impl Result {
     ///
     /// # Returns
     /// A `Result::Success` variant.
-    pub fn success(
-        lifted_problem: NewLiftedProblem,
-        diagnostic_manager: DiagnosticManager,
-    ) -> Self {
+    pub fn success(lifted_problem: LiftedProblem, diagnostic_manager: DiagnosticManager) -> Self {
         Self::Success {
             lifted_problem,
             diagnostic_manager,
@@ -71,7 +68,7 @@ impl Result {
     /// # Returns
     /// - `Some(&LiftedProblem)` if the build succeeded.
     /// - `None` if the build failed.
-    pub fn lifted_problem(&self) -> Option<&NewLiftedProblem> {
+    pub fn lifted_problem(&self) -> Option<&LiftedProblem> {
         match self {
             Self::Success { lifted_problem, .. } => Some(lifted_problem),
             Self::Failure { .. } => None,
@@ -79,7 +76,7 @@ impl Result {
     }
 
     /// Returns a mutable reference to the constructed IR if available.
-    pub fn lifted_problem_mut(&mut self) -> Option<&mut NewLiftedProblem> {
+    pub fn lifted_problem_mut(&mut self) -> Option<&mut LiftedProblem> {
         match self {
             Self::Success { lifted_problem, .. } => Some(lifted_problem),
             Self::Failure { .. } => None,
@@ -87,7 +84,7 @@ impl Result {
     }
 
     /// Consumes and returns the lifted problem if available.
-    pub fn take_lifted_problem(&mut self) -> Option<NewLiftedProblem> {
+    pub fn take_lifted_problem(&mut self) -> Option<LiftedProblem> {
         match self {
             Self::Success { lifted_problem, .. } => Some(std::mem::take(lifted_problem)),
             Self::Failure { .. } => None,

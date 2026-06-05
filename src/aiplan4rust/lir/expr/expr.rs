@@ -1,7 +1,7 @@
 // On suppose que ton itérateur est défini dans le module old
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::lir::expr::{ExprId, ExprNodeRef, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprNode, ExprStore};
 
 /// Un "Handle" (poignée) vers une expression complète stockée dans un `ExprStore`.
 ///
@@ -32,7 +32,7 @@ impl<'a> Expr<'a> {
     }
 
     /// Accède directement au nœud racine sous forme de `ExprNodeRef`.
-    pub fn root_node(&self) -> Result<ExprNodeRef<'a>, StorerError> {
+    pub fn root_node(&self) -> Result<ExprNode<'a>, StorerError> {
         self.store.fetch(self.root)
     }
 
@@ -46,7 +46,7 @@ impl<'a> Expr<'a> {
     }
 
     /// Récupère directement le nœud d'un enfant (pratique dans les boucles).
-    pub fn fetch_node(&self, id: ExprId) -> Result<ExprNodeRef<'a>, StorerError> {
+    pub fn fetch_node(&self, id: ExprId) -> Result<ExprNode<'a>, StorerError> {
         self.store.fetch(id)
     }
 

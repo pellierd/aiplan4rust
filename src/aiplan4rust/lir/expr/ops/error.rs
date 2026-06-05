@@ -1,11 +1,11 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ExprOpErrorHC {
+pub enum ExprOpError {
     #[error(transparent)]
     Store(#[from] StorerError),
 
@@ -19,9 +19,9 @@ pub enum ExprOpErrorHC {
         /// The ID of the node where the violation occurred.
         id: ExprId,
         /// The kind of the parent temporal operator.
-        parent_kind: ExprEntryKind,
+        parent_kind: ExprKind,
         /// The kind of the nested temporal operator that is forbidden.
-        nested_kind: ExprEntryKind,
+        nested_kind: ExprKind,
     },
 
     /// A required sub-expression variant was missing from the scratchpad structural memoization cache.
@@ -33,15 +33,15 @@ pub enum ExprOpErrorHC {
     NnfLogicError,
 }
 
-impl ExprOpErrorHC {
+impl ExprOpError {
     /// Creates an `IllegalTemporalNesting` error variant and captures the call site.
     #[track_caller]
     pub fn illegal_temporal_nesting(
         id: ExprId,
-        parent_kind: ExprEntryKind,
-        nested_kind: ExprEntryKind,
+        parent_kind: ExprKind,
+        nested_kind: ExprKind,
     ) -> Self {
-        ExprOpErrorHC::IllegalTemporalNesting {
+        ExprOpError::IllegalTemporalNesting {
             id,
             parent_kind,
             nested_kind,
@@ -52,14 +52,14 @@ impl ExprOpErrorHC {
     /// Creates a `CacheMiss` error variant and captures the call site.
     #[track_caller]
     pub fn cache_miss() -> Self {
-        ExprOpErrorHC::CacheMiss.trace()
+        ExprOpError::CacheMiss.trace()
     }
 
     /// Creates a `NnfLogicError` error variant and captures the call site.
     #[track_caller]
     pub fn nnf_logic_error() -> Self {
-        ExprOpErrorHC::NnfLogicError.trace()
+        ExprOpError::NnfLogicError.trace()
     }
 }
 
-impl Traceable for ExprOpErrorHC {}
+impl Traceable for ExprOpError {}

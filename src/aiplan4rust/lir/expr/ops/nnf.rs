@@ -30,11 +30,11 @@
 //! * **Inlined Logic**: Boolean dualities (De Morgan) are computed via branchless
 //!   bitwise operations where possible.
 
-use crate::aiplan4rust::lir::expr::ops::error::ExprOpErrorHC;
+use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
 
 use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::lir::expr::iter::scratchpad::Scratchpad;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 /// Converts a logical expression to Negation Normal Form (NNF).
 ///
@@ -77,13 +77,13 @@ use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
 ///
 /// * `Ok(ExprId)` - The identifier pointing to the newly generated NNF expression.
 /// * `Err(ExprOpErrorHC)` - An internal operational error if structural retrieval fails,
-///   if a structural cache miss occurs ([`ExprOpErrorHC::CacheMiss`]), or if the root node
-///   fails to reconstruct ([`ExprOpErrorHC::NnfLogicError`]).
+///   if a structural cache miss occurs ([`ExprOpError::CacheMiss`]), or if the root node
+///   fails to reconstruct ([`ExprOpError::NnfLogicError`]).
 pub fn to_nnf(
     id: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
-) -> Result<ExprId, ExprOpErrorHC> {
+) -> Result<ExprId, ExprOpError> {
     if id.is_none() {
         return Ok(id);
     }
@@ -110,7 +110,7 @@ pub fn to_nnf(
             let (is_not, start, end) = {
                 let entry = builder.fetch(curr_id)?;
                 let (s, e) = scratch.prepare_children_segment(entry.children());
-                (matches!(entry.kind(), ExprEntryKind::Not), s, e)
+                (matches!(entry.kind(), ExprKind::Not), s, e)
             };
 
             scratch.push(packed_id, true);
@@ -140,7 +140,7 @@ pub fn to_nnf(
             let (start, end) = scratch.last_segment_indices(entry_child_count);
 
             let new_id = match &kind {
-                ExprEntryKind::Not => {
+                ExprKind::Not => {
                     let child_id = scratch.children_buffer()[start];
                     let target_packed = ExprId::new(encode(child_id.as_usize(), !negate));
 
@@ -150,13 +150,13 @@ pub fn to_nnf(
                             let fallback_packed = ExprId::new(encode(child_id.as_usize(), negate));
                             scratch
                                 .get(fallback_packed)
-                                .ok_or_else(|| ExprOpErrorHC::cache_miss())?
+                                .ok_or_else(|| ExprOpError::cache_miss())?
                         }
                     }
                 }
 
-                ExprEntryKind::And | ExprEntryKind::Or => {
-                    let is_and = matches!(kind, ExprEntryKind::And);
+                ExprKind::And | ExprKind::Or => {
+                    let is_and = matches!(kind, ExprKind::And);
 
                     scratch.build_buffer_mut().clear();
                     for i in start..end {
@@ -171,7 +171,7 @@ pub fn to_nnf(
 
                                 scratch
                                     .get(fallback_packed)
-                                    .ok_or_else(|| ExprOpErrorHC::cache_miss())?
+                                    .ok_or_else(|| ExprOpError::cache_miss())?
                             }
                         };
                         scratch.build_buffer_mut().push(transformed);
@@ -184,8 +184,8 @@ pub fn to_nnf(
                     }
                 }
 
-                ExprEntryKind::Forall(vars) | ExprEntryKind::Exists(vars) => {
-                    let is_forall = matches!(kind, ExprEntryKind::Forall(_));
+                ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
+                    let is_forall = matches!(kind, ExprKind::Forall(_));
                     let child_id = scratch.children_buffer()[start];
                     let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
 
@@ -195,7 +195,7 @@ pub fn to_nnf(
                             let fallback_packed = ExprId::new(encode(child_id.as_usize(), !negate));
                             scratch
                                 .get(fallback_packed)
-                                .ok_or_else(|| ExprOpErrorHC::cache_miss())?
+                                .ok_or_else(|| ExprOpError::cache_miss())?
                         }
                     };
 
@@ -225,7 +225,7 @@ pub fn to_nnf(
         }
     }
 
-    final_id.ok_or_else(|| ExprOpErrorHC::nnf_logic_error())
+    final_id.ok_or_else(|| ExprOpError::nnf_logic_error())
 }
 
 /// Determines the effective boolean operator (AND or OR) after applying a negation polarity.
@@ -336,7 +336,7 @@ mod tests {
 
         // 3. Validation
         // On attend un OR à la racine
-        assert!(matches!(root_node.kind(), ExprEntryKind::Or));
+        assert!(matches!(root_node.kind(), ExprKind::Or));
         let children = root_node.children();
         assert_eq!(children.len(), 2);
 
@@ -347,7 +347,7 @@ mod tests {
 
         for &child_id in children {
             let child_node = builder.fetch(child_id)?;
-            assert!(matches!(child_node.kind(), ExprEntryKind::Not));
+            assert!(matches!(child_node.kind(), ExprKind::Not));
 
             let leaf_id = child_node.children()[0];
             if leaf_id == a {
@@ -384,7 +384,7 @@ mod tests {
 
         // 3. Validation
         // La racine doit être un AND
-        assert!(matches!(root_node.kind(), ExprEntryKind::And));
+        assert!(matches!(root_node.kind(), ExprKind::And));
         let children = root_node.children();
         assert_eq!(children.len(), 2);
 
@@ -394,7 +394,7 @@ mod tests {
 
         for &child_id in children {
             let child_node = builder.fetch(child_id)?;
-            assert!(matches!(child_node.kind(), ExprEntryKind::Not));
+            assert!(matches!(child_node.kind(), ExprKind::Not));
 
             let leaf_id = child_node.children()[0];
             if leaf_id == a {
@@ -439,13 +439,13 @@ mod tests {
         // 3. Validation
         // The Forall under negation must have become an Exists
         assert!(
-            matches!(root_node.kind(), ExprEntryKind::Exists(_)),
+            matches!(root_node.kind(), ExprKind::Exists(_)),
             "Expected Exists node, but the quantifier was likely pruned. Got: {:?}",
             root_node.kind()
         );
 
         // Verify that variables are preserved
-        if let ExprEntryKind::Exists(ref vars) = root_node.kind() {
+        if let ExprKind::Exists(ref vars) = root_node.kind() {
             assert_eq!(vars.len(), 1);
             assert_eq!(vars[0].symbol(), var_id);
         }
@@ -453,7 +453,7 @@ mod tests {
         // The body of the Exists must be ¬A
         let body_id = root_node.children()[0];
         let body_node = builder.fetch(body_id)?;
-        assert!(matches!(body_node.kind(), ExprEntryKind::Not));
+        assert!(matches!(body_node.kind(), ExprKind::Not));
 
         let inner_atom_id = body_node.children()[0];
         assert_eq!(inner_atom_id, a, "The atom inside the negation was altered");
@@ -489,7 +489,7 @@ mod tests {
         // 3. Validation
         // The Exists under negation must have become a Forall
         assert!(
-            matches!(root_node.kind(), ExprEntryKind::Forall(_)),
+            matches!(root_node.kind(), ExprKind::Forall(_)),
             "Expected Forall node, but it was likely pruned because the variable was unused. Got: {:?}",
             root_node.kind()
         );
@@ -497,7 +497,7 @@ mod tests {
         // Verify the body: ¬A
         let body_id = root_node.children()[0];
         let body_node = builder.fetch(body_id)?;
-        assert!(matches!(body_node.kind(), ExprEntryKind::Not));
+        assert!(matches!(body_node.kind(), ExprKind::Not));
 
         let inner_atom_id = body_node.children()[0];
         assert_eq!(inner_atom_id, a, "The inner atom was lost or modified");
@@ -524,7 +524,7 @@ mod tests {
 
         // 3. Validation
         // Le Kind doit rester Not
-        assert!(matches!(root_node.kind(), ExprEntryKind::Not));
+        assert!(matches!(root_node.kind(), ExprKind::Not));
 
         // L'enfant doit toujours être l'atome d'origine
         let child_id = root_node.children()[0];
@@ -571,7 +571,7 @@ mod tests {
 
         // 3. Validation
         assert!(
-            matches!(root_node.kind(), ExprEntryKind::Or),
+            matches!(root_node.kind(), ExprKind::Or),
             "Root must be an OR node"
         );
         let children = root_node.children();
@@ -595,18 +595,16 @@ mod tests {
             let node = builder.fetch(child_id)?;
             match node.kind() {
                 // Case ¬A
-                ExprEntryKind::Not if node.children()[0] == a => {
+                ExprKind::Not if node.children()[0] == a => {
                     found_not_a = true;
                 }
 
                 // Case ∀x.¬C
-                ExprEntryKind::Forall(_) => {
+                ExprKind::Forall(_) => {
                     let body_id = node.children()[0];
                     let body_node = builder.fetch(body_id)?;
                     // Verify that the Forall body is Not(C)
-                    if matches!(body_node.kind(), ExprEntryKind::Not)
-                        && body_node.children()[0] == c
-                    {
+                    if matches!(body_node.kind(), ExprKind::Not) && body_node.children()[0] == c {
                         found_forall_not_c = true;
                     }
                 }
@@ -680,7 +678,7 @@ mod tests {
         let children: Vec<ExprId> = {
             let node = builder.fetch(result_id)?;
             assert!(
-                matches!(node.kind(), ExprEntryKind::Or),
+                matches!(node.kind(), ExprKind::Or),
                 "Root must be an OR node"
             );
             node.children().to_vec()
@@ -703,7 +701,7 @@ mod tests {
         // Now this will pass because 'x' was not pruned during construction.
         let has_exists = children.iter().any(|&id| {
             let node = builder.get(id).unwrap();
-            matches!(node.kind(), ExprEntryKind::Exists(_))
+            matches!(node.kind(), ExprKind::Exists(_))
         });
 
         assert!(
@@ -758,7 +756,7 @@ mod tests {
         // Validation
         // 1. La racine est bien un AND (De Morgan sur le OR)
         assert!(
-            matches!(root_node.kind(), ExprEntryKind::And),
+            matches!(root_node.kind(), ExprKind::And),
             "Doit être un AND"
         );
 
@@ -791,7 +789,7 @@ mod tests {
         let root_node = builder.fetch(result_id)?;
 
         // Le résultat doit être simplement ¬A (ID de n1)
-        assert!(matches!(root_node.kind(), ExprEntryKind::Not));
+        assert!(matches!(root_node.kind(), ExprKind::Not));
         assert_eq!(root_node.children()[0], a);
         assert_eq!(
             result_id, n1,

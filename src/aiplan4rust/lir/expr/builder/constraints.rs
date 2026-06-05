@@ -24,7 +24,7 @@
 //! **Validation** (Is interval valid?) → **Folding** (Is it trivially True/False?) → **Interning**.
 
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs an `always` constraint: the condition must hold in every single state
@@ -42,7 +42,7 @@ impl<'a> ExprBuilder<'a> {
         if expr == self.empty_and() {
             return expr;
         }
-        self.intern(ExprEntryKind::Always, &[expr])
+        self.intern(ExprKind::Always, &[expr])
     }
 
     /// Constructs a `sometime` constraint: the condition must be satisfied at least
@@ -60,7 +60,7 @@ impl<'a> ExprBuilder<'a> {
         if expr == self.empty_or() {
             return expr;
         }
-        self.intern(ExprEntryKind::Sometime, &[expr])
+        self.intern(ExprKind::Sometime, &[expr])
     }
 
     /// Constructs an `at-most-once` constraint: the condition can be true for
@@ -73,7 +73,7 @@ impl<'a> ExprBuilder<'a> {
     /// # Parameters
     /// * `expr` - The [`ExprId`] of the condition to monitor for state flips.
     pub fn at_most_once(&mut self, expr: ExprId) -> ExprId {
-        self.intern(ExprEntryKind::AtMostOnce, &[expr])
+        self.intern(ExprKind::AtMostOnce, &[expr])
     }
 
     /// Constructs a `sometime-after` constraint: if the `first` condition ever holds,
@@ -92,7 +92,7 @@ impl<'a> ExprBuilder<'a> {
         if first == self.empty_or() {
             return self.empty_and();
         }
-        self.intern(ExprEntryKind::SometimeAfter, &[first, second])
+        self.intern(ExprKind::SometimeAfter, &[first, second])
     }
 
     /// Constructs a `sometime-before` constraint: if the `first` condition ever holds,
@@ -111,7 +111,7 @@ impl<'a> ExprBuilder<'a> {
         if first == self.empty_or() {
             return self.empty_and();
         }
-        self.intern(ExprEntryKind::SometimeBefore, &[first, second])
+        self.intern(ExprKind::SometimeBefore, &[first, second])
     }
 
     /// Constructs a `within` constraint: the condition must hold at least once
@@ -146,7 +146,7 @@ impl<'a> ExprBuilder<'a> {
         }
 
         let duration_node = self.number(v);
-        self.intern(ExprEntryKind::Within, &[duration_node, expr])
+        self.intern(ExprKind::Within, &[duration_node, expr])
     }
 
     /// Constructs an `always-within` constraint: whenever the `first` condition occurs,
@@ -174,7 +174,7 @@ impl<'a> ExprBuilder<'a> {
         }
 
         let number_node = self.number(d);
-        self.intern(ExprEntryKind::AlwaysWithin, &[number_node, first, second])
+        self.intern(ExprKind::AlwaysWithin, &[number_node, first, second])
     }
 
     /// Constructs a `hold-during` constraint: the condition must hold throughout
@@ -215,7 +215,7 @@ impl<'a> ExprBuilder<'a> {
 
         let start_node = self.number(s);
         let end_node = self.number(e);
-        self.intern(ExprEntryKind::HoldDuring, &[start_node, end_node, expr])
+        self.intern(ExprKind::HoldDuring, &[start_node, end_node, expr])
     }
 
     /// Constructs a `hold-after` constraint: the condition must hold for all timestamps $t \ge \text{time}$.
@@ -241,7 +241,7 @@ impl<'a> ExprBuilder<'a> {
 
         let time_val = time.into(); // Conversion transparente
         let time_node = self.number(time_val);
-        self.intern(ExprEntryKind::HoldAfter, &[time_node, expr])
+        self.intern(ExprKind::HoldAfter, &[time_node, expr])
     }
 }
 
@@ -265,7 +265,7 @@ mod tests {
 
         let id = builder.always(var);
         let node = builder.get(id).expect("Node must exist");
-        assert!(matches!(node.kind(), ExprEntryKind::Always));
+        assert!(matches!(node.kind(), ExprKind::Always));
     }
 
     /// Objective: Verify that 'sometime' correctly folds False and interns other expressions.
@@ -282,7 +282,7 @@ mod tests {
 
         let id = builder.sometime(var);
         let node = builder.get(id).unwrap();
-        assert!(matches!(node.kind(), ExprEntryKind::Sometime));
+        assert!(matches!(node.kind(), ExprKind::Sometime));
     }
 
     /// Objective: Ensure 'at_most_once' always interns without folding.
@@ -298,13 +298,13 @@ mod tests {
         let id = builder.at_most_once(var);
         assert!(matches!(
             builder.get(id).unwrap().kind(),
-            ExprEntryKind::AtMostOnce
+            ExprKind::AtMostOnce
         ));
 
         let id_true = builder.at_most_once(true_val);
         assert!(matches!(
             builder.get(id_true).unwrap().kind(),
-            ExprEntryKind::AtMostOnce
+            ExprKind::AtMostOnce
         ));
     }
 
@@ -341,7 +341,7 @@ mod tests {
         let node = builder.get(id).unwrap();
         let duration_id = node.children()[0];
         assert!(
-            matches!(builder.get(duration_id).unwrap().kind(), ExprEntryKind::Number(n) if *n == 10.0)
+            matches!(builder.get(duration_id).unwrap().kind(), ExprKind::Number(n) if *n == 10.0)
         );
     }
 
@@ -378,7 +378,7 @@ mod tests {
         let id = builder.hold_after(10.0, var);
         assert!(matches!(
             builder.get(id).unwrap().kind(),
-            ExprEntryKind::HoldAfter
+            ExprKind::HoldAfter
         ));
     }
 

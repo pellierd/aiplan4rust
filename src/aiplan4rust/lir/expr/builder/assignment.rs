@@ -40,7 +40,7 @@
 
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a functional assignment node: `(op target value)`.
@@ -103,13 +103,12 @@ impl<'a> ExprBuilder<'a> {
                     AssignOp::ScaleUp => {
                         let zero = self.number(0.0);
                         return self
-                            .intern(ExprEntryKind::Assignment(AssignOp::Assign), &[target, zero]);
+                            .intern(ExprKind::Assignment(AssignOp::Assign), &[target, zero]);
                     }
                     // Divisor is nearly 0.0: f = f / 0  => f = NaN (Safe Totalization)
                     AssignOp::ScaleDown => {
                         let nan = self.number(f64::NAN);
-                        return self
-                            .intern(ExprEntryKind::Assignment(AssignOp::Assign), &[target, nan]);
+                        return self.intern(ExprKind::Assignment(AssignOp::Assign), &[target, nan]);
                     }
                     _ => {}
                 }
@@ -118,7 +117,7 @@ impl<'a> ExprBuilder<'a> {
 
         // 4. Standard Interning
         // If no optimizations apply, the assignment is interned into the old.
-        self.intern(ExprEntryKind::Assignment(op), &[target, value])
+        self.intern(ExprKind::Assignment(op), &[target, value])
     }
 
     /// Creates an assignment effect: `(assign target value)`.
@@ -208,7 +207,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, VariableId};
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::expr::{ExprKind, ExprStore};
 
     /// Test: (increase f1 0.0) -> empty_and
     /// Description: Verifies that additive and multiplicative identity operations
@@ -261,7 +260,7 @@ mod tests {
         let effect = builder.scale_up(target, zero);
 
         let node = builder.get(effect).expect("Effect node should exist");
-        if let ExprEntryKind::Assignment(op) = node.kind() {
+        if let ExprKind::Assignment(op) = node.kind() {
             assert_eq!(
                 *op,
                 AssignOp::Assign,
@@ -300,7 +299,7 @@ mod tests {
         let node = builder.get(a1).unwrap();
         assert!(matches!(
             node.kind(),
-            ExprEntryKind::Assignment(AssignOp::Assign)
+            ExprKind::Assignment(AssignOp::Assign)
         ));
         assert_eq!(node.children()[0], target);
         assert_eq!(node.children()[1], val);
@@ -320,7 +319,7 @@ mod tests {
         let node = builder.get(effect).unwrap();
         assert!(matches!(
             node.kind(),
-            ExprEntryKind::Assignment(AssignOp::Assign)
+            ExprKind::Assignment(AssignOp::Assign)
         ));
         assert_eq!(node.children()[0], node.children()[1]);
     }
@@ -345,7 +344,7 @@ mod tests {
         let node = builder.get(effect).unwrap();
         assert!(matches!(
             node.kind(),
-            ExprEntryKind::Assignment(AssignOp::Increase)
+            ExprKind::Assignment(AssignOp::Increase)
         ));
     }
 
@@ -388,7 +387,7 @@ mod tests {
 
         // Check transformation to Assign
         assert!(
-            matches!(node.kind(), ExprEntryKind::Assignment(AssignOp::Assign)),
+            matches!(node.kind(), ExprKind::Assignment(AssignOp::Assign)),
             "Scale-down by zero must be reduced to a direct assignment."
         );
 

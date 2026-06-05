@@ -1,6 +1,5 @@
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
-use crate::aiplan4rust::lir::old::expr::ExprError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use thiserror::Error;
 
@@ -9,10 +8,6 @@ pub enum InertiaError {
     /// An error related to arena allocation.
     #[error(transparent)]
     Arena(#[from] ArenaError),
-
-    /// An error originating from the logic.
-    #[error(transparent)]
-    Expr(#[from] ExprError),
 
     #[error("Inertia missing for predicate: {id:?}")]
     MissingPredicateInertia { id: AtomSkeletonId },

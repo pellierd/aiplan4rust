@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::ExprId;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::renderers::debug::common::writeln_centered;
 use crate::aiplan4rust::lir::renderers::debug::{action, atom, expr, function, method, typed_list};
 use crate::aiplan4rust::lir::renderers::RenderContext;
@@ -8,7 +8,7 @@ use std::fmt;
 /// Structure privée pour faire le pont avec le système de formatage de Rust.
 /// Elle transporte maintenant une référence au problème ET au contexte de rendu.
 struct ProblemWrapper<'a> {
-    problem: &'a NewLiftedProblem,
+    problem: &'a LiftedProblem,
     ctx: &'a RenderContext<'a>,
 }
 
@@ -21,7 +21,7 @@ impl<'a> fmt::Display for ProblemWrapper<'a> {
 
 /// Retourne la représentation textuelle complète du problème.
 /// Nécessite le contexte pour résoudre les symboles (IDs -> Noms).
-pub fn to_string(problem: &NewLiftedProblem, ctx: &RenderContext) -> String {
+pub fn to_string(problem: &LiftedProblem, ctx: &RenderContext) -> String {
     // La méthode .to_string() est automatiquement fournie par le trait Display
     ProblemWrapper { problem, ctx }.to_string()
 }
@@ -29,7 +29,7 @@ pub fn to_string(problem: &NewLiftedProblem, ctx: &RenderContext) -> String {
 /// Renders a `LiftedProblem` in a structured, human-readable format.
 pub fn render(
     f: &mut fmt::Formatter<'_>,
-    problem: &NewLiftedProblem,
+    problem: &LiftedProblem,
     ctx: &RenderContext,
 ) -> fmt::Result {
     // === HEADER ===

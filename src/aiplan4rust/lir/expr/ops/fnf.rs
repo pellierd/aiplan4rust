@@ -66,8 +66,8 @@
 
 use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::lir::expr::iter::scratchpad::Scratchpad;
-use crate::aiplan4rust::lir::expr::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 use smallvec::SmallVec;
 
 /// The inline capacity threshold for stack-allocated child arrays.
@@ -131,7 +131,7 @@ pub fn to_fnf(
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
     recursive: bool,
-) -> Result<ExprId, ExprOpErrorHC> {
+) -> Result<ExprId, ExprOpError> {
     if expr.is_none() {
         return Ok(expr);
     }
@@ -185,13 +185,13 @@ fn prepare_input(
     expr: ExprId,
     builder: &ExprBuilder,
     scratch: &mut Scratchpad,
-) -> Result<SmallVec<[ExprId; MAX_CHILDREN]>, ExprOpErrorHC> {
+) -> Result<SmallVec<[ExprId; MAX_CHILDREN]>, ExprOpError> {
     let mut naked = SmallVec::new();
 
     scratch.clear();
     let entry = builder.fetch(expr)?;
 
-    let children = if matches!(entry.kind(), ExprEntryKind::Or) {
+    let children = if matches!(entry.kind(), ExprKind::Or) {
         entry.children()
     } else {
         std::slice::from_ref(&expr)
@@ -200,7 +200,7 @@ fn prepare_input(
     for &child_id in children {
         let child_entry = builder.fetch(child_id)?;
 
-        if matches!(child_entry.kind(), ExprEntryKind::And) {
+        if matches!(child_entry.kind(), ExprKind::And) {
             let child_kids = child_entry.children();
             let start = scratch.flat_groups().len();
 
@@ -244,7 +244,7 @@ fn factorize_slice(
     start_idx: usize,
     end_idx: usize,
     recursive: bool,
-) -> Result<ExprId, ExprOpErrorHC> {
+) -> Result<ExprId, ExprOpError> {
     if (end_idx - start_idx) < 2 {
         return Ok(rebuild_flat_groups(builder, scratch, start_idx, end_idx));
     }
@@ -352,13 +352,13 @@ mod tests {
         let entry = builder.fetch(result_id)?;
 
         // The root should now be an AND node because 'A' was extracted.
-        assert!(matches!(entry.kind(), ExprEntryKind::And));
+        assert!(matches!(entry.kind(), ExprKind::And));
         assert!(entry.children().contains(&a));
 
         // The other child of the AND should be the OR(B, C).
         let remaining_or_id = entry.children().iter().find(|&&id| id != a).unwrap();
         let remaining_or = builder.fetch(*remaining_or_id)?;
-        assert!(matches!(remaining_or.kind(), ExprEntryKind::Or));
+        assert!(matches!(remaining_or.kind(), ExprKind::Or));
         assert!(remaining_or.children().contains(&b));
         assert!(remaining_or.children().contains(&c));
 
@@ -388,7 +388,7 @@ mod tests {
         let entry = builder.fetch(result_id)?;
 
         // The root must remain an OR because 'D' cannot be factored with 'A'.
-        assert!(matches!(entry.kind(), ExprEntryKind::Or));
+        assert!(matches!(entry.kind(), ExprKind::Or));
         let children = entry.children();
         assert!(children.contains(&d));
 
@@ -396,7 +396,7 @@ mod tests {
         let factored_child = children.iter().find(|&&id| id != d).unwrap();
         assert!(matches!(
             builder.fetch(*factored_child)?.kind(),
-            ExprEntryKind::And
+            ExprKind::And
         ));
 
         Ok(())
@@ -425,7 +425,7 @@ mod tests {
         let result_id = to_fnf(root, &mut builder, &mut scratch, true)?;
         let entry = builder.fetch(result_id)?;
 
-        assert!(matches!(entry.kind(), ExprEntryKind::And));
+        assert!(matches!(entry.kind(), ExprKind::And));
         let children = entry.children();
         // A and B should both be top-level children of the factored AND.
         assert!(children.contains(&a));
@@ -506,7 +506,7 @@ mod tests {
         let result_id = to_fnf(root, &mut builder, &mut scratch, true)?;
         let entry = builder.fetch(result_id)?;
 
-        assert!(matches!(entry.kind(), ExprEntryKind::And));
+        assert!(matches!(entry.kind(), ExprKind::And));
         assert!(entry.children().contains(&common_factor));
         Ok(())
     }
@@ -533,7 +533,7 @@ mod tests {
         // After factoring A and B, the remaining OR is empty or contains identity.
         // The result should logically be equivalent to (A & B).
         let entry = builder.fetch(result_id)?;
-        if matches!(entry.kind(), ExprEntryKind::And) {
+        if matches!(entry.kind(), ExprKind::And) {
             assert!(entry.children().contains(&a));
             assert!(entry.children().contains(&b));
         } else {
@@ -589,7 +589,7 @@ mod tests {
         let result_id = to_fnf(root, &mut builder, &mut scratch, true)?;
         let entry = builder.fetch(result_id)?;
 
-        assert!(matches!(entry.kind(), ExprEntryKind::And));
+        assert!(matches!(entry.kind(), ExprKind::And));
         let children = entry.children();
         assert!(children.contains(&a));
         assert!(children.contains(&b));
@@ -635,7 +635,7 @@ mod tests {
 
         // Root should be an AND node because 'A' was extracted from every branch of the top-level OR
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "The root should have been transformed into an AND node after extracting factor 'A'"
         );
 

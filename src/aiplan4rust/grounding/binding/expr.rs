@@ -2,7 +2,7 @@ use crate::aiplan4rust::grounding::binding::error::BindingError;
 use crate::aiplan4rust::grounding::binding::evaluator::{ExprConstant, ExprEvaluator};
 use crate::aiplan4rust::grounding::binding::Bindings;
 use crate::aiplan4rust::lir::expr::expr::Expr;
-use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprId, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId, ExprKind, ExprStore};
 use std::collections::hash_map::Entry;
 
 use super::scratchpad::BindingScratchpad;
@@ -77,7 +77,7 @@ pub fn bind_with(
 
             // Évaluation et reconstruction du nœud courant
             let mut current_id = match entry_kind {
-                ExprEntryKind::Variable(var_id) => {
+                ExprKind::Variable(var_id) => {
                     if let Some(obj_id) = sub.get(&var_id) {
                         builder.object(obj_id)
                     } else {
@@ -124,11 +124,8 @@ pub fn bind_with(
 
 /// Filtre pour savoir si on doit soumettre le nœud à l'évaluateur statique.
 #[inline]
-fn is_evaluable(kind: &ExprEntryKind) -> bool {
-    matches!(
-        kind,
-        ExprEntryKind::AtomicFormula(_) | ExprEntryKind::Function(_)
-    )
+fn is_evaluable(kind: &ExprKind) -> bool {
+    matches!(kind, ExprKind::AtomicFormula(_) | ExprKind::Function(_))
 }
 
 #[cfg(test)]
@@ -154,7 +151,7 @@ mod tests {
         let final_id = result.unwrap();
 
         assert_ne!(final_id, expr_var);
-        if let ExprEntryKind::Object(o) = store[final_id].kind() {
+        if let ExprKind::Object(o) = store[final_id].kind() {
             assert_eq!(*o, obj_id);
         } else {
             panic!("The final node should be an Object.");
@@ -244,7 +241,7 @@ mod tests {
         let children = store[new_root].children();
         let arg_id = children[1];
 
-        if let ExprEntryKind::Object(id) = store[arg_id].kind() {
+        if let ExprKind::Object(id) = store[arg_id].kind() {
             assert_eq!(*id, obj_100);
         } else {
             panic!("The argument was not substituted into an Object.");
@@ -277,14 +274,14 @@ mod tests {
         let children = store[new_root].children();
 
         let arg_x = children[1];
-        if let ExprEntryKind::Object(id) = store[arg_x].kind() {
+        if let ExprKind::Object(id) = store[arg_x].kind() {
             assert_eq!(*id, obj_100);
         } else {
             panic!("First argument should be an Object");
         }
 
         let arg_z = children[2];
-        if let ExprEntryKind::Variable(id) = store[arg_z].kind() {
+        if let ExprKind::Variable(id) = store[arg_z].kind() {
             assert_eq!(*id, z_id);
         } else {
             panic!("Second argument should remain a Variable");
@@ -344,7 +341,7 @@ mod tests {
             let entry_kind = expr.store()[expr_id].kind();
 
             match entry_kind {
-                ExprEntryKind::AtomicFormula(skel_id) => {
+                ExprKind::AtomicFormula(skel_id) => {
                     if *skel_id == self.target_skeleton {
                         Some(ExprConstant::Boolean(false))
                     } else {
@@ -382,7 +379,7 @@ mod tests {
 
         let children = store[new_root].children();
         assert_eq!(children[1], children[2]);
-        if let ExprEntryKind::Object(id) = store[children[1]].kind() {
+        if let ExprKind::Object(id) = store[children[1]].kind() {
             assert_eq!(*id, obj_100);
         } else {
             panic!("Diamond substitution failed.");
@@ -428,7 +425,7 @@ mod tests {
     impl ExprEvaluator for MockEvaluatorNumber {
         fn evaluate(&self, expr: Expr) -> Option<ExprConstant> {
             let expr_id = expr.root_id();
-            if let ExprEntryKind::AtomicFormula(skel_id) = expr.store()[expr_id].kind() {
+            if let ExprKind::AtomicFormula(skel_id) = expr.store()[expr_id].kind() {
                 if *skel_id == self.target_skeleton {
                     return Some(ExprConstant::Number(42.0.into()));
                 }
@@ -460,7 +457,7 @@ mod tests {
         )
         .unwrap();
 
-        if let ExprEntryKind::Object(id) = store[new_root].kind() {
+        if let ExprKind::Object(id) = store[new_root].kind() {
             assert_eq!(*id, ObjectId::new(88));
         } else {
             panic!("Variable should have bypassed the evaluator.");

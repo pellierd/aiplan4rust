@@ -1,7 +1,7 @@
 //! This module handles the syntax rendering of PDDL/HDDL expressions using an iterative stack machine.
 
 use crate::aiplan4rust::lang::{TypeId, TypedSymbol, VariableId};
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 use crate::aiplan4rust::lir::renderers::syntax::typed_list;
 use crate::aiplan4rust::lir::renderers::RenderContext;
 use std::fmt;
@@ -58,9 +58,7 @@ pub fn render_with_indent(
 
                 match kind {
                     // --- FORMULES ATOMIQUES / SQUELETTES / TÂCHES ---
-                    ExprEntryKind::AtomicFormula(_)
-                    | ExprEntryKind::Function(_)
-                    | ExprEntryKind::Task(_) => {
+                    ExprKind::AtomicFormula(_) | ExprKind::Function(_) | ExprKind::Task(_) => {
                         stack.push(RenderOp::Write(")"));
 
                         for (i, &child_id) in children.iter().enumerate().rev() {
@@ -75,7 +73,7 @@ pub fn render_with_indent(
                     }
 
                     // --- CONNECTEURS LOGIQUES N-AIRES (and, or) ---
-                    ExprEntryKind::And | ExprEntryKind::Or => {
+                    ExprKind::And | ExprKind::Or => {
                         stack.push(RenderOp::Write(")"));
 
                         let is_multiline = children.len() > 1;
@@ -108,18 +106,18 @@ pub fn render_with_indent(
                     }
 
                     // --- CONNECTEURS UNRESETS / BINAIRES (not, imply) ---
-                    ExprEntryKind::Not | ExprEntryKind::Imply => {
+                    ExprKind::Not | ExprKind::Imply => {
                         stack.push(RenderOp::Write(")"));
 
                         let child_is_complex = children.first().map_or(false, |&c| {
                             let k = context.store()[c].kind();
                             matches!(
                                 k,
-                                ExprEntryKind::And
-                                    | ExprEntryKind::Or
-                                    | ExprEntryKind::Forall(_)
-                                    | ExprEntryKind::Exists(_)
-                                    | ExprEntryKind::When
+                                ExprKind::And
+                                    | ExprKind::Or
+                                    | ExprKind::Forall(_)
+                                    | ExprKind::Exists(_)
+                                    | ExprKind::When
                             )
                         });
 
@@ -140,7 +138,7 @@ pub fn render_with_indent(
                     }
 
                     // --- QUANTIFICATEURS (forall / exists) ---
-                    ExprEntryKind::Forall(typed_list) | ExprEntryKind::Exists(typed_list) => {
+                    ExprKind::Forall(typed_list) | ExprKind::Exists(typed_list) => {
                         stack.push(RenderOp::Write(")"));
 
                         if let Some(&body_id) = children.first() {
@@ -160,32 +158,32 @@ pub fn render_with_indent(
                     }
 
                     // --- COMPARAISONS, ASSIGNATIONS & ARITHMÉTIQUE ---
-                    ExprEntryKind::Comparison(op) => {
+                    ExprKind::Comparison(op) => {
                         render_infix_operation(op.to_string(), children, 0, &mut stack);
                         stack.push(RenderOp::Indent(indent));
                     }
-                    ExprEntryKind::Assignment(op) => {
+                    ExprKind::Assignment(op) => {
                         render_infix_operation(op.to_string(), children, 0, &mut stack);
                         stack.push(RenderOp::Indent(indent));
                     }
-                    ExprEntryKind::Arithmetic(op) => {
+                    ExprKind::Arithmetic(op) => {
                         render_infix_operation(op.to_string(), children, 0, &mut stack);
                         stack.push(RenderOp::Indent(indent));
                     }
 
                     // --- TEMPORELS & MODAUX (at start, overall...) ---
-                    ExprEntryKind::AtStart
-                    | ExprEntryKind::AtEnd
-                    | ExprEntryKind::Overall
-                    | ExprEntryKind::Always
-                    | ExprEntryKind::Sometime
-                    | ExprEntryKind::Within
-                    | ExprEntryKind::AtMostOnce
-                    | ExprEntryKind::SometimeAfter
-                    | ExprEntryKind::SometimeBefore
-                    | ExprEntryKind::AlwaysWithin
-                    | ExprEntryKind::HoldDuring
-                    | ExprEntryKind::HoldAfter => {
+                    ExprKind::AtStart
+                    | ExprKind::AtEnd
+                    | ExprKind::Overall
+                    | ExprKind::Always
+                    | ExprKind::Sometime
+                    | ExprKind::Within
+                    | ExprKind::AtMostOnce
+                    | ExprKind::SometimeAfter
+                    | ExprKind::SometimeBefore
+                    | ExprKind::AlwaysWithin
+                    | ExprKind::HoldDuring
+                    | ExprKind::HoldAfter => {
                         stack.push(RenderOp::Write(")"));
                         for &child_id in children.iter().rev() {
                             stack.push(RenderOp::Write(" "));
@@ -197,7 +195,7 @@ pub fn render_with_indent(
                     }
 
                     // --- EFFETS CONDITIONNELS (when) ---
-                    ExprEntryKind::When => {
+                    ExprKind::When => {
                         stack.push(RenderOp::Write(")"));
 
                         if let Some(&effect_id) = children.get(1) {
@@ -218,7 +216,7 @@ pub fn render_with_indent(
                     }
 
                     // --- MÉTRIQUES ---
-                    ExprEntryKind::Metric(op) => {
+                    ExprKind::Metric(op) => {
                         stack.push(RenderOp::Write(")"));
                         if let Some(&goal_id) = children.get(1) {
                             stack.push(RenderOp::Process(goal_id, 0));
@@ -232,7 +230,7 @@ pub fn render_with_indent(
                     }
 
                     // --- HTN & CONTRAINTES D'ORDONNANCEMENT ---
-                    ExprEntryKind::LabeledTask => {
+                    ExprKind::LabeledTask => {
                         stack.push(RenderOp::Write(")"));
                         if let Some(&task_id) = children.get(1) {
                             stack.push(RenderOp::Process(task_id, 0));
@@ -244,7 +242,7 @@ pub fn render_with_indent(
                         stack.push(RenderOp::Write("("));
                         stack.push(RenderOp::Indent(indent));
                     }
-                    ExprEntryKind::TimedInitialLiteral => {
+                    ExprKind::TimedInitialLiteral => {
                         stack.push(RenderOp::Write(")"));
                         if let Some(&effect_id) = children.get(1) {
                             stack.push(RenderOp::Process(effect_id, 0));
@@ -256,7 +254,7 @@ pub fn render_with_indent(
                         stack.push(RenderOp::Write(" (at "));
                         stack.push(RenderOp::Indent(indent));
                     }
-                    ExprEntryKind::TaskOrderingConstraint(op) => {
+                    ExprKind::TaskOrderingConstraint(op) => {
                         stack.push(RenderOp::Write(")"));
                         for (i, &child_id) in children.iter().enumerate().rev() {
                             stack.push(RenderOp::Process(child_id, 0));
@@ -270,14 +268,14 @@ pub fn render_with_indent(
                     }
 
                     // --- FEUILLES TERMINALES STANDARD ---
-                    ExprEntryKind::Variable(_)
-                    | ExprEntryKind::Object(_)
-                    | ExprEntryKind::PredicateSymbol(_)
-                    | ExprEntryKind::FunctionSymbol(_)
-                    | ExprEntryKind::TaskSymbol(_)
-                    | ExprEntryKind::PrefName(_)
-                    | ExprEntryKind::TaskLabel(_)
-                    | ExprEntryKind::Number(_) => {
+                    ExprKind::Variable(_)
+                    | ExprKind::Object(_)
+                    | ExprKind::PredicateSymbol(_)
+                    | ExprKind::FunctionSymbol(_)
+                    | ExprKind::TaskSymbol(_)
+                    | ExprKind::PrefName(_)
+                    | ExprKind::TaskLabel(_)
+                    | ExprKind::Number(_) => {
                         stack.push(RenderOp::WriteContent(id));
                     }
 
@@ -314,14 +312,14 @@ fn render_infix_operation(
 fn render_terminal_node(f: &mut Formatter<'_>, id: ExprId, ctx: &RenderContext) -> fmt::Result {
     let kind = ctx.store()[id].kind();
     match kind {
-        ExprEntryKind::Variable(v_id) => write!(f, "?x{}", v_id.as_usize()),
-        ExprEntryKind::Object(obj_id) => write!(f, "{}", ctx.resolve_object(*obj_id)),
-        ExprEntryKind::PredicateSymbol(p_id) => write!(f, "{}", ctx.resolve_predicate(*p_id)),
-        ExprEntryKind::FunctionSymbol(func_id) => write!(f, "{}", ctx.resolve_functor(*func_id)),
-        ExprEntryKind::TaskSymbol(t_id) => write!(f, "{}", ctx.resolve_task_symbol(*t_id)),
-        ExprEntryKind::TaskLabel(l_id) => write!(f, "t{}", l_id.as_usize()),
-        ExprEntryKind::Number(val) => write!(f, "{}", val),
-        ExprEntryKind::PrefName(p_id) => write!(f, "pref_{}", p_id.as_usize()),
+        ExprKind::Variable(v_id) => write!(f, "?x{}", v_id.as_usize()),
+        ExprKind::Object(obj_id) => write!(f, "{}", ctx.resolve_object(*obj_id)),
+        ExprKind::PredicateSymbol(p_id) => write!(f, "{}", ctx.resolve_predicate(*p_id)),
+        ExprKind::FunctionSymbol(func_id) => write!(f, "{}", ctx.resolve_functor(*func_id)),
+        ExprKind::TaskSymbol(t_id) => write!(f, "{}", ctx.resolve_task_symbol(*t_id)),
+        ExprKind::TaskLabel(l_id) => write!(f, "t{}", l_id.as_usize()),
+        ExprKind::Number(val) => write!(f, "{}", val),
+        ExprKind::PrefName(p_id) => write!(f, "pref_{}", p_id.as_usize()),
         _ => Ok(()),
     }
 }

@@ -35,7 +35,7 @@ pub fn normalize(
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::{ArithmeticOp, AtomSkeletonId, PredicateSymbolId};
-    use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
 
     /// Complex test for AND-flattening and structural deduplication.
     ///
@@ -69,7 +69,7 @@ mod tests {
 
         // The root must be a logical AND
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "Root should be an AND node, found {:?}",
             entry.kind()
         );
@@ -120,7 +120,7 @@ mod tests {
 
         // The root must remain an AND node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "Root should be an AND node"
         );
 
@@ -136,7 +136,7 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             assert!(
-                matches!(child.kind(), ExprEntryKind::AtomicFormula(_)),
+                matches!(child.kind(), ExprKind::AtomicFormula(_)),
                 "Child {:?} should be an AtomicFormula",
                 child_id
             );
@@ -180,7 +180,7 @@ mod tests {
 
         // The root must be an OR node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node"
         );
 
@@ -195,7 +195,7 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             assert!(
-                matches!(child.kind(), ExprEntryKind::AtomicFormula(_)),
+                matches!(child.kind(), ExprKind::AtomicFormula(_)),
                 "Child {:?} should be an AtomicFormula",
                 child_id
             );
@@ -240,7 +240,7 @@ mod tests {
         let entry = store.fetch(root_after)?;
 
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node"
         );
 
@@ -256,7 +256,7 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             assert!(
-                matches!(child.kind(), ExprEntryKind::AtomicFormula(_)),
+                matches!(child.kind(), ExprKind::AtomicFormula(_)),
                 "Child {:?} should be an AtomicFormula",
                 child_id
             );
@@ -294,7 +294,7 @@ mod tests {
         // The root should no longer be an AND node.
         // It should have been reduced directly to the AtomicFormula.
         assert!(
-            matches!(entry.kind(), ExprEntryKind::AtomicFormula(_)),
+            matches!(entry.kind(), ExprKind::AtomicFormula(_)),
             "The single-child AND chain should be reduced to the leaf atom, found: {:?}",
             entry.kind()
         );
@@ -309,7 +309,7 @@ mod tests {
         let pred_leaf = store.fetch(pred_leaf_id)?;
 
         // Correction ici : On extrait le PredicateSymbolId via le bon variant de ton énumération
-        if let ExprEntryKind::PredicateSymbol(pid) = pred_leaf.kind() {
+        if let ExprKind::PredicateSymbol(pid) = pred_leaf.kind() {
             assert_eq!(pid.as_usize(), 1, "The predicate ID must be 1");
         } else {
             panic!(
@@ -342,7 +342,7 @@ mod tests {
 
         // Ensure it remains an AND node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "Empty AND should remain an AND node"
         );
 
@@ -377,7 +377,7 @@ mod tests {
 
         // Ensure it remains an OR node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Empty OR should remain an OR node"
         );
 
@@ -418,7 +418,7 @@ mod tests {
 
         // Le nœud racine ne doit plus être un NOT, mais directement l'AtomicFormula
         assert!(
-            matches!(entry.kind(), ExprEntryKind::AtomicFormula(_)),
+            matches!(entry.kind(), ExprKind::AtomicFormula(_)),
             "Double negation should be eliminated, leaving only the atom, found: {:?}",
             entry.kind()
         );
@@ -433,7 +433,7 @@ mod tests {
         let pred_leaf = store.fetch(pred_leaf_id)?;
 
         // On vérifie que c'est bien notre PredicateSymbol avec la valeur 1
-        if let ExprEntryKind::PredicateSymbol(pid) = pred_leaf.kind() {
+        if let ExprKind::PredicateSymbol(pid) = pred_leaf.kind() {
             assert_eq!(pid.as_usize(), 1, "The predicate ID must be 1");
         } else {
             panic!(
@@ -469,7 +469,7 @@ mod tests {
 
         // The root should now be an OR node (representing False)
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Negating an empty AND should result in an empty OR (False), found: {:?}",
             entry.kind()
         );
@@ -512,7 +512,7 @@ mod tests {
 
         // The root should now be the AND node (both NOT layers stripped)
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "Double negation over AND should result in the AND node being promoted to root, found: {:?}",
             entry.kind()
         );
@@ -528,7 +528,7 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             assert!(
-                matches!(child.kind(), ExprEntryKind::AtomicFormula(_)),
+                matches!(child.kind(), ExprKind::AtomicFormula(_)),
                 "Child {:?} should be an AtomicFormula",
                 child_id
             );
@@ -566,7 +566,7 @@ mod tests {
 
         // The root should be an OR node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node, found: {:?}",
             entry.kind()
         );
@@ -585,8 +585,8 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             match child.kind() {
-                ExprEntryKind::Not => not_count += 1,
-                ExprEntryKind::AtomicFormula(_) => atom_count += 1,
+                ExprKind::Not => not_count += 1,
+                ExprKind::AtomicFormula(_) => atom_count += 1,
                 _ => panic!(
                     "Unexpected node kind in normalized implication: {:?}",
                     child.kind()
@@ -626,7 +626,7 @@ mod tests {
 
         // The root should be an OR node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node, found: {:?}",
             entry.kind()
         );
@@ -645,10 +645,10 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             match child.kind() {
-                ExprEntryKind::And => has_and = true,
-                ExprEntryKind::AtomicFormula(_CustomSkelID) => has_atom = true,
+                ExprKind::And => has_and = true,
+                ExprKind::AtomicFormula(_CustomSkelID) => has_atom = true,
                 // Au cas où ta NNF ne pousse pas De Morgan et garde le NOT en surface :
-                ExprEntryKind::Not => has_and = true,
+                ExprKind::Not => has_and = true,
                 _ => {}
             }
         }
@@ -695,13 +695,13 @@ mod tests {
 
         // The root should now be a single Number node (constant folding)
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Number(_)),
+            matches!(entry.kind(), ExprKind::Number(_)),
             "Nested arithmetic constants should be folded into a single Number, found: {:?}",
             entry.kind()
         );
 
         // Verify the value is exactly 11.0
-        if let ExprEntryKind::Number(val) = entry.kind() {
+        if let ExprKind::Number(val) = entry.kind() {
             // Note: Adapte '.into_inner()' ou '.as_f64()' selon la méthode de ton type Float/OrderedFloat
             assert_eq!(
                 val.into_inner(),
@@ -744,13 +744,13 @@ mod tests {
 
         // Check that the tree collapsed into a single Number node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Number(_)),
+            matches!(entry.kind(), ExprKind::Number(_)),
             "Nested arithmetic constants should be folded into a single Number, found: {:?}",
             entry.kind()
         );
 
         // Verify the constant value
-        if let ExprEntryKind::Number(val) = entry.kind() {
+        if let ExprKind::Number(val) = entry.kind() {
             assert_eq!(
                 val.into_inner(),
                 7.0,
@@ -799,13 +799,13 @@ mod tests {
 
         // Ensure the entire tree collapsed into a single Number
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Number(_)),
+            matches!(entry.kind(), ExprKind::Number(_)),
             "Nested operations should be fully folded, found: {:?}",
             entry.kind()
         );
 
         // Verify the final calculated value
-        if let ExprEntryKind::Number(val) = entry.kind() {
+        if let ExprKind::Number(val) = entry.kind() {
             assert_eq!(
                 val.into_inner(),
                 16.0,
@@ -847,7 +847,7 @@ mod tests {
 
         // 1. Verify the root is still an Addition operation
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Arithmetic(ArithmeticOp::Add)),
+            matches!(entry.kind(), ExprKind::Arithmetic(ArithmeticOp::Add)),
             "Root should still be an Add node, found: {:?}",
             entry.kind()
         );
@@ -860,7 +860,7 @@ mod tests {
         let mut mul_child_entry = None;
         for &child_id in children {
             let child = store.fetch(child_id)?;
-            if matches!(child.kind(), ExprEntryKind::Arithmetic(ArithmeticOp::Mul)) {
+            if matches!(child.kind(), ExprKind::Arithmetic(ArithmeticOp::Mul)) {
                 mul_child_entry = Some(child);
                 break;
             }
@@ -883,8 +883,8 @@ mod tests {
         for &c_id in mul_children {
             let c_node = store.fetch(c_id)?;
             match c_node.kind() {
-                ExprEntryKind::AtomicFormula(_) => found_a = true,
-                ExprEntryKind::Number(val) => {
+                ExprKind::AtomicFormula(_) => found_a = true,
+                ExprKind::Number(val) => {
                     if val.into_inner() == 3.0 {
                         found_three = true;
                     }
@@ -925,7 +925,7 @@ mod tests {
 
         // The root should now be an OR node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Implication should be transformed into an OR node, found: {:?}",
             entry.kind()
         );
@@ -944,8 +944,8 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             match child.kind() {
-                ExprEntryKind::Not => has_not = true,
-                ExprEntryKind::AtomicFormula(_CustomSkelID) => has_atom = true,
+                ExprKind::Not => has_not = true,
+                ExprKind::AtomicFormula(_CustomSkelID) => has_atom = true,
                 _ => {}
             }
         }
@@ -985,7 +985,7 @@ mod tests {
 
         // Vérification de la racine OR
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node, found: {:?}",
             entry.kind()
         );
@@ -1002,7 +1002,7 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             match child.kind() {
-                ExprEntryKind::Not => {
+                ExprKind::Not => {
                     // Le fils du NOT doit être l'atome A
                     let grand_child_id = child
                         .children()
@@ -1011,11 +1011,11 @@ mod tests {
                         .expect("NOT node should have a child");
                     let grand_child = store.fetch(grand_child_id)?;
 
-                    if matches!(grand_child.kind(), ExprEntryKind::AtomicFormula(_)) {
+                    if matches!(grand_child.kind(), ExprKind::AtomicFormula(_)) {
                         has_not_a = true;
                     }
                 }
-                ExprEntryKind::AtomicFormula(_) => {
+                ExprKind::AtomicFormula(_) => {
                     has_b = true;
                 }
                 _ => {}
@@ -1060,7 +1060,7 @@ mod tests {
 
         // 1. Verify root is OR
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node, found: {:?}",
             entry.kind()
         );
@@ -1073,18 +1073,18 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             match child.kind() {
-                ExprEntryKind::Not => {
+                ExprKind::Not => {
                     let grandchild_id = child
                         .children()
                         .get(0)
                         .copied()
                         .expect("NOT node should have a child");
                     let grandchild = store.fetch(grandchild_id)?;
-                    if matches!(grandchild.kind(), ExprEntryKind::AtomicFormula(_)) {
+                    if matches!(grandchild.kind(), ExprKind::AtomicFormula(_)) {
                         has_negated_a = true;
                     }
                 }
-                ExprEntryKind::And => {
+                ExprKind::And => {
                     if child.children().len() == 2 {
                         has_and_bc = true;
                     }
@@ -1139,7 +1139,7 @@ mod tests {
 
         // Verify the root is an OR node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::Or),
+            matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node, found: {:?}",
             entry.kind()
         );
@@ -1156,15 +1156,15 @@ mod tests {
         for &child_id in entry.children() {
             let child = store.fetch(child_id)?;
             match child.kind() {
-                ExprEntryKind::AtomicFormula(_) => {
+                ExprKind::AtomicFormula(_) => {
                     // This should be the simplified consequent B
                     has_positive_b = true;
                 }
-                ExprEntryKind::Not => {
+                ExprKind::Not => {
                     // This should be the negated antecedent (not A)
                     if let Some(&grandchild_id) = child.children().get(0) {
                         let grandchild = store.fetch(grandchild_id)?;
-                        if matches!(grandchild.kind(), ExprEntryKind::AtomicFormula(_)) {
+                        if matches!(grandchild.kind(), ExprKind::AtomicFormula(_)) {
                             has_negated_a = true;
                         }
                     }
@@ -1221,7 +1221,7 @@ mod tests {
 
         // The root should now be the AND node of the effect
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "The WHEN node should be simplified to its effect if the condition is True, found: {:?}",
             entry.kind()
         );
@@ -1237,7 +1237,7 @@ mod tests {
         for &child_id in children {
             let child_node = store.fetch(child_id)?;
             assert!(
-                matches!(child_node.kind(), ExprEntryKind::AtomicFormula(_)),
+                matches!(child_node.kind(), ExprKind::AtomicFormula(_)),
                 "Child node should be an AtomicFormula, found: {:?}",
                 child_node.kind()
             );
@@ -1282,7 +1282,7 @@ mod tests {
 
         // The root must be an empty AND
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "A conditional effect with a False condition must become an empty (and), found: {:?}",
             entry.kind()
         );
@@ -1335,7 +1335,7 @@ mod tests {
 
         // The root must be an empty AND (null effect)
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "An effect identical to its condition is redundant and should be simplified, found: {:?}",
             entry.kind()
         );
@@ -1382,7 +1382,7 @@ mod tests {
 
         // The root must be an empty AND
         assert!(
-            matches!(entry.kind(), ExprEntryKind::And),
+            matches!(entry.kind(), ExprKind::And),
             "A conditional effect with no effect should be removed, found: {:?}",
             entry.kind()
         );

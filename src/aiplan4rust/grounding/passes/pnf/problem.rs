@@ -2,13 +2,13 @@ use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::pnf::scratchpad::PnfScratchpad;
 use crate::aiplan4rust::grounding::passes::pnf::{action, derived_predicate, expr, method};
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Fully applies the Positive Normal Form (PNF) transformation across the entire planning problem.
 ///
 /// Convenience wrapper around [`to_pnf_with_scratchpad`] that allocates the temporary
 /// scratchpad locally on the fly.
-pub fn to_pnf(problem: &mut NewLiftedProblem) -> Result<Vec<AtomSkeletonId>, GroundingError> {
+pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, GroundingError> {
     let mut scratchpad = PnfScratchpad::new();
     to_pnf_with_scratchpad(problem, &mut scratchpad)
 }
@@ -18,7 +18,7 @@ pub fn to_pnf(problem: &mut NewLiftedProblem) -> Result<Vec<AtomSkeletonId>, Gro
 /// Extrait temporairement le store d'expressions du problème pour lever les contraintes d'emprunt (ownership)
 /// et réutilise un unique `PfnScratchpad` pour garantir zéro allocation sur l'ensemble du processus.
 pub fn to_pnf_with_scratchpad(
-    problem: &mut NewLiftedProblem,
+    problem: &mut LiftedProblem,
     scratchpad: &mut PnfScratchpad,
 ) -> Result<Vec<AtomSkeletonId>, GroundingError> {
     let mut negated_atoms = Vec::new();

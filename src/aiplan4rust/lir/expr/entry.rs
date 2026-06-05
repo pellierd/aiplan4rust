@@ -13,7 +13,7 @@
 //!   remains a flat, cache-efficient structure.
 
 use crate::aiplan4rust::lir::expr::id::ExprId;
-use crate::aiplan4rust::lir::expr::ExprEntryKind;
+use crate::aiplan4rust::lir::expr::ExprKind;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -35,7 +35,7 @@ pub const INLINE_CAPACITY: usize = 4;
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ExprEntry {
     /// The specific type and semantic data of this expression (Predicate, And, Not, etc.).
-    kind: ExprEntryKind,
+    kind: ExprKind,
 
     /// The list of children identifiers pointing back into the [`ExprStore`].
     children: SmallVec<[ExprId; INLINE_CAPACITY]>,
@@ -46,7 +46,7 @@ impl ExprEntry {
     ///
     /// Note: Usually, you should use `ExprStore::intern` rather than creating
     /// entries manually to ensure uniqueness.
-    pub fn new(kind: ExprEntryKind, children_slice: &[ExprId]) -> Self {
+    pub fn new(kind: ExprKind, children_slice: &[ExprId]) -> Self {
         Self {
             kind,
             children: SmallVec::from_slice(children_slice),
@@ -74,7 +74,7 @@ impl ExprEntry {
     }
 
     /// Provides a reference to the kind of the expression.
-    pub fn kind(&self) -> &ExprEntryKind {
+    pub fn kind(&self) -> &ExprKind {
         &self.kind
     }
 }

@@ -22,8 +22,8 @@ use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::lir::expr::expr::Expr;
-use crate::aiplan4rust::lir::expr::ExprEntryKind;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::expr::ExprKind;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::analysis::inertia::table::InertiaTableError;
 use std::collections::HashSet;
 
@@ -48,7 +48,7 @@ use std::collections::HashSet;
 ///
 /// Returns a [`LirError`] if any expression tree traversal (actions or initial state) fails,
 /// typically due to a malformed AST or an inaccessible node.
-pub fn build(problem: &NewLiftedProblem) -> Result<InertiaTable, InertiaTableError> {
+pub fn build(problem: &LiftedProblem) -> Result<InertiaTable, InertiaTableError> {
     let mut fluent_predicates = HashSet::new();
     let mut fluent_functions = HashSet::new();
     let mut static_predicates = HashSet::new();
@@ -93,7 +93,7 @@ pub fn build(problem: &NewLiftedProblem) -> Result<InertiaTable, InertiaTableErr
 ///
 /// Returns a [`LirError`] if an error occurs while traversing an action's effect expression.
 fn collect_all_action_fluents(
-    problem: &NewLiftedProblem,
+    problem: &LiftedProblem,
     fluent_predicates: &mut HashSet<AtomSkeletonId>,
     fluent_functions: &mut HashSet<FunctionSkeletonId>,
 ) -> Result<(), InertiaTableError> {
@@ -124,7 +124,7 @@ fn collect_all_action_fluents(
 ///
 /// A populated [`InertiaTable`] representing the stability of all symbols.
 fn build_inertia_table(
-    problem: &NewLiftedProblem,
+    problem: &LiftedProblem,
     fluent_predicates: HashSet<AtomSkeletonId>,
     fluent_functions: HashSet<FunctionSkeletonId>,
     constant_predicates: HashSet<AtomSkeletonId>,
@@ -196,15 +196,15 @@ fn collect_fluents_from_effect(
 
     while let Some((_id, _depth, _is_last, entry)) = it.next() {
         match entry.kind() {
-            ExprEntryKind::AtomicFormula(id) => {
+            ExprKind::AtomicFormula(id) => {
                 fluent_predicates.insert(*id);
             }
 
-            ExprEntryKind::Function(id) => {
+            ExprKind::Function(id) => {
                 fluent_functions.insert(*id);
             }
 
-            ExprEntryKind::When => {
+            ExprKind::When => {
                 // A 'When' node has exactly 2 children: [0: Condition, 1: Effect].
                 // The iterator's internal stack has pushed them as: [Effect, Condition] <- Top.
                 // We skip the first child (Condition) because it contains no mutations.
@@ -254,11 +254,11 @@ fn collect_initial_facts(
         let node = init_expr.store().fetch(node_id)?;
 
         // Determine if the current context is temporal (within a TIL).
-        let within_til = is_timed || matches!(node.kind(), ExprEntryKind::TimedInitialLiteral);
+        let within_til = is_timed || matches!(node.kind(), ExprKind::TimedInitialLiteral);
 
         match node.kind() {
             // --- Predicates categorization ---
-            ExprEntryKind::AtomicFormula(id) => {
+            ExprKind::AtomicFormula(id) => {
                 if within_til {
                     fluent_predicates.insert(*id);
                 } else {
@@ -267,7 +267,7 @@ fn collect_initial_facts(
             }
 
             // --- Functions categorization ---
-            ExprEntryKind::Function(id) => {
+            ExprKind::Function(id) => {
                 if within_til {
                     fluent_functions.insert(*id);
                 } else {

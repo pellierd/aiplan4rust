@@ -6,9 +6,9 @@ use crate::aiplan4rust::grounding::binding::evaluator::ExprConstant;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{AtomSkeletonId, CompareOp, FunctionSkeletonId, ObjectId};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprNodeRef, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprKind, ExprNode, ExprStore};
 use crate::aiplan4rust::lir::problem::skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use ordered_float::OrderedFloat;
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -68,9 +68,9 @@ impl<'a> InertiaEvaluator<'a> {
         while let Some((id, _, _, entry)) = it.next() {
             match entry.kind() {
                 // On traite les faits atomiques et les assignations de fonctions
-                ExprEntryKind::AtomicFormula(_) | ExprEntryKind::Comparison(_) => {
+                ExprKind::AtomicFormula(_) | ExprKind::Comparison(_) => {
                     // On encapsule l'entrée courante dans un ExprNodeRef pour faciliter le traitement
-                    let node_ref = ExprNodeRef::new(id, entry);
+                    let node_ref = ExprNode::new(id, entry);
 
                     registry.process_init(node_ref, init.store())?;
 
@@ -81,7 +81,7 @@ impl<'a> InertiaEvaluator<'a> {
 
                 // En PDDL, l'init est une liste de faits positifs.
                 // On ignore les négations et les TILs (gérés par la table d'inertie).
-                ExprEntryKind::Not | ExprEntryKind::TimedInitialLiteral => {
+                ExprKind::Not | ExprKind::TimedInitialLiteral => {
                     it.skip_children(entry.children().len());
                 }
 
@@ -94,17 +94,17 @@ impl<'a> InertiaEvaluator<'a> {
 
     fn process_init(
         &mut self,
-        node: ExprNodeRef<'_>,
+        node: ExprNode<'_>,
         store: &ExprStore,
     ) -> Result<(), InertiaRegistryError> {
         match node.kind() {
             // Cas d'un fait atomique (ex: (at robby room1))
-            ExprEntryKind::AtomicFormula(skeleton_id) => {
+            ExprKind::AtomicFormula(skeleton_id) => {
                 self.process_predicate(*skeleton_id, node, store)
             }
 
             // Cas d'une initialisation de fonction (ex: (= (fuel-level car) 100))
-            ExprEntryKind::Comparison(op) => {
+            ExprKind::Comparison(op) => {
                 if matches!(op, CompareOp::Equal) {
                     self.process_function(node, store)
                 } else {
@@ -119,7 +119,7 @@ impl<'a> InertiaEvaluator<'a> {
     fn process_predicate(
         &mut self,
         skeleton_id: AtomSkeletonId,
-        node: ExprNodeRef<'_>,
+        node: ExprNode<'_>,
         store: &ExprStore,
     ) -> Result<(), InertiaRegistryError> {
         let children = node.children();
@@ -136,7 +136,7 @@ impl<'a> InertiaEvaluator<'a> {
                 let arg_entry = store.fetch(arg_id)?;
 
                 // Dans l'état initial, les arguments doivent être des objets (constantes)
-                if let ExprEntryKind::Object(obj_id) = arg_entry.kind() {
+                if let ExprKind::Object(obj_id) = arg_entry.kind() {
                     args.push(*obj_id);
                 } else {
                     // Si l'argument n'est pas un Object valide (ex: une variable résiduelle),
@@ -165,7 +165,7 @@ impl<'a> InertiaEvaluator<'a> {
 
     fn process_function(
         &mut self,
-        node: ExprNodeRef<'_>, // Le nœud Comparison(Equal)
+        node: ExprNode<'_>, // Le nœud Comparison(Equal)
         store: &ExprStore,
     ) -> Result<(), InertiaRegistryError> {
         let children = node.children();
@@ -184,7 +184,7 @@ impl<'a> InertiaEvaluator<'a> {
         let lhs_entry = store.fetch(lhs_id)?;
 
         // On vérifie que c'est bien une fonction
-        if let ExprEntryKind::Function(func_id) = lhs_entry.kind() {
+        if let ExprKind::Function(func_id) = lhs_entry.kind() {
             let func_id = *func_id;
 
             // On ne traite que si la fonction est inerte positive
@@ -198,7 +198,7 @@ impl<'a> InertiaEvaluator<'a> {
 
                 for &arg_id in func_children.iter().skip(1) {
                     let arg_entry = store.fetch(arg_id)?;
-                    if let ExprEntryKind::Object(obj_id) = arg_entry.kind() {
+                    if let ExprKind::Object(obj_id) = arg_entry.kind() {
                         args.push(*obj_id);
                     } else {
                         // Si un argument n'est pas un objet constant, on ignore.
@@ -211,8 +211,8 @@ impl<'a> InertiaEvaluator<'a> {
                 let rhs_entry = store.fetch(rhs_id)?;
 
                 let value = match rhs_entry.kind() {
-                    ExprEntryKind::Number(n) => ExprConstant::Number(*n),
-                    ExprEntryKind::Object(obj_id) => ExprConstant::Object(*obj_id),
+                    ExprKind::Number(n) => ExprConstant::Number(*n),
+                    ExprKind::Object(obj_id) => ExprConstant::Object(*obj_id),
                     _ => {
                         // Si la valeur n'est ni un nombre ni un objet, structure invalide pour l'init
                         return Ok(());
@@ -235,13 +235,13 @@ impl<'a> InertiaEvaluator<'a> {
     /// Évalue une formule atomique selon les règles de simplification du papier IPP (Section 3.2).
     fn evaluate_predicate_internal(
         &self,
-        node: ExprNodeRef<'_>,
+        node: ExprNode<'_>,
         store: &ExprStore,
         buffer: &mut ArgumentBuffer,
     ) -> Result<Option<bool>, InertiaRegistryError> {
         // Dans le nouveau LIR, l'ID du squelette est porté par le Kind
         let pred_id = match node.kind() {
-            ExprEntryKind::AtomicFormula(id) => *id,
+            ExprKind::AtomicFormula(id) => *id,
             _ => return Ok(None),
         };
 
@@ -334,14 +334,14 @@ impl<'a> InertiaEvaluator<'a> {
     /// that unify with the argument vector ~a.
     fn calculate_max_instances(
         &self,
-        node: ExprNodeRef<'_>,
+        node: ExprNode<'_>,
         store: &ExprStore,
     ) -> Result<usize, InertiaRegistryError> {
         let mut max_val: usize = 1;
         let children = node.children();
 
         // Extraction de l'ID du prédicat depuis le Kind du nœud
-        if let ExprEntryKind::AtomicFormula(pred_id) = node.kind() {
+        if let ExprKind::AtomicFormula(pred_id) = node.kind() {
             // On récupère la définition du prédicat pour avoir accès aux types des paramètres
             if let Some(def) = self.predicate_defs.get(pred_id.as_usize()) {
                 let arg_types = def.parameters();
@@ -352,7 +352,7 @@ impl<'a> InertiaEvaluator<'a> {
                     let child_entry = store.fetch(child_id)?;
 
                     // V(~a) est l'ensemble des positions occupées par des variables.
-                    if let ExprEntryKind::Variable(_) = child_entry.kind() {
+                    if let ExprKind::Variable(_) = child_entry.kind() {
                         // On récupère le type attendu pour cette position
                         if let Some(param) = arg_types.get(i) {
                             let type_id = param.ty();
@@ -373,13 +373,13 @@ impl<'a> InertiaEvaluator<'a> {
 
     fn evaluate_function_internal(
         &self,
-        node: ExprNodeRef<'_>, // Le nœud de type Function(id)
+        node: ExprNode<'_>, // Le nœud de type Function(id)
         store: &ExprStore,
         buffer: &mut ArgumentBuffer,
     ) -> Result<Option<ExprConstant>, InertiaRegistryError> {
         // Dans le nouveau LIR, l'ID est dans le Kind
         let func_id = match node.kind() {
-            ExprEntryKind::Function(id) => *id,
+            ExprKind::Function(id) => *id,
             _ => return Ok(None),
         };
 
@@ -434,7 +434,7 @@ impl<'a> InertiaEvaluator<'a> {
     ///
     /// Un terme "grounded" peut être simplifié en une constante s'il est présent
     /// dans le registre de l'état initial.
-    fn all_args_grounded(&self, node: ExprNodeRef<'_>, store: &ExprStore) -> bool {
+    fn all_args_grounded(&self, node: ExprNode<'_>, store: &ExprStore) -> bool {
         let children = node.children();
 
         // RÈGLE : children[0] est le symbole.
@@ -449,7 +449,7 @@ impl<'a> InertiaEvaluator<'a> {
             if let Ok(child_entry) = store.fetch(child_id) {
                 // Si l'un des arguments est une variable (non encore instanciée),
                 // l'expression n'est pas "grounded".
-                if let ExprEntryKind::Variable(_) = child_entry.kind() {
+                if let ExprKind::Variable(_) = child_entry.kind() {
                     return false;
                 }
             }
@@ -459,10 +459,7 @@ impl<'a> InertiaEvaluator<'a> {
     }
 
     /// Checks if the problem's predicates and functions exceed the evaluator's capacity.
-    fn check_limits(
-        max_arity: usize,
-        problem: &NewLiftedProblem,
-    ) -> Result<(), InertiaRegistryError> {
+    fn check_limits(max_arity: usize, problem: &LiftedProblem) -> Result<(), InertiaRegistryError> {
         for (i, p) in problem.predicate_defs().iter().enumerate() {
             if p.arity() > max_arity {
                 return Err(InertiaRegistryError::predicate_arity_too_high(
@@ -517,7 +514,7 @@ impl<'a> InertiaEvaluator<'a> {
     /// Implémente la Définition 8 du papier IPP : `C(a) := {i | ai est une constante}`.
     fn extract_mask_dynamic(
         &self,
-        node: ExprNodeRef<'_>,
+        node: ExprNode<'_>,
         store: &ExprStore,
         buffer: &mut ArgumentBuffer,
     ) -> u16 {
@@ -539,7 +536,7 @@ impl<'a> InertiaEvaluator<'a> {
             if let Ok(arg_entry) = store.fetch(arg_id) {
                 match arg_entry.kind() {
                     // Si l'argument est un objet constant
-                    ExprEntryKind::Object(obj_id) => {
+                    ExprKind::Object(obj_id) => {
                         // Encodage Big Endian :
                         // i=0 (1er arg) -> bit (n_args - 1)
                         // i=(n_args-1)  -> bit 0
@@ -548,7 +545,7 @@ impl<'a> InertiaEvaluator<'a> {
                     }
                     // Si c'est une Variable, on ne fait rien (le bit reste à 0).
                     // C'est le cœur de l'instanciation partielle d'IPP.
-                    ExprEntryKind::Variable(_) => {}
+                    ExprKind::Variable(_) => {}
 
                     _ => {}
                 }
@@ -694,13 +691,13 @@ impl<'a> ExprEvaluator for InertiaEvaluator<'a> {
 
         // 3. Dispatch (on utilise node_ref directement)
         let result = match node_ref.kind() {
-            ExprEntryKind::AtomicFormula(_) => self
+            ExprKind::AtomicFormula(_) => self
                 .evaluate_predicate_internal(node_ref, store, &mut buffer)
                 .ok()
                 .flatten()
                 .map(ExprConstant::Boolean),
 
-            ExprEntryKind::Function(_) => self
+            ExprKind::Function(_) => self
                 .evaluate_function_internal(node_ref, store, &mut buffer)
                 .ok()
                 .flatten(),

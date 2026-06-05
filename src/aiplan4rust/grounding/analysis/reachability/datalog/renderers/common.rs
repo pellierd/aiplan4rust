@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lang::{ObjectId, SymbolId};
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Resolves a `SymbolId` into its string representation using the interner.
 ///

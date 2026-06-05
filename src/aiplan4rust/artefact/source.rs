@@ -69,8 +69,7 @@ use crate::aiplan4rust::artefact::language::Language;
 use crate::aiplan4rust::artefact::raw::content::RawContent;
 use crate::aiplan4rust::artefact::raw::kind::RawKind;
 use crate::aiplan4rust::artefact::IRKind;
-use crate::aiplan4rust::lir::old::problem::problem::Problem;
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeSerializable, SerializationError};
 use crate::aiplan4rust::syntax::lexer::Token;
@@ -343,7 +342,7 @@ impl Source {
                     Ok(Source::new_ir(path, content))
                 }
                 IRKind::GroundedProblem => {
-                    let pb = Problem::deserialize_from_bytes(payload, header.format())?;
+                    let pb = LiftedProblem::deserialize_from_bytes(payload, header.format())?;
                     let content = IRContent::GroundedProblem(pb, header.format());
                     Ok(Source::new_ir(path, content))
                 }

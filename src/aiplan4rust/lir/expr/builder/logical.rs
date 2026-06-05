@@ -6,7 +6,7 @@
 //! are simplified and unique within the [`ExprStore`].
 
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a logical `AND` node with one or more children.
@@ -21,7 +21,7 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// The unique `ExprId` representing the simplified conjunction.
     pub fn and(&mut self, children: &[ExprId]) -> ExprId {
-        self.reduce(ExprEntryKind::And, children)
+        self.reduce(ExprKind::And, children)
     }
 
     /// Creates an empty `AND` node, representing the logical constant "True".
@@ -48,7 +48,7 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// The unique `ExprId` representing the simplified disjunction.
     pub fn or(&mut self, children: &[ExprId]) -> ExprId {
-        self.reduce(ExprEntryKind::Or, children)
+        self.reduce(ExprKind::Or, children)
     }
 
     /// Creates an empty `OR` node, representing the logical constant "False".
@@ -89,10 +89,10 @@ impl<'a> ExprBuilder<'a> {
     /// To bypass the Rust borrow checker and maintain zero-allocation, this function
     /// leverages disjoint field access (`self.old` vs `self.primary_buffer`) and
     /// uses `secondary_buffer` as a temporary staging area for flattening.
-    pub fn reduce(&mut self, kind: ExprEntryKind, children: &[ExprId]) -> ExprId {
+    pub fn reduce(&mut self, kind: ExprKind, children: &[ExprId]) -> ExprId {
         let (neutral, absorbing) = match kind {
-            ExprEntryKind::And => (self.empty_and(), self.empty_or()),
-            ExprEntryKind::Or => (self.empty_or(), self.empty_and()),
+            ExprKind::And => (self.empty_and(), self.empty_or()),
+            ExprKind::Or => (self.empty_or(), self.empty_and()),
             _ => return self.intern(kind, children),
         };
 
@@ -117,7 +117,7 @@ impl<'a> ExprBuilder<'a> {
                     self.primary_buffer
                         .extend_from_slice(&self.secondary_buffer);
                     continue;
-                } else if kind == ExprEntryKind::And && node.kind() == &ExprEntryKind::When {
+                } else if kind == ExprKind::And && node.kind() == &ExprKind::When {
                     has_when = true;
                 }
             }
@@ -144,7 +144,7 @@ impl<'a> ExprBuilder<'a> {
             absorbing
         } else {
             match kind {
-                ExprEntryKind::And if has_when => self.finalize_and_with_merge(&collected),
+                ExprKind::And if has_when => self.finalize_and_with_merge(&collected),
                 _ => self.intern(kind, &collected),
             }
         };
@@ -185,7 +185,7 @@ impl<'a> ExprBuilder<'a> {
 
         // Step 2: Optimization - if no potential for merging, intern immediately.
         if split_idx <= 1 {
-            return self.intern(ExprEntryKind::And, children);
+            return self.intern(ExprKind::And, children);
         }
 
         // Step 3: Sort 'When's by Effect ID to make duplicates contiguous.
@@ -228,7 +228,7 @@ impl<'a> ExprBuilder<'a> {
             // Check if the current child is a 'When' node
             if self
                 .get(self.primary_buffer[i])
-                .map_or(false, |n| n.kind() == &ExprEntryKind::When)
+                .map_or(false, |n| n.kind() == &ExprKind::When)
             {
                 // Swap the 'When' node to the current split position
                 self.primary_buffer.swap(i, split_idx);
@@ -393,7 +393,7 @@ impl<'a> ExprBuilder<'a> {
         // Intern the buffer. We take ownership of the Vec temporarily to satisfy
         // the borrow checker, then return it to primary_buffer to reuse its capacity.
         let mut data = std::mem::take(&mut self.primary_buffer);
-        let id = self.intern(ExprEntryKind::And, &data);
+        let id = self.intern(ExprKind::And, &data);
         data.clear();
         self.primary_buffer = data;
         id
@@ -466,7 +466,7 @@ impl<'a> ExprBuilder<'a> {
         for (i, &id) in sorted_ids.iter().enumerate() {
             if let Some(node) = self.get(id) {
                 // We look for negation nodes to find their corresponding atoms
-                if let ExprEntryKind::Not = node.kind() {
+                if let ExprKind::Not = node.kind() {
                     let atom_inside_not = node.children()[0];
 
                     // Since the slice is sorted, binary search allows us to find
@@ -506,7 +506,7 @@ impl<'a> ExprBuilder<'a> {
         // 2. Double Negation Elimination ( !!A -> A )
         // We peek into the old to see if the expression is already a Not node.
         if let Some(node) = self.get(expr) {
-            if let ExprEntryKind::Not = node.kind() {
+            if let ExprKind::Not = node.kind() {
                 // By construction, a Not node always has exactly one child.
                 return node.children()[0];
             }
@@ -514,7 +514,7 @@ impl<'a> ExprBuilder<'a> {
 
         // 3. Internment
         // If no simplification applies, create or retrieve the existing Not node.
-        self.intern(ExprEntryKind::Not, &[expr])
+        self.intern(ExprKind::Not, &[expr])
     }
 
     /// Creates an implication node: `(antecedent → consequent)`.
@@ -655,8 +655,8 @@ impl<'a> ExprBuilder<'a> {
         let eff_entry = self.store.fetch(eff).unwrap();
 
         // 6. Partial implication reduction is only applicable if the effect is a conjunction (And)
-        if !matches!(eff_entry.kind(), ExprEntryKind::And) {
-            return self.intern(ExprEntryKind::When, &[cond, eff]);
+        if !matches!(eff_entry.kind(), ExprKind::And) {
+            return self.intern(ExprKind::When, &[cond, eff]);
         }
 
         // 3. Clear and reuse our internal buffers (0 allocations on the heap!)
@@ -665,11 +665,11 @@ impl<'a> ExprBuilder<'a> {
 
         // Populate primary_buffer with facts from the condition
         match cond_entry.kind() {
-            ExprEntryKind::And => {
+            ExprKind::And => {
                 self.primary_buffer
                     .extend(cond_entry.children().iter().copied());
             }
-            ExprEntryKind::AtomicFormula(_) => {
+            ExprKind::AtomicFormula(_) => {
                 self.primary_buffer.push(cond);
             }
             _ => {}
@@ -684,7 +684,7 @@ impl<'a> ExprBuilder<'a> {
             let child_entry = self.store.fetch(eff_child_id).unwrap();
 
             // We only prune AtomicFormulas that are explicitly proven true by the condition
-            if matches!(child_entry.kind(), ExprEntryKind::AtomicFormula(_))
+            if matches!(child_entry.kind(), ExprKind::AtomicFormula(_))
                 && self.primary_buffer.binary_search(&eff_child_id).is_ok()
             {
                 skipped_any = true;
@@ -699,18 +699,18 @@ impl<'a> ExprBuilder<'a> {
                 return true_id;
             } else if self.secondary_buffer.len() == 1 {
                 let simplified_eff = self.secondary_buffer[0];
-                return self.intern(ExprEntryKind::When, &[cond, simplified_eff]);
+                return self.intern(ExprKind::When, &[cond, simplified_eff]);
             } else {
                 // To avoid borrow-checker conflicts or reentrancy issues with internal buffers,
                 // we clone the slice before passing it to the n-ary constructor.
                 let remaining_slice = self.secondary_buffer.clone();
                 let simplified_eff = self.and(&remaining_slice);
-                return self.intern(ExprEntryKind::When, &[cond, simplified_eff]);
+                return self.intern(ExprKind::When, &[cond, simplified_eff]);
             }
         }
 
         // Default: no changes made, intern the standard conditional node
-        self.intern(ExprEntryKind::When, &[cond, eff])
+        self.intern(ExprKind::When, &[cond, eff])
     }
 }
 
@@ -718,7 +718,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, VariableId};
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::expr::{ExprKind, ExprStore};
 
     /// Test: (and P True) -> P
     /// Verifies that the neutral element (True) is removed from an AND operation.
@@ -841,7 +841,7 @@ mod tests {
         let node = builder.get(root).expect("Node should exist");
         assert_eq!(
             node.kind(),
-            &ExprEntryKind::When,
+            &ExprKind::When,
             "Multiple Whens with same effect should be merged"
         );
 
@@ -849,7 +849,7 @@ mod tests {
         let cond_node = builder.get(condition).unwrap();
         assert_eq!(
             cond_node.kind(),
-            &ExprEntryKind::Or,
+            &ExprKind::Or,
             "Merged condition should be an OR node"
         );
     }
@@ -1062,7 +1062,7 @@ mod tests {
 
         // The root must be a WHEN node
         assert!(
-            matches!(entry.kind(), ExprEntryKind::When),
+            matches!(entry.kind(), ExprKind::When),
             "The root should be a WHEN node, found: {:?}",
             entry.kind()
         );
@@ -1080,7 +1080,7 @@ mod tests {
         // If the smart constructor did its job, (and A C) is now just C.
         // So the effect kind must be a direct AtomicFormula, NOT an And.
         assert!(
-            matches!(effect_entry.kind(), ExprEntryKind::AtomicFormula(_)),
+            matches!(effect_entry.kind(), ExprKind::AtomicFormula(_)),
             "The effect should have been simplified down to a single AtomicFormula (C), found: {:?}",
             effect_entry.kind()
         );
@@ -1093,7 +1093,7 @@ mod tests {
             .expect("AtomicFormula must have a predicate child");
 
         let pred_leaf = store.fetch(pred_leaf_id).unwrap();
-        if let ExprEntryKind::PredicateSymbol(pid) = pred_leaf.kind() {
+        if let ExprKind::PredicateSymbol(pid) = pred_leaf.kind() {
             assert_eq!(pid.as_usize(), 3, "The remaining effect must be C (ID 3)");
         }
     }

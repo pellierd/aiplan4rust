@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::expr::{ExprEntry, ExprId, ExprNodeRef, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprEntry, ExprId, ExprNode, ExprStore};
 use fxhash::FxHashSet;
 
 /// Un itérateur preorder pour les expressions dans le `ExprStore`.
@@ -23,13 +23,13 @@ impl<'a> PreorderIter<'a> {
     }
 
     /// Transforme l'itérateur pour ne produire que des `ExprRef`.
-    pub fn references(self) -> impl Iterator<Item = ExprNodeRef<'a>> + 'a {
-        self.map(|(id, _, entry)| ExprNodeRef::new(id, entry))
+    pub fn references(self) -> impl Iterator<Item = ExprNode<'a>> + 'a {
+        self.map(|(id, _, entry)| ExprNode::new(id, entry))
     }
 
     /// Renvoie un ExprRef avec la profondeur.
-    pub fn with_depth(self) -> impl Iterator<Item = (usize, ExprNodeRef<'a>)> + 'a {
-        self.map(|(id, depth, entry)| (depth, ExprNodeRef::new(id, entry)))
+    pub fn with_depth(self) -> impl Iterator<Item = (usize, ExprNode<'a>)> + 'a {
+        self.map(|(id, depth, entry)| (depth, ExprNode::new(id, entry)))
     }
 }
 

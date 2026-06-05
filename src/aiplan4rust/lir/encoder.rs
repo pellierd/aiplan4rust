@@ -42,7 +42,7 @@ use crate::aiplan4rust::lir::encoding::encoding::encode_domain as new_encode_dom
 use crate::aiplan4rust::lir::encoding::encoding::encode_problem as new_encode_problem;
 use crate::aiplan4rust::lir::encoding::EncodingRegistry as NewEncodingRegistry;
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprStore};
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::{normalization, LirError};
 use crate::LirEncoderResult;
 
@@ -151,13 +151,13 @@ impl LirEncoder {
 
 /// Encode a LiftedProblem from a LinkedSemanticContext.
 /// This is the core transformation that now integrates the ExprStore.
-fn encode_lifted_problem(mut context: LinkedSemanticContext) -> Result<NewLiftedProblem, LirError> {
+fn encode_lifted_problem(mut context: LinkedSemanticContext) -> Result<LiftedProblem, LirError> {
     // 1. Consommation de l'interner et des requirements
     let interner = context.take_interner();
     let requirements = context.take_required_requirements();
 
     // 2. Création du LiftedProblem
-    let mut problem = NewLiftedProblem::new(requirements);
+    let mut problem = LiftedProblem::new(requirements);
     problem.set_interner(interner);
 
     // --- ARCHITECTURE STORE ---

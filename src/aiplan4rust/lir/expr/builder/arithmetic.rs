@@ -41,7 +41,7 @@
 
 use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 use ordered_float::OrderedFloat;
 
 impl<'a> ExprBuilder<'a> {
@@ -126,7 +126,7 @@ impl<'a> ExprBuilder<'a> {
     fn early_fold_nan(&self, operands: &[ExprId]) -> Option<ExprId> {
         for &id in operands {
             if let Some(node) = self.get(id) {
-                if let ExprEntryKind::Number(n) = node.kind() {
+                if let ExprKind::Number(n) = node.kind() {
                     if n.into_inner().is_nan() {
                         return Some(id);
                     }
@@ -318,7 +318,7 @@ impl<'a> ExprBuilder<'a> {
 
         for &id in operands {
             if let Some(node) = self.store.get(id) {
-                if let ExprEntryKind::Arithmetic(child_op) = node.kind() {
+                if let ExprKind::Arithmetic(child_op) = node.kind() {
                     if *child_op == op {
                         self.secondary_buffer.clear();
                         self.secondary_buffer.extend_from_slice(node.children());
@@ -537,7 +537,7 @@ impl<'a> ExprBuilder<'a> {
         // 4. Intern the final expression.
         // We use `std::mem::take` to move the buffer content without allocation.
         let mut data = std::mem::take(&mut self.primary_buffer);
-        let id = self.intern(ExprEntryKind::Arithmetic(op), &data);
+        let id = self.intern(ExprKind::Arithmetic(op), &data);
 
         // Clear and restore the buffer to the builder for reuse (zero-alloc strategy).
         data.clear();
@@ -587,7 +587,7 @@ impl<'a> ExprBuilder<'a> {
             OrderedFloat(val_f64)
         };
 
-        self.intern(ExprEntryKind::Number(normalized), &[])
+        self.intern(ExprKind::Number(normalized), &[])
     }
 
     /// Creates an addition expression: `(+ operands...)`.
@@ -670,7 +670,7 @@ mod tests {
         let root = builder.add(&[n2, n3]);
 
         let node = builder.get(root).expect("Node should exist");
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 5.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 5.0));
     }
 
     /// Test: (* 2 3 4) -> 24
@@ -687,7 +687,7 @@ mod tests {
         let root = builder.mul(&[n2, n3, n4]);
 
         let node = builder.get(root).expect("Node should exist");
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 24.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 24.0));
     }
 
     /// Test: (* x 0) -> 0
@@ -703,7 +703,7 @@ mod tests {
         let root = builder.mul(&[n10, n0]);
 
         let node = builder.get(root).expect("Node should exist");
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0));
     }
 
     /// Test: (+ 1 (+ 2 3)) -> 6
@@ -721,7 +721,7 @@ mod tests {
         let root = builder.add(&[n1, inner_add]); // (+ 1.0 5.0) -> 6.0
 
         let node = builder.get(root).expect("Node should exist");
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 6.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 6.0));
     }
 
     /// Test: (/ 10 2) -> 5.0
@@ -737,7 +737,7 @@ mod tests {
         let root = builder.div(&[n10, n2]);
 
         let node = builder.get(root).expect("Node should exist");
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 5.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 5.0));
     }
 
     /// Test: (/ 10 0) -> NaN
@@ -753,7 +753,7 @@ mod tests {
         let root = builder.div(&[n10, tiny]); // Devient 10 / 0.0
 
         let node = builder.get(root).expect("Node should exist");
-        if let ExprEntryKind::Number(n) = node.kind() {
+        if let ExprKind::Number(n) = node.kind() {
             assert!(
                 n.into_inner().is_nan(),
                 "Division by near-zero should result in NaN"
@@ -777,7 +777,7 @@ mod tests {
         let root = builder.sub(&[n10, n3, n2]);
 
         let node = builder.get(root).expect("Node should exist");
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 5.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 5.0));
     }
 
     /// Test: (+ ?x 0) -> ?x
@@ -858,7 +858,7 @@ mod tests {
         let node = builder.get(root).expect("Root node should exist");
 
         assert!(
-            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 4.0),
+            matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 4.0),
             "Division folding should respect nested structure and return 4.0"
         );
     }
@@ -904,7 +904,7 @@ mod tests {
             .expect("Constant child node should exist");
 
         assert!(
-            matches!(const_node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 12.0),
+            matches!(const_node.kind(), ExprKind::Number(n) if n.into_inner() == 12.0),
             "The constant part should be 12.0 (folded from 10 + 2)"
         );
     }
@@ -929,7 +929,7 @@ mod tests {
         let node = builder.get(root).expect("Resulting node should exist");
 
         assert!(
-            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0),
+            matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0),
             "Multiplication by zero must absorb all variables and return 0.0"
         );
     }
@@ -953,7 +953,7 @@ mod tests {
 
         let node = builder.get(root).expect("Root node should exist");
 
-        if let ExprEntryKind::Number(n) = node.kind() {
+        if let ExprKind::Number(n) = node.kind() {
             assert!(
                 n.into_inner().is_nan(),
                 "The result of any operation involving NaN should be NaN"
@@ -1131,7 +1131,7 @@ mod tests {
             .get(node.children()[0])
             .expect("First child should exist");
         assert!(
-            matches!(first_child.kind(), ExprEntryKind::Number(n) if n.into_inner() == 8.0),
+            matches!(first_child.kind(), ExprKind::Number(n) if n.into_inner() == 8.0),
             "The head constants (10, 2) should be folded into 8.0"
         );
 
@@ -1162,7 +1162,7 @@ mod tests {
         let node = builder.get(root).expect("Resulting node should exist");
 
         assert!(
-            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0),
+            matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0),
             "Adding -5.0 and 5.0 should be folded to 0.0"
         );
     }
@@ -1222,7 +1222,7 @@ mod tests {
         let node = builder.get(root).expect("Root node should exist");
 
         // 4. Verification
-        if let ExprEntryKind::Number(n) = node.kind() {
+        if let ExprKind::Number(n) = node.kind() {
             // Successful constant folding: the expression became a literal NaN.
             assert!(
                 n.into_inner().is_nan(),
@@ -1257,7 +1257,7 @@ mod tests {
 
         // Verifies that the builder optimizes 0/x into a constant 0.0
         assert!(
-            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0),
+            matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0),
             "Division with a zero numerator should be simplified to 0.0"
         );
     }
@@ -1302,7 +1302,7 @@ mod tests {
         let val = const_node.kind();
 
         assert!(
-            matches!(val, ExprEntryKind::Number(n) if n.into_inner() == 24.0),
+            matches!(val, ExprKind::Number(n) if n.into_inner() == 24.0),
             "The constant part should be 24.0 (2 * 3 * 4)"
         );
     }
@@ -1323,7 +1323,7 @@ mod tests {
         // This confirms that symbolic identity (x - x = 0) is correctly
         // handled during the building/folding phase.
         assert!(
-            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0),
+            matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0),
             "Subtracting a variable from itself should result in 0.0"
         );
     }
@@ -1339,7 +1339,7 @@ mod tests {
         let root = builder.div(&[var_x, var_x]);
 
         let node = builder.get(root).unwrap();
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 1.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 1.0));
     }
 
     /// Test: (- ?x ?y ?z)
@@ -1403,7 +1403,7 @@ mod tests {
         let root = builder.sub(&[complex_op, complex_op]);
 
         let node = builder.get(root).unwrap();
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0));
     }
 
     /// Test: (+ x 1e-12) -> x
@@ -1452,7 +1452,7 @@ mod tests {
         let root = builder.mul(&[x, near_zero]);
 
         let node = builder.fetch(root).unwrap();
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0));
     }
 
     /// Test: (- x x) -> 0.0
@@ -1466,7 +1466,7 @@ mod tests {
         let root = builder.sub(&[x, x]);
 
         let node = builder.fetch(root).unwrap();
-        assert!(matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0));
+        assert!(matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0));
     }
 
     /// Verifies that accumulated noise below epsilon is discarded when a variable
@@ -1483,7 +1483,7 @@ mod tests {
         let node = builder.fetch(root).unwrap();
 
         assert!(
-            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0),
+            matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0),
             "Expected 0.0, found {:?}",
             node.kind()
         );
@@ -1503,7 +1503,7 @@ mod tests {
         // Fetch and verify in a single match arm
         let node = builder.fetch(root).unwrap();
         assert!(
-            matches!(node.kind(), ExprEntryKind::Number(n) if n.into_inner() == 0.0),
+            matches!(node.kind(), ExprKind::Number(n) if n.into_inner() == 0.0),
             "Expected 0.0, found {:?}",
             node.kind()
         );

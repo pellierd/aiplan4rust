@@ -36,8 +36,7 @@
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::expr::ExprId;
-use crate::aiplan4rust::lir::problem::InitialTaskNetwork;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
 use core::fmt::Formatter;
@@ -54,7 +53,7 @@ use std::fmt::Display;
 /// modifying it.
 #[derive(Debug, Clone)]
 pub struct ProblemDef<'a> {
-    problem: &'a NewLiftedProblem,
+    problem: &'a LiftedProblem,
 }
 
 impl<'a> ProblemDef<'a> {
@@ -65,7 +64,7 @@ impl<'a> ProblemDef<'a> {
     ///
     /// # Returns
     /// A new `ProblemDef` instance wrapping the provided problem.
-    pub fn new(problem: &'a NewLiftedProblem) -> Self {
+    pub fn new(problem: &'a LiftedProblem) -> Self {
         Self { problem }
     }
 

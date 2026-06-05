@@ -28,13 +28,13 @@ use crate::aiplan4rust::lang::{
     AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedSymbol, VariableId,
 };
 use crate::aiplan4rust::lir::expr::iter::Scratchpad;
-use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
 use crate::aiplan4rust::lir::normalization::typing::registry::TypeRegistry;
 use crate::aiplan4rust::lir::normalization::typing::{
     action, derived_predicate, expr, method, skeleton, typed_list, typed_symbol,
 };
 use crate::aiplan4rust::lir::normalization::NormalizationError;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::collections::HashSet;
 
 /// Prefix used for the generation of unified anonymous type symbols.
@@ -80,7 +80,7 @@ pub const ROOT_TYPE_ID: TypeId = TypeId::new(0);
 /// This implementation utilizes reusable buffers ([`Vec`] for tree walking and
 /// [`String`] for symbol generation) to minimize heap allocations.
 pub fn normalize(
-    problem: &mut NewLiftedProblem,
+    problem: &mut LiftedProblem,
     store: &mut ExprStore,
     pad: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
@@ -136,7 +136,7 @@ pub fn normalize(
 /// # Returns
 /// * `Ok(TypeId)` containing the identifier for the root type (always 0).
 /// * `Err(LirError)` if the type definition could not be registered.
-fn create_root_type(problem: &mut NewLiftedProblem) -> Result<TypeId, NormalizationError> {
+fn create_root_type(problem: &mut LiftedProblem) -> Result<TypeId, NormalizationError> {
     // 1. Intern the "object" string
     // This provides a consistent symbol name for the root of the hierarchy.
     let name_id = problem
@@ -185,7 +185,7 @@ fn create_root_type(problem: &mut NewLiftedProblem) -> Result<TypeId, Normalizat
 /// sorted alphabetically before generating the final symbol name. The use of
 /// `name_buffer` minimizes memory pressure during mass type materialization.
 fn create_anonymous_either_type(
-    problem: &mut NewLiftedProblem,
+    problem: &mut LiftedProblem,
     id: TypeId,
     members: Type<TypeId>,
     name_buffer: &mut String,
@@ -267,7 +267,7 @@ fn create_anonymous_either_type(
 /// this function ensures absolute type consistency across the scope of all operators while
 /// guaranteeing a strict **$\mathcal{O}(1)$ dynamic allocation profile** for the entire pass.
 pub fn normalize_problem(
-    problem: &mut NewLiftedProblem,
+    problem: &mut LiftedProblem,
     store: &mut ExprStore,
     registry: &mut TypeRegistry,
     pad: &mut Scratchpad,
@@ -352,7 +352,7 @@ fn test_flatten_quantified_expression_types() -> Result<(), Box<dyn std::error::
     let interner = SymbolInterner::new();
 
     // 1. Initialize the problem (NewLiftedProblem) and its backing stores
-    let mut problem = NewLiftedProblem::new(HashSet::new());
+    let mut problem = LiftedProblem::new(HashSet::new());
     problem.set_interner(interner);
 
     let mut store = ExprStore::new();
@@ -402,7 +402,7 @@ fn test_flatten_quantified_expression_types() -> Result<(), Box<dyn std::error::
     let node = store.get(final_expr).expect("Expression should exist");
 
     // Extract and validate the quantifier's bound variables
-    if let ExprEntryKind::Exists(vars) = node.kind() {
+    if let ExprKind::Exists(vars) = node.kind() {
         assert_eq!(vars.len(), 1, "Should have exactly 1 variable");
         let var_type = vars[0].ty();
 

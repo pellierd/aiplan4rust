@@ -14,6 +14,6 @@ pub use builder::ExprBuilder;
 pub use entry::ExprEntry;
 pub use expr::Expr;
 pub use id::ExprId;
-pub use kind::ExprEntryKind;
-pub use node::ExprNodeRef;
+pub use kind::ExprKind;
+pub use node::ExprNode;
 pub use store::ExprStore;

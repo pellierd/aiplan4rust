@@ -1,7 +1,7 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::VariableId;
 use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::lir::expr::ExprEntryKind;
+use crate::aiplan4rust::lir::expr::ExprKind;
 use thiserror::Error;
 
 /// Errors encountered during the construction of an expression via [`ExprBuilder`].
@@ -25,9 +25,9 @@ pub enum ExprBuilderError {
     )]
     InvalidTemporalInvariant {
         /// The operator already present in the sub-expression.
-        existing_kind: ExprEntryKind,
+        existing_kind: ExprKind,
         /// The operator that was attempted to be wrapped around it.
-        attempted_kind: ExprEntryKind,
+        attempted_kind: ExprKind,
     },
 
     /// Triggered when a timestamp is negative where a non-negative value is required.
@@ -58,10 +58,7 @@ impl ExprBuilderError {
     /// * `existing_kind` - The kind of the inner expression node.
     /// * `attempted_kind` - The kind of the temporal operator we tried to apply.
     #[track_caller]
-    pub fn invalid_temporal_invariant(
-        existing_kind: ExprEntryKind,
-        attempted_kind: ExprEntryKind,
-    ) -> Self {
+    pub fn invalid_temporal_invariant(existing_kind: ExprKind, attempted_kind: ExprKind) -> Self {
         ExprBuilderError::InvalidTemporalInvariant {
             existing_kind,
             attempted_kind,

@@ -5,7 +5,7 @@ use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::qnf::ExpansionScratchpad;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind, ExprStore};
 use std::collections::hash_map::Entry;
 
 /// Point d'entrée standard autonome pour l'expansion des quantificateurs.
@@ -61,10 +61,10 @@ pub fn expand_with(
                 (entry.kind().clone(), entry.children().first().copied())
             };
 
-            let is_forall = matches!(entry_kind, ExprEntryKind::Forall(_));
+            let is_forall = matches!(entry_kind, ExprKind::Forall(_));
 
             let current_id = match entry_kind {
-                ExprEntryKind::Forall(vars) | ExprEntryKind::Exists(vars) => {
+                ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
                     let body_id = body_id.expect("Quantifier must have a body node");
                     let expanded_body_id =
                         *expansion_scratchpad.cache.get(&body_id).unwrap_or(&body_id);
@@ -166,9 +166,9 @@ fn expand_quantified_node(
         })
     } else {
         let new_kind = if is_forall {
-            ExprEntryKind::And
+            ExprKind::And
         } else {
-            ExprEntryKind::Or
+            ExprKind::Or
         };
         Ok(store.intern(new_kind, &instances))
     }

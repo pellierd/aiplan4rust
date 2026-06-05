@@ -2,7 +2,7 @@ use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::pnf::scratchpad::PnfScratchpad;
 use crate::aiplan4rust::lang::AtomSkeletonId;
 use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind, ExprStore};
 
 /// Lowering final d'un arbre d'expression vers sa forme PNF encodée.
 ///
@@ -70,7 +70,7 @@ pub fn to_pnf_with_scratchpad(
 
             let entry_kind = store[old_id].kind().clone();
             match entry_kind {
-                ExprEntryKind::Not => {
+                ExprKind::Not => {
                     if in_condition {
                         let child_id = *store[old_id]
                             .children()
@@ -78,14 +78,14 @@ pub fn to_pnf_with_scratchpad(
                             .expect("Not must have a child");
 
                         // --- CORRECTIF : Détection précoce de la double négation ---
-                        if store[child_id].kind() == &ExprEntryKind::Not {
+                        if store[child_id].kind() == &ExprKind::Not {
                             return Err(StorerError::invalid_node(child_id).into());
                         }
 
                         scratchpad.stack.push((child_id, in_condition, false));
                     }
                 }
-                ExprEntryKind::When => {
+                ExprKind::When => {
                     let children = store[old_id].children();
                     if children.len() != 2 {
                         return Err(StorerError::invalid_node(old_id).into());
@@ -93,24 +93,24 @@ pub fn to_pnf_with_scratchpad(
                     scratchpad.stack.push((children[0], true, false)); // Condition
                     scratchpad.stack.push((children[1], false, false)); // Effet
                 }
-                ExprEntryKind::And
-                | ExprEntryKind::Or
-                | ExprEntryKind::Forall(_)
-                | ExprEntryKind::Exists(_)
-                | ExprEntryKind::Always
-                | ExprEntryKind::Sometime
-                | ExprEntryKind::Within
-                | ExprEntryKind::AtMostOnce
-                | ExprEntryKind::SometimeAfter
-                | ExprEntryKind::SometimeBefore
-                | ExprEntryKind::AlwaysWithin
-                | ExprEntryKind::HoldDuring
-                | ExprEntryKind::HoldAfter => {
+                ExprKind::And
+                | ExprKind::Or
+                | ExprKind::Forall(_)
+                | ExprKind::Exists(_)
+                | ExprKind::Always
+                | ExprKind::Sometime
+                | ExprKind::Within
+                | ExprKind::AtMostOnce
+                | ExprKind::SometimeAfter
+                | ExprKind::SometimeBefore
+                | ExprKind::AlwaysWithin
+                | ExprKind::HoldDuring
+                | ExprKind::HoldAfter => {
                     for &child_id in store[old_id].children().iter().rev() {
                         scratchpad.stack.push((child_id, in_condition, false));
                     }
                 }
-                ExprEntryKind::Imply => {
+                ExprKind::Imply => {
                     return Err(StorerError::invalid_node(old_id).into());
                 }
                 _ => {} // Nœuds terminaux
@@ -120,17 +120,17 @@ pub fn to_pnf_with_scratchpad(
             let entry_kind = store[old_id].kind().clone();
 
             let new_id = match entry_kind {
-                ExprEntryKind::Not => {
+                ExprKind::Not => {
                     if in_condition {
                         let child_id = *store[old_id].children().first().unwrap();
                         let new_child_id = *scratchpad.cache.get(&child_id).unwrap_or(&child_id);
                         let child_kind = store[new_child_id].kind().clone();
 
                         match child_kind {
-                            ExprEntryKind::Not => {
+                            ExprKind::Not => {
                                 return Err(StorerError::invalid_node(new_child_id).into())
                             }
-                            ExprEntryKind::AtomicFormula(mut atom_id) => {
+                            ExprKind::AtomicFormula(mut atom_id) => {
                                 if atom_id.is_negated() {
                                     return Err(StorerError::invalid_node(new_child_id).into());
                                 }
@@ -139,18 +139,16 @@ pub fn to_pnf_with_scratchpad(
                                 negated_atoms.push(atom_id);
 
                                 // Internement du nouvel atome modifié
-                                store.intern(ExprEntryKind::AtomicFormula(atom_id), &[])
+                                store.intern(ExprKind::AtomicFormula(atom_id), &[])
                             }
-                            ExprEntryKind::Comparison(_) => {
-                                store.intern(ExprEntryKind::Not, &[new_child_id])
-                            }
+                            ExprKind::Comparison(_) => store.intern(ExprKind::Not, &[new_child_id]),
                             _ => return Err(StorerError::invalid_node(new_child_id).into()),
                         }
                     } else {
                         // Hors condition (Delete Effect), on reconstruit le Not classique
                         let child_id = *store[old_id].children().first().unwrap();
                         let new_child_id = *scratchpad.cache.get(&child_id).unwrap_or(&child_id);
-                        store.intern(ExprEntryKind::Not, &[new_child_id])
+                        store.intern(ExprKind::Not, &[new_child_id])
                     }
                 }
                 _ => {
@@ -203,7 +201,7 @@ mod tests {
     use crate::aiplan4rust::grounding::passes::pnf::expr::to_pnf_with_scratchpad;
     use crate::aiplan4rust::grounding::passes::pnf::scratchpad::PnfScratchpad;
     use crate::aiplan4rust::lang::{AtomSkeletonId, CompareOp};
-    use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
 
     #[test]
     fn test_encode_simple_atom_negation_logical() -> Result<(), GroundingError> {
@@ -215,8 +213,8 @@ mod tests {
         let mut skeleton_id = AtomSkeletonId::new(500);
         skeleton_id.set_negated(false);
 
-        let atom_id = store.intern(ExprEntryKind::AtomicFormula(skeleton_id), &[]);
-        let not_id = store.intern(ExprEntryKind::Not, &[atom_id]);
+        let atom_id = store.intern(ExprKind::AtomicFormula(skeleton_id), &[]);
+        let not_id = store.intern(ExprKind::Not, &[atom_id]);
 
         // 2. Transformation (is_effect = false -> Mode Condition/Logique)
         let new_root_id = to_pnf_with_scratchpad(
@@ -230,7 +228,7 @@ mod tests {
         // 3. Validation
         let root_kind = store[new_root_id].kind();
 
-        if let ExprEntryKind::AtomicFormula(final_atom_id) = root_kind {
+        if let ExprKind::AtomicFormula(final_atom_id) = root_kind {
             assert!(
                 final_atom_id.is_negated(),
                 "Le bit MSB de l'atome doit être à true"
@@ -260,8 +258,8 @@ mod tests {
         // 1. Setup: (not (at-robot r1))
         let mut skeleton_id = AtomSkeletonId::new(500);
         skeleton_id.set_negated(false);
-        let atom_id = store.intern(ExprEntryKind::AtomicFormula(skeleton_id), &[]);
-        let not_id = store.intern(ExprEntryKind::Not, &[atom_id]);
+        let atom_id = store.intern(ExprKind::AtomicFormula(skeleton_id), &[]);
+        let not_id = store.intern(ExprKind::Not, &[atom_id]);
 
         // 2. Transformation (is_effect = true -> Mode Effet / Delete effect)
         let new_root_id = to_pnf_with_scratchpad(
@@ -275,7 +273,7 @@ mod tests {
         // 3. Validation
         let root_kind = store[new_root_id].kind();
         assert!(
-            matches!(root_kind, ExprEntryKind::Not),
+            matches!(root_kind, ExprKind::Not),
             "Le 'Not' en mode effet doit être conservé tel quel"
         );
         assert!(
@@ -305,8 +303,8 @@ mod tests {
 
         // Pour s'assurer qu'on teste une comparaison structurelle pure sans pliage constant trivial,
         // on l'interne directement avec l'opérateur requis si le builder le pliait en constante.
-        let comp_id = store.intern(ExprEntryKind::Comparison(CompareOp::Equal), &[]);
-        let not_id = store.intern(ExprEntryKind::Not, &[comp_id]);
+        let comp_id = store.intern(ExprKind::Comparison(CompareOp::Equal), &[]);
+        let not_id = store.intern(ExprKind::Not, &[comp_id]);
 
         // 2. Transformation
         let new_root_id = to_pnf_with_scratchpad(
@@ -320,7 +318,7 @@ mod tests {
         // 3. Validation
         let root_kind = store[new_root_id].kind();
         assert!(
-            matches!(root_kind, ExprEntryKind::Not),
+            matches!(root_kind, ExprKind::Not),
             "La racine doit rester un nœud Not pour les comparaisons"
         );
 
@@ -328,7 +326,7 @@ mod tests {
         assert_eq!(children.len(), 1);
         assert_eq!(
             store[children[0]].kind(),
-            &ExprEntryKind::Comparison(CompareOp::Equal)
+            &ExprKind::Comparison(CompareOp::Equal)
         );
 
         assert!(
@@ -346,10 +344,10 @@ mod tests {
         let mut scratchpad = PnfScratchpad::new();
 
         // 1. Setup: (not (imply A B))
-        let a_id = store.intern(ExprEntryKind::AtomicFormula(AtomSkeletonId::new(100)), &[]);
-        let b_id = store.intern(ExprEntryKind::AtomicFormula(AtomSkeletonId::new(101)), &[]);
-        let imply_id = store.intern(ExprEntryKind::Imply, &[a_id, b_id]);
-        let not_id = store.intern(ExprEntryKind::Not, &[imply_id]);
+        let a_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(100)), &[]);
+        let b_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(101)), &[]);
+        let imply_id = store.intern(ExprKind::Imply, &[a_id, b_id]);
+        let not_id = store.intern(ExprKind::Not, &[imply_id]);
 
         // 2. Transformation & Validation
         let result = to_pnf_with_scratchpad(
@@ -374,9 +372,9 @@ mod tests {
         let mut scratchpad = PnfScratchpad::new();
 
         // 1. Setup: (not (not A))
-        let atom_id = store.intern(ExprEntryKind::AtomicFormula(AtomSkeletonId::new(100)), &[]);
-        let inner_not = store.intern(ExprEntryKind::Not, &[atom_id]);
-        let outer_not = store.intern(ExprEntryKind::Not, &[inner_not]);
+        let atom_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(100)), &[]);
+        let inner_not = store.intern(ExprKind::Not, &[atom_id]);
+        let outer_not = store.intern(ExprKind::Not, &[inner_not]);
 
         // 2. Transformation & Validation
         let result = to_pnf_with_scratchpad(
@@ -401,13 +399,13 @@ mod tests {
         let mut scratchpad = PnfScratchpad::new();
 
         // 1. Setup: (and (not (at-robot)) (not (= ?x ?y)))
-        let atom_id = store.intern(ExprEntryKind::AtomicFormula(AtomSkeletonId::new(500)), &[]);
-        let not_atom_id = store.intern(ExprEntryKind::Not, &[atom_id]);
+        let atom_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(500)), &[]);
+        let not_atom_id = store.intern(ExprKind::Not, &[atom_id]);
 
-        let comp_id = store.intern(ExprEntryKind::Comparison(CompareOp::Equal), &[]);
-        let not_comp_id = store.intern(ExprEntryKind::Not, &[comp_id]);
+        let comp_id = store.intern(ExprKind::Comparison(CompareOp::Equal), &[]);
+        let not_comp_id = store.intern(ExprKind::Not, &[comp_id]);
 
-        let and_id = store.intern(ExprEntryKind::And, &[not_atom_id, not_comp_id]);
+        let and_id = store.intern(ExprKind::And, &[not_atom_id, not_comp_id]);
 
         // 2. Transformation
         let new_root_id = to_pnf_with_scratchpad(
@@ -420,13 +418,13 @@ mod tests {
 
         // 3. Validation
         let root_node = &store[new_root_id];
-        assert!(matches!(root_node.kind(), ExprEntryKind::And));
+        assert!(matches!(root_node.kind(), ExprKind::And));
 
         let children = root_node.children();
         assert_eq!(children.len(), 2);
 
         // Enfant 1: L'atome doit être absorbé
-        if let ExprEntryKind::AtomicFormula(final_id) = store[children[0]].kind() {
+        if let ExprKind::AtomicFormula(final_id) = store[children[0]].kind() {
             assert!(final_id.is_negated());
             assert_eq!(negated_atoms.len(), 1);
             assert_eq!(negated_atoms[0], *final_id);
@@ -435,11 +433,11 @@ mod tests {
         }
 
         // Enfant 2: La comparaison sous le Not reste inchangée
-        assert!(matches!(store[children[1]].kind(), ExprEntryKind::Not));
+        assert!(matches!(store[children[1]].kind(), ExprKind::Not));
         let inner_comp_children = store[children[1]].children();
         assert_eq!(
             store[inner_comp_children[0]].kind(),
-            &ExprEntryKind::Comparison(CompareOp::Equal)
+            &ExprKind::Comparison(CompareOp::Equal)
         );
 
         Ok(())
@@ -455,8 +453,8 @@ mod tests {
         let mut corrupted_skeleton = AtomSkeletonId::new(500);
         corrupted_skeleton.set_negated(true);
 
-        let atom_id = store.intern(ExprEntryKind::AtomicFormula(corrupted_skeleton), &[]);
-        let not_id = store.intern(ExprEntryKind::Not, &[atom_id]);
+        let atom_id = store.intern(ExprKind::AtomicFormula(corrupted_skeleton), &[]);
+        let not_id = store.intern(ExprKind::Not, &[atom_id]);
 
         // 2. Transformation
         let result = to_pnf_with_scratchpad(
@@ -482,12 +480,12 @@ mod tests {
         let mut scratchpad = PnfScratchpad::new();
 
         // 1. Feuille : (not A)
-        let atom_id = store.intern(ExprEntryKind::AtomicFormula(AtomSkeletonId::new(500)), &[]);
-        let mut current_id = store.intern(ExprEntryKind::Not, &[atom_id]);
+        let atom_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(500)), &[]);
+        let mut current_id = store.intern(ExprKind::Not, &[atom_id]);
 
         // 2. Empilement de 1000 nœuds AND
         for _ in 0..1000 {
-            current_id = store.intern(ExprEntryKind::And, &[current_id]);
+            current_id = store.intern(ExprKind::And, &[current_id]);
         }
 
         // 3. Transformation
@@ -503,11 +501,11 @@ mod tests {
         let mut checker_id = new_root_id;
         for _ in 0..1000 {
             let node = &store[checker_id];
-            assert!(matches!(node.kind(), ExprEntryKind::And));
+            assert!(matches!(node.kind(), ExprKind::And));
             checker_id = node.children()[0];
         }
 
-        if let ExprEntryKind::AtomicFormula(final_id) = store[checker_id].kind() {
+        if let ExprKind::AtomicFormula(final_id) = store[checker_id].kind() {
             assert!(final_id.is_negated());
             assert_eq!(negated_atoms.len(), 1);
             assert_eq!(negated_atoms[0], *final_id);

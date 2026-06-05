@@ -26,7 +26,7 @@
 
 use crate::aiplan4rust::lang::CompareOp;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs a functional comparison expression: `(op left right)`.
@@ -61,7 +61,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Design Note
     ///
-    /// The operator is stored as part of the [`ExprEntryKind`] rather than a child node.
+    /// The operator is stored as part of the [`ExprKind`] rather than a child node.
     /// This allows for rapid structural identification during pattern matching and
     /// reduces memory overhead by minimizing the number of edges in the expression graph.
     pub fn comparison(&mut self, op: CompareOp, left: ExprId, right: ExprId) -> ExprId {
@@ -83,7 +83,7 @@ impl<'a> ExprBuilder<'a> {
 
         // Phase 4: Final Interning
         // Perform the final Hash-Consing lookup to guarantee uniqueness.
-        self.intern(ExprEntryKind::Comparison(final_op), &[left, right])
+        self.intern(ExprKind::Comparison(final_op), &[left, right])
     }
 
     /// Normalizes comparison operators and operands into a canonical form.
@@ -220,9 +220,7 @@ impl<'a> ExprBuilder<'a> {
         let l_node = self.get(l)?;
         let r_node = self.get(r)?;
 
-        if let (ExprEntryKind::Number(lv), ExprEntryKind::Number(rv)) =
-            (l_node.kind(), r_node.kind())
-        {
+        if let (ExprKind::Number(lv), ExprKind::Number(rv)) = (l_node.kind(), r_node.kind()) {
             let (l_val, r_val) = (lv.into_inner(), rv.into_inner());
 
             // Skip folding for NaN values to preserve semantic error propagation.
@@ -352,7 +350,7 @@ mod tests {
         let id = builder.greater(a, b);
 
         let entry = store.get(id).expect("Entry must exist");
-        assert_eq!(entry.kind(), &ExprEntryKind::Comparison(CompareOp::Less));
+        assert_eq!(entry.kind(), &ExprKind::Comparison(CompareOp::Less));
         assert_eq!(
             entry.children(),
             &[b, a],
@@ -425,7 +423,7 @@ mod tests {
         for i in 0..store.len() {
             // ExprId::new(i) matches your internal indexing
             if let Some(node) = store.get(ExprId::new(i)) {
-                if matches!(node.kind(), ExprEntryKind::Comparison(_)) {
+                if matches!(node.kind(), ExprKind::Comparison(_)) {
                     has_comparison = true;
                     break;
                 }
@@ -461,7 +459,7 @@ mod tests {
 
             // Validation of content inside the builder scope
             let entry = builder.get(f1).unwrap();
-            assert_eq!(entry.kind(), &ExprEntryKind::Comparison(CompareOp::Less));
+            assert_eq!(entry.kind(), &ExprKind::Comparison(CompareOp::Less));
             assert_eq!(entry.children(), &[a, b]);
         }
         // builder is dropped here, &mut old is released
@@ -488,8 +486,8 @@ mod tests {
         let id = builder.less(n_nan, n_10);
 
         let entry = store.get(id).expect("Entry must exist");
-        assert!(matches!(entry.kind(), ExprEntryKind::Comparison(CompareOp::Less)),
-                    "NaN comparisons should result in a stored node rather than folding to True/False constants");
+        assert!(matches!(entry.kind(), ExprKind::Comparison(CompareOp::Less)),
+                "NaN comparisons should result in a stored node rather than folding to True/False constants");
     }
 
     /// Objective: Ensure that different operators with the same operands result in distinct ExprIds.
@@ -586,7 +584,7 @@ mod tests {
         let id = builder.greater_eq(a, b);
 
         let entry = store.get(id).expect("Entry must exist");
-        assert_eq!(entry.kind(), &ExprEntryKind::Comparison(CompareOp::LessEq));
+        assert_eq!(entry.kind(), &ExprKind::Comparison(CompareOp::LessEq));
         assert_eq!(
             entry.children(),
             &[b, a],

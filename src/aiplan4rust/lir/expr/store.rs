@@ -3,7 +3,7 @@ use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::iter::postorder::PostorderIter;
 use crate::aiplan4rust::lir::expr::iter::preorder::PreorderIter;
 use crate::aiplan4rust::lir::expr::iter::tree_preorder::TreePreorderIter;
-use crate::aiplan4rust::lir::expr::{ExprEntry, ExprEntryKind, ExprId, ExprNodeRef};
+use crate::aiplan4rust::lir::expr::{ExprEntry, ExprId, ExprKind, ExprNode};
 use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -13,7 +13,7 @@ use std::hash::{Hash, Hasher};
 /// Elle permet de chercher dans la HashMap avec des références sans allouer de Vec.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct ExprLookup<'a> {
-    kind: &'a ExprEntryKind,
+    kind: &'a ExprKind,
     children: &'a [ExprId],
 }
 
@@ -62,8 +62,8 @@ impl Default for ExprStore {
         };
 
         // On interne immédiatement les constantes pour fixer leurs IDs (souvent 0 et 1)
-        store.const_true = store.intern(ExprEntryKind::And, &[]);
-        store.const_false = store.intern(ExprEntryKind::Or, &[]);
+        store.const_true = store.intern(ExprKind::And, &[]);
+        store.const_false = store.intern(ExprKind::Or, &[]);
 
         store
     }
@@ -76,7 +76,7 @@ impl ExprStore {
 
     /// La méthode centrale : récupère l'ID existant ou crée une nouvelle entrée.
     /// Garanti Zero-Allocation si l'expression existe déjà.
-    pub fn intern(&mut self, kind: ExprEntryKind, children: &[ExprId]) -> ExprId {
+    pub fn intern(&mut self, kind: ExprKind, children: &[ExprId]) -> ExprId {
         // 1. RECHERCHE ZERO-COPY
         // On ne crée rien, on regarde juste si ça existe
         let query = ExprLookup {
@@ -134,13 +134,13 @@ impl ExprStore {
     }
 
     #[inline]
-    pub fn get(&self, id: ExprId) -> Option<ExprNodeRef<'_>> {
+    pub fn get(&self, id: ExprId) -> Option<ExprNode<'_>> {
         self.entries
             .get(id.as_usize())
-            .map(|entry| ExprNodeRef::new(id, entry))
+            .map(|entry| ExprNode::new(id, entry))
     }
 
-    pub fn fetch(&self, id: ExprId) -> Result<ExprNodeRef<'_>, StorerError> {
+    pub fn fetch(&self, id: ExprId) -> Result<ExprNode<'_>, StorerError> {
         self.get(id).ok_or_else(|| StorerError::expr_not_found(id))
     }
 
@@ -171,8 +171,8 @@ impl ExprStore {
     pub fn clear(&mut self) {
         self.entries.clear();
         self.lookup.clear();
-        self.const_true = self.intern(ExprEntryKind::And, &[]);
-        self.const_false = self.intern(ExprEntryKind::Or, &[]);
+        self.const_true = self.intern(ExprKind::And, &[]);
+        self.const_false = self.intern(ExprKind::Or, &[]);
     }
 
     pub fn rebuild_caches(&mut self) {
@@ -208,12 +208,12 @@ impl ExprStore {
 
         match entry.kind() {
             // CAS A : La source du signal (La variable elle-même)
-            ExprEntryKind::Variable(v_id) => {
+            ExprKind::Variable(v_id) => {
                 fv.insert(*v_id);
             }
 
             // CAS B : Le filtre (Quantificateurs)
-            ExprEntryKind::Forall(vars) | ExprEntryKind::Exists(vars) => {
+            ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
                 if let Some(&body_id) = entry.children().first() {
                     fv = *self.get_free_vars(body_id);
                     for v in vars {

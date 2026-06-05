@@ -10,7 +10,7 @@
 
 use crate::aiplan4rust::lang::{FunctionSymbolId, ObjectId, PredicateSymbolId, VariableId};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a constant leaf node representing a PDDL Object.
@@ -26,7 +26,7 @@ impl<'a> ExprBuilder<'a> {
     /// during intensive parsing or expression transformation.
     #[inline(always)]
     pub fn object<I: Into<ObjectId>>(&mut self, id: I) -> ExprId {
-        self.intern(ExprEntryKind::Object(id.into()), &[])
+        self.intern(ExprKind::Object(id.into()), &[])
     }
 
     /// Creates a leaf node representing a Variable.
@@ -41,7 +41,7 @@ impl<'a> ExprBuilder<'a> {
     /// Variables are typically used within the scope of quantifiers (`forall`, `exists`).
     #[inline(always)]
     pub fn variable<I: Into<VariableId>>(&mut self, id: I) -> ExprId {
-        self.intern(ExprEntryKind::Variable(id.into()), &[])
+        self.intern(ExprKind::Variable(id.into()), &[])
     }
 
     /// Creates a leaf node representing a Function symbol (functor).
@@ -56,7 +56,7 @@ impl<'a> ExprBuilder<'a> {
     /// This represents the symbol itself, not the application of a function to arguments.
     #[inline(always)]
     pub fn function_symbol<I: Into<FunctionSymbolId>>(&mut self, id: I) -> ExprId {
-        self.intern(ExprEntryKind::FunctionSymbol(id.into()), &[])
+        self.intern(ExprKind::FunctionSymbol(id.into()), &[])
     }
 
     /// Creates a leaf node representing a Predicate symbol.
@@ -68,7 +68,7 @@ impl<'a> ExprBuilder<'a> {
     /// An `ExprId` pointing to the interned `PredicateSymbol`.
     #[inline(always)]
     pub fn predicate<I: Into<PredicateSymbolId>>(&mut self, id: I) -> ExprId {
-        self.intern(ExprEntryKind::PredicateSymbol(id.into()), &[])
+        self.intern(ExprKind::PredicateSymbol(id.into()), &[])
     }
 }
 

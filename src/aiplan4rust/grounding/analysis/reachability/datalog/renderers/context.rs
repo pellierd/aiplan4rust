@@ -1,10 +1,10 @@
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Objet contexte pour le rendu, contenant uniquement les données nécessaires
 /// pour traduire les IDs bruts en symboles lisibles.
 pub struct RenderContext<'a> {
-    pub problem: &'a NewLiftedProblem,
+    pub problem: &'a LiftedProblem,
     pub type_to_skeleton: &'a [AtomSkeletonId],
     pub fluence_threshold: usize,
     pub action_base_id: usize,
@@ -14,7 +14,7 @@ pub struct RenderContext<'a> {
 impl<'a> RenderContext<'a> {
     /// Crée un contexte à partir des accesseurs publics de l'Engine.
     pub fn new(
-        problem: &'a NewLiftedProblem,
+        problem: &'a LiftedProblem,
         type_to_skeleton: &'a [AtomSkeletonId],
         fluence_threshold: usize,
         action_base_id: usize,

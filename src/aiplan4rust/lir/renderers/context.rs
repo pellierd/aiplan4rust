@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::{
     TaskSymbolId, TypeId, VariableId,
 };
 use crate::aiplan4rust::lir::expr::ExprStore;
-use crate::aiplan4rust::lir::problem::{NewLiftedProblem, SymbolRegistry};
+use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolRegistry};
 
 pub struct RenderContext<'a> {
     interner: &'a SymbolInterner,
@@ -21,7 +21,7 @@ pub struct RenderContext<'a> {
 }
 
 impl<'a> RenderContext<'a> {
-    pub fn new(problem: &'a NewLiftedProblem) -> Self {
+    pub fn new(problem: &'a LiftedProblem) -> Self {
         Self {
             interner: &problem.interner(),
             store: &problem.store(),

@@ -68,7 +68,7 @@
 
 use crate::aiplan4rust::artefact::ir::kind::IRKind;
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeFormat, SerdeSerializable, SerializationError};
 use serde::{Deserialize, Serialize};
@@ -80,7 +80,7 @@ use std::fmt;
 pub enum IRContent {
     ParsedDomain(SemanticContext, SerdeFormat),
     ParsedProblem(SemanticContext, SerdeFormat),
-    LiftedProblem(NewLiftedProblem, SerdeFormat),
+    LiftedProblem(LiftedProblem, SerdeFormat),
     GroundedProblem(Problem, SerdeFormat),
 }
 
@@ -158,7 +158,7 @@ impl IRContent {
                 format,
             ),
             IRKind::LiftedProblem => IRContent::LiftedProblem(
-                NewLiftedProblem::deserialize_from_bytes(bytes, format)?,
+                LiftedProblem::deserialize_from_bytes(bytes, format)?,
                 format,
             ),
             IRKind::GroundedProblem => {
@@ -198,7 +198,7 @@ pub enum IRContentInner<'a> {
     SemanticContext(&'a SemanticContext),
 
     /// Reference to a `LiftedProblem` (used in `LiftedProblem`).
-    LiftedProblem(&'a NewLiftedProblem),
+    LiftedProblem(&'a LiftedProblem),
 
     /// Reference to a `LiftedProblem` (used in `LiftedProblem`).
     GroundedProblem(&'a Problem),

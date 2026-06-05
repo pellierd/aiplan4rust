@@ -48,17 +48,10 @@ pub(crate) mod encoding;
 pub mod error;
 pub mod expr;
 pub(crate) mod normalization;
-pub mod old;
 pub mod problem;
 pub mod renderers;
 pub mod result;
 
 pub use encoder::LirEncoder;
 pub use error::LirError;
-pub use old::expr::Expr;
-pub use old::problem::action::Action as ActionDef;
-pub use old::problem::derived_predicate::DerivedPredicate as DerivedPredicateDef;
-pub use old::problem::initial_task_network::InitialTaskNetwork;
-pub use old::problem::method::Method as MethodDef;
-pub use old::problem::task_network::TaskNetwork;
 pub use result::Result as LirEncoderResult;

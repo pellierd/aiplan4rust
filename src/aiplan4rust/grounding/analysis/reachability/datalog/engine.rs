@@ -15,9 +15,9 @@ use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{
     ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol, VariableId,
 };
-use crate::aiplan4rust::lir::expr::{Expr, ExprEntryKind, ExprNodeRef};
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::problem::ActionDef;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use itertools::Itertools;
 use std::collections::HashMap;
 use toml::value::Index;
@@ -30,7 +30,7 @@ pub const MAX_VARS: usize = 64;
 
 // pre requis les types doivent faltten et les quantfier remove pas d'imply
 pub struct DatalogEngine<'a> {
-    problem: &'a NewLiftedProblem,
+    problem: &'a LiftedProblem,
     value_registry: &'a ValueRegistry,
     inertia_table: &'a InertiaTable,
     negated_predicates: &'a Vec<AtomSkeletonId>,
@@ -57,7 +57,7 @@ pub struct DatalogEngine<'a> {
 
 impl<'a> DatalogEngine<'a> {
     pub fn new(
-        problem: &'a NewLiftedProblem,
+        problem: &'a LiftedProblem,
         value_registry: &'a ValueRegistry,
         inertia_table: &'a InertiaTable,
         negated_predicates: &'a Vec<AtomSkeletonId>,
@@ -461,10 +461,10 @@ impl<'a> DatalogEngine<'a> {
 
         while let Some((id, _depth, entry)) = iter.next() {
             // On construit le ExprNodeRef à la volée
-            let node = ExprNodeRef::new(id, entry);
+            let node = ExprNode::new(id, entry);
 
             match node.kind() {
-                ExprEntryKind::AtomicFormula(sk_id) => {
+                ExprKind::AtomicFormula(sk_id) => {
                     // 1. L'ID du Skeleton est directement extrait du variant de l'enum
                     let sk_id = *sk_id;
 
@@ -477,7 +477,7 @@ impl<'a> DatalogEngine<'a> {
                         let child_node = init.fetch_node(arg_id)?;
 
                         // On extrait la constante (l'ObjectId) par pattern matching direct
-                        if let ExprEntryKind::Object(object_id) = child_node.kind() {
+                        if let ExprKind::Object(object_id) = child_node.kind() {
                             args.push(*object_id);
                         } else {
                             return Err(DatalogError::invalid_atom_argument_(arg_id));
@@ -619,12 +619,12 @@ impl<'a> DatalogEngine<'a> {
         let atoms = precondition
             .postorder()
             .references() // Utilise .references() ou .values() qui renvoie les ExprNodeRef
-            .filter(|node| matches!(node.kind(), ExprEntryKind::AtomicFormula(_)));
+            .filter(|node| matches!(node.kind(), ExprKind::AtomicFormula(_)));
 
         for atom_node in atoms {
             // Extraction directe du SkeletonId depuis le variant de l'enum
             let skel_id = match atom_node.kind() {
-                ExprEntryKind::AtomicFormula(sk) => *sk,
+                ExprKind::AtomicFormula(sk) => *sk,
                 _ => unreachable!(),
             };
 
@@ -643,13 +643,13 @@ impl<'a> DatalogEngine<'a> {
                     let term_node = precondition.fetch_node(term_id)?;
 
                     let term = match term_node.kind() {
-                        ExprEntryKind::Variable(var_id) => {
+                        ExprKind::Variable(var_id) => {
                             let var_id = *var_id;
                             // IMPORTANT : On note que cette variable est couverte par un fait statique
                             covered_vars.insert(var_id);
                             Term::Variable(var_id)
                         }
-                        ExprEntryKind::Object(obj_id) => Term::Constant(*obj_id),
+                        ExprKind::Object(obj_id) => Term::Constant(*obj_id),
                         _ => {
                             return Err(DatalogError::invalid_atom_argument_(term_id));
                         }

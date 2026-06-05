@@ -8,7 +8,7 @@
 //! redundancy and ensures high-performance interning through inlining.
 
 use crate::aiplan4rust::lir::expr::builder::{ExprBuilder, ExprBuilderError};
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 use ordered_float::OrderedFloat;
 
 impl<'a> ExprBuilder<'a> {
@@ -25,7 +25,7 @@ impl<'a> ExprBuilder<'a> {
     /// Marked `#[inline]`. Validates PDDL temporal invariants before interning.
     #[inline]
     pub fn at_start(&mut self, expr: ExprId) -> Result<ExprId, ExprBuilderError> {
-        let kind = ExprEntryKind::AtStart;
+        let kind = ExprKind::AtStart;
         self.check_temporal_invariant(expr, kind.clone())?;
         Ok(self.intern(kind, &[expr]))
     }
@@ -43,7 +43,7 @@ impl<'a> ExprBuilder<'a> {
     /// Marked `#[inline]`. Prevents illegal nesting of temporal constraints.
     #[inline]
     pub fn at_end(&mut self, expr: ExprId) -> Result<ExprId, ExprBuilderError> {
-        let kind = ExprEntryKind::AtEnd;
+        let kind = ExprKind::AtEnd;
         self.check_temporal_invariant(expr, kind.clone())?;
         Ok(self.intern(kind, &[expr]))
     }
@@ -61,7 +61,7 @@ impl<'a> ExprBuilder<'a> {
     /// Marked `#[inline]`. Ensures the semantic integrity of the temporal invariant.
     #[inline]
     pub fn overall(&mut self, expr: ExprId) -> Result<ExprId, ExprBuilderError> {
-        let kind = ExprEntryKind::Overall;
+        let kind = ExprKind::Overall;
         self.check_temporal_invariant(expr, kind.clone())?;
         Ok(self.intern(kind, &[expr]))
     }
@@ -86,12 +86,12 @@ impl<'a> ExprBuilder<'a> {
     fn check_temporal_invariant(
         &self,
         expr: ExprId,
-        attempted_kind: ExprEntryKind,
+        attempted_kind: ExprKind,
     ) -> Result<(), ExprBuilderError> {
         if let Some(entry) = self.get(expr) {
             match entry.kind() {
                 // PDDL constraint: Temporal operators cannot be nested inside each other.
-                ExprEntryKind::AtStart | ExprEntryKind::AtEnd | ExprEntryKind::Overall => {
+                ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                     return Err(ExprBuilderError::invalid_temporal_invariant(
                         entry.kind().clone(),
                         attempted_kind,
@@ -141,7 +141,7 @@ impl<'a> ExprBuilder<'a> {
 
         // Intern the binary relation [Time, Expression]
         // This ensures the (Time, Expr) pair is unique in the old.
-        Ok(self.intern(ExprEntryKind::TimedInitialLiteral, &[time_node, expr]))
+        Ok(self.intern(ExprKind::TimedInitialLiteral, &[time_node, expr]))
     }
 }
 
@@ -149,7 +149,7 @@ impl<'a> ExprBuilder<'a> {
 mod tests {
     use crate::aiplan4rust::lang::VariableId;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
-    use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
 
     /// Verifies successful creation and Hash-Consing (deduplication).
     #[test]
@@ -192,8 +192,8 @@ mod tests {
                 existing_kind,
                 attempted_kind,
             }) => {
-                assert_eq!(existing_kind, ExprEntryKind::AtStart);
-                assert_eq!(attempted_kind, ExprEntryKind::AtStart);
+                assert_eq!(existing_kind, ExprKind::AtStart);
+                assert_eq!(attempted_kind, ExprKind::AtStart);
             }
             _ => panic!("Should have failed with InvalidTemporalInvariant"),
         }
@@ -216,8 +216,8 @@ mod tests {
             attempted_kind,
         }) = result
         {
-            assert_eq!(existing_kind, ExprEntryKind::AtStart);
-            assert_eq!(attempted_kind, ExprEntryKind::Overall);
+            assert_eq!(existing_kind, ExprKind::AtStart);
+            assert_eq!(attempted_kind, ExprKind::Overall);
         } else {
             panic!("Cross-nesting temporal operators should be rejected");
         }
@@ -232,7 +232,7 @@ mod tests {
         let p1 = builder.predicate(1);
         let p2 = builder.predicate(2);
         // Assuming a conjunction helper exists
-        let and_expr = builder.intern(ExprEntryKind::And, &[p1, p2]);
+        let and_expr = builder.intern(ExprKind::And, &[p1, p2]);
 
         // (at start (and p1 p2)) is perfectly valid
         let result = builder.at_start(and_expr);

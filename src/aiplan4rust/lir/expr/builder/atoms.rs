@@ -13,7 +13,7 @@ use crate::aiplan4rust::lang::{
     AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId,
 };
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs an `AtomicFormula` (Predicate with arguments) using a zero-alloc strategy.
@@ -67,7 +67,7 @@ impl<'a> ExprBuilder<'a> {
         buffer.extend_from_slice(args);
 
         // 3. Interning
-        let id = self.intern(ExprEntryKind::AtomicFormula(skel), &buffer);
+        let id = self.intern(ExprKind::AtomicFormula(skel), &buffer);
 
         // 4. Return the buffer to the pool
         self.primary_buffer = buffer;
@@ -128,7 +128,7 @@ impl<'a> ExprBuilder<'a> {
         buffer.extend_from_slice(args);
 
         // 3. Interning
-        let id = self.intern(ExprEntryKind::Function(skel), &buffer);
+        let id = self.intern(ExprKind::Function(skel), &buffer);
 
         // 4. Restoration
         // We return the buffer to the pool for the next call.
@@ -144,7 +144,7 @@ mod tests {
         AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId, VariableId,
     };
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprStore};
+    use crate::aiplan4rust::lir::expr::{ExprKind, ExprStore};
 
     /// Objective: Verify that identical atomic formulas are deduplicated via Hash-Consing.
     /// Input: Calling builder.atomic_formula twice with identical predicate, arguments, and skeleton.
@@ -184,7 +184,7 @@ mod tests {
         let node = builder.get(f_id).expect("Function node must exist");
 
         // Verify the node kind matches the skeleton
-        assert!(matches!(node.kind(), ExprEntryKind::Function(s) if s == &skel));
+        assert!(matches!(node.kind(), ExprKind::Function(s) if s == &skel));
 
         // Verify the structure: [SymbolNode, ArgumentNode]
         let children = node.children();
@@ -196,7 +196,7 @@ mod tests {
 
         // First child must be the FunctionSymbol metadata node
         let sym_node = builder.get(children[0]).expect("Symbol node must exist");
-        assert!(matches!(sym_node.kind(), ExprEntryKind::FunctionSymbol(s) if s == &sym_id));
+        assert!(matches!(sym_node.kind(), ExprKind::FunctionSymbol(s) if s == &sym_id));
 
         // Second child is the actual argument
         assert_eq!(
@@ -254,7 +254,7 @@ mod tests {
 
         // Detailed structure check
         let sym_node = builder.get(children[0]).unwrap();
-        assert!(matches!(sym_node.kind(), ExprEntryKind::PredicateSymbol(s) if s == &sym));
+        assert!(matches!(sym_node.kind(), ExprKind::PredicateSymbol(s) if s == &sym));
         assert_eq!(children[1], var);
         assert_eq!(children[2], val);
     }

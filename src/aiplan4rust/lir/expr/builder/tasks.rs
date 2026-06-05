@@ -8,7 +8,7 @@
 
 use crate::aiplan4rust::lang::{CompareOp, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a leaf node representing a Task Symbol in an HTN domain.
@@ -24,7 +24,7 @@ impl<'a> ExprBuilder<'a> {
     /// structural hashing, providing near-instantaneous interning.
     #[inline(always)]
     pub fn task_symbol<I: Into<TaskSymbolId>>(&mut self, id: I) -> ExprId {
-        self.intern(ExprEntryKind::TaskSymbol(id.into()), &[])
+        self.intern(ExprKind::TaskSymbol(id.into()), &[])
     }
 
     /// Creates a leaf node representing a Task Label, used to reference specific task
@@ -37,7 +37,7 @@ impl<'a> ExprBuilder<'a> {
     /// An `ExprId` representing the unique task label node.
     #[inline(always)]
     pub fn task_label<I: Into<TaskLabelSymbolId>>(&mut self, id: I) -> ExprId {
-        self.intern(ExprEntryKind::TaskLabel(id.into()), &[])
+        self.intern(ExprKind::TaskLabel(id.into()), &[])
     }
 
     /// Associates a unique label with a task expression to create a `LabeledTask`.
@@ -51,7 +51,7 @@ impl<'a> ExprBuilder<'a> {
     #[inline]
     pub fn labeled_task<I: Into<TaskLabelSymbolId>>(&mut self, id: I, task_expr: ExprId) -> ExprId {
         let label_node = self.task_label(id);
-        self.intern(ExprEntryKind::LabeledTask, &[label_node, task_expr])
+        self.intern(ExprKind::LabeledTask, &[label_node, task_expr])
     }
 
     /// Creates a temporal ordering constraint between two tasks.
@@ -69,7 +69,7 @@ impl<'a> ExprBuilder<'a> {
     #[inline]
     pub fn task_ordering_constraint(&mut self, task1: ExprId, task2: ExprId) -> ExprId {
         self.intern(
-            ExprEntryKind::TaskOrderingConstraint(CompareOp::Less),
+            ExprKind::TaskOrderingConstraint(CompareOp::Less),
             &[task1, task2],
         )
     }
@@ -112,7 +112,7 @@ impl<'a> ExprBuilder<'a> {
         buffer.push(sym_node);
         buffer.extend_from_slice(args);
 
-        let id = self.intern(ExprEntryKind::Task(skel), &buffer);
+        let id = self.intern(ExprKind::Task(skel), &buffer);
 
         self.primary_buffer = buffer;
 

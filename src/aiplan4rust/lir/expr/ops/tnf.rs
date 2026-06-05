@@ -23,7 +23,7 @@
 //!
 //! During the descent phase, this module tracks the current temporal context. If a
 //! temporal operator is encountered while the context is already set (i.e., not `None`),
-//! the function returns an [`ExprOpErrorHC::IllegalTemporalNesting`].
+//! the function returns an [`ExprOpError::IllegalTemporalNesting`].
 //!
 //! ### 3. Sparse Triplet Optimization
 //! While TNF theoretically results in a triplet of (Start, End, Overall) expressions,
@@ -56,8 +56,8 @@
 
 use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::lir::expr::iter::scratchpad::Scratchpad;
-use crate::aiplan4rust::lir::expr::ops::error::ExprOpErrorHC;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 use smallvec::SmallVec;
 
 /// The maximum number of children stored inline in a `SmallVec` before spilling to the heap.
@@ -81,13 +81,13 @@ const MAX_CHILDREN: usize = 32;
 /// An `ExprId` representing an `(and (at start S) (at end E) (overall O))` node.
 ///
 /// # Errors
-/// Returns [`ExprOpErrorHC::IllegalTemporalNesting`] if a temporal operator is found
+/// Returns [`ExprOpError::IllegalTemporalNesting`] if a temporal operator is found
 /// nested inside another temporal operator.
 pub fn to_tnf(
     expr: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
-) -> Result<ExprId, ExprOpErrorHC> {
+) -> Result<ExprId, ExprOpError> {
     if expr.is_none() {
         return Ok(expr);
     }
@@ -118,18 +118,18 @@ pub fn to_tnf(
         if processed {
             // --- PHASE 2 : RECONSTRUCTION (Post-order traversal) ---
             let res_triplet = match &kind {
-                ExprEntryKind::AtStart | ExprEntryKind::AtEnd | ExprEntryKind::Overall => {
+                ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                     // Extract the result from the child using its specific context
                     let child_ctx = TimeSpecifier::from_kind(&kind);
                     let child_packed = child_ctx.pack(children_ids[0].as_usize());
                     scratch.get_temporal_decomposition(child_packed)
                 }
 
-                ExprEntryKind::And
-                | ExprEntryKind::Or
-                | ExprEntryKind::Not
-                | ExprEntryKind::Forall(_)
-                | ExprEntryKind::Exists(_) => {
+                ExprKind::And
+                | ExprKind::Or
+                | ExprKind::Not
+                | ExprKind::Forall(_)
+                | ExprKind::Exists(_) => {
                     scratch.clear_time_specifier_buffers();
 
                     for &c in &children_ids {
@@ -162,12 +162,12 @@ pub fn to_tnf(
             // --- PHASE 1 : DESCENT (Pre-order traversal) ---
             let is_temporal = matches!(
                 kind,
-                ExprEntryKind::AtStart | ExprEntryKind::AtEnd | ExprEntryKind::Overall
+                ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall
             );
 
             // Illegal Nesting Detection: PDDL forbid nested temporal operators
             if ctx != TimeSpecifier::None && is_temporal {
-                return Err(ExprOpErrorHC::illegal_temporal_nesting(
+                return Err(ExprOpError::illegal_temporal_nesting(
                     curr_id,
                     ctx.to_expr_kind(),
                     kind,
@@ -212,7 +212,7 @@ pub fn to_tnf(
 ///
 /// # Parameters
 /// * `builder`: A mutable reference to the [`ExprBuilder`] used to intern the new node.
-/// * `kind`: The [`ExprEntryKind`] of the node to reconstruct (e.g., `And`, `Or`, `Not`).
+/// * `kind`: The [`ExprKind`] of the node to reconstruct (e.g., `And`, `Or`, `Not`).
 /// * `kids`: A slice of [`ExprId`] representing the already transformed children of this node.
 /// * `empty`: The [`ExprId`] of the neutral element (logical True/empty AND) to return if `kids` is empty.
 ///
@@ -228,14 +228,14 @@ pub fn to_tnf(
 ///    which handles structural deduplication (hash-consing).
 fn rebuild_safe(
     builder: &mut ExprBuilder,
-    kind: &ExprEntryKind,
+    kind: &ExprKind,
     kids: &[ExprId],
     empty: ExprId,
-) -> Result<ExprId, ExprOpErrorHC> {
+) -> Result<ExprId, ExprOpError> {
     if kids.is_empty() {
         // Identity: empty AND/OR often simplifies to True/False in TNF contexts
         Ok(empty)
-    } else if kids.len() == 1 && matches!(kind, ExprEntryKind::And | ExprEntryKind::Or) {
+    } else if kids.len() == 1 && matches!(kind, ExprKind::And | ExprKind::Or) {
         // Simplify: AND(A) -> A, OR(A) -> A
         Ok(kids[0])
     } else {
@@ -272,7 +272,7 @@ pub fn is_fully_temporal(
     root: ExprId,
     builder: &ExprBuilder,
     scratch: &mut Scratchpad,
-) -> Result<bool, ExprOpErrorHC> {
+) -> Result<bool, ExprOpError> {
     scratch.clear();
 
     // Pack the root: ID in upper bits, "under_temporal" flag (0) in the LSB.
@@ -289,18 +289,18 @@ pub fn is_fully_temporal(
 
         match kind {
             // Temporal Operators: Set the flag to 1 for all children.
-            ExprEntryKind::AtStart | ExprEntryKind::AtEnd | ExprEntryKind::Overall => {
+            ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                 for &child in entry.children() {
                     let next_packed = (child.as_usize() << 1) | 1;
                     scratch.push(ExprId::from(next_packed), false);
                 }
             }
             // Logical Connectives & Quantifiers: Propagate the current flag to children.
-            ExprEntryKind::And
-            | ExprEntryKind::Or
-            | ExprEntryKind::Not
-            | ExprEntryKind::Forall(_)
-            | ExprEntryKind::Exists(_) => {
+            ExprKind::And
+            | ExprKind::Or
+            | ExprKind::Not
+            | ExprKind::Forall(_)
+            | ExprKind::Exists(_) => {
                 let flag = if is_under_temporal { 1 } else { 0 };
                 for &child in entry.children() {
                     let next_packed = (child.as_usize() << 1) | flag;
@@ -381,7 +381,7 @@ impl TimeSpecifier {
         (id_val, spec)
     }
 
-    /// Converts an [`ExprEntryKind`] into its corresponding [`TimeSpecifier`].
+    /// Converts an [`ExprKind`] into its corresponding [`TimeSpecifier`].
     ///
     /// This is used during the downward pass of the TNF algorithm to update
     /// the current temporal context based on the node being visited.
@@ -391,31 +391,31 @@ impl TimeSpecifier {
     ///
     /// # Returns
     /// The matching `TimeSpecifier` if `kind` is a temporal operator; otherwise `TimeSpecifier::None`.
-    fn from_kind(kind: &ExprEntryKind) -> Self {
+    fn from_kind(kind: &ExprKind) -> Self {
         match kind {
-            ExprEntryKind::AtStart => Self::AtStart,
-            ExprEntryKind::AtEnd => Self::AtEnd,
-            ExprEntryKind::Overall => Self::Overall,
+            ExprKind::AtStart => Self::AtStart,
+            ExprKind::AtEnd => Self::AtEnd,
+            ExprKind::Overall => Self::Overall,
             _ => Self::None,
         }
     }
 
-    /// Rebuilds an [`ExprEntryKind`] from this specifier.
+    /// Rebuilds an [`ExprKind`] from this specifier.
     ///
     /// Primarily used for error reporting (e.g., in `IllegalTemporalNesting`)
     /// or when reconstructing the temporal wrapper nodes.
     ///
     /// # Returns
-    /// The [`ExprEntryKind`] variant corresponding to this specifier.
+    /// The [`ExprKind`] variant corresponding to this specifier.
     ///
     /// # Panics
     /// Panics if called on [`TimeSpecifier::None`], as there is no
     /// corresponding temporal operator node for a null context.
-    fn to_expr_kind(&self) -> ExprEntryKind {
+    fn to_expr_kind(&self) -> ExprKind {
         match self {
-            Self::AtStart => ExprEntryKind::AtStart,
-            Self::AtEnd => ExprEntryKind::AtEnd,
-            Self::Overall => ExprEntryKind::Overall,
+            Self::AtStart => ExprKind::AtStart,
+            Self::AtEnd => ExprKind::AtEnd,
+            Self::Overall => ExprKind::Overall,
             Self::None => {
                 unreachable!("Cannot convert TimeSpecifier::None to an ExprEntryKind context")
             }
@@ -449,7 +449,7 @@ mod tests {
         };
 
         assert!(
-            matches!(root_kind, ExprEntryKind::And),
+            matches!(root_kind, ExprKind::And),
             "TNF root must be an 'And' node, but found: {:?}",
             root_kind
         );
@@ -468,9 +468,9 @@ mod tests {
             let inner_id = child_node.children().get(0).copied().unwrap_or(empty);
 
             match child_kind {
-                ExprEntryKind::AtStart => s = inner_id,
-                ExprEntryKind::AtEnd => e = inner_id,
-                ExprEntryKind::Overall => o = inner_id,
+                ExprKind::AtStart => s = inner_id,
+                ExprKind::AtEnd => e = inner_id,
+                ExprKind::Overall => o = inner_id,
                 _ => {
                     // Ignore optimized nodes or neutral elements that don't match
                     // a specific temporal specifier.
@@ -641,7 +641,7 @@ mod tests {
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
 
         let s_node = builder.fetch(s)?;
-        assert!(matches!(s_node.kind(), ExprEntryKind::Not));
+        assert!(matches!(s_node.kind(), ExprKind::Not));
         assert_eq!(s_node.children()[0], a);
 
         Ok(())
@@ -706,7 +706,7 @@ mod tests {
         let s_node = builder.fetch(s)?;
 
         assert!(
-            matches!(s_node.kind(), ExprEntryKind::Forall(_)),
+            matches!(s_node.kind(), ExprKind::Forall(_)),
             "Forall node must be present"
         );
         assert_eq!(
@@ -754,7 +754,7 @@ mod tests {
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
         let s_node = builder.fetch(s)?;
 
-        if let ExprEntryKind::Forall(vars) = s_node.kind() {
+        if let ExprKind::Forall(vars) = s_node.kind() {
             assert_eq!(
                 vars.len(),
                 2,
@@ -822,7 +822,7 @@ mod tests {
         // 6. Assertions: The start component must be the original WHEN node
         let s_node = builder.fetch(s)?;
         assert!(
-            matches!(s_node.kind(), ExprEntryKind::When),
+            matches!(s_node.kind(), ExprKind::When),
             "The Start component should be a WHEN node, but found: {:?}",
             s_node.kind()
         );
@@ -876,7 +876,7 @@ mod tests {
         // 6. Assertions: The start component must be the OR node
         let s_node = builder.fetch(s)?;
         assert!(
-            matches!(s_node.kind(), ExprEntryKind::Or),
+            matches!(s_node.kind(), ExprKind::Or),
             "The Start component should be an OR node, but found: {:?}",
             s_node.kind()
         );
@@ -928,7 +928,7 @@ mod tests {
         let result = to_tnf(outer, &mut builder, &mut scratch);
 
         match result {
-            Err(ExprOpErrorHC::IllegalTemporalNesting { .. }) => {
+            Err(ExprOpError::IllegalTemporalNesting { .. }) => {
                 // Success: TNF algorithm detected the illegal nesting
                 Ok(())
             }
@@ -1005,10 +1005,10 @@ mod tests {
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
 
         let s_node = builder.fetch(s)?;
-        assert!(matches!(s_node.kind(), ExprEntryKind::Not));
+        assert!(matches!(s_node.kind(), ExprKind::Not));
 
         let inner_and = builder.fetch(s_node.children()[0])?;
-        assert!(matches!(inner_and.kind(), ExprEntryKind::And));
+        assert!(matches!(inner_and.kind(), ExprKind::And));
         assert_eq!(inner_and.children().len(), 2);
 
         Ok(())
@@ -1071,7 +1071,7 @@ mod tests {
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
 
         let s_node = builder.fetch(s)?;
-        assert!(matches!(s_node.kind(), ExprEntryKind::Forall(_)));
+        assert!(matches!(s_node.kind(), ExprKind::Forall(_)));
         assert_eq!(s_node.children()[0], p_x);
 
         Ok(())

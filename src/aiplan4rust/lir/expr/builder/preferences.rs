@@ -10,7 +10,7 @@
 
 use crate::aiplan4rust::lang::PreferenceSymbolId;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a leaf node representing a preference name.
@@ -27,7 +27,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// * `ExprId` - The unique identifier for the interned preference name node.
     pub fn pref_name<I: Into<PreferenceSymbolId>>(&mut self, id: I) -> ExprId {
-        self.intern(ExprEntryKind::PrefName(id.into()), &[])
+        self.intern(ExprKind::PrefName(id.into()), &[])
     }
 
     /// Creates a `Preference` node, linking a name to a logical body.
@@ -44,7 +44,7 @@ impl<'a> ExprBuilder<'a> {
     /// * `ExprId` - The unique identifier for the binary Preference node.
     pub fn preference<I: Into<PreferenceSymbolId>>(&mut self, id: I, body: ExprId) -> ExprId {
         let name_id = self.pref_name(id);
-        self.intern(ExprEntryKind::Preference, &[name_id, body])
+        self.intern(ExprKind::Preference, &[name_id, body])
     }
 
     /// Creates an `IsViolated` check node for a specific preference.
@@ -61,7 +61,7 @@ impl<'a> ExprBuilder<'a> {
     /// * `ExprId` - The identifier for the unary IsViolated node.
     pub fn is_violated<I: Into<PreferenceSymbolId>>(&mut self, id: I) -> ExprId {
         let name_id = self.pref_name(id);
-        self.intern(ExprEntryKind::IsViolated, &[name_id])
+        self.intern(ExprKind::IsViolated, &[name_id])
     }
 }
 
@@ -83,13 +83,13 @@ mod tests {
         let pref_id = builder.preference(10, body);
 
         let node = builder.get(pref_id).unwrap();
-        assert_eq!(node.kind(), &ExprEntryKind::Preference);
+        assert_eq!(node.kind(), &ExprKind::Preference);
         assert_eq!(node.children().len(), 2);
 
         // Verify the first child is the PrefName node
         let name_node = builder.get(node.children()[0]).unwrap();
         assert!(
-            matches!(name_node.kind(), ExprEntryKind::PrefName(id) if id == &PreferenceSymbolId::from(10))
+            matches!(name_node.kind(), ExprKind::PrefName(id) if id == &PreferenceSymbolId::from(10))
         );
     }
 
@@ -143,7 +143,7 @@ mod tests {
         let viol_id = builder.is_violated(1);
         let node = builder.get(viol_id).unwrap();
 
-        assert_eq!(node.kind(), &ExprEntryKind::IsViolated);
+        assert_eq!(node.kind(), &ExprKind::IsViolated);
         assert_eq!(node.children().len(), 1, "IsViolated is a unary operator");
     }
 

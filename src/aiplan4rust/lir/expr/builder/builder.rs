@@ -25,7 +25,7 @@
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId, ExprNodeRef, ExprStore};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind, ExprNode, ExprStore};
 
 /// The debug tolerance used for floating-point comparisons within the builder.
 ///
@@ -88,7 +88,7 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// The unique [`ExprId`] associated with the interned node.
     #[inline]
-    pub fn intern(&mut self, kind: ExprEntryKind, children: &[ExprId]) -> ExprId {
+    pub fn intern(&mut self, kind: ExprKind, children: &[ExprId]) -> ExprId {
         self.store().intern(kind, children)
     }
 
@@ -101,9 +101,9 @@ impl<'a> ExprBuilder<'a> {
     /// * `id` - The identifier of the expression to retrieve.
     ///
     /// # Returns
-    /// An `Option` containing an [`ExprNodeRef`] if the ID is valid.
+    /// An `Option` containing an [`ExprNode`] if the ID is valid.
     #[inline]
-    pub fn get(&self, id: ExprId) -> Option<ExprNodeRef<'_>> {
+    pub fn get(&self, id: ExprId) -> Option<ExprNode<'_>> {
         self.store.get(id)
     }
 
@@ -119,7 +119,7 @@ impl<'a> ExprBuilder<'a> {
     /// * `Ok(ExprNodeRef)` - The view on the requested node.
     /// * `Err(StorerError)` - If the ID is invalid or the old is corrupted.
     #[inline]
-    pub fn fetch(&self, id: ExprId) -> Result<ExprNodeRef<'_>, StorerError> {
+    pub fn fetch(&self, id: ExprId) -> Result<ExprNode<'_>, StorerError> {
         self.store.fetch(id)
     }
 
@@ -132,7 +132,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Arguments
     ///
-    /// * `kind` - The [`ExprEntryKind`] of the node to reconstruct.
+    /// * `kind` - The [`ExprKind`] of the node to reconstruct.
     /// * `children` - A slice of [`ExprId`] representing the already interned children
     ///   of this expression.
     ///
@@ -149,65 +149,63 @@ impl<'a> ExprBuilder<'a> {
     /// - A quantifier (`Forall`, `Exists`) introduces invalid variable scopes.
     pub fn reconstruct(
         &mut self,
-        kind: ExprEntryKind,
+        kind: ExprKind,
         children: &[ExprId],
     ) -> Result<ExprId, ExprBuilderError> {
         let id = match kind {
             // --- 1. Variadic Logical and Arithmetic Operators ---
             // Uses smart constructors to trigger potential simplifications (e.g., flattening)
-            ExprEntryKind::And => self.and(children),
-            ExprEntryKind::Or => self.or(children),
-            ExprEntryKind::Arithmetic(op) => self.arithmetic(op, children),
+            ExprKind::And => self.and(children),
+            ExprKind::Or => self.or(children),
+            ExprKind::Arithmetic(op) => self.arithmetic(op, children),
 
             // --- 2. Binary Operators (2 children) ---
-            ExprEntryKind::Imply => self.imply(children[0], children[1]),
-            ExprEntryKind::When => self.when(children[0], children[1]),
-            ExprEntryKind::Comparison(op) => self.comparison(op, children[0], children[1]),
-            ExprEntryKind::Assignment(op) => self.assignment(op, children[0], children[1]),
+            ExprKind::Imply => self.imply(children[0], children[1]),
+            ExprKind::When => self.when(children[0], children[1]),
+            ExprKind::Comparison(op) => self.comparison(op, children[0], children[1]),
+            ExprKind::Assignment(op) => self.assignment(op, children[0], children[1]),
 
-            ExprEntryKind::TaskOrderingConstraint(op) => {
-                self.intern(ExprEntryKind::TaskOrderingConstraint(op), children)
+            ExprKind::TaskOrderingConstraint(op) => {
+                self.intern(ExprKind::TaskOrderingConstraint(op), children)
             }
 
             // --- 3. Unary Operators (1 child) ---
-            ExprEntryKind::Not => self.not(children[0]),
+            ExprKind::Not => self.not(children[0]),
             // Fallible temporal operators: propagation of Result is required
-            ExprEntryKind::AtStart => self.at_start(children[0])?,
-            ExprEntryKind::AtEnd => self.at_end(children[0])?,
-            ExprEntryKind::Overall => self.overall(children[0])?,
+            ExprKind::AtStart => self.at_start(children[0])?,
+            ExprKind::AtEnd => self.at_end(children[0])?,
+            ExprKind::Overall => self.overall(children[0])?,
 
             // Metadata and Metric nodes (Direct interning)
-            ExprEntryKind::Preference | ExprEntryKind::IsViolated | ExprEntryKind::Metric(_) => {
+            ExprKind::Preference | ExprKind::IsViolated | ExprKind::Metric(_) => {
                 self.intern(kind, children)
             }
 
             // --- 4. Quantifiers (Variables + 1 child) ---
-            ExprEntryKind::Forall(vars) => self.forall(vars, children[0])?,
-            ExprEntryKind::Exists(vars) => self.exists(vars, children[0])?,
+            ExprKind::Forall(vars) => self.forall(vars, children[0])?,
+            ExprKind::Exists(vars) => self.exists(vars, children[0])?,
 
             // --- 5. Nodes with Skeletons (AtomicFormula, Function, Task) ---
             // Note: children[0] is typically the symbol, children[1..] are the arguments.
-            ExprEntryKind::AtomicFormula(skel) => {
-                self.intern(ExprEntryKind::AtomicFormula(skel), children)
-            }
-            ExprEntryKind::Function(skel) => self.intern(ExprEntryKind::Function(skel), children),
-            ExprEntryKind::Task(skel) => self.intern(ExprEntryKind::Task(skel), children),
+            ExprKind::AtomicFormula(skel) => self.intern(ExprKind::AtomicFormula(skel), children),
+            ExprKind::Function(skel) => self.intern(ExprKind::Function(skel), children),
+            ExprKind::Task(skel) => self.intern(ExprKind::Task(skel), children),
 
             // --- 6. Complex Temporal and HTN Nodes ---
-            ExprEntryKind::Always
-            | ExprEntryKind::Sometime
-            | ExprEntryKind::Within
-            | ExprEntryKind::AtMostOnce
-            | ExprEntryKind::SometimeAfter
-            | ExprEntryKind::SometimeBefore
-            | ExprEntryKind::AlwaysWithin
-            | ExprEntryKind::HoldDuring
-            | ExprEntryKind::HoldAfter
-            | ExprEntryKind::TimedInitialLiteral
-            | ExprEntryKind::LabeledTask
-            | ExprEntryKind::Serial
-            | ExprEntryKind::Parallel
-            | ExprEntryKind::Length => self.intern(kind, children),
+            ExprKind::Always
+            | ExprKind::Sometime
+            | ExprKind::Within
+            | ExprKind::AtMostOnce
+            | ExprKind::SometimeAfter
+            | ExprKind::SometimeBefore
+            | ExprKind::AlwaysWithin
+            | ExprKind::HoldDuring
+            | ExprKind::HoldAfter
+            | ExprKind::TimedInitialLiteral
+            | ExprKind::LabeledTask
+            | ExprKind::Serial
+            | ExprKind::Parallel
+            | ExprKind::Length => self.intern(kind, children),
 
             // --- 7. Leaf Nodes (Terminal nodes) ---
             // Objects, Numbers, Variables, etc. take no children in the buffer.
@@ -381,7 +379,7 @@ impl<'a> ExprBuilder<'a> {
     /// Extracts a literal floating-point value from an expression ID if it points to a number.
     ///
     /// This is a convenience helper that traverses the `ExprStore` to check if a specific
-    /// [`ExprId`] corresponds to a [`ExprEntryKind::Number`].
+    /// [`ExprId`] corresponds to a [`ExprKind::Number`].
     ///
     /// # Arguments
     ///
@@ -393,7 +391,7 @@ impl<'a> ExprBuilder<'a> {
     /// * `None` - If the expression does not exist or is not a number (e.g., it's a variable or another operation).
     pub(crate) fn get_number(&self, id: ExprId) -> Option<f64> {
         self.get(id).and_then(|n| {
-            if let ExprEntryKind::Number(v) = n.kind() {
+            if let ExprKind::Number(v) = n.kind() {
                 Some(v.into_inner())
             } else {
                 None

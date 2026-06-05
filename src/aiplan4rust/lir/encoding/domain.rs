@@ -17,7 +17,7 @@ use crate::aiplan4rust::lir::encoding::{
 };
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFunctionSkeleton;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 
@@ -50,7 +50,7 @@ use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 pub(crate) fn encode(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut NewLiftedProblem,
+    ir: &mut LiftedProblem,
     builder: &mut ExprBuilder, // Injection indispensable du builder
 ) -> Result<(), EncodingError> {
     // 1. Collection Phase: Populate IR skeletons and mapping tables.
@@ -94,7 +94,7 @@ pub(crate) fn encode(
 fn collect_definitions(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut NewLiftedProblem,
+    ir: &mut LiftedProblem,
 ) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
@@ -145,7 +145,7 @@ fn collect_definitions(
 fn encode_logic(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut NewLiftedProblem,
+    ir: &mut LiftedProblem,
     builder: &mut ExprBuilder, // Injection indispensable du builder
 ) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
@@ -202,7 +202,7 @@ fn encode_logic(
 /// * `ir` - The lifted problem, used as a read-only reference to check active requirements.
 pub fn encode_builtin_functions(
     registry: &mut EncodingRegistry,
-    ir: &mut NewLiftedProblem,
+    ir: &mut LiftedProblem,
 ) -> Result<(), EncodingError> {
     let reqs = ir.requirements();
 
@@ -261,7 +261,7 @@ pub fn encode_builtin_functions(
 /// conflict in the registry.
 fn register_builtin_function(
     registry: &mut EncodingRegistry,
-    ir: &mut NewLiftedProblem,
+    ir: &mut LiftedProblem,
     symbol_id: SymbolId,
     virtual_node_id: NodeId,
     return_type: TypeId,

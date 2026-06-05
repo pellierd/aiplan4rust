@@ -3,7 +3,7 @@ use crate::aiplan4rust::lir::expr::ExprStore;
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::lir::normalization::logic::{action, derived_predicate, method};
 use crate::aiplan4rust::lir::normalization::logic::{expr, task_network};
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Normalizes all logical expression components of a `LiftedProblem`.
 ///
@@ -25,7 +25,7 @@ use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 /// Returns an `ExprOpErrorHC` if normalization or simplification fails on any
 /// expression sub-tree within the problem.
 pub fn normalize(
-    problem: &mut NewLiftedProblem,
+    problem: &mut LiftedProblem,
     store: &mut ExprStore,
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {

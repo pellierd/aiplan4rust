@@ -1,7 +1,6 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::lir::expr::ExprId;
-use crate::aiplan4rust::lir::old::expr::ExprKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
@@ -68,16 +67,6 @@ pub enum StorerError {
         op: ArithmeticOp,
         /// The operand values that caused the error.
         values: Vec<OrderedFloat<f64>>,
-    },
-
-    /// Indicates that an expression node in the IR is invalid for the current transformation.
-    /// The node may be misplaced or of a typing that cannot be processed in this context.
-    #[error("Invalid expression node kind {kind:?} at node {node_id}")]
-    InvalidExprNode {
-        /// The ID of the expression node that is invalid.
-        node_id: NodeId,
-        /// The kind of the expression node that is invalid.
-        kind: ExprKind,
     },
 
     /// Indicates that a literal node is not properly wrapped in a temporal specifier
@@ -178,12 +167,6 @@ impl StorerError {
     #[track_caller]
     pub fn arithmetic_evaluation_error(op: ArithmeticOp, values: Vec<OrderedFloat<f64>>) -> Self {
         StorerError::ArithmeticEvaluationError { op, values }.trace()
-    }
-
-    /// Creates an `InvalidExprNode` error variant for a node with an invalid kind and captures the call site.
-    #[track_caller]
-    pub fn invalid_expr_node(node_id: NodeId, kind: ExprKind) -> Self {
-        StorerError::InvalidExprNode { node_id, kind }.trace()
     }
 
     /// Creates a `MissingTimeSpecifier` error variant for a literal node and captures the call site.

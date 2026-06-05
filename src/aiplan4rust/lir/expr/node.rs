@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::expr::{ExprEntry, ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprEntry, ExprId, ExprKind};
 
 /// Une référence légère et non-propriétaire vers une expression dans le Store.
 ///
@@ -6,12 +6,12 @@ use crate::aiplan4rust::lir::expr::{ExprEntry, ExprEntryKind, ExprId};
 /// de l'expression (`&ExprEntry`). Cela permet une inspection ergonomique sans
 /// avoir à interroger le old manuellement à chaque accès.
 #[derive(Debug, Clone, Copy)]
-pub struct ExprNodeRef<'a> {
+pub struct ExprNode<'a> {
     id: ExprId,
     entry: &'a ExprEntry,
 }
 
-impl<'a> ExprNodeRef<'a> {
+impl<'a> ExprNode<'a> {
     /// Crée une nouvelle référence d'expression.
     pub fn new(id: ExprId, entry: &'a ExprEntry) -> Self {
         Self { id, entry }
@@ -23,7 +23,7 @@ impl<'a> ExprNodeRef<'a> {
     }
 
     /// Accès direct au genre de l'expression (Kind).
-    pub fn kind(&self) -> &ExprEntryKind {
+    pub fn kind(&self) -> &ExprKind {
         self.entry.kind()
     }
 

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
-pub enum ExprEntryKind {
+pub enum ExprKind {
     Object(ObjectId),
     Variable(VariableId),
     FunctionSymbol(FunctionSymbolId),
@@ -62,133 +62,133 @@ pub enum ExprEntryKind {
     TaskOrderingConstraint(CompareOp), // check
 }
 
-impl ExprEntryKind {
+impl ExprKind {
     pub fn to_pddl_keyword(&self) -> &'static str {
         match self {
             // Leaves and terminals (content is handled by the Content module)
-            ExprEntryKind::Object(_)
-            | ExprEntryKind::Variable(_)
-            | ExprEntryKind::FunctionSymbol(_)
-            | ExprEntryKind::PredicateSymbol(_)
-            | ExprEntryKind::TaskSymbol(_)
-            | ExprEntryKind::PrefName(_)
-            | ExprEntryKind::Function(_)
-            | ExprEntryKind::Number(_)
-            | ExprEntryKind::AtomicFormula(_)
-            | ExprEntryKind::Task(_)
-            | ExprEntryKind::TaskLabel(_)
-            | ExprEntryKind::LabeledTask => "",
+            ExprKind::Object(_)
+            | ExprKind::Variable(_)
+            | ExprKind::FunctionSymbol(_)
+            | ExprKind::PredicateSymbol(_)
+            | ExprKind::TaskSymbol(_)
+            | ExprKind::PrefName(_)
+            | ExprKind::Function(_)
+            | ExprKind::Number(_)
+            | ExprKind::AtomicFormula(_)
+            | ExprKind::Task(_)
+            | ExprKind::TaskLabel(_)
+            | ExprKind::LabeledTask => "",
 
             // Logical Connectives
-            ExprEntryKind::And => "and",
-            ExprEntryKind::Or => "or",
-            ExprEntryKind::Not => "not",
-            ExprEntryKind::Imply => "imply",
-            ExprEntryKind::Forall(_) => "forall",
-            ExprEntryKind::Exists(_) => "exists",
-            ExprEntryKind::When => "when",
+            ExprKind::And => "and",
+            ExprKind::Or => "or",
+            ExprKind::Not => "not",
+            ExprKind::Imply => "imply",
+            ExprKind::Forall(_) => "forall",
+            ExprKind::Exists(_) => "exists",
+            ExprKind::When => "when",
 
             // Quantifiers and Preferences
-            ExprEntryKind::Preference => "preference",
-            ExprEntryKind::IsViolated => "is-violated",
+            ExprKind::Preference => "preference",
+            ExprKind::IsViolated => "is-violated",
 
             // Numerical Comparisons and Operations
             // Note: Usually handled by Content (e.g., <, >, +, -)
-            ExprEntryKind::Comparison(_) | ExprEntryKind::Arithmetic(_) => "",
-            ExprEntryKind::Assignment(_) => "",
+            ExprKind::Comparison(_) | ExprKind::Arithmetic(_) => "",
+            ExprKind::Assignment(_) => "",
 
             // Temporal (PDDL 2.1+)
-            ExprEntryKind::AtStart => "at start",
-            ExprEntryKind::AtEnd => "at end",
-            ExprEntryKind::Overall => "overall",
+            ExprKind::AtStart => "at start",
+            ExprKind::AtEnd => "at end",
+            ExprKind::Overall => "overall",
 
             // Modal Constraints / Trajectories (PDDL 3.0)
-            ExprEntryKind::Always => "always",
-            ExprEntryKind::Sometime => "sometime",
-            ExprEntryKind::Within => "within",
-            ExprEntryKind::AtMostOnce => "at-most-once",
-            ExprEntryKind::SometimeAfter => "sometime-after",
-            ExprEntryKind::SometimeBefore => "sometime-before",
-            ExprEntryKind::AlwaysWithin => "always-within",
-            ExprEntryKind::HoldDuring => "hold-during",
-            ExprEntryKind::HoldAfter => "hold-after",
+            ExprKind::Always => "always",
+            ExprKind::Sometime => "sometime",
+            ExprKind::Within => "within",
+            ExprKind::AtMostOnce => "at-most-once",
+            ExprKind::SometimeAfter => "sometime-after",
+            ExprKind::SometimeBefore => "sometime-before",
+            ExprKind::AlwaysWithin => "always-within",
+            ExprKind::HoldDuring => "hold-during",
+            ExprKind::HoldAfter => "hold-after",
 
             // Temporal Planning and Metrics
-            ExprEntryKind::TimedInitialLiteral => "at",
-            ExprEntryKind::Metric(_) => "metric",
-            ExprEntryKind::TotalTime => "total-time",
-            ExprEntryKind::TotalCost => "total-cost",
+            ExprKind::TimedInitialLiteral => "at",
+            ExprKind::Metric(_) => "metric",
+            ExprKind::TotalTime => "total-time",
+            ExprKind::TotalCost => "total-cost",
 
             // HTN and specific extensions
-            ExprEntryKind::TaskOrderingConstraint(_) => "ordering",
-            ExprEntryKind::Serial => "serial",
-            ExprEntryKind::Parallel => "parallel",
-            ExprEntryKind::Length => "length",
+            ExprKind::TaskOrderingConstraint(_) => "ordering",
+            ExprKind::Serial => "serial",
+            ExprKind::Parallel => "parallel",
+            ExprKind::Length => "length",
         }
     }
 }
 
-impl fmt::Display for ExprEntryKind {
+impl fmt::Display for ExprKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             // --- Terminaux avec valeurs (Utilise leur propre Display) ---
-            ExprEntryKind::Object(id) => write!(f, "Object({})", id),
-            ExprEntryKind::Variable(id) => write!(f, "Variable({})", id),
-            ExprEntryKind::Number(n) => write!(f, "Number({})", n),
+            ExprKind::Object(id) => write!(f, "Object({})", id),
+            ExprKind::Variable(id) => write!(f, "Variable({})", id),
+            ExprKind::Number(n) => write!(f, "Number({})", n),
 
             // --- Symboles et Squelettes ---
-            ExprEntryKind::PredicateSymbol(id) => write!(f, "Predicate({})", id),
-            ExprEntryKind::FunctionSymbol(id) => write!(f, "Functor({})", id),
-            ExprEntryKind::TaskSymbol(id) => write!(f, "TaskSymbol({})", id),
-            ExprEntryKind::PrefName(id) => write!(f, "PrefName({})", id),
-            ExprEntryKind::TaskLabel(id) => write!(f, "TaskLabel({})", id),
+            ExprKind::PredicateSymbol(id) => write!(f, "Predicate({})", id),
+            ExprKind::FunctionSymbol(id) => write!(f, "Functor({})", id),
+            ExprKind::TaskSymbol(id) => write!(f, "TaskSymbol({})", id),
+            ExprKind::PrefName(id) => write!(f, "PrefName({})", id),
+            ExprKind::TaskLabel(id) => write!(f, "TaskLabel({})", id),
 
-            ExprEntryKind::AtomicFormula(id) => write!(f, "Atome({})", id),
-            ExprEntryKind::Function(id) => write!(f, "Function({})", id),
-            ExprEntryKind::Task(id) => write!(f, "Task({})", id),
+            ExprKind::AtomicFormula(id) => write!(f, "Atome({})", id),
+            ExprKind::Function(id) => write!(f, "Function({})", id),
+            ExprKind::Task(id) => write!(f, "Task({})", id),
 
             // --- Opérateurs (Utilise leur propre Display) ---
-            ExprEntryKind::Comparison(op) => write!(f, "Comparison({})", op),
-            ExprEntryKind::Assignment(op) => write!(f, "Assign({})", op),
-            ExprEntryKind::Arithmetic(op) => write!(f, "Op({})", op),
+            ExprKind::Comparison(op) => write!(f, "Comparison({})", op),
+            ExprKind::Assignment(op) => write!(f, "Assign({})", op),
+            ExprKind::Arithmetic(op) => write!(f, "Op({})", op),
 
             // --- Quantificateurs (Affiche le nombre de variables) ---
-            ExprEntryKind::Forall(vars) => write!(f, "Forall({})", vars.len()),
-            ExprEntryKind::Exists(vars) => write!(f, "Exists({})", vars.len()),
+            ExprKind::Forall(vars) => write!(f, "Forall({})", vars.len()),
+            ExprKind::Exists(vars) => write!(f, "Exists({})", vars.len()),
 
             // --- Connecteurs simples (Juste le nom) ---
-            ExprEntryKind::And => write!(f, "And"),
-            ExprEntryKind::Or => write!(f, "Or"),
-            ExprEntryKind::Not => write!(f, "Not"),
-            ExprEntryKind::Imply => write!(f, "Imply"),
-            ExprEntryKind::When => write!(f, "When"),
-            ExprEntryKind::Preference => write!(f, "Preference"),
+            ExprKind::And => write!(f, "And"),
+            ExprKind::Or => write!(f, "Or"),
+            ExprKind::Not => write!(f, "Not"),
+            ExprKind::Imply => write!(f, "Imply"),
+            ExprKind::When => write!(f, "When"),
+            ExprKind::Preference => write!(f, "Preference"),
 
             // --- Temporel et Modalités ---
-            ExprEntryKind::AtStart => write!(f, "AtStart"),
-            ExprEntryKind::AtEnd => write!(f, "AtEnd"),
-            ExprEntryKind::Overall => write!(f, "Overall"),
-            ExprEntryKind::Always => write!(f, "Always"),
-            ExprEntryKind::Sometime => write!(f, "Sometime"),
-            ExprEntryKind::Within => write!(f, "Within"),
-            ExprEntryKind::AtMostOnce => write!(f, "AtMostOnce"),
-            ExprEntryKind::SometimeAfter => write!(f, "SometimeAfter"),
-            ExprEntryKind::SometimeBefore => write!(f, "SometimeBefore"),
-            ExprEntryKind::AlwaysWithin => write!(f, "AlwaysWithin"),
-            ExprEntryKind::HoldDuring => write!(f, "HoldDuring"),
-            ExprEntryKind::HoldAfter => write!(f, "HoldAfter"),
+            ExprKind::AtStart => write!(f, "AtStart"),
+            ExprKind::AtEnd => write!(f, "AtEnd"),
+            ExprKind::Overall => write!(f, "Overall"),
+            ExprKind::Always => write!(f, "Always"),
+            ExprKind::Sometime => write!(f, "Sometime"),
+            ExprKind::Within => write!(f, "Within"),
+            ExprKind::AtMostOnce => write!(f, "AtMostOnce"),
+            ExprKind::SometimeAfter => write!(f, "SometimeAfter"),
+            ExprKind::SometimeBefore => write!(f, "SometimeBefore"),
+            ExprKind::AlwaysWithin => write!(f, "AlwaysWithin"),
+            ExprKind::HoldDuring => write!(f, "HoldDuring"),
+            ExprKind::HoldAfter => write!(f, "HoldAfter"),
 
             // --- Metrics et HTN ---
-            ExprEntryKind::TimedInitialLiteral => write!(f, "TimedInitialLiteral"),
-            ExprEntryKind::Metric(_) => write!(f, "Metric"),
-            ExprEntryKind::TotalTime => write!(f, "TotalTime"),
-            ExprEntryKind::TotalCost => write!(f, "TotalCost"),
-            ExprEntryKind::IsViolated => write!(f, "IsViolated"),
-            ExprEntryKind::Length => write!(f, "Length"),
-            ExprEntryKind::Serial => write!(f, "Serial"),
-            ExprEntryKind::Parallel => write!(f, "Parallel"),
-            ExprEntryKind::LabeledTask => write!(f, "LabeledTask"),
-            ExprEntryKind::TaskOrderingConstraint(_) => write!(f, "Ordering"),
+            ExprKind::TimedInitialLiteral => write!(f, "TimedInitialLiteral"),
+            ExprKind::Metric(_) => write!(f, "Metric"),
+            ExprKind::TotalTime => write!(f, "TotalTime"),
+            ExprKind::TotalCost => write!(f, "TotalCost"),
+            ExprKind::IsViolated => write!(f, "IsViolated"),
+            ExprKind::Length => write!(f, "Length"),
+            ExprKind::Serial => write!(f, "Serial"),
+            ExprKind::Parallel => write!(f, "Parallel"),
+            ExprKind::LabeledTask => write!(f, "LabeledTask"),
+            ExprKind::TaskOrderingConstraint(_) => write!(f, "Ordering"),
         }
     }
 }

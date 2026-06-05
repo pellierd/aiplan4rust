@@ -8,7 +8,7 @@ use crate::aiplan4rust::lang::{Requirement, SymbolId, TaskSymbolId, TypedList};
 use crate::aiplan4rust::lir::problem::skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
-use crate::aiplan4rust::lir::problem::{NewLiftedProblem, SymbolRegistry};
+use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolRegistry};
 use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -55,7 +55,7 @@ impl Problem {
     ///
     /// This implementation performs an ownership transfer of all internal
     /// data structures, ensuring no deep clones are required.
-    pub fn from(mut lifted: NewLiftedProblem) -> Self {
+    pub fn from(mut lifted: LiftedProblem) -> Self {
         // Extract the interner
         let interner = lifted.take_interner();
 

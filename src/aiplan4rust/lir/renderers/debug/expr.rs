@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 use crate::aiplan4rust::lir::renderers::RenderContext;
 use std::fmt;
 
@@ -43,39 +43,39 @@ pub fn render(f: &mut fmt::Formatter<'_>, root_id: ExprId, ctx: &RenderContext) 
 
 fn render_hybrid_content(
     f: &mut fmt::Formatter<'_>,
-    kind: &ExprEntryKind,
+    kind: &ExprKind,
     ctx: &RenderContext,
 ) -> fmt::Result {
     match kind {
         // --- Terminaux Variables & Labels ---
-        ExprEntryKind::Variable(id) => write!(f, "{} -> ?x{}", id, id.as_usize()),
-        ExprEntryKind::TaskLabel(id) => write!(f, "{} -> t{}", id, id.as_usize()),
+        ExprKind::Variable(id) => write!(f, "{} -> ?x{}", id, id.as_usize()),
+        ExprKind::TaskLabel(id) => write!(f, "{} -> t{}", id, id.as_usize()),
 
         // --- Terminaux Symboles (Directs) ---
-        ExprEntryKind::PredicateSymbol(id) => write!(f, "{} -> {}", id, ctx.resolve_predicate(*id)),
-        ExprEntryKind::FunctionSymbol(id) => write!(f, "{} -> {}", id, ctx.resolve_functor(*id)),
-        ExprEntryKind::TaskSymbol(id) => write!(f, "{} -> {}", id, ctx.resolve_task_symbol(*id)),
-        ExprEntryKind::Object(id) => write!(f, "{} -> {}", id, ctx.resolve_object(*id)),
-        ExprEntryKind::PrefName(id) => write!(f, "{}", id), // À étendre si resolve_preference existe
+        ExprKind::PredicateSymbol(id) => write!(f, "{} -> {}", id, ctx.resolve_predicate(*id)),
+        ExprKind::FunctionSymbol(id) => write!(f, "{} -> {}", id, ctx.resolve_functor(*id)),
+        ExprKind::TaskSymbol(id) => write!(f, "{} -> {}", id, ctx.resolve_task_symbol(*id)),
+        ExprKind::Object(id) => write!(f, "{} -> {}", id, ctx.resolve_object(*id)),
+        ExprKind::PrefName(id) => write!(f, "{}", id), // À étendre si resolve_preference existe
 
         // --- Squelettes (Résolution via le Store + Interner) ---
-        ExprEntryKind::AtomicFormula(id) => {
+        ExprKind::AtomicFormula(id) => {
             write!(f, "{}", id)
         }
-        ExprEntryKind::Function(id) => {
+        ExprKind::Function(id) => {
             write!(f, "{}", id)
         }
-        ExprEntryKind::Task(id) => write!(f, "{}", id),
+        ExprKind::Task(id) => write!(f, "{}", id),
 
         // --- Valeurs et Opérateurs (On utilise leur Display/Debug) ---
-        ExprEntryKind::Number(n) => write!(f, "{}", n),
-        ExprEntryKind::Comparison(op) => write!(f, "{}", op),
-        ExprEntryKind::Assignment(op) => write!(f, "{}", op),
-        ExprEntryKind::Arithmetic(op) => write!(f, "{}", op),
-        ExprEntryKind::Metric(op) => write!(f, "{}", op),
+        ExprKind::Number(n) => write!(f, "{}", n),
+        ExprKind::Comparison(op) => write!(f, "{}", op),
+        ExprKind::Assignment(op) => write!(f, "{}", op),
+        ExprKind::Arithmetic(op) => write!(f, "{}", op),
+        ExprKind::Metric(op) => write!(f, "{}", op),
 
         // --- Quantificateurs ---
-        ExprEntryKind::Forall(vars) | ExprEntryKind::Exists(vars) => {
+        ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
             write!(f, "len: {}", vars.len())
         }
 

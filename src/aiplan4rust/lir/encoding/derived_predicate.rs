@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingError, Encodin
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -35,7 +35,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut NewLiftedProblem,
+    ir: &mut LiftedProblem,
     builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     let node = subtree.node();

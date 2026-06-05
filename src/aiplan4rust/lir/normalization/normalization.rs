@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::iter::Scratchpad;
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::lir::normalization::{logic, typing};
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Performs the complete normalization pipeline for a [`NewLiftedProblem`].
 ///
@@ -43,7 +43,7 @@ use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 /// # Ok(())
 /// # }
 /// ```
-pub fn normalize(problem: &mut NewLiftedProblem) -> Result<(), NormalizationError> {
+pub fn normalize(problem: &mut LiftedProblem) -> Result<(), NormalizationError> {
     // 1. Extract the expression old to decouple ownership and bypass Borrow Checker aliasing constraints.
     let mut store = problem.take_store();
 

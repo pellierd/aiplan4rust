@@ -5,13 +5,13 @@ use crate::aiplan4rust::grounding::passes::qnf::{
     action, derived_predicate, expr, method, ExpansionScratchpad,
 };
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Fully expands all logical quantifiers across the entire planning problem.
 ///
 /// This convenience wrapper calls [`expand_with`] without a static evaluator.
 pub fn expand(
-    problem: &mut NewLiftedProblem,
+    problem: &mut LiftedProblem,
     value_registry: &ValueRegistry,
 ) -> Result<(), GroundingError> {
     expand_with(problem, value_registry, None)
@@ -19,7 +19,7 @@ pub fn expand(
 
 /// Fully expands logical quantifiers across the entire problem with optional simplification.
 pub fn expand_with(
-    problem: &mut NewLiftedProblem,
+    problem: &mut LiftedProblem,
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn ExprEvaluator>,
 ) -> Result<(), GroundingError> {

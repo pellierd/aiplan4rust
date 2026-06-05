@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lang::{Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::expr::builder::{ExprBuilder, ExprBuilderError};
-use crate::aiplan4rust::lir::expr::{ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a universal quantifier (`forall`) expression.
@@ -84,9 +84,9 @@ impl<'a> ExprBuilder<'a> {
 
             // Check if the nested node matches the current quantifier kind.
             let can_flatten = if is_forall {
-                matches!(node_kind, ExprEntryKind::Forall(_))
+                matches!(node_kind, ExprKind::Forall(_))
             } else {
-                matches!(node_kind, ExprEntryKind::Exists(_))
+                matches!(node_kind, ExprKind::Exists(_))
             };
 
             if can_flatten {
@@ -99,7 +99,7 @@ impl<'a> ExprBuilder<'a> {
                 }
 
                 // Extract variables from the nested quantifier and move deeper.
-                if let ExprEntryKind::Forall(inner) | ExprEntryKind::Exists(inner) = node_kind {
+                if let ExprKind::Forall(inner) | ExprKind::Exists(inner) = node_kind {
                     self.vars_buffer.extend_from_slice(inner.as_slice());
                 }
                 current_body = next_body;
@@ -120,9 +120,9 @@ impl<'a> ExprBuilder<'a> {
         // 3. Finalization: Transfer buffer ownership to create the final entry.
         let final_vars = self.vars_buffer.take();
         let kind = if is_forall {
-            ExprEntryKind::Forall(final_vars)
+            ExprKind::Forall(final_vars)
         } else {
-            ExprEntryKind::Exists(final_vars)
+            ExprKind::Exists(final_vars)
         };
 
         Ok(self.store.intern(kind, &[current_body]))
@@ -288,7 +288,7 @@ mod tests {
 
         // Vérification 2 : Structure du nœud
         let node = builder.get(expr_flat).expect("Expression should exist");
-        if let ExprEntryKind::Forall(vars) = node.kind() {
+        if let ExprKind::Forall(vars) = node.kind() {
             assert_eq!(vars.len(), 2, "Should have exactly 2 variables");
             // Vérification du tri (10 < 20)
             assert_eq!(vars[0].symbol(), VariableId::from(10));
@@ -436,7 +436,7 @@ mod tests {
 
         // 1. La racine doit être un Forall
         assert!(
-            matches!(node.kind(), ExprEntryKind::Forall(_)),
+            matches!(node.kind(), ExprKind::Forall(_)),
             "Root should be Forall node, but got {:?}",
             node.kind()
         );
@@ -451,7 +451,7 @@ mod tests {
         // 3. Vérification que l'enfant est bien un Exists
         let child_node = builder.get(child_id).expect("Child should exist");
         assert!(
-            matches!(child_node.kind(), ExprEntryKind::Exists(_)),
+            matches!(child_node.kind(), ExprKind::Exists(_)),
             "Child node should be Exists"
         );
 
@@ -479,7 +479,7 @@ mod tests {
 
         // Output: The second expression must only contain var_b (ID 2)
         if let Some(node) = builder.get(second) {
-            if let ExprEntryKind::Forall(vars) = node.kind() {
+            if let ExprKind::Forall(vars) = node.kind() {
                 assert_eq!(vars.len(), 1, "Buffer pollution: found too many variables");
                 assert_eq!(
                     vars[0].symbol(),

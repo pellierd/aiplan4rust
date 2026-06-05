@@ -6,11 +6,9 @@ use crate::aiplan4rust::lang::{
     TaskSkeletonId, Type, TypeId,
 };
 use crate::aiplan4rust::lir::encoding::EncodingError;
-use crate::aiplan4rust::lir::expr::ops::error::ExprOpErrorHC;
+use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
 use crate::aiplan4rust::lir::normalization::NormalizationError;
-use crate::aiplan4rust::lir::old::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::old::expr::ExprError;
-use crate::aiplan4rust::lir::old::problem::symbol_registry::IndexTableError;
+use crate::aiplan4rust::lir::problem::registry::IndexTableError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
@@ -38,9 +36,6 @@ pub enum LirError {
     #[error(transparent)]
     Normalization(#[from] NormalizationError),
 
-    #[error(transparent)]
-    ExprOpHC(#[from] ExprOpErrorHC),
-
     /// An error originating from the expression system.
     #[error(transparent)]
     Logic(#[from] ExprOpError),
@@ -50,10 +45,6 @@ pub enum LirError {
 
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
-
-    /// An error originating from the expression system.
-    #[error(transparent)]
-    Expr(#[from] ExprError),
 
     /// An error originating from the language module.
     #[error(transparent)]
@@ -138,12 +129,6 @@ pub enum LirError {
 }
 
 impl LirError {
-    /// Constructs a `LirError` from an [`ExprError`].
-    #[track_caller]
-    pub fn expr(err: ExprError) -> Self {
-        LirError::Expr(err).trace()
-    }
-
     /// Constructs a `LirError` from a [`SyntaxTreeError`].
     #[track_caller]
     pub fn syntax_tree(err: SyntaxTreeError) -> Self {

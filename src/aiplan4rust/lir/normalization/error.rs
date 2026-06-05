@@ -3,7 +3,7 @@ use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::lir::expr::ops::error::ExprOpErrorHC;
+use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::registry::IndexTableError;
 use crate::aiplan4rust::lir::problem::LiftedProblemError;
@@ -21,7 +21,7 @@ pub enum NormalizationError {
     #[error(transparent)]
     ExprStore(#[from] StorerError),
     #[error(transparent)]
-    ExpOpHC(#[from] ExprOpErrorHC),
+    ExpOpHC(#[from] ExprOpError),
 
     #[error(transparent)]
     ExpBuilder(#[from] ExprBuilderError),

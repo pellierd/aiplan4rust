@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lang::AtomSkeletonId;
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::analysis::reachability::datalog::renderers::common;
 use crate::analysis::reachability::datalog::tuple::Tuple;
 

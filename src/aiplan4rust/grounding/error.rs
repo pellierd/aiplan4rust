@@ -8,9 +8,8 @@ use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::lir::old::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::old::expr::ExprError;
-use crate::aiplan4rust::lir::old::problem::symbol_registry::IndexTableError;
+use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
+use crate::aiplan4rust::lir::problem::registry::IndexTableError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::analysis::inertia::error::InertiaError;
@@ -49,9 +48,6 @@ pub enum GroundingError {
 
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
-
-    #[error(transparent)]
-    Expr(#[from] ExprError),
 
     #[error(transparent)]
     Interner(#[from] InternerError),

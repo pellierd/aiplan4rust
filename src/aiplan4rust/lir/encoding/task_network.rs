@@ -7,7 +7,7 @@ use crate::aiplan4rust::lang::TaskSkeletonId;
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::{expr, EncodingError};
 use crate::aiplan4rust::lir::expr::iter::TreePreorderIter;
-use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprEntryKind, ExprId};
+use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId, ExprKind};
 use crate::aiplan4rust::lir::problem::TaskNetwork;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
@@ -143,13 +143,13 @@ fn finalize_task_network(
     for (node_id, _depth, _is_last, entry) in iter {
         match entry.kind() {
             // 1. Équivalent à : if let ExprContent::TaskLabelSymbol(label_id)
-            ExprEntryKind::TaskLabel(label_symbol_id) => {
+            ExprKind::TaskLabel(label_symbol_id) => {
                 let index = label_symbol_id.as_usize();
                 current_index = Some(index);
             }
 
             // 2. Équivalent à : if let ExprContent::TaskSkeleton(task_skeleton_id)
-            ExprEntryKind::Task(skeleton_id) => {
+            ExprKind::Task(skeleton_id) => {
                 if let Some(index) = current_index {
                     // task_defs[index] = *task_skeleton_id
                     task_defs[index] = *skeleton_id;
@@ -165,7 +165,7 @@ fn finalize_task_network(
 
             // LabeledTask est le parent, on laisse l'itérateur descendre
             // naturellement vers ses enfants (Label puis Task)
-            ExprEntryKind::LabeledTask => {}
+            ExprKind::LabeledTask => {}
 
             _ => {}
         }
