@@ -1,9 +1,10 @@
-use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTable;
+/*use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::cause::Cause;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::database::Database;
-use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::old_encoder::DatalogEncoder;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::renderers::{
     database, rules, RenderContext,
 };
@@ -15,9 +16,9 @@ use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lang::{
     ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol, VariableId,
 };
-use crate::aiplan4rust::lir::expr::{Expr, ExprEntryKind, ExprNodeRef};
-use crate::aiplan4rust::lir::problem::ActionDef;
-use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::aiplan4rust::lir::old::expr::{Expr, ExprKind};
+use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::ActionDef;
 use itertools::Itertools;
 use std::collections::HashMap;
 use toml::value::Index;
@@ -30,7 +31,7 @@ pub const MAX_VARS: usize = 64;
 
 // pre requis les types doivent faltten et les quantfier remove pas d'imply
 pub struct DatalogEngine<'a> {
-    problem: &'a NewLiftedProblem,
+    problem: &'a LiftedProblem,
     value_registry: &'a ValueRegistry,
     inertia_table: &'a InertiaTable,
     negated_predicates: &'a Vec<AtomSkeletonId>,
@@ -57,7 +58,7 @@ pub struct DatalogEngine<'a> {
 
 impl<'a> DatalogEngine<'a> {
     pub fn new(
-        problem: &'a NewLiftedProblem,
+        problem: &'a LiftedProblem,
         value_registry: &'a ValueRegistry,
         inertia_table: &'a InertiaTable,
         negated_predicates: &'a Vec<AtomSkeletonId>,
@@ -229,7 +230,7 @@ impl<'a> DatalogEngine<'a> {
         self.encoder.reset_with_start_id(self.type_segment_start);
 
         // 3. Déclaration des types (remplit type_to_skeleton avec les bons IDs)
-        self.declare_types_as_unary_predicates(self.problem.type_defs().as_slice());
+        self.declare_types_as_unary_predicates(self.problem.type_defs());
 
         // 4. MAINTENANT, on crée l'encodeur définitif avec le vecteur rempli
         self.encoder = DatalogEncoder::new(
@@ -271,14 +272,10 @@ impl<'a> DatalogEngine<'a> {
         // Populate the Database with concrete facts.
 
         // 4.1. Type Instantiation (Facts: Type(Object))
-        self.fill_db_from_objects(
-            self.problem.object_defs().as_slice(),
-            self.problem.type_defs().as_slice(),
-        )?;
+        self.fill_db_from_objects(self.problem.object_defs(), self.problem.type_defs())?;
 
         // 4.2. Initial State Instantiation (Facts: Predicate(Objects))
-        let init = Expr::new(self.problem.init(), self.problem.store());
-        self.fill_db_from_init(init)?;
+        self.fill_db_from_init(self.problem.init())?;
 
         self.dump_database();
         // 5. Domain Logic Compilation
@@ -456,39 +453,40 @@ impl<'a> DatalogEngine<'a> {
     /// Centralise ici la conversion du PDDL vers la Database interne.
     /// On passe un Registry ou le Problem pour mapper les IDs vers les SkeletonIds.
     /// Parcourt l'état initial du problème pour remplir la Database.
-    fn fill_db_from_init(&mut self, init: Expr) -> Result<(), DatalogError> {
-        let mut iter = init.preorder();
+    fn fill_db_from_init(&mut self, init: &Expr) -> Result<(), DatalogError> {
+        let mut iter = init.preorder().values();
 
-        while let Some((id, _depth, entry)) = iter.next() {
-            // On construit le ExprNodeRef à la volée
-            let node = ExprNodeRef::new(id, entry);
-
+        while let Some(node) = iter.next() {
             match node.kind() {
-                ExprEntryKind::AtomicFormula(sk_id) => {
-                    // 1. L'ID du Skeleton est directement extrait du variant de l'enum
-                    let sk_id = *sk_id;
+                ExprKind::AtomicFormula => {
+                    // 1. Obtenir le SkeletonId correspondant à cet atome
+                    // On demande au evaluator de nous donner l'ID de la signature (Nom + Types)
+                    let sk_id = node.content().try_atom_skeleton()?;
 
                     // 2. Extraction des ObjectIds avec une boucle explicite
                     let children = node.children();
                     let mut args = Vec::with_capacity(children.len());
 
-                    for &arg_id in children.iter() {
-                        // On récupère le nœud enfant
-                        let child_node = init.fetch_node(arg_id)?;
-
-                        // On extrait la constante (l'ObjectId) par pattern matching direct
-                        if let ExprEntryKind::Object(object_id) = child_node.kind() {
-                            args.push(*object_id);
-                        } else {
-                            return Err(DatalogError::invalid_atom_argument_(arg_id));
-                        }
+                    for &arg_id in children.iter().skip(1) {
+                        // On récupère le noeud enfant
+                        let child_node = init.try_node(arg_id)?;
+                        // On extrait la constante (l'ObjectId)
+                        let object_id = child_node.content().try_object()?;
+                        // On l'ajoute à notre liste d'arguments
+                        args.push(object_id);
                     }
 
                     // 3. Ajouter le fait à la Database interne
                     self.db.insert_delta_fact(sk_id, &args);
+
+                    // On a traité l'atome, on saute ses enfants
+                    iter.skip_subtree();
                 }
-                // Tout le reste (Comparison, Not, etc.) n'ayant pas de descendance logique
-                // pertinente pour l'état initial, l'itérateur avance naturellement au nœud suivant.
+                ExprKind::Comparison | ExprKind::Not => {
+                    // Optionnel : Gestion des fonctions numériques si ton domaine en a
+                    // Pour l'instant, on peut skip si on se concentre sur le logique
+                    iter.skip_subtree();
+                }
                 _ => {}
             }
         }
@@ -568,9 +566,8 @@ impl<'a> DatalogEngine<'a> {
         }
 
         // C. Générer les règles de causalité (Action -> Effets)
-        let effect = Expr::new(action.effect(), self.problem.store());
         self.encoder.encode_effects(
-            effect,
+            action.effect(),
             &action_atom,
             &mut self.rules,
             action.parameters(),
@@ -595,15 +592,14 @@ impl<'a> DatalogEngine<'a> {
         Atom::new(action_sk_id, head_terms)
     }
 
-    pub fn compile_action_body_as_rules(
+    fn compile_action_body_as_rules(
         &mut self,
         action: &ActionDef,
         head: Atom,
     ) -> Result<(), DatalogError> {
         // 1. On aplatit les préconditions
-        let precondition = Expr::new(action.precondition(), self.problem.store());
         let precond_opt = self.encoder.encode_preconditions(
-            precondition,
+            action.precondition(),
             &mut self.rules,
             action.parameters(),
         )?;
@@ -615,20 +611,18 @@ impl<'a> DatalogEngine<'a> {
 
         // --- LOGIQUE FD : Utiliser l'inertie pour lier les variables ---
 
-        // Récupération des atomes en postorder
+        // 1. On crée l'itérateur sur les IDs de squelettes
+        let precondition = action.precondition();
         let atoms = precondition
             .postorder()
-            .references() // Utilise .references() ou .values() qui renvoie les ExprNodeRef
-            .filter(|node| matches!(node.kind(), ExprEntryKind::AtomicFormula(_)));
+            .values()
+            .filter(|&node| node.kind() == ExprKind::AtomicFormula);
 
         for atom_node in atoms {
-            // Extraction directe du SkeletonId depuis le variant de l'enum
-            let skel_id = match atom_node.kind() {
-                ExprEntryKind::AtomicFormula(sk) => *sk,
-                _ => unreachable!(),
-            };
+            let skel_id = atom_node.content().try_atom_skeleton()?;
 
-            // On récupère l'ID "propre" (sans bit de négation)
+            // On récupère l'ID "propre" (sans bit de négation) pour ne pas faire
+            // planter la table d'inertie avec une valeur géante.
             let positive_id = skel_id.strip_negation();
 
             if self
@@ -639,19 +633,25 @@ impl<'a> DatalogEngine<'a> {
                 let mut terms = Vec::with_capacity(children.len());
 
                 // On itère sur tous les enfants (arguments de l'atome)
-                for &term_id in children.iter() {
-                    let term_node = precondition.fetch_node(term_id)?;
-
+                for &term_id in children.iter().skip(1) {
+                    let term_node = action.precondition().try_node(term_id)?;
                     let term = match term_node.kind() {
-                        ExprEntryKind::Variable(var_id) => {
-                            let var_id = *var_id;
+                        ExprKind::Variable => {
+                            let var_id = term_node.content().try_variable()?;
                             // IMPORTANT : On note que cette variable est couverte par un fait statique
                             covered_vars.insert(var_id);
                             Term::Variable(var_id)
                         }
-                        ExprEntryKind::Object(obj_id) => Term::Constant(*obj_id),
+                        ExprKind::Object => Term::Constant(term_node.content().try_object()?),
                         _ => {
-                            return Err(DatalogError::invalid_atom_argument_(term_id));
+                            // C'est ici que ça coince ! On affiche le Kind et le contenu pour comprendre
+                            println!(
+                                "DEBUG: NodeId {:?} has unexpected Kind {:?} and Content {:?}",
+                                term_id,
+                                term_node.kind(),
+                                term_node.content()
+                            );
+                            panic!()
                         }
                     };
                     terms.push(term);
@@ -678,6 +678,11 @@ impl<'a> DatalogEngine<'a> {
 
                 // 2. MARQUAGE LOGIQUE (Indispensable pour le Datalog)
                 covered_vars.insert(var_id);
+
+                /*println!(
+                    "DEBUG: Sécurisation de {:?} avec type {:?}",
+                    var_id, type_sk
+                );*/
             }
         }
         // ==========================================================
@@ -1526,3 +1531,4 @@ impl<'a> DatalogEngine<'a> {
 #[cfg(test)]
 #[path = "tests/engine_tests.rs"]
 mod engine_tests;
+*/

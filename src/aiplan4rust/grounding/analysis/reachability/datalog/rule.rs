@@ -1,5 +1,5 @@
-use std::fmt;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
+use std::fmt;
 
 /// Represents a Datalog rule in the form `Head :- Body.`.
 ///
@@ -8,7 +8,7 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 /// satisfied by the current state of the database.
 ///
 /// This structure is designed to be lightweight, while allowing the
-/// [`DatalogEngine`](crate::aiplan4rust::grounding::analysis::reachability::datalog::engine::DatalogEngine)
+/// [`DatalogEngine`](crate::aiplan4rust::grounding::analysis::reachability::datalog::old_engine::DatalogEngine)
 /// to perform high-level optimizations such as join reordering.
 #[derive(Debug, Clone)]
 pub struct Rule {

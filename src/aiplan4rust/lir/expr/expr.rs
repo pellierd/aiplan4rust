@@ -1,4 +1,5 @@
 // On suppose que ton itérateur est défini dans le module old
+use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::lir::expr::{ExprId, ExprNodeRef, ExprStore};
 
@@ -31,9 +32,22 @@ impl<'a> Expr<'a> {
     }
 
     /// Accède directement au nœud racine sous forme de `ExprNodeRef`.
-    pub fn root_node(&self) -> Option<ExprNodeRef<'_>> {
-        // On suppose que ton old a une méthode get(id) qui renvoie un ExprNodeRef
-        self.store.get(self.root)
+    pub fn root_node(&self) -> Result<ExprNodeRef<'a>, StorerError> {
+        self.store.fetch(self.root)
+    }
+
+    /// Crée une sous-expression `Expr` à partir d'un ID d'enfant.
+    #[inline]
+    pub fn sub_expr(&self, sub_root_id: ExprId) -> Self {
+        Self {
+            root: sub_root_id,
+            store: self.store,
+        }
+    }
+
+    /// Récupère directement le nœud d'un enfant (pratique dans les boucles).
+    pub fn fetch_node(&self, id: ExprId) -> Result<ExprNodeRef<'a>, StorerError> {
+        self.store.fetch(id)
     }
 
     /// Crée un itérateur pour parcourir l'expression en ordre "Postorder".

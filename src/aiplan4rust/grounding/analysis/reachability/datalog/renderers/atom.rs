@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::analysis::reachability::datalog::atom::Atom;
 use crate::analysis::reachability::datalog::renderers::RenderContext;
 use crate::analysis::reachability::datalog::term::Term;
@@ -147,7 +147,7 @@ fn resolve_type_label(ctx: &RenderContext, raw_index: usize) -> String {
 }
 pub fn resolve_name(
     symbol_id: Option<SymbolId>, // On passe par valeur, pas par référence
-    lifted_problem: &LiftedProblem,
+    lifted_problem: &NewLiftedProblem,
     fallback: &str,
 ) -> String {
     symbol_id

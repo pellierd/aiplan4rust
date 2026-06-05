@@ -1,4 +1,4 @@
-use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
+/*use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
@@ -6,11 +6,10 @@ use crate::aiplan4rust::lang::{ActionSymbolId, CompareOp};
 use crate::aiplan4rust::lang::{
     AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
 };
-use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::lir::expr::{Expr, ExprEntryKind, ExprId, ExprNodeRef};
-use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
-use crate::aiplan4rust::lir::problem::ActionDef;
-use crate::aiplan4rust::tree::SyntaxContent;
+use crate::aiplan4rust::lir::old::expr::{Expr, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::old::problem::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::ActionDef;
+use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 use crate::analysis::reachability::datalog::cause::Cause;
 use std::collections::HashMap;
 ////// ATENTION JE NE GERE PAS les AXIOMS
@@ -274,7 +273,7 @@ impl DatalogEncoder {
     /// * There is a failure in auxiliary predicate generation or variable collection.
     pub fn encode_effects(
         &mut self,
-        root_effect: Expr,
+        root_effect: &Expr,
         action_atom: &Atom,
         rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
@@ -294,14 +293,14 @@ impl DatalogEncoder {
         let root_cause_id = root_cause.skeleton_id();
 
         // Work stack: (Node ID, Current Cause)
-        let mut work_stack = vec![(root_effect.root_id(), root_cause)];
+        let mut work_stack = vec![(root_effect.try_root_id()?, root_cause)];
 
         while let Some((node_id, current_cause)) = work_stack.pop() {
-            let node = root_effect.fetch_node(node_id)?;
+            let node = root_effect.try_node(node_id)?;
             let kind = node.kind();
 
             match kind {
-                ExprEntryKind::AtomicFormula(_) => {
+                ExprKind::AtomicFormula => {
                     let mut effect_atom = self.extract_atom(root_effect, node)?;
 
                     // 1. Canonisation (Aliasing)
@@ -325,14 +324,15 @@ impl DatalogEncoder {
                 }
 
                 // 2. Conjunction: Propagate the cause to all sub-effects
-                ExprEntryKind::And => {
+                ExprKind::And => {
                     for &child_id in node.children().iter().rev() {
                         work_stack.push((child_id, current_cause.clone()));
                     }
                 }
 
                 // 3. Conditional Effect: Create a pivot between Action and Condition
-                ExprEntryKind::When => {
+                // 3. Conditional Effect: Create a pivot between Action and Condition
+                ExprKind::When => {
                     let children = node.children();
                     let condition_id = children[0];
                     let sub_effect_id = children[1];
@@ -376,7 +376,7 @@ impl DatalogEncoder {
                 }
 
                 // 4. Temporal Wrappers: Simply traverse through
-                ExprEntryKind::AtStart | ExprEntryKind::AtEnd | ExprEntryKind::Overall => {
+                ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                     if let Some(&child_id) = node.children().first() {
                         work_stack.push((child_id, current_cause));
                     }
@@ -384,19 +384,17 @@ impl DatalogEncoder {
 
                 // 5. Explicitly Ignored Nodes (Numerical / Metrics)
                 // --- MODIFICATION : AJOUT DE NOT ET COMPARISON ---
-                ExprEntryKind::Assignment(_) | ExprEntryKind::Arithmetic(_) => {
+                ExprKind::Assignment | ExprKind::Arithmetic => {
                     continue;
                 }
 
                 // --- MODIFICATION PRÉCISE : BRANCH NOT ---
                 // --- BRANCH NOT DANS encode_effects ---
-                ExprEntryKind::Not => {
+                ExprKind::Not => {
                     let children = node.children();
                     if let Some(&child_id) = children.first() {
-                        let child_node = root_effect.fetch_node(child_id)?;
-                        let child_kind = child_node.kind();
-
-                        if let ExprEntryKind::AtomicFormula(_) = child_kind {
+                        let child_node = root_effect.try_node(child_id)?;
+                        if child_node.kind() == ExprKind::AtomicFormula {
                             let mut del_atom = self.extract_atom(root_effect, child_node)?;
 
                             for term in del_atom.terms_mut() {
@@ -429,8 +427,8 @@ impl DatalogEncoder {
 
                 // --- FEATURES (VALIDE PDDL MAIS NÉCESSITE PREPROCESSING) ---
                 // Si l'un de ceux-là arrive ici, c'est l'Expander/PNF qui est en cause.
-                ExprEntryKind::Forall(_) | ExprEntryKind::Exists(_) | ExprEntryKind::Imply => {
-                    return Err(DatalogError::feature_not_supported_(
+                ExprKind::Forall | ExprKind::Exists | ExprKind::Imply => {
+                    return Err(DatalogError::feature_not_supported(
                         format!("ADL construct {:?} in effects", kind),
                         node_id,
                     ));
@@ -438,7 +436,7 @@ impl DatalogEncoder {
 
                 // 6. Safety: Any other node kind triggers an error (e.g., Forall, Exists)
                 _ => {
-                    return Err(DatalogError::incompatible_node_(kind.clone(), node_id));
+                    return Err(DatalogError::incompatible_node(kind.clone(), node_id));
                 }
             }
         }
@@ -456,7 +454,7 @@ impl DatalogEncoder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The global expression handle wrapping the store and the root.
+    /// * `logic` - The expression tree representing the action's preconditions.
     /// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
     /// * `parameters` - The typed parameters of the action, used to define the signature of auxiliary predicates.
     ///
@@ -467,7 +465,7 @@ impl DatalogEncoder {
     /// * `Err(DatalogError)` - If the expression tree is malformed or contains unsupported nodes.
     pub fn encode_preconditions(
         &mut self,
-        expr: Expr,
+        expr: &Expr,
         rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
     ) -> Result<Option<Atom>, DatalogError> {
@@ -475,9 +473,12 @@ impl DatalogEncoder {
         self.current_aliases = self.extract_variable_aliases(expr)?;
 
         // 2. Encodage récursif/itératif de l'expression
-        // On passe directement le root_id() puisqu'il est toujours disponible dans l'Expr
-        let root_id = expr.root_id();
-        self.encode_expr(expr, root_id, rules_sink, parameters)
+        // On retourne simplement l'atome racine (souvent un Aux_N)
+        if let Some(root_id) = expr.root_id() {
+            self.encode_expr(expr, root_id, rules_sink, parameters)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Génère un atome d'ancre unique pour une action.
@@ -515,7 +516,7 @@ impl DatalogEncoder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The global expression handle wrapping the store and the root.
+    /// * `logic` - The global expression tree containing the node.
     /// * `node_id` - The starting point for the encoding (root of the sub-tree).
     /// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
     /// * `parameters` - The typed parameters available in the current context (e.g., action parameters).
@@ -527,8 +528,8 @@ impl DatalogEncoder {
     /// * `Err(DatalogError)` - If the stack is inconsistent or an unsupported node is encountered.
     pub fn encode_expr(
         &mut self,
-        expr: Expr,
-        node_id: ExprId, // Ajusté avec ton type d'identifiant d'expression
+        expr: &Expr,
+        node_id: NodeId,
         rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
     ) -> Result<Option<Atom>, DatalogError> {
@@ -538,71 +539,72 @@ impl DatalogEncoder {
         let mut work_stack = vec![(node_id, false)];
         let mut results_stack: Vec<Option<Atom>> = Vec::with_capacity(32);
 
-        while let Some((current_id, visited)) = work_stack.pop() {
-            // Utilisation de la méthode dédiée sur Expr qui retourne un ExprNodeRef<'a>
-            let node = expr.fetch_node(current_id)?;
+        while let Some((node_id, visited)) = work_stack.pop() {
+            let node = expr.try_node(node_id)?;
             let kind = node.kind();
 
             if !visited {
                 match kind {
                     // FILTRAGE EN DESCENTE
-                    ExprEntryKind::Not => {
+                    ExprKind::Not => {
                         let children = node.children();
 
                         // 1. Vérification de l'arité (1 seul enfant)
                         if children.len() != 1 {
-                            return Err(StorerError::invalid_node(current_id).into());
+                            return Err(ExprError::invalid_expr_node(node_id, kind.clone()).into());
                         }
 
                         let child_id = children[0];
-                        let child_node = expr.fetch_node(child_id)?;
+                        let child_node = expr.try_node(child_id)?;
                         let child_kind = child_node.kind();
 
                         // 2. Vérification du typing (Comparison) et de l'opérateur (Equal uniquement)
-                        let is_valid_comparison = match child_kind {
-                            ExprEntryKind::Comparison(op) => *op == CompareOp::Equal,
-                            _ => false,
+                        let is_valid_comparison = if child_kind == ExprKind::Comparison {
+                            // On vérifie si l'opérateur est bien "Equal"
+                            child_node.content().try_compare_op()? == CompareOp::Equal
+                        } else {
+                            false
                         };
 
                         if !is_valid_comparison {
                             let feature_desc = format!("Negation of {:?}", child_kind);
-                            return Err(DatalogError::feature_not_supported_(
+                            return Err(DatalogError::feature_not_supported(
                                 feature_desc,
                                 child_id,
                             ));
                         }
 
                         // Si c'est bon, on continue la visite
-                        work_stack.push((current_id, true));
+                        work_stack.push((node_id, true));
                         work_stack.push((child_id, false));
                     }
 
-                    ExprEntryKind::And
-                    | ExprEntryKind::Or
-                    | ExprEntryKind::AtStart
-                    | ExprEntryKind::AtEnd
-                    | ExprEntryKind::Overall => {
-                        work_stack.push((current_id, true));
+                    ExprKind::And
+                    | ExprKind::Or
+                    | ExprKind::AtStart
+                    | ExprKind::AtEnd
+                    | ExprKind::Overall => {
+                        work_stack.push((node_id, true));
                         for &child_id in node.children().iter().rev() {
                             work_stack.push((child_id, false));
                         }
                     }
 
-                    ExprEntryKind::AtomicFormula(_) | ExprEntryKind::Comparison(_) => {
-                        work_stack.push((current_id, true));
+                    ExprKind::AtomicFormula | ExprKind::Comparison => {
+                        work_stack.push((node_id, true));
                     }
 
-                    ExprEntryKind::Arithmetic(_) => {
+                    ExprKind::Arithmetic => {
                         results_stack.push(None);
                     }
 
-                    _ => return Err(DatalogError::incompatible_node_(kind.clone(), current_id)),
+                    _ => return Err(DatalogError::incompatible_node(kind.clone(), node_id)),
                 }
             } else {
                 // --- PHASE 2 : Synthèse ---
                 let num_children = node.children().len();
                 let result = match kind {
-                    ExprEntryKind::AtomicFormula(skeleton_id) => {
+                    ExprKind::AtomicFormula => {
                         let mut atom = self.extract_atom(expr, node)?;
                         for term in atom.terms_mut() {
                             if let Term::Variable(v) = *term {
@@ -610,7 +612,10 @@ impl DatalogEncoder {
                             }
                         }
                         // 2. GESTION DE LA NÉGATION
-                        if skeleton_id.is_negated() {
+                        // Si le nœud PDDL est marqué comme négatif (via NNF ou ton flag)
+                        // On doit activer le bit MSB ici pour que le AND/OR parent le sache.
+                        if node.try_atom_skeleton()?.is_negated() {
+                            // Ou la condition que tu utilises pour détecter 'not'
                             let mut sk = atom.skeleton_id();
                             sk.set_negated(true);
                             atom.set_skeleton_id(sk);
@@ -618,7 +623,7 @@ impl DatalogEncoder {
                         Some(atom)
                     }
 
-                    ExprEntryKind::Not => {
+                    ExprKind::Not => {
                         // On sait que c'est une égalité positive grâce à la Phase 1
                         match results_stack.pop().flatten() {
                             Some(mut atom) => {
@@ -628,6 +633,7 @@ impl DatalogEncoder {
                                     None
                                 } else {
                                     // (= c1 c2) -> (!= c1 c2)
+                                    // On utilise set_negated(true) car on SAIT qu'on veut une inégalité
                                     atom.set_negated(true);
                                     Some(atom)
                                 }
@@ -640,7 +646,7 @@ impl DatalogEncoder {
                         }
                     }
 
-                    ExprEntryKind::And => {
+                    ExprKind::And => {
                         let start_idx = results_stack.len() - num_children;
                         let child_results: Vec<Option<Atom>> =
                             results_stack.drain(start_idx..).collect();
@@ -698,7 +704,7 @@ impl DatalogEncoder {
                         }
                     }
 
-                    ExprEntryKind::Or => {
+                    ExprKind::Or => {
                         let start_idx = results_stack.len() - num_children;
                         let mut atoms: Vec<Atom> =
                             results_stack.drain(start_idx..).flatten().collect();
@@ -714,11 +720,18 @@ impl DatalogEncoder {
                             if let Some(existing_head) = self.cache.get(&atoms) {
                                 Some(existing_head.clone())
                             } else {
-                                // 1. On récupère la tête
+                                // 1. On récupère la tête (on ignore le secured_body global car le OR
+                                // nécessite une sécurisation par branche).
                                 let (head, _) =
                                     self.encode_new_aux_predicate(&atoms, parameters)?;
 
                                 for atom in &atoms {
+                                    /*println!(
+                                        "DEBUG OR BRANCH: Head {:?} <- Atom {:?} (negated: {})",
+                                        head.skeleton_id(),
+                                        atom.skeleton_id(),
+                                        atom.is_negated()
+                                    );*/
                                     // Chaque règle du OR est : Aux_Or(?x) :- Branche_N(?x)
                                     let mut branch_body = vec![atom.clone()];
 
@@ -763,8 +776,8 @@ impl DatalogEncoder {
                         }
                     }
 
-                    ExprEntryKind::Comparison(op) => {
-                        if *op == CompareOp::Equal {
+                    ExprKind::Comparison => {
+                        if node.content().try_compare_op()? == CompareOp::Equal {
                             // Utilise ta fonction centrale !
                             let mut atom = self.extract_atom(expr, node)?;
 
@@ -790,7 +803,7 @@ impl DatalogEncoder {
                         }
                     }
 
-                    ExprEntryKind::AtStart | ExprEntryKind::AtEnd | ExprEntryKind::Overall => {
+                    ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                         if num_children > 0 {
                             results_stack.pop().flatten()
                         } else {
@@ -812,27 +825,47 @@ impl DatalogEncoder {
     ///
     /// # Arguments
     ///
-    /// * `expr` - The global expression tree used to resolve the nature of child nodes.
+    /// * `logic` - The global expression tree used to resolve the nature of child nodes.
     /// * `node` - A reference to the current [`ExprNode`], which must represent an `AtomicFormula` or a `Comparison`.
     ///
     /// # Returns
     ///
     /// A [`Result`] containing the grounded or lifted [`Atom`], or a [`DatalogError`] if resolution fails.
-    fn extract_atom(&self, expr: Expr, node: ExprNodeRef) -> Result<Atom, DatalogError> {
+    ///
+    /// # Process
+    ///
+    /// 1. **ID & Offset Resolution**: Determines if the node is a `Comparison` (using a fixed `EQUALITY_ID` with no offset)
+    ///    or an `AtomicFormula` (fetching the `AtomSkeletonId` from content and skipping the predicate name at index 0).
+    /// 2. **Term Mapping**: Iterates over child nodes to categorize arguments:
+    ///    - **Variables**: Parameters (e.g., `?v0`) are converted to [`Term::Variable`].
+    ///    - **Constants**: Fixed objects (e.g., `room_a`) are converted to [`Term::Constant`].
+    /// 3. **Validation**: Ensures that all arguments are valid terminals for a Datalog relation.
+    ///
+    /// # Performance
+    ///
+    /// * **Complexity**: $O(N)$ where $N$ is the number of arguments (arity of the predicate).
+    /// * **Efficiency**:
+    ///    - Uses a branchless-friendly tuple assignment for the ID and skip offset.
+    ///    - Allocates the `Vec<Term>` with exact capacity using `saturating_sub` to avoid reallocations.
+    ///    - Skips the predicate name efficiently using the `children.iter().skip(n)` iterator.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`DatalogError`] if:
+    /// * The node content cannot be converted to an atom skeleton.
+    /// * An argument node is neither a `Variable` nor a `Constant` (e.g., a nested expression).
+    /// * A node reference within the `logic` tree is invalid.
+    fn extract_atom(&self, expr: &Expr, node: &ExprNode) -> Result<Atom, DatalogError> {
         let kind = node.kind();
         let children = node.children();
 
         // 1. Fast determination of the Skeleton ID and the child skip offset.
-        // On extrait l'identifiant directement depuis les variants de l'enum ExprEntryKind.
-        let (skeleton_id, skip_count) = match kind {
-            ExprEntryKind::Comparison(_) => (AtomSkeletonId::from(Atom::EQUALITY_ID), 0),
-            ExprEntryKind::AtomicFormula(sk_id) => (*sk_id, 0),
-            _ => {
-                return Err(DatalogError::incompatible_node_(
-                    kind.clone(),
-                    expr.root_id(),
-                ))
-            }
+        // Comparisons (equality) use a fixed ID and start terms at index 0.
+        // Atomic formulas fetch their ID from content and skip the predicate name at index 0.
+        let (mut skeleton_id, skip_count) = if kind == ExprKind::Comparison {
+            (AtomSkeletonId::from(Atom::EQUALITY_ID), 0)
+        } else {
+            (node.content().try_atom_skeleton()?, 1)
         };
 
         // 2. Exact allocation to prevent vector resizing during the loop.
@@ -841,13 +874,13 @@ impl DatalogEncoder {
 
         // 3. Optimized term collection.
         for &arg_id in children.iter().skip(skip_count) {
-            let arg_node = expr.fetch_node(arg_id)?;
+            let arg_node = expr.try_node(arg_id)?;
 
-            // Match on Enum extraction direct sans passer par .content()
+            // Match on Enum is highly optimized by the Rust compiler.
             let term = match arg_node.kind() {
-                ExprEntryKind::Variable(v_id) => Term::Variable(*v_id),
-                ExprEntryKind::Object(obj_id) => Term::Constant(*obj_id),
-                _ => return Err(DatalogError::invalid_atom_argument_(arg_id)),
+                ExprKind::Variable => Term::Variable(arg_node.content().try_variable()?),
+                ExprKind::Object => Term::Constant(arg_node.content().try_object()?),
+                _ => return Err(DatalogError::invalid_atom_argument(arg_id)),
             };
             terms.push(term);
         }
@@ -931,6 +964,41 @@ impl DatalogEncoder {
 
         Ok((head, secured_body)) // <--- On renvoie les deux !
     }
+    /*fn encode_new_aux_predicate(
+        &mut self,
+        atoms: &[Atom],
+        parameters: &TypedList<VariableId, TypeId>,
+    ) -> Result<Atom, DatalogError> {
+        // 1. On collecte les variables REELLEMENT présentes dans les atomes enfants
+        // Cela garantit que l'arité est minimale (fixe les erreurs d'arité 3 vs 1)
+        let mut used_vars = self.collect_variables(atoms)?;
+
+        // 2. On transforme les variables selon les alias et on déduplique
+        // C'est l'étape CRUCIALE pour le test d'aliasing (?v0 = ?v1 => ?v0)
+        let mut resolved_terms: Vec<Term> = used_vars
+            .into_iter()
+            .map(|v_id| self.resolve_var(v_id))
+            .collect();
+
+        // On trie et déduplique les Termes (pas les VariableId)
+        resolved_terms.sort();
+        resolved_terms.dedup();
+
+        // 3. On extrait les VariableId restants après déduplication pour créer le squelette
+        let final_vars: Vec<VariableId> = resolved_terms
+            .iter()
+            .filter_map(|t| {
+                if let Term::Variable(v) = t {
+                    Some(*v)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // 4. On crée l'atome avec cette signature minimale
+        Ok(self.create_aux_atom(final_vars, resolved_terms, parameters))
+    }*/
 
     /// Creates a new auxiliary atom and registers its skeleton locally.
     ///
@@ -1056,35 +1124,34 @@ impl DatalogEncoder {
         vars
     }
 
-    pub fn scan_required_terms_mask(&self, expr: &Expr, start_node_id: ExprId) -> u64 {
+    fn scan_required_terms_mask(&self, expr: &Expr, start_node_id: NodeId) -> u64 {
         let mut mask: u64 = 0;
         let mut stack = vec![start_node_id];
 
         while let Some(node_id) = stack.pop() {
-            if let Ok(node) = expr.fetch_node(node_id) {
+            if let Ok(node) = expr.try_node(node_id) {
                 match node.kind() {
-                    // On scanne les enfants pour trouver les variables
-                    ExprEntryKind::AtomicFormula(_) | ExprEntryKind::Comparison(_) => {
-                        // Si tes nouveaux variants contiennent directement les arguments,
-                        // ajuste le .skip(0) ou garde .skip(1) selon ta structure interne.
-                        for &child_id in node.children().iter() {
-                            if let Ok(child_node) = expr.fetch_node(child_id) {
-                                if let ExprEntryKind::Variable(v) = child_node.kind() {
-                                    // Résolution canonique (Aliasing)
-                                    if let Term::Variable(rv) = self.resolve_var(*v) {
-                                        mask |= 1 << rv.as_usize();
+                    // On scanne directement les enfants pour trouver les variables
+                    ExprKind::AtomicFormula | ExprKind::Comparison => {
+                        for &child_id in node.children().iter().skip(1) {
+                            if let Ok(child_node) = expr.try_node(child_id) {
+                                if child_node.kind() == ExprKind::Variable {
+                                    if let Ok(v) = child_node.content().try_variable() {
+                                        // Résolution ici aussi
+                                        if let Term::Variable(rv) = self.resolve_var(v) {
+                                            mask |= 1 << rv.as_usize();
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    ExprEntryKind::And
-                    | ExprEntryKind::Or
-                    | ExprEntryKind::When
-                    | ExprEntryKind::AtStart
-                    | ExprEntryKind::AtEnd
-                    | ExprEntryKind::Overall
-                    | ExprEntryKind::Not => {
+                    ExprKind::And
+                    | ExprKind::When
+                    | ExprKind::AtStart
+                    | ExprKind::AtEnd
+                    | ExprKind::Overall
+                    | ExprKind::Not => {
                         for &child_id in node.children() {
                             stack.push(child_id);
                         }
@@ -1127,38 +1194,37 @@ impl DatalogEncoder {
 
     pub fn extract_variable_aliases(
         &self,
-        expr: Expr,
+        expr: &Expr,
     ) -> Result<HashMap<VariableId, Term>, DatalogError> {
         let mut aliases = HashMap::new();
 
-        // On récupère l'ID racine. Si l'expression est vide (NONE), on sort.
-        let root_id = expr.root_id();
-        if root_id.is_none() {
-            return Ok(aliases);
-        }
+        // On récupère l'ID racine. Si l'expression est vide, on sort.
+        let root_id = match expr.root_id() {
+            Some(id) => id,
+            None => return Ok(aliases),
+        };
 
         let mut stack = vec![root_id];
 
         while let Some(node_id) = stack.pop() {
-            let node = expr.fetch_node(node_id)?;
+            let node = expr.try_node(node_id)?;
             let kind = node.kind();
 
             match kind {
                 // SI C'EST UN NOT : On ne descend pas dedans !
                 // Les égalités à l'intérieur d'un NOT sont des inégalités.
-                ExprEntryKind::Not => {
+                ExprKind::Not => {
                     continue;
                 }
 
-                // SI C'EST UNE ÉGALITÉ : On extrait l'alias directement via le variant
-                ExprEntryKind::Comparison(op) => {
-                    if *op == CompareOp::Equal {
+                // SI C'EST UNE ÉGALITÉ : On extrait l'alias
+                ExprKind::Comparison => {
+                    if node.content().try_compare_op()? == CompareOp::Equal {
                         let children = node.children();
                         if children.len() == 2 {
                             let t1 = self.node_to_term(expr, children[0])?;
                             let t2 = self.node_to_term(expr, children[1])?;
 
-                            // ✅ CORRECTION : Emballage avec Some() car node_to_term renvoie Option<Term>
                             match (t1, t2) {
                                 (Some(Term::Variable(v1)), Some(Term::Variable(v2)))
                                     if v1 != v2 =>
@@ -1184,18 +1250,17 @@ impl DatalogEncoder {
             }
         }
 
-        // Une fois la collecte finie, on applique la fermeture transitive
+        // Une fois la collecte finie, on applique la fermeture
         self.compute_transitive_closure(&mut aliases);
         Ok(aliases)
     }
 
     /// Helper pour transformer un Node en Term atomique
-    fn node_to_term(&self, expr: Expr, node_id: ExprId) -> Result<Option<Term>, DatalogError> {
-        let n = expr.fetch_node(node_id)?;
-
+    fn node_to_term(&self, expr: &Expr, node_id: NodeId) -> Result<Option<Term>, DatalogError> {
+        let n = expr.try_node(node_id)?;
         Ok(match n.kind() {
-            ExprEntryKind::Variable(v_id) => Some(Term::Variable(*v_id)),
-            ExprEntryKind::Object(obj_id) => Some(Term::Constant(*obj_id)),
+            ExprKind::Variable => Some(Term::Variable(n.content().try_variable()?)),
+            ExprKind::Object => Some(Term::Constant(n.content().try_object()?)),
             _ => None,
         })
     }
@@ -1243,3 +1308,4 @@ impl DatalogEncoder {
 #[cfg(test)]
 #[path = "tests/encoder_tests.rs"]
 mod encoder_tests;
+*/
