@@ -1,5 +1,4 @@
 pub mod pnf;
-pub mod positive_form_normalization;
 pub mod qnf;
 /// --- PIPELINE DE GROUNDING (Ordre de dépendance strict) ---
 ///
