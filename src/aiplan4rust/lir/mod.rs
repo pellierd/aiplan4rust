@@ -50,7 +50,7 @@ pub mod expr;
 pub(crate) mod normalization;
 pub mod old;
 pub mod problem;
-mod renderers;
+pub mod renderers;
 pub mod result;
 
 pub use encoder::LirEncoder;

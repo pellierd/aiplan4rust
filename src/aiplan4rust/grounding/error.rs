@@ -7,6 +7,7 @@ use crate::aiplan4rust::grounding::binding::BindingError;
 use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type};
+use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::old::expr::ops::ExprOpError;
 use crate::aiplan4rust::lir::old::expr::ExprError;
 use crate::aiplan4rust::lir::old::problem::symbol_registry::IndexTableError;
@@ -18,6 +19,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum GroundingError {
+    #[error(transparent)]
+    ExprBuilder(#[from] ExprBuilderError),
+
     #[error(transparent)]
     Registry(#[from] ValueRegistryError),
 
