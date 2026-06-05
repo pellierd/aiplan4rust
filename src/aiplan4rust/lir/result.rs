@@ -1,6 +1,5 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use std::fmt;
 
@@ -20,8 +19,7 @@ pub enum Result {
     /// IR was successfully built.
     Success {
         /// The constructed lifted problem.
-        lifted_problem: LiftedProblem,
-        new_lifted_problem: NewLiftedProblem,
+        lifted_problem: NewLiftedProblem,
         /// Diagnostics collected during the build.
         diagnostic_manager: DiagnosticManager,
     },
@@ -44,13 +42,11 @@ impl Result {
     /// # Returns
     /// A `Result::Success` variant.
     pub fn success(
-        lifted_problem: LiftedProblem,
-        new_lifted_problem: NewLiftedProblem,
+        lifted_problem: NewLiftedProblem,
         diagnostic_manager: DiagnosticManager,
     ) -> Self {
         Self::Success {
             lifted_problem,
-            new_lifted_problem,
             diagnostic_manager,
         }
     }
@@ -75,7 +71,7 @@ impl Result {
     /// # Returns
     /// - `Some(&LiftedProblem)` if the build succeeded.
     /// - `None` if the build failed.
-    pub fn lifted_problem(&self) -> Option<&LiftedProblem> {
+    pub fn lifted_problem(&self) -> Option<&NewLiftedProblem> {
         match self {
             Self::Success { lifted_problem, .. } => Some(lifted_problem),
             Self::Failure { .. } => None,
@@ -83,7 +79,7 @@ impl Result {
     }
 
     /// Returns a mutable reference to the constructed IR if available.
-    pub fn lifted_problem_mut(&mut self) -> Option<&mut LiftedProblem> {
+    pub fn lifted_problem_mut(&mut self) -> Option<&mut NewLiftedProblem> {
         match self {
             Self::Success { lifted_problem, .. } => Some(lifted_problem),
             Self::Failure { .. } => None,
@@ -91,41 +87,9 @@ impl Result {
     }
 
     /// Consumes and returns the lifted problem if available.
-    pub fn take_lifted_problem(&mut self) -> Option<LiftedProblem> {
+    pub fn take_lifted_problem(&mut self) -> Option<NewLiftedProblem> {
         match self {
             Self::Success { lifted_problem, .. } => Some(std::mem::take(lifted_problem)),
-            Self::Failure { .. } => None,
-        }
-    }
-
-    // --- New Accessors (New Store-based Problem) ---
-
-    /// Returns a reference to the new Store-based IR if available.
-    pub fn new_lifted_problem(&self) -> Option<&NewLiftedProblem> {
-        match self {
-            Self::Success {
-                new_lifted_problem, ..
-            } => Some(new_lifted_problem),
-            Self::Failure { .. } => None,
-        }
-    }
-
-    /// Returns a mutable reference to the new Store-based IR if available.
-    pub fn new_lifted_problem_mut(&mut self) -> Option<&mut NewLiftedProblem> {
-        match self {
-            Self::Success {
-                new_lifted_problem, ..
-            } => Some(new_lifted_problem),
-            Self::Failure { .. } => None,
-        }
-    }
-
-    /// Consumes and returns the new lifted problem if available.
-    pub fn take_new_lifted_problem(&mut self) -> Option<NewLiftedProblem> {
-        match self {
-            Self::Success {
-                new_lifted_problem, ..
-            } => Some(std::mem::take(new_lifted_problem)),
             Self::Failure { .. } => None,
         }
     }
@@ -216,7 +180,6 @@ impl fmt::Display for Result {
         match self {
             Self::Success {
                 lifted_problem,
-                new_lifted_problem,
                 diagnostic_manager,
             } => {
                 writeln!(f, "IR built successfully:\n{}", lifted_problem)?;

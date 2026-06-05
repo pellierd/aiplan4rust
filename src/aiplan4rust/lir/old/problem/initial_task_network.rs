@@ -4,8 +4,8 @@
 //! The `InitialTaskNetwork` consists of a list of typed parameters and
 //! a lifted task network describing the tasks and their relationships.
 
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::lang::{TaskLabelSymbolId, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::lir::old::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::old::renderers;
 use crate::aiplan4rust::lir::TaskNetwork;
 use serde::{Deserialize, Serialize};

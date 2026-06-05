@@ -1,6 +1,6 @@
-mod pnf;
+pub mod pnf;
 pub mod positive_form_normalization;
-mod qnf;
+pub mod qnf;
 /// --- PIPELINE DE GROUNDING (Ordre de dépendance strict) ---
 ///
 /// 1. `type_inference`:
@@ -35,3 +35,9 @@ mod qnf;
 ///    Élimine les négations sur les fluents (ex: `(not at ?x)` -> `at_neg(?x)`).
 ///    Garantit un programme Datalog purement positif, évitant la stratification complexe.
 pub mod quantifier_expansion;
+
+pub use qnf::problem::expand;
+pub use qnf::problem::expand_with;
+
+pub use pnf::problem::to_pnf;
+pub use pnf::problem::to_pnf_with_scratchpad;

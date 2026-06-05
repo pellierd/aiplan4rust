@@ -25,11 +25,11 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::{MethodSymbolId, TaskLabelSymbolId, TypeId, VariableId};
 use crate::aiplan4rust::lir::old::expr::expr::Expr;
 use crate::aiplan4rust::lir::old::problem::atomic_skeleton::named_typed_list::NamedTypedList;
+use crate::aiplan4rust::lir::old::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::old::renderers;
 use crate::aiplan4rust::lir::old::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::aiplan4rust::lir::TaskNetwork;

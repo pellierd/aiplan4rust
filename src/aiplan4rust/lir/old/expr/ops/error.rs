@@ -1,4 +1,3 @@
-use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::lir::old::expr::{ExprError, ExprKind};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
@@ -9,9 +8,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ExprOpError {
-    #[error(transparent)]
-    Inertia(#[from] InertiaError),
-
     /// An error originating from the logic.
     #[error(transparent)]
     Expr(#[from] ExprError),

@@ -44,9 +44,7 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
         let mut lir_result = encode(linking, &domain_path, problem_path).expect("Encoding failed");
 
         // --- On récupère le NEW lifted problem ---
-        let pb = lir_result
-            .take_new_lifted_problem()
-            .expect("No lifted problem");
+        let pb = lir_result.take_lifted_problem().expect("No lifted problem");
 
         // --- Analyse d'Inertie via le nouveau builder ---
         let table = analyze_inertia(&pb).expect("Inertia analysis failed");

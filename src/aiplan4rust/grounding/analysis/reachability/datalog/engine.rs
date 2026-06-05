@@ -1,8 +1,13 @@
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::cause::Cause;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::database::Database;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
+use crate::aiplan4rust::grounding::analysis::reachability::datalog::renderers::{
+    database, rules, RenderContext,
+};
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::tuple::Tuple;
@@ -14,9 +19,6 @@ use crate::aiplan4rust::lang::{
 use crate::aiplan4rust::lir::old::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::aiplan4rust::lir::ActionDef;
-use crate::analysis::inertia::InertiaTable;
-use crate::analysis::reachability::datalog::cause::Cause;
-use crate::analysis::reachability::datalog::renderers::{database, rules, RenderContext};
 use itertools::Itertools;
 use std::collections::HashMap;
 use toml::value::Index;

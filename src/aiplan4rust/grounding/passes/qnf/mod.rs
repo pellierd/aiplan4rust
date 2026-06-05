@@ -2,7 +2,7 @@ mod action;
 mod derived_predicate;
 mod expr;
 mod method;
-mod problem;
+pub(crate) mod problem;
 mod scratchpad;
 
 pub use scratchpad::ExpansionScratchpad;

@@ -1,8 +1,8 @@
-use std::path::Path;
-use test_case::test_case;
-use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::common::io::*;
 use crate::common::pipeline::*;
+use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
+use std::path::Path;
+use test_case::test_case;
 
 /// Tests ValueRegistry consistency (object counting per type) for a given directory.
 pub fn test_registry_consistency(domain_dir: &Path) -> bool {
@@ -11,7 +11,10 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
     let all_files = collect_domain_files(domain_dir);
     let problems_to_process = get_test_files_for_mode(filter_problem_files(&all_files));
 
-    println!("\n\x1b[1;36m>>> Starting ValueRegistry Consistency Test in: {}\x1b[0m", domain_dir.display());
+    println!(
+        "\n\x1b[1;36m>>> Starting ValueRegistry Consistency Test in: {}\x1b[0m",
+        domain_dir.display()
+    );
 
     for problem_path in &problems_to_process {
         let domain_name = domain_dir.file_name().unwrap().to_str().unwrap();
@@ -26,7 +29,10 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
 
         let (d_res, p_res) = match (d_ana, p_ana) {
             (Some(d), Some(p)) => (d, p),
-            _ => { success = false; continue; }
+            _ => {
+                success = false;
+                continue;
+            }
         };
 
         let linking = link(d_res, p_res, &domain_path, problem_path).expect("Link failed");
@@ -35,7 +41,8 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
 
         // --- ValueRegistry Building ---
         // Building the registry specifically for this problem instance
-        let registry = ValueRegistry::build(pb.type_defs(), pb.object_defs()).unwrap();
+        let registry =
+            ValueRegistry::build(pb.type_defs().as_slice(), pb.object_defs().as_slice()).unwrap();
 
         // --- Oracle: Expected object counts per Type (including inheritance) ---
         let expectations: Vec<(&str, usize)> = match oracle_key.as_str() {
@@ -62,11 +69,9 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
                 ("crackers", 5),
                 ("object", 25),
             ],
-            "assembly/pb01.pddl" | "assembly/prob01.pddl" => vec![
-                ("assembly", 5),
-                ("resource", 2),
-                ("object", 7),
-            ],
+            "assembly/pb01.pddl" | "assembly/prob01.pddl" => {
+                vec![("assembly", 5), ("resource", 2), ("object", 7)]
+            }
             "depot/prob01.pddl" | "depot/pb01.pddl" => vec![
                 ("place", 3),
                 ("truck", 2),
@@ -78,7 +83,10 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
         };
 
         if expectations.is_empty() {
-            println!("  \x1b[0;90mSkipping {} (No registry oracle defined)\x1b[0m", oracle_key);
+            println!(
+                "  \x1b[0;90mSkipping {} (No registry oracle defined)\x1b[0m",
+                oracle_key
+            );
             continue;
         }
 
@@ -88,12 +96,16 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
 
         for (type_name, expected_count) in expectations {
             // 1. Get the SymbolId from the string name via interner
-            let type_symbol = pb.interner().lookup_symbol(type_name)
+            let type_symbol = pb
+                .interner()
+                .lookup_symbol(type_name)
                 .expect(&format!("Type name '{}' not found in interner", type_name));
 
             // 2. Get the TypeId from the SymbolId via type_symbols map
-            let t_id = pb.type_symbols().try_get_id(&type_symbol)
-                .expect(&format!("Type symbol for '{}' not found in type definitions", type_name));
+            let t_id = pb.type_symbols().try_get_id(&type_symbol).expect(&format!(
+                "Type symbol for '{}' not found in type definitions",
+                type_name
+            ));
 
             // 3. Query the registry for the flattened domain
             match registry.get_primitive_type_domain(t_id) {
@@ -108,13 +120,16 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
                                  type_name, t_id, expected_count, actual_count);
                         success = false;
                     }
-                },
+                }
                 Err(e) => {
                     if current_problem_ok {
                         println!("\x1b[1;31m[FAILED]\x1b[0m");
                         current_problem_ok = false;
                     }
-                    println!("    \x1b[0;31m- Type '{}' : Registry error: {:?}\x1b[0m", type_name, e);
+                    println!(
+                        "    \x1b[0;31m- Type '{}' : Registry error: {:?}\x1b[0m",
+                        type_name, e
+                    );
                     success = false;
                 }
             }
@@ -138,5 +153,9 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
 pub fn test_pddl_value_registry(domain_path: &str) {
     let _ = env_logger::builder().is_test(true).try_init();
     let path = Path::new(domain_path);
-    assert!(test_registry_consistency(path), "ValueRegistry consistency failed for domain: {}", domain_path);
+    assert!(
+        test_registry_consistency(path),
+        "ValueRegistry consistency failed for domain: {}",
+        domain_path
+    );
 }

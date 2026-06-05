@@ -42,9 +42,6 @@ use crate::aiplan4rust::lir::encoding::encoding::encode_domain as new_encode_dom
 use crate::aiplan4rust::lir::encoding::encoding::encode_problem as new_encode_problem;
 use crate::aiplan4rust::lir::encoding::EncodingRegistry as NewEncodingRegistry;
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprStore};
-use crate::aiplan4rust::lir::old::encoding::{domain, encoding, EncodingRegistry};
-use crate::aiplan4rust::lir::old::passes;
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 use crate::aiplan4rust::lir::{normalization, LirError};
 use crate::LirEncoderResult;
@@ -131,8 +128,6 @@ impl LirEncoder {
     /// }
     /// ```
     pub fn encode(&mut self, context: LinkedSemanticContext) -> Result<LirEncoderResult, LirError> {
-        let new_lifted_problem = encode_new_lifted_problem(context.clone())?;
-
         // 1. Create a LiftedProblem from the linked semantic context
         let lifted_problem = encode_lifted_problem(context)?;
 
@@ -140,7 +135,6 @@ impl LirEncoder {
         //    and the diagnostics collected during the build process
         Ok(LirEncoderResult::success(
             lifted_problem,
-            new_lifted_problem,
             std::mem::take(&mut self.diagnostic_manager),
         ))
     }
@@ -156,50 +150,8 @@ impl LirEncoder {
 }
 
 /// Encode a LiftedProblem from a LinkedSemanticContext.
-/// This is the core transformation that was previously in `try_from`.
-pub fn encode_lifted_problem(
-    mut context: LinkedSemanticContext,
-) -> Result<LiftedProblem, LirError> {
-    // 1. Consume interner and required requirements from the context
-    let interner = context.take_interner();
-    let requirements = context.take_required_requirements();
-
-    // 2. Create a new LiftedProblem with interner and requirements
-    let mut problem = LiftedProblem::new(requirements);
-    problem.set_interner(interner);
-
-    // 3. Encode domain-level elements
-    let domain_symbol_table = context.take_domain_table();
-    let domain_syntax_tree = context.take_domain_syntax_tree();
-
-    let mut registry = EncodingRegistry::new(domain_symbol_table);
-
-    domain::encode(&domain_syntax_tree, &mut registry, &mut problem)?;
-
-    // 4. Encode problem-level elements
-    let problem_symbol_table = context.take_problem_table();
-    /*println!(
-        "problem_symbol_table symbol table: {}",
-        problem_symbol_table.to_string_with_interner(problem.interner())
-    );*/
-
-    let problem_syntax_tree = context.take_problem_syntax_tree();
-    registry.set_symbol_table(problem_symbol_table);
-
-    encoding::encode_problem(&problem_syntax_tree, &mut registry, &mut problem)?;
-
-    // 5. Normalize all logic in the problem
-    passes::normalize(&mut problem)?;
-
-    // 6. Return the fully constructed and normalized problem
-    Ok(problem)
-}
-
-/// Encode a LiftedProblem from a LinkedSemanticContext.
 /// This is the core transformation that now integrates the ExprStore.
-pub fn encode_new_lifted_problem(
-    mut context: LinkedSemanticContext,
-) -> Result<NewLiftedProblem, LirError> {
+fn encode_lifted_problem(mut context: LinkedSemanticContext) -> Result<NewLiftedProblem, LirError> {
     // 1. Consommation de l'interner et des requirements
     let interner = context.take_interner();
     let requirements = context.take_required_requirements();

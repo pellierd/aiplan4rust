@@ -1,14 +1,14 @@
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::grounding::problem::Fluent;
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
+
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ObjectId, PredicateSymbolId, TypeId};
-use crate::aiplan4rust::lang::{Requirement, SymbolId, TaskSymbolId, TypedSymbol};
-use crate::aiplan4rust::lir::old::problem::atomic_skeleton::{
+use crate::aiplan4rust::lang::{Requirement, SymbolId, TaskSymbolId, TypedList};
+use crate::aiplan4rust::lir::problem::skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
+use crate::aiplan4rust::lir::problem::{NewLiftedProblem, SymbolRegistry};
 use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -33,8 +33,8 @@ pub struct Problem {
     function_symbols: SymbolRegistry<FunctionSymbolId>,
     task_symbols: SymbolRegistry<TaskSymbolId>,
 
-    type_defs: Vec<TypedSymbol<TypeId, TypeId>>,
-    object_defs: Vec<TypedSymbol<ObjectId, TypeId>>,
+    type_defs: TypedList<TypeId, TypeId>,
+    object_defs: TypedList<ObjectId, TypeId>,
     predicate_defs: Vec<AtomicFormulaSkeleton>,
     functions_def: Vec<AtomicFunctionSkeleton>,
     task_defs: Vec<AtomicTaskSkeleton>,
@@ -55,7 +55,7 @@ impl Problem {
     ///
     /// This implementation performs an ownership transfer of all internal
     /// data structures, ensuring no deep clones are required.
-    pub fn from(mut lifted: LiftedProblem) -> Self {
+    pub fn from(mut lifted: NewLiftedProblem) -> Self {
         // Extract the interner
         let interner = lifted.take_interner();
 
@@ -115,10 +115,10 @@ impl Problem {
             task_symbols: SymbolRegistry::new(),
             object_symbols: SymbolRegistry::new(),
             type_objects: ValueRegistry::empty(),
-            object_defs: Vec::new(),
+            object_defs: TypedList::new(),
             fluents: Vec::new(),
             numeric_fluents: Vec::new(),
-            type_defs: Vec::new(),
+            type_defs: TypedList::new(),
             task_defs: Vec::new(),
             constant_offset: 0,
         }
@@ -192,17 +192,17 @@ impl Problem {
     // ---------- Type parents ----------
 
     /// Returns a reference to the list of parent types (as `Option<TypeID>`).
-    pub fn type_defs(&self) -> &Vec<TypedSymbol<TypeId, TypeId>> {
+    pub fn type_defs(&self) -> &TypedList<TypeId, TypeId> {
         &self.type_defs
     }
 
     /// Returns a mutable reference to the list of parent types (as `Option<TypeID>`).
-    pub fn type_def_mut(&mut self) -> &mut Vec<TypedSymbol<TypeId, TypeId>> {
+    pub fn type_def_mut(&mut self) -> &mut TypedList<TypeId, TypeId> {
         &mut self.type_defs
     }
 
     /// Replaces the current typing parents list with the provided one.
-    pub fn set_type_defs(&mut self, types: Vec<TypedSymbol<TypeId, TypeId>>) {
+    pub fn set_type_defs(&mut self, types: TypedList<TypeId, TypeId>) {
         self.type_defs = types;
     }
 
@@ -313,17 +313,17 @@ impl Problem {
     }
 
     /// Returns a reference to the list of all objects.
-    pub fn object_defs(&self) -> &Vec<TypedSymbol<ObjectId, TypeId>> {
+    pub fn object_defs(&self) -> &TypedList<ObjectId, TypeId> {
         &self.object_defs
     }
 
     /// Returns a mutable reference to the list of objects.
-    fn object_defs_mut(&mut self) -> &mut Vec<TypedSymbol<ObjectId, TypeId>> {
+    fn object_defs_mut(&mut self) -> &mut TypedList<ObjectId, TypeId> {
         &mut self.object_defs
     }
 
     /// Replaces the current list of objects with the provided one.
-    fn set_object_defs(&mut self, objects: Vec<TypedSymbol<ObjectId, TypeId>>) {
+    fn set_object_defs(&mut self, objects: TypedList<ObjectId, TypeId>) {
         self.object_defs = objects;
     }
 

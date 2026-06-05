@@ -6,7 +6,4 @@ pub mod evaluator;
 pub mod new_evaluator;
 pub mod new_table;
 
-pub use error::InertiaError;
-pub use table::InertiaTable;
-
 pub use table::builder::build;

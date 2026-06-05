@@ -40,7 +40,6 @@
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
 
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{
     ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
@@ -51,6 +50,7 @@ use crate::aiplan4rust::lir::old::expr::Expr;
 use crate::aiplan4rust::lir::old::problem::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
+use crate::aiplan4rust::lir::old::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::old::problem::{DomainDef, ProblemDef};
 use crate::aiplan4rust::lir::old::renderers;
 use crate::aiplan4rust::lir::{

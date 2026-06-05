@@ -1,13 +1,13 @@
-use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaEvaluator;
+use crate::aiplan4rust::grounding::analysis::inertia::new_evaluator::InertiaEvaluator;
+use crate::aiplan4rust::grounding::analysis::inertia::new_table::InertiaTable;
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::passes::{positive_form_normalization, quantifier_expansion};
+use crate::aiplan4rust::grounding::passes::{pnf, qnf};
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::grounding::{config, GroundingResult};
-use crate::aiplan4rust::lir::old::problem::LiftedProblem;
-use crate::aiplan4rust::lir::old::renderers::LiftedSyntaxDisplay;
-use crate::analysis::inertia::InertiaTable;
-use crate::{DatalogEngine, DiagnosticManager};
+use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::lir::problem::NewLiftedProblem;
+use crate::DiagnosticManager;
 
 /// The `Grounder` is responsible for converting a lifted planning problem
 /// into a fully grounded problem, instantiating all types, objects, predicates,
@@ -54,7 +54,7 @@ impl Grounder {
     /// ```
     pub fn ground(
         &mut self,
-        mut lifted_problem: LiftedProblem,
+        mut lifted_problem: NewLiftedProblem,
     ) -> Result<GroundingResult, GroundingError> {
         // 1. OBJECT FLUENT FLATTENING
         // TO DO
@@ -64,45 +64,46 @@ impl Grounder {
 
         // 3. VALUE REGISTRY CONSTRUCTION
         // We pass typing/object definitions separately and inject the initial size config.
-        let registry =
-            ValueRegistry::build(lifted_problem.type_defs(), lifted_problem.object_defs())?;
+        let registry = ValueRegistry::build(
+            lifted_problem.type_defs().as_slice(),
+            lifted_problem.object_defs().as_slice(),
+        )?;
 
         println!("{}", lifted_problem);
         println!("{}", registry);
 
+        let init = Expr::new(lifted_problem.init(), lifted_problem.store());
         let evaluator = InertiaEvaluator::build(
             lifted_problem.predicate_defs(),
             lifted_problem.function_defs(),
-            lifted_problem.init(),
+            init,
             &table,
             &registry,
             config::DEFAULT_MAX_ARITY,
             config::DEFAULT_MAX_PROJ,
         )?;
 
-        print!("{}", lifted_problem.domain_view().to_syntax_string());
+        //print!("{}", lifted_problem.domain_view().to_syntax_string());
         //print!("{}", lifted_problem.problem_view().to_syntax_string());
         //println!("{}", lifted_problem);
         // 5. QUANTIFIER EXPANSION : On déploie les forall/exists.
         // Il doit arriver APRES le flattening des types pour que le forall
         // sache exactement sur quels objets itérer.
-        quantifier_expansion::problem::expand_with(
-            &mut lifted_problem,
-            &registry,
-            Some(&evaluator),
-        )?;
+        qnf::problem::expand_with(&mut lifted_problem, &registry, Some(&evaluator))?;
 
-        print!("{}", lifted_problem.domain_view().to_syntax_string());
+        //print!("{}", lifted_problem.domain_view().to_syntax_string());
         //print!("{}", lifted_problem.problem_view().to_syntax_string());
         //println!("{}", lifted_problem);
-        // 6. PNF
-        let negated_predicates = positive_form_normalization::to_pnf(&mut lifted_problem)?;
 
-        let mut datalog =
+        // 6. PNF
+        let negated_atoms = pnf::problem::to_pnf(&mut lifted_problem)?;
+
+        // 7. reachbillity
+        /*let mut datalog =
             DatalogEngine::new(&lifted_problem, &registry, &table, &negated_predicates);
         datalog.load_problem()?;
 
-        datalog.run();
+        datalog.run();*/
 
         // Calcul de l'atteignabilité
         /*let actions = datalog.get_reachable_actions();
@@ -261,7 +262,7 @@ impl Grounder {
     /// ```
     pub fn build_with_diagnostic_manager(
         &mut self,
-        lifted_problem: LiftedProblem,
+        lifted_problem: NewLiftedProblem,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<GroundingResult, GroundingError> {
         self.diagnostic_manager = diagnostic_manager;

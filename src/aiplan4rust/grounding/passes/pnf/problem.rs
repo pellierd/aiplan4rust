@@ -8,12 +8,9 @@ use crate::aiplan4rust::lir::problem::NewLiftedProblem;
 ///
 /// Convenience wrapper around [`to_pnf_with_scratchpad`] that allocates the temporary
 /// scratchpad locally on the fly.
-pub fn to_pnf(
-    problem: &mut NewLiftedProblem,
-    negated_atoms: &mut Vec<AtomSkeletonId>,
-) -> Result<(), GroundingError> {
+pub fn to_pnf(problem: &mut NewLiftedProblem) -> Result<Vec<AtomSkeletonId>, GroundingError> {
     let mut scratchpad = PnfScratchpad::new();
-    to_pnf_with_scratchpad(problem, negated_atoms, &mut scratchpad)
+    to_pnf_with_scratchpad(problem, &mut scratchpad)
 }
 
 /// Fully applies the Positive Normal Form (PNF) transformation across the entire planning problem.
@@ -22,9 +19,10 @@ pub fn to_pnf(
 /// et réutilise un unique `PfnScratchpad` pour garantir zéro allocation sur l'ensemble du processus.
 pub fn to_pnf_with_scratchpad(
     problem: &mut NewLiftedProblem,
-    negated_atoms: &mut Vec<AtomSkeletonId>,
     scratchpad: &mut PnfScratchpad,
-) -> Result<(), GroundingError> {
+) -> Result<Vec<AtomSkeletonId>, GroundingError> {
+    let mut negated_atoms = Vec::new();
+
     // --- 1. EXTRACTION DU STORE (Take Ownership) ---
     // Libère `problem` de ses emprunts liés au store pour nous permettre de muter
     // les actions, méthodes et prédicats dérivés de manière fluide.
@@ -36,7 +34,7 @@ pub fn to_pnf_with_scratchpad(
     let new_domain_constraints = expr::to_pnf_with_scratchpad(
         old_domain_constraints,
         &mut store,
-        negated_atoms,
+        &mut negated_atoms,
         scratchpad,
         false, // is_effect
     )?;
@@ -46,7 +44,7 @@ pub fn to_pnf_with_scratchpad(
     let new_problem_constraints = expr::to_pnf_with_scratchpad(
         old_problem_constraints,
         &mut store,
-        negated_atoms,
+        &mut negated_atoms,
         scratchpad,
         false, // is_effect
     )?;
@@ -54,17 +52,22 @@ pub fn to_pnf_with_scratchpad(
 
     // --- 3. Lifted Definitions (Prédicats Dérivés) ---
     for derived in problem.derived_predicate_defs_mut() {
-        derived_predicate::to_pnf_with_scratchpad(derived, &mut store, negated_atoms, scratchpad)?;
+        derived_predicate::to_pnf_with_scratchpad(
+            derived,
+            &mut store,
+            &mut negated_atoms,
+            scratchpad,
+        )?;
     }
 
     // --- 4. Lifted Definitions (Actions) ---
     for action_def in problem.action_defs_mut() {
-        action::to_pnf_with_scratchpad(action_def, &mut store, negated_atoms, scratchpad)?;
+        action::to_pnf_with_scratchpad(action_def, &mut store, &mut negated_atoms, scratchpad)?;
     }
 
     // --- 5. Lifted Definitions (Méthodes HTN) ---
     for method_def in problem.method_defs_mut() {
-        method::to_pnf_with_scratchpad(method_def, &mut store, negated_atoms, scratchpad)?;
+        method::to_pnf_with_scratchpad(method_def, &mut store, &mut negated_atoms, scratchpad)?;
     }
 
     // --- 6. Problem Instance Specifics (But & Métriques) ---
@@ -72,7 +75,7 @@ pub fn to_pnf_with_scratchpad(
     let new_goal = expr::to_pnf_with_scratchpad(
         old_goal,
         &mut store,
-        negated_atoms,
+        &mut negated_atoms,
         scratchpad,
         false, // Le but est une condition
     )?;
@@ -82,7 +85,7 @@ pub fn to_pnf_with_scratchpad(
     let new_metric = expr::to_pnf_with_scratchpad(
         old_metric,
         &mut store,
-        negated_atoms,
+        &mut negated_atoms,
         scratchpad,
         false, // Les métriques ne sont pas des effets
     )?;
@@ -96,7 +99,7 @@ pub fn to_pnf_with_scratchpad(
     let new_htn_constraints = expr::to_pnf_with_scratchpad(
         current_htn_constraints,
         &mut store,
-        negated_atoms,
+        &mut negated_atoms,
         scratchpad,
         false, // Contraintes initiales = conditions
     )?;
@@ -109,5 +112,5 @@ pub fn to_pnf_with_scratchpad(
     // Le store, enrichi et réécrit sans négations structurelles, est restitué au problème.
     problem.set_store(store);
 
-    Ok(())
+    Ok(negated_atoms)
 }

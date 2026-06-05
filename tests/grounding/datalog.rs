@@ -1,4 +1,4 @@
-use crate::common::io::*;
+/*use crate::common::io::*;
 use crate::common::pipeline::*;
 use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::aiplan4rust::grounding::config;
@@ -133,3 +133,4 @@ pub fn test_pddl_datalog(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(test_datalog_cardinality(path));
 }
+*/

@@ -14,15 +14,15 @@
 //! // Use frontend to parse and link planning files
 //! ```
 
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::artefact::source::Source;
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::grounding::{Grounder, GroundingResult};
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::lir::{LirEncoder, LirEncoderResult};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::{Analyzer, AnalyzerResult};
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::grounding::{Grounder, GroundingResult};
 
 /// Frontend struct for the AI planning pipeline.
 ///
@@ -234,7 +234,6 @@ impl Frontend {
             ))
         }
     }
-
 
     pub fn ground_from_raw_input(
         &self,

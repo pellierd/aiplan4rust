@@ -5,7 +5,7 @@ use crate::aiplan4rust::lir::old::problem::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton,
 };
 use crate::analysis::inertia::evaluator::InertiaEvaluator;
-use crate::analysis::inertia::InertiaTable;
+use crate::analysis::inertia::table::InertiaTable;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -83,6 +83,7 @@ mod tests {
     use crate::aiplan4rust::lir::old::expr::ops::StaticValue;
     use crate::aiplan4rust::lir::old::problem::atomic_skeleton::AtomicFormulaSkeleton;
     use crate::analysis::inertia::evaluator::evaluator::ArgumentBuffer;
+    use crate::analysis::inertia::evaluator::InertiaEvaluator;
     use ordered_float::OrderedFloat;
 
     /// Helper pour créer des définitions de prédicats de test

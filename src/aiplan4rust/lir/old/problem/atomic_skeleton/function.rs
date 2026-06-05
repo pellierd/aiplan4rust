@@ -18,9 +18,9 @@
 //! );
 //! ```
 
-use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::lang::{FunctionSymbolId, Type, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::old::problem::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::old::problem::SymbolRegistry;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};

@@ -1,6 +1,5 @@
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{
     AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, PreferenceSymbolId, SymbolId,
@@ -45,10 +44,6 @@ pub enum LirError {
     /// An error originating from the expression system.
     #[error(transparent)]
     Logic(#[from] ExprOpError),
-
-    /// An error originating from the expression system.
-    #[error(transparent)]
-    Inertia(#[from] InertiaError),
 
     #[error(transparent)]
     IndexTable(#[from] IndexTableError),

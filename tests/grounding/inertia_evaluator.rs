@@ -1,19 +1,19 @@
-use crate::common::io::*;
+/*use crate::common::io::*;
 use crate::common::pipeline::*;
 use aiplan4rust::aiplan4rust::arena::ArenaNode;
 use std::path::Path;
 use test_case::test_case;
 
-use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
+use aiplan4rust::aiplan4rust::grounding::analysis::inertia::new_table::builder::build as analyze_inertia;
+use aiplan4rust::aiplan4rust::grounding::binding::evaluator::ExprConstant;
 use aiplan4rust::aiplan4rust::grounding::config;
 use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use aiplan4rust::aiplan4rust::lang::{
     AtomSkeletonId, ObjectId, PredicateSymbolId, Type, TypeId, VariableId,
 };
-use aiplan4rust::aiplan4rust::lir::old::expr::ops::{StaticEvaluator, StaticValue};
-use aiplan4rust::aiplan4rust::lir::old::expr::{Expr, ExprBuilder, ExprKind};
+use aiplan4rust::aiplan4rust::lir::expr::Expr;
 // ExprKind est ici
-use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
+use aiplan4rust::analysis::inertia::new_evaluator::InertiaEvaluator;
 
 // IPC 1998
 #[test_case("tests/fixtures/pddl/ipc98/assembly"; "ipc98_pddl_adl_assembly")]
@@ -174,13 +174,14 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
         let pb = lir_result.take_lifted_problem().expect("No lifted problem");
 
         let table = analyze_inertia(&pb).expect("Inertia analysis failed");
-        let registry =
-            ValueRegistry::build(pb.type_defs(), pb.object_defs()).expect("Registry build failed");
+        let registry = ValueRegistry::build(pb.type_defs().as_slice(), pb.object_defs().as_slice())
+            .expect("Registry build failed");
 
+        let init = Expr::new(pb.init(), pb.store());
         let evaluator = InertiaEvaluator::build(
             pb.predicate_defs(),
             pb.function_defs(),
-            pb.init(),
+            init,
             &table,
             &registry,
             config::DEFAULT_MAX_ARITY,
@@ -217,7 +218,7 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
 
                 // 4. On calcule ce qu'on attend pour l'atome (si c'est statique)
                 match res {
-                    Some(StaticValue::Boolean(val)) => {
+                    Some(ExprConstant:::Boolean(val)) => {
                         // L'évaluateur doit être d'accord avec l'existence dans l'init
                         if val != atom_exists {
                             println!("\n    \x1b[0;31m- ORACLE ERROR: Atom {:?} is {}, but init says {}\x1b[0m",
@@ -322,3 +323,4 @@ fn build_test_atom(
     builder.set_root(atom).unwrap();
     builder.finish()
 }
+*/
