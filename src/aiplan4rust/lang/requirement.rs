@@ -23,7 +23,7 @@
 //! println!("{}", req); // prints "strips"
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::ADL;
 use crate::aiplan4rust::syntax::lexer::token::CONDITIONAL_EFFECTS;
 use crate::aiplan4rust::syntax::lexer::token::CONSTRAINTS;

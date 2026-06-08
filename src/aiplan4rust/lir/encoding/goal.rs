@@ -4,11 +4,11 @@
 //! Il transforme les exigences logiques du but en une expression LIR
 //! qui doit être satisfaite dans l'état final.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::encoding::{expr, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encode la condition de but du problème à partir de la section AST `:goal`.
 ///

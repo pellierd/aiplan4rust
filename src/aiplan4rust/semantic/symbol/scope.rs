@@ -7,7 +7,7 @@
 //! Scopes can be nested by extending an existing scope's stack with additional nodes.
 //! This allows tracking the hierarchical context in which symbols or logic occur.
 
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;

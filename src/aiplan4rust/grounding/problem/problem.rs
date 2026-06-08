@@ -2,14 +2,14 @@ use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::grounding::problem::Fluent;
 
-use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::cli::io::serialization::SerdeSerializable;
+use crate::aiplan4rust::core::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ObjectId, PredicateSymbolId, TypeId};
 use crate::aiplan4rust::lang::{Requirement, SymbolId, TaskSymbolId, TypedList};
 use crate::aiplan4rust::lir::problem::skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolRegistry};
-use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;

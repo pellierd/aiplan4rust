@@ -14,8 +14,8 @@
 //! // Use frontend to parse and link planning files
 //! ```
 
-use crate::aiplan4rust::artefact::source::Source;
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::cli::io::artefact::source::Source;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::grounding::{Grounder, GroundingResult};
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::lir::{LirEncoder, LirEncoderResult};

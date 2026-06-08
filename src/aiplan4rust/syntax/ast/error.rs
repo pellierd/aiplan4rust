@@ -5,8 +5,8 @@
 //! It reuses [`SyntaxTreeError`] for syntax tree-specific issues and
 //! introduces AST-specific errors such as unexpected content or internal ops faults.
 
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use thiserror::Error;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Errors that can arise during AST manipulation.
 #[derive(Error, Debug)]
@@ -19,10 +19,8 @@ pub enum AstError {
     #[error("Expected Requirement, but content was not a requirement")]
     NotARequirement,
 
-
     #[error("Expected symbol id, but content was not a symbol id")]
     NotASymbolID,
-
 }
 
 impl AstError {
@@ -39,16 +37,15 @@ impl AstError {
             let bt = std::backtrace::Backtrace::force_capture();
 
             log::debug!(
-            "\nAST Error at {}:{}:{}\n{}\nStack trace:\n{}",
-            caller.file(),
-            caller.line(),
-            caller.column(),
-            err,
-            bt
-        );
+                "\nAST Error at {}:{}:{}\n{}\nStack trace:\n{}",
+                caller.file(),
+                caller.line(),
+                caller.column(),
+                err,
+                bt
+            );
         }
 
         err
     }
-
 }

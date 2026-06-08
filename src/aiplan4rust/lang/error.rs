@@ -21,9 +21,9 @@
 //!     Err(LangError::from(syntax_error))
 //! }
 //! ```
-use thiserror::Error;
 use crate::aiplan4rust::lang::ObjectId;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
+use thiserror::Error;
 
 /// Represents errors specific to the `lang` module.
 ///

@@ -26,13 +26,13 @@ use std::collections::HashMap;
 use std::fmt::{self, Formatter};
 use std::ops::{Deref, DerefMut};
 
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{RemapSymbol, Requirement, SymbolId};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId, SyntaxBaseNode, Tree};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{Node, NodeId, SyntaxBaseNode, Tree};
 
 /// Represents a node in the Abstract Syntax Tree (AST).
 ///

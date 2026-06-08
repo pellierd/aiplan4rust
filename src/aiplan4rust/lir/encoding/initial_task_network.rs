@@ -1,12 +1,12 @@
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::encoding::{
     task_network, typed_list, EncodingError, EncodingRegistry,
 };
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::problem::InitialTaskNetwork;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,

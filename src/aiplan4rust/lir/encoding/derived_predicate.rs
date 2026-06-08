@@ -4,14 +4,14 @@
 //! Derived predicates allow the domain to define new relations based on
 //! existing ones, which are automatically updated as the state changes.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a derived predicate (axiom) from the syntax tree into the LIR.
 ///

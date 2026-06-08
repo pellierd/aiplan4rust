@@ -6,8 +6,8 @@
 
 use crate::aiplan4rust::lir::encoding::{objects_def, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes domain constants and defines the global constant offset.
 ///

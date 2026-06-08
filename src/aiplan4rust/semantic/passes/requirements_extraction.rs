@@ -18,13 +18,13 @@
 //! 3. **Type Resolution**: Uses the `SymbolTable` to distinguish between `:numeric-fluents`
 //!    and `:object-fluents` based on function return types.
 
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{AssignOp, CompareOp, Requirement, SymbolId};
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::SemanticError;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::{NodeId, SyntaxContent, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{NodeId, SyntaxContent, Tree};
 use crate::SymbolTable;
 use std::collections::{HashMap, HashSet};
 

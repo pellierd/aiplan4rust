@@ -1,8 +1,8 @@
 use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::{ty, EncodingError};
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 pub fn encode_typed_type(
     subtree: &SyntaxSubtree<AstNode>,

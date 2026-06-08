@@ -41,12 +41,12 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::syntax;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
+use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::syntax;
-use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
-use crate::aiplan4rust::tree::Tree;
 
 /// Renders a `task` AST node in an indented, syntax-like format with optional prefix.
 ///
@@ -68,7 +68,6 @@ pub fn render(
     with_prefix: bool,
     indent: usize,
 ) -> fmt::Result {
-
     // Write prefix if requested
     if with_prefix {
         syntax::display::write_indent(f, indent)?;

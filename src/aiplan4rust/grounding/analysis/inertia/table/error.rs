@@ -1,7 +1,7 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use thiserror::Error;
 
 /// Errors encountered during inertia analysis or while interacting with the inertia table.

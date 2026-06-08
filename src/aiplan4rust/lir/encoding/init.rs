@@ -4,11 +4,11 @@
 //! Il transforme les faits initiaux et les affectations numériques du fichier
 //! problème en logique LIR stockée dans le Store.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::encoding::{expr, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encode l'état initial du problème à partir de la section AST `:init`.
 ///

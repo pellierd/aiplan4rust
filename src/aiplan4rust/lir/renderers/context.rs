@@ -1,4 +1,4 @@
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{
     ActionSymbolId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, SymbolId,
     TaskSymbolId, TypeId, VariableId,

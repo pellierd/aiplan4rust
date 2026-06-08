@@ -56,13 +56,13 @@
 //!
 //! See individual function docs for detailed behavior and examples.
 
-use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::core::diagnostic::Diagnostic;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::diagnostic::Provider;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstNode};
-use crate::aiplan4rust::tree::Tree;
 use std::collections::HashSet;
 
 /// Normalizes all `Type` nodes in the AST by detecting and removing duplicate `PrimitiveType` children.

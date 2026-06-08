@@ -23,7 +23,7 @@
 //! By the end of this pass, the LIR is guaranteed to have a flat, non-hierarchical
 //! type system where every symbol points to a single canonical [`TypeId`].
 
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{
     AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedSymbol, VariableId,
 };

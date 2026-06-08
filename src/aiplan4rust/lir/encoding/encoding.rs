@@ -15,8 +15,8 @@
 use crate::aiplan4rust::lir::encoding::{domain, problem, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::Tree;
 
 /// Extracts and encodes all domain-level elements into the LIR.
 ///

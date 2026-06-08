@@ -1,9 +1,9 @@
-use std::fmt;
-use std::fmt::Formatter;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::syntax::ast::tree::{Node, Tree};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::tree::{Node, Tree};
+use std::fmt;
+use std::fmt::Formatter;
 
 pub fn render(
     node: &AstNode,

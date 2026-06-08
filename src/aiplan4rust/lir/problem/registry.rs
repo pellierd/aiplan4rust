@@ -1,4 +1,4 @@
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::ids::Id;
 use crate::aiplan4rust::lang::SymbolId;
 use serde::{Deserialize, Serialize};

@@ -15,8 +15,8 @@
 
 use std::fmt;
 
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::Ast;
 
 /// Represents the result of the AST logic phase.
@@ -52,7 +52,10 @@ impl Result {
     /// # Returns
     /// A `NormalizerResult::Success` variant.
     pub fn success(ast: Ast, diagnostic_manager: DiagnosticManager) -> Self {
-        Self::Success { ast, diagnostic_manager }
+        Self::Success {
+            ast,
+            diagnostic_manager,
+        }
     }
 
     /// Creates a failed logic result.
@@ -64,7 +67,10 @@ impl Result {
     /// # Returns
     /// A `NormalizerResult::Failure` variant.
     pub fn failure(diagnostic_manager: DiagnosticManager, interner: SymbolInterner) -> Self {
-        Self::Failure { diagnostic_manager, interner }
+        Self::Failure {
+            diagnostic_manager,
+            interner,
+        }
     }
 
     /// Returns a reference to the normalized AST if available.
@@ -94,24 +100,36 @@ impl Result {
     /// Returns a reference to the diagnostic manager.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Success {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
+            Self::Failure {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
         }
     }
 
     /// Returns a mutable reference to the diagnostic manager.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Success {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
+            Self::Failure {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
         }
     }
 
     /// Consumes and returns the diagnostic manager.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
-            Self::Failure { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
+            Self::Success {
+                diagnostic_manager, ..
+            } => std::mem::take(diagnostic_manager),
+            Self::Failure {
+                diagnostic_manager, ..
+            } => std::mem::take(diagnostic_manager),
         }
     }
 
@@ -156,7 +174,10 @@ impl Result {
 impl fmt::Display for Result {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Success { ast, diagnostic_manager } => {
+            Self::Success {
+                ast,
+                diagnostic_manager,
+            } => {
                 writeln!(f, "Normalization successful:\n{}", ast.syntax_tree())?;
                 if !diagnostic_manager.is_empty() {
                     writeln!(f, "\nDiagnostics:")?;
@@ -167,7 +188,9 @@ impl fmt::Display for Result {
                     writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
-            Self::Failure { diagnostic_manager, .. } => {
+            Self::Failure {
+                diagnostic_manager, ..
+            } => {
                 writeln!(f, "Normalization failed.")?;
                 for diag in diagnostic_manager.diagnostics() {
                     writeln!(f, "{}", diag)?;

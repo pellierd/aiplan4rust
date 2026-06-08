@@ -1,11 +1,11 @@
-use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::core::diagnostic::Diagnostic;
+use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::passes::context::PassContext;
 use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::type_checker::{TypeCheckerError, TypeHierarchy};
 use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::{DiagnosticManager, SymbolTable};
 use std::fmt;
 

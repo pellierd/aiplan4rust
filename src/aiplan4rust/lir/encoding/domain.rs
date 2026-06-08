@@ -9,7 +9,7 @@
 //!    against the maps created in the first pass.
 //!
 
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{Requirement, SymbolId, Type, TypeId, TypedList};
 use crate::aiplan4rust::lir::encoding::{
     action, constants_def, constraints, derived_predicate, functions_def, method, predicates_def,
@@ -18,8 +18,8 @@ use crate::aiplan4rust::lir::encoding::{
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId, SyntaxSubtree, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree, Tree};
 
 /// Encodes the PDDL domain into the Lifted Intermediate Representation (LIR).
 ///

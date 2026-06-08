@@ -6,7 +6,7 @@
 //! The module leverages hash sets to ensure uniqueness of declarations and usages, and supports serialization via Serde.
 //! It integrates with a string interner for efficient symbol name handling.
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;

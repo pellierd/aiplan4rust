@@ -1,7 +1,7 @@
-use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::Diagnostic;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::diagnostic::Provider;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{LiteralId, SymbolId};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::Declaration;

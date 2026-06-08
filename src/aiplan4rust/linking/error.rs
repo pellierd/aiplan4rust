@@ -5,8 +5,8 @@
 //! including semantic analysis, linking-specific checks, semantic consistency checks,
 //! and symbol table operations.
 
+use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::linking::finalization::error::FinalizationError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;

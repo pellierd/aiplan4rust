@@ -36,14 +36,14 @@
 //! orphaning nodes (setting their parent to `None`) before removing them from
 //! child lists, preventing dangling parent-child references.
 
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::core::diagnostic::Diagnostic;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::finalization::error::FinalizationError;
 use crate::aiplan4rust::linking::finalization::FinalizationContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind};
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
-use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::{DiagnosticManager, SymbolTable};
 use smallvec::SmallVec;
 

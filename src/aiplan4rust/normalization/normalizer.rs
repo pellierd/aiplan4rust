@@ -43,13 +43,13 @@
 //!
 //! Even in failure, collected diagnostics can provide useful context for recovery or debugging.
 
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::normalization::error::NormalizationError;
 use crate::aiplan4rust::normalization::passes;
+use crate::aiplan4rust::normalization::validation::check_well_normalized;
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::ParserResult;
-use crate::aiplan4rust::validation::normalization::check_well_normalized;
 
 /// Performs AST logic by applying canonical transformation logic.
 ///

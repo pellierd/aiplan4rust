@@ -54,17 +54,17 @@
 //! - [`SymbolInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerError, SelfInternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::ast::error::AstError;
+use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
-use crate::aiplan4rust::tree::{Node, NodeId, Tree};
 use std::collections::HashMap;
 
+use crate::aiplan4rust::cli::io::serialization::syntax::SyntaxSerializable;
+use crate::aiplan4rust::cli::io::serialization::SerializationError;
 use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, SymbolId};
-use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
-use crate::aiplan4rust::serialization::SerializationError;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};

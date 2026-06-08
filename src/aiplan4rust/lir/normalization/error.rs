@@ -1,6 +1,6 @@
 use crate::aiplan4rust::error::Traceable;
 
-use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;

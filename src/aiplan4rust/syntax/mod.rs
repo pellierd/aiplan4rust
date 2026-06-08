@@ -70,31 +70,32 @@
 //! - [`SyntaxInternerDisplay`] — Trait for AST formatting
 //! - [`FastLineTable`] — File line tracking utility
 
+pub mod ast;
+pub mod context;
+pub mod display;
+pub mod error;
+pub(crate) mod fast_line_table;
+pub mod grammar;
+pub mod lalrpop;
 pub mod lexer;
 pub mod parser;
-pub mod grammar;
-pub mod span;
-pub mod ast;
-pub mod display;
-pub(crate) mod fast_line_table;
-pub mod result;
-pub mod lalrpop;
-pub mod error;
-pub mod context;
 pub mod parser_error;
+pub mod result;
+pub mod span;
+pub mod validation;
 
 pub use ast::Ast;
 pub use context::ParseContext;
 pub use context::ParseContextError;
 pub use display::write_indent;
-pub use display::SyntaxInternerDisplay;
 pub use display::SyntaxDisplay;
+pub use display::SyntaxInternerDisplay;
 pub use error::SyntaxError;
 pub use fast_line_table::FastLineTable;
 pub use parser::Parser;
+pub use parser_error::CustomParseError;
 pub use result::Result as ParserResult;
 pub use span::Span;
-pub use parser_error::CustomParseError;
 
 pub use lalrpop::parse_hddl;
 pub use lalrpop::parse_pddl;

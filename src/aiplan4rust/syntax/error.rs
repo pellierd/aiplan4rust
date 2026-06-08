@@ -16,17 +16,17 @@
 //! The module also provides helper methods to extract the underlying parse error
 //! and to create errors from source-related issues.
 
-use thiserror::Error;
 use lalrpop_util::ParseError;
+use thiserror::Error;
 
-use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::CustomParseError;
-use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::cli::io::artefact::error::ArtefactError;
+use crate::aiplan4rust::syntax::ast::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::context::ParseContextError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::validation::common::WellFormedError;
+use crate::aiplan4rust::syntax::lexer::Token;
+use crate::aiplan4rust::syntax::validation::WellFormedError;
+use crate::aiplan4rust::syntax::CustomParseError;
 
 /// Enum representing all possible syntax-related errors encountered
 /// during parsing, AST processing, syntax tree handling, and source management.
@@ -35,7 +35,6 @@ use crate::aiplan4rust::validation::common::WellFormedError;
 /// them with meaningful messages for easier error management.
 #[derive(Debug, Error)]
 pub enum SyntaxError {
-
     /// Error returned by the parser during parsing.
     #[error(transparent)]
     ParseError(#[from] ParseError<usize, Token, CustomParseError>),

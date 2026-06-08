@@ -33,7 +33,7 @@
 //!
 //! Works seamlessly with lexer tokens and syntax display for syntax languages.
 
-use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::ASSIGN;
 use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;

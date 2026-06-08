@@ -1,11 +1,10 @@
+use crate::aiplan4rust::cli::io::artefact::error::ArtefactError;
+use crate::aiplan4rust::cli::io::serialization::SerializationError;
+use crate::aiplan4rust::core::diagnostic::DiagnosticError;
+use crate::aiplan4rust::AiplanError;
 use std::io;
 use std::path::PathBuf;
 use thiserror::Error;
-use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::diagnostic::DiagnosticError;
-use crate::aiplan4rust::artefact::error::ArtefactError;
-use crate::aiplan4rust::serialization::SerializationError;
-
 
 #[derive(Error, Debug)]
 pub enum CliError {
@@ -29,10 +28,7 @@ pub enum CliError {
 
     /// Failed to build an output path.
     #[error("Failed to build output path in directory '{dir}': {reason}")]
-    InvalidOutputPath {
-        dir: PathBuf,
-        reason: String,
-    },
+    InvalidOutputPath { dir: PathBuf, reason: String },
 
     #[error("Domain and problem files must be both parsed or both raw.")]
     InconsistentFiles,
@@ -54,19 +50,13 @@ pub enum CliError {
     InvalidFileName(String),
 }
 
-
 impl CliError {
-
-
     /// Creates an error indicating that an output path could not be constructed.
     ///
     /// # Arguments
     /// * `dir` - The output directory in which the file was supposed to be created.
     /// * `reason` - A human-readable explanation of the failure.
-    pub fn invalid_output_path(
-        dir: impl Into<PathBuf>,
-        reason: impl Into<String>,
-    ) -> Self {
+    pub fn invalid_output_path(dir: impl Into<PathBuf>, reason: impl Into<String>) -> Self {
         CliError::InvalidOutputPath {
             dir: dir.into(),
             reason: reason.into(),
@@ -84,5 +74,4 @@ impl CliError {
     pub fn missing_input_files() -> Self {
         CliError::MissingInputFiles
     }
-
 }

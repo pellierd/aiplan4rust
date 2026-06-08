@@ -1,5 +1,5 @@
-use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::Provider;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::LiteralId;
 
 pub struct FinalizationContext<'a> {

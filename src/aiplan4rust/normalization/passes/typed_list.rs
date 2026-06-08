@@ -61,13 +61,13 @@
 //!
 //! The main entry point is [`normalize_typed_list`], which normalizes all `TypedList` nodes.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstNode};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::tree::Tree;
 
 /// Recursively normalizes all `TypedList` nodes in the given AST subtree.
 ///

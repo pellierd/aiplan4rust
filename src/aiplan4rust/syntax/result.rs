@@ -3,9 +3,9 @@
 //! This module provides a unified enum-based result typing for parsing,
 //! including diagnostics and optional AST.
 
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::interner::SymbolInterner;
 use std::fmt;
 
 /// Represents the outcome of a PDDL syntax parsing operation.
@@ -44,7 +44,10 @@ impl Result {
     /// # Returns
     /// A `ParserResult::Success` variant.
     pub fn success(ast: Ast, diagnostic_manager: DiagnosticManager) -> Self {
-        Self::Success { ast, diagnostic_manager }
+        Self::Success {
+            ast,
+            diagnostic_manager,
+        }
     }
 
     /// Creates a failed parser result.
@@ -56,7 +59,10 @@ impl Result {
     /// # Returns
     /// A `ParserResult::Failure` variant.
     pub fn failure(diagnostic_manager: DiagnosticManager, interner: SymbolInterner) -> Self {
-        Self::Failure { diagnostic_manager, interner }
+        Self::Failure {
+            diagnostic_manager,
+            interner,
+        }
     }
 
     /// Returns `true` if parsing succeeded.
@@ -96,24 +102,36 @@ impl Result {
     /// Returns a reference to the diagnostic manager.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Success {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
+            Self::Failure {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
         }
     }
 
     /// Returns a mutable reference to the diagnostic manager.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Success {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
+            Self::Failure {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
         }
     }
 
     /// Takes ownership of the diagnostic manager.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
-            Self::Failure { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
+            Self::Success {
+                diagnostic_manager, ..
+            } => std::mem::take(diagnostic_manager),
+            Self::Failure {
+                diagnostic_manager, ..
+            } => std::mem::take(diagnostic_manager),
         }
     }
 
@@ -148,7 +166,10 @@ impl Result {
 impl fmt::Display for Result {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Success { ast, diagnostic_manager } => {
+            Self::Success {
+                ast,
+                diagnostic_manager,
+            } => {
                 writeln!(f, "Parsing successful:\n{}", ast)?;
                 if !diagnostic_manager.is_empty() {
                     writeln!(f, "\nDiagnostics encountered during parsing:")?;
@@ -159,7 +180,10 @@ impl fmt::Display for Result {
                     writeln!(f, "\nNo diagnostics detected.")?;
                 }
             }
-            Self::Failure { diagnostic_manager, interner } => {
+            Self::Failure {
+                diagnostic_manager,
+                interner,
+            } => {
                 writeln!(f, "Parsing failed:")?;
                 for diag in diagnostic_manager.diagnostics() {
                     writeln!(f, "{}", diag)?;

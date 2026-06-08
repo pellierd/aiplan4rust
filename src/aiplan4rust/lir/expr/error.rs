@@ -1,9 +1,9 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::lir::expr::ExprId;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::tree::NodeId;
 use ordered_float::OrderedFloat;
 use thiserror::Error;
 

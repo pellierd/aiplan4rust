@@ -4,14 +4,14 @@
 //! It processes action signatures (parameters) and encodes their logical body,
 //! adapting to the specific structure of instant or temporal actions.
 
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
 use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a PDDL action (simple or durative) from the syntax tree into the LIR.
 ///

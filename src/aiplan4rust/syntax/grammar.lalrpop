@@ -13,8 +13,8 @@ use crate::aiplan4rust::syntax::ast::AstContent;
 use crate::aiplan4rust::syntax::context::ParseContext;
 use crate::aiplan4rust::syntax::context::ParseContextError;
 use crate::aiplan4rust::syntax::CustomParseError;
-use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::artefact::language::Language;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
+use crate::aiplan4rust::cli::io::artefact::Language;
 
 grammar<'ctx>(context: &'ctx mut ParseContext);
 

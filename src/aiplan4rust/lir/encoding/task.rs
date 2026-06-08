@@ -10,13 +10,13 @@
 //! skeleton, stores it in the LIR, and updates the evaluator to map the
 //! task's symbol node to its internal ID.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::encoding::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingError};
 use crate::aiplan4rust::lir::problem::skeleton::task::Task;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes an HTN abstract task signature and registers it within the LIR context.
 ///

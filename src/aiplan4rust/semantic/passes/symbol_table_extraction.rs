@@ -19,16 +19,16 @@
 //! This modular design isolates symbol table construction from other compiler phases,
 //! enabling better error handling and easier testing.
 
-use crate::aiplan4rust::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::lang::{SymbolId, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
+use crate::aiplan4rust::syntax::ast::arena::{ArenaNode, NodeId};
+use crate::aiplan4rust::syntax::ast::tree::NodeRef;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::syntax::ParseContext;
-use crate::aiplan4rust::tree::NodeRef;
 
 /// Builds a complete [`SymbolTable`] from the given abstract syntax tree.
 ///

@@ -40,14 +40,14 @@
 use lalrpop_util::{ErrorRecovery, ParseError};
 use std::cell::RefCell;
 
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::syntax::context::error::ParseContextError;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeId, Tree};
 
 /// Parsing context used throughout the LALRPOP parsing process.
 ///

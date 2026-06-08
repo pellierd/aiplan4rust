@@ -28,9 +28,9 @@
 
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::normalization::validation::WellNormalizedError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::validation::common::WellNormalizedError;
 use thiserror::Error;
 
 /// Represents errors that can occur during the normalization process.

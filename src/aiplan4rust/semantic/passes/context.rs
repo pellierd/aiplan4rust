@@ -1,8 +1,8 @@
-use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::Provider;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::LiteralId;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::Tree;
 
 /// Contextual information provided to semantic analysis passes.
 ///

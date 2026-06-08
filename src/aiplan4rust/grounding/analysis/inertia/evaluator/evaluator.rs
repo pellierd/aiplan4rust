@@ -1,4 +1,3 @@
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::grounding::analysis::inertia::evaluator::InertiaRegistryError;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::grounding::binding::evaluator::evaluator::ExprEvaluator;
@@ -9,6 +8,7 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::expr::{ExprKind, ExprNode, ExprStore};
 use crate::aiplan4rust::lir::problem::skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use ordered_float::OrderedFloat;
 use smallvec::SmallVec;
 use std::collections::HashMap;

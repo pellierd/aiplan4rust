@@ -4,17 +4,16 @@
 //! for PDDL or HDDL source code. It integrates with the underlying lexer, parser (via LALRPOP), and
 //! diagnostic system to provide detailed parsing results and error reporting.
 
-use crate::aiplan4rust::artefact::language::Language;
-use crate::aiplan4rust::artefact::source::Source;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
+use crate::aiplan4rust::cli::io::artefact::language::Language;
+use crate::aiplan4rust::cli::io::artefact::source::Source;
+use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager, Severity};
 use crate::aiplan4rust::lang::LiteralId;
 use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::syntax::lalrpop;
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::CustomParseError;
+use crate::aiplan4rust::syntax::{lalrpop, validation};
 use crate::aiplan4rust::syntax::{FastLineTable, ParseContext, ParserResult, SyntaxError};
-use crate::aiplan4rust::validation::syntax;
 use lalrpop_util::ErrorRecovery;
 use std::mem;
 use std::time::SystemTime;
@@ -31,7 +30,7 @@ use std::time::SystemTime;
 ///
 /// # Example
 /// ```rust
-/// use aiplan4rust::aiplan4rust::artefact::source::Source;
+/// use aiplan4rust::aiplan4rust::cli::io::::source::Source;
 /// use aiplan4rust::aiplan4rust::syntax::Parser;
 ///
 /// let input = Source::read_from_file("./domain.pddl");
@@ -170,7 +169,7 @@ impl Parser {
                     {
                         // This check ensures that internal parser invariants are respected.
                         // It prevents crashes (panics) in subsequent stages that rely on direct access.
-                        syntax::check_well_formed(&ast)?;
+                        validation::check_well_formed(&ast)?;
                     }
 
                     // Return the successful parse result with AST and diagnostics

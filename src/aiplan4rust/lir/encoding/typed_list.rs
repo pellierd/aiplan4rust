@@ -1,8 +1,8 @@
 use crate::aiplan4rust::lang::{ObjectId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingError};
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 pub fn encode_variable_list(
     subtree: &SyntaxSubtree<AstNode>,

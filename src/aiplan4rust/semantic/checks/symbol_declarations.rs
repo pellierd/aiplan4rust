@@ -2,8 +2,8 @@
 //! specifically targeting detection of duplicated declarations. It integrates with
 //! the diagnostic infrastructure to report errors or warnings as needed during analysis.
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::Requirement::ActionCosts;
 use crate::aiplan4rust::lang::{Requirement, SymbolId};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};

@@ -1,6 +1,6 @@
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::SymbolInterner;
 use std::fmt;
 
 /// Represents the outcome of grounding a lifted planning problem.
@@ -77,24 +77,36 @@ impl Result {
     /// Returns a reference to the diagnostic manager.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Success {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
+            Self::Failure {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
         }
     }
 
     /// Returns a mutable reference to the diagnostic manager.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Success {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
+            Self::Failure {
+                diagnostic_manager, ..
+            } => diagnostic_manager,
         }
     }
 
     /// Consumes and returns the diagnostic manager, leaving an empty one.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         match self {
-            Self::Success { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
-            Self::Failure { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
+            Self::Success {
+                diagnostic_manager, ..
+            } => std::mem::take(diagnostic_manager),
+            Self::Failure {
+                diagnostic_manager, ..
+            } => std::mem::take(diagnostic_manager),
         }
     }
 
@@ -139,7 +151,10 @@ impl Result {
 impl fmt::Display for Result {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Success { problem, diagnostic_manager } => {
+            Self::Success {
+                problem,
+                diagnostic_manager,
+            } => {
                 writeln!(f, "Grounding succeeded:\n{}", problem)?;
                 if !diagnostic_manager.is_empty() {
                     writeln!(f, "\nDiagnostics:")?;
@@ -150,7 +165,9 @@ impl fmt::Display for Result {
                     writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
-            Self::Failure { diagnostic_manager, .. } => {
+            Self::Failure {
+                diagnostic_manager, ..
+            } => {
                 writeln!(f, "Grounding failed.")?;
                 for diag in diagnostic_manager.diagnostics() {
                     writeln!(f, "{}", diag)?;

@@ -10,9 +10,9 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::semantic::symbol::declaration::DeclarationError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::AstError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::tree::NodeId;
 use thiserror::Error;
 
 /// Enumerates the errors that can arise during signature matching and symbol resolution.

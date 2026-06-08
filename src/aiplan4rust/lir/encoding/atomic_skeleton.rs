@@ -3,12 +3,12 @@
 //! Ce module gère l'encodage des structures de formules atomiques (prédicats).
 //! Il transforme une déclaration syntaxique en un `AtomicFormulaSkeleton`.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::PredicateSymbolId;
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encode le squelette d'une formule atomique à partir de l'AST.
 ///

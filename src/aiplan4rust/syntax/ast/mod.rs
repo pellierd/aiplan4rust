@@ -55,16 +55,18 @@
 //! - [`syntax_tree`] field in [`Ast`] for access to arena and iterators.
 //!
 
-pub mod content;
-pub mod kind;
+pub mod arena;
 pub mod ast;
+pub mod content;
+pub mod error;
+pub mod kind;
 pub mod node;
 pub mod renderer;
-pub mod error;
+pub mod tree;
 
 // Public re-exports
-pub use kind::Kind as AstKind;
-pub use content::Content as AstContent;
 pub use ast::Ast;
+pub use content::Content as AstContent;
 pub use error::AstError;
+pub use kind::Kind as AstKind;
 pub use node::AstNode;

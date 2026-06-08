@@ -29,7 +29,7 @@
 //! Conflict errors are reported as diagnostics of kind `CrossConflictSymbolDeclarationError`
 //! containing details on the conflicting symbol name and kinds.
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
@@ -68,7 +68,7 @@ use crate::aiplan4rust::semantic::SymbolTable;
 ///
 /// [`CheckContext`]: crate::semantic::checks::CheckContext
 /// [`SymbolTable`]: crate::semantic::SymbolTable
-/// [`DiagnosticManager`]: crate::aiplan4rust::diagnostic::DiagnosticManager
+/// [`DiagnosticManager`]: crate::aiplan4rust::core::diagnostic::DiagnosticManager
 pub fn check_cross_declared_symbols(
     _domain: &CheckContext,
     problem: &CheckContext,

@@ -17,11 +17,11 @@
 //! These functions abstract away the nested `Result` types produced by LALRPOP,
 //! providing a cleaner and more ergonomic API for consumers of the parsing library.
 
-use crate::aiplan4rust::syntax::ParseContext;
-use crate::aiplan4rust::syntax::lexer::Lexer;
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::error::SyntaxError;
-use crate::aiplan4rust::syntax::grammar::{PDDLParser, HDDLParser};
+use crate::aiplan4rust::syntax::grammar::{HDDLParser, PDDLParser};
+use crate::aiplan4rust::syntax::lexer::Lexer;
+use crate::aiplan4rust::syntax::ParseContext;
 
 /// Parses a PDDL source using the LALRPOP-generated PDDL parser.
 ///
@@ -35,15 +35,10 @@ use crate::aiplan4rust::syntax::grammar::{PDDLParser, HDDLParser};
 /// # Returns
 /// * `Ok(NodeId)` - The root syntax ID of the parsed AST on success.
 /// * `Err(ParserError)` - An error encountered during parsing.
-pub fn parse_pddl(
-    ctx: &mut ParseContext,
-    lexer: Lexer,
-) -> Result<NodeId, SyntaxError> {
+pub fn parse_pddl(ctx: &mut ParseContext, lexer: Lexer) -> Result<NodeId, SyntaxError> {
     let parser = PDDLParser::new();
 
-    let inner_result = parser
-        .parse(ctx, lexer)
-        .map_err(SyntaxError::ParseError)?;
+    let inner_result = parser.parse(ctx, lexer).map_err(SyntaxError::ParseError)?;
 
     let root_id = inner_result?;
 
@@ -64,14 +59,11 @@ pub fn parse_pddl(
 /// # Returns
 /// * `Ok(NodeId)` - The root syntax ID of the parsed AST on success.
 /// * `Err(ParserError)` - An error encountered during parsing.
-pub fn parse_hddl(
-    ctx: &mut ParseContext,
-    lexer: Lexer,
-) -> Result<NodeId, SyntaxError> {
+pub fn parse_hddl(ctx: &mut ParseContext, lexer: Lexer) -> Result<NodeId, SyntaxError> {
     let parser = HDDLParser::new();
 
-    let inner_result: Result<NodeId, _> = parser.parse(ctx, lexer)
-        .map_err(SyntaxError::ParseError)?;
+    let inner_result: Result<NodeId, _> =
+        parser.parse(ctx, lexer).map_err(SyntaxError::ParseError)?;
 
     let root_id = inner_result?;
 

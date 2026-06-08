@@ -1,5 +1,5 @@
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::SemanticContext;
 use std::fmt;
 

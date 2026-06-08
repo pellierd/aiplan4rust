@@ -1,12 +1,12 @@
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lir::encoding::error::EncodingError;
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::typed_list;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::ExprId;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId, SyntaxSubtree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{Node, NodeId, SyntaxSubtree};
 
 /// Encode un AST en LIR en utilisant un itérateur post-ordre (Bottom-Up).
 pub enum Step {

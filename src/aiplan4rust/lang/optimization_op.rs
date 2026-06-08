@@ -16,7 +16,7 @@
 //!
 //! This type_checker is typically used in goal representations, metric definitions, or solver configurations.
 
-use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
 use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};

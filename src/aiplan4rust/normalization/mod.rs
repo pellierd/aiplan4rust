@@ -94,6 +94,7 @@ pub mod error;
 pub mod normalizer;
 pub mod passes;
 pub mod result;
+pub mod validation;
 
 pub use error::NormalizationError;
 pub use normalizer::Normalizer;

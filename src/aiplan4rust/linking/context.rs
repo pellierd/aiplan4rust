@@ -17,13 +17,13 @@
 //! and the `Display` trait for human-readable summaries of the linked context.
 //!
 
-use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::cli::io::serialization::serde::SerdeSerializable;
+use crate::aiplan4rust::core::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
-use crate::aiplan4rust::serialization::serde::SerdeSerializable;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::Tree;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;

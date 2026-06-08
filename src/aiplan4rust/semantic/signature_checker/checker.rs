@@ -34,8 +34,8 @@ use crate::aiplan4rust::semantic::signature_checker::failure::MatchFailure;
 use crate::aiplan4rust::semantic::signature_checker::result::MatchResult;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Signature, SymbolKind};
 use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::SymbolTable;
 
 /// A high-level semantic analyzer responsible for validating symbol signatures

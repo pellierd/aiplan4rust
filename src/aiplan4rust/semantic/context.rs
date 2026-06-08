@@ -51,14 +51,14 @@
 //! This design enables streamlined error propagation and reporting during
 //! semantic analysis.
 
-use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::cli::io::serialization::serde::SerdeSerializable;
+use crate::aiplan4rust::core::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, Requirement, SymbolId};
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
-use crate::aiplan4rust::serialization::serde::SerdeSerializable;
+use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{NodeId, Tree};
 
-use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::core::diagnostic::Provider;
 use crate::aiplan4rust::linking::finalization::FinalizationContext;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;

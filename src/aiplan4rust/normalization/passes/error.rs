@@ -6,10 +6,10 @@
 
 use thiserror::Error;
 
-use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::core::interner::InternerError;
+use crate::aiplan4rust::syntax::ast::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::AstError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Represents errors that may occur during the logic pass of the compiler.
 ///

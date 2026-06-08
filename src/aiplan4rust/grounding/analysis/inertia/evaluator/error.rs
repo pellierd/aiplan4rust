@@ -2,7 +2,7 @@ use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
 use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::lir::expr::error::StorerError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use thiserror::Error;
 
 /// Errors encountered during the construction or evaluation of an `InertiaRegistry`.

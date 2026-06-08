@@ -5,14 +5,14 @@
 //! such as duplicate declarations, ambiguous symbol usage, invalid AST node types,
 //! or malformed typed items.
 
-use crate::aiplan4rust::arena::ArenaError;
+use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
+use crate::aiplan4rust::syntax::ast::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::AstError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::tree::NodeId;
 use thiserror::Error;
 
 /// Represents all errors that can occur during symbol table construction and resolution.

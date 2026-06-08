@@ -1,9 +1,9 @@
-use clap_builder::Command;
 use aiplan4rust::aiplan4rust::cli::build_cli;
+use aiplan4rust::aiplan4rust::cli::commands::ground::{handle_ground_command, GROUND_SUBCOMMAND};
+use aiplan4rust::aiplan4rust::cli::commands::link::{handle_link_command, LINK_SUBCOMMAND};
+use aiplan4rust::aiplan4rust::cli::commands::parse::{handle_parse_command, PARSE_SUBCOMMAND};
 use aiplan4rust::aiplan4rust::cli::error::CliError;
-use aiplan4rust::aiplan4rust::cli::ground::{handle_ground_command, GROUND_SUBCOMMAND};
-use aiplan4rust::aiplan4rust::cli::link::{handle_link_command, LINK_SUBCOMMAND};
-use aiplan4rust::aiplan4rust::cli::parse::{handle_parse_command, PARSE_SUBCOMMAND};
+use clap_builder::Command;
 
 /// Main entry point for the application.
 ///
@@ -42,13 +42,15 @@ fn handle_cli_result(result: Result<(), CliError>, cli: &mut Command, subcommand
         Ok(()) => std::process::exit(0),
 
         Err(CliError::Clap(e)) => {
-            e.print().unwrap_or_else(|err| eprintln!("Failed to print error: {err}"));
+            e.print()
+                .unwrap_or_else(|err| eprintln!("Failed to print error: {err}"));
             println!();
 
             // Affiche l'aide complète de la sous-commande
             if let Some(sub) = cli.find_subcommand_mut(subcommand) {
                 println!();
-                sub.print_help().unwrap_or_else(|err| eprintln!("Failed to print help: {err}"));
+                sub.print_help()
+                    .unwrap_or_else(|err| eprintln!("Failed to print help: {err}"));
                 println!();
             }
 

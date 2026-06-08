@@ -36,7 +36,7 @@
 //! let lifted_problem = encoder.encode(&linked_context)?;
 //! ```
 
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::encoding::encoding::encode_domain as new_encode_domain;
 use crate::aiplan4rust::lir::encoding::encoding::encode_problem as new_encode_problem;

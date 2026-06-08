@@ -17,10 +17,10 @@
 //! Implements the `std::error::Error` trait via `thiserror::Error`
 //! for seamless error composition and propagation.
 
-use thiserror::Error;
-use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
+use thiserror::Error;
 
 /// Represents errors that may occur during the linking checks phase.
 ///

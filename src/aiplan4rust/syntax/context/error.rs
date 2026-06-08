@@ -11,10 +11,10 @@
 //! Errors from the arena allocator and syntax tree are wrapped to provide
 //! a unified error interface for higher-level parsing ops.
 
-use thiserror::Error;
-use crate::aiplan4rust::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use thiserror::Error;
 
 /// Represents all possible errors that can occur while working with the AST
 /// or its related parsing context.

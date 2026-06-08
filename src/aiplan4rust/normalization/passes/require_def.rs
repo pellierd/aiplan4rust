@@ -41,17 +41,17 @@
 
 use std::collections::HashSet;
 
-use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::core::diagnostic::Diagnostic;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::diagnostic::Provider;
 use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::tree::Tree;
 
 /// Normalizes the requirement declarations by removing duplicates from the `RequireDef` syntax.
 ///

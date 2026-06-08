@@ -4,7 +4,7 @@
 //! the logical encoding pass. It links syntactic declarations (AST) to their
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{
     AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId,
     PreferenceSymbolId, SymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId,
@@ -15,7 +15,7 @@ use crate::aiplan4rust::lir::encoding::EncodingError;
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use std::collections::HashMap;
 
 /// Context used during the encoding of actions, methods, and logic.

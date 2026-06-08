@@ -7,12 +7,12 @@
 //! 1. **Logical Identity**: The preference's label node is mapped to a [`PreferenceSymbolId`].
 //! 2. **Logical Definition**: The preference's condition is encoded as an [`Expr`] and stored.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::EncodingError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a `Preference` node from the AST into the LIR.
 ///

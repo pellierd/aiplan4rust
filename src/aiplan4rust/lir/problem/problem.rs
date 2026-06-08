@@ -39,7 +39,7 @@
 //!
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
-use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{
     ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
     MethodSymbolId, ObjectId, PredicateSymbolId, PreferenceSymbolId, Requirement, SymbolId,
@@ -55,9 +55,9 @@ use crate::aiplan4rust::lir::problem::{
     ActionDef, DerivedPredicateDef, DomainDef, InitialTaskNetwork, MethodDef, ProblemDef,
 };
 // Regroupement des imports de rendu
+use crate::aiplan4rust::cli::io::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::lir::renderers::display::{LiftedDebugDisplay, LiftedSyntaxDisplay};
 use crate::aiplan4rust::lir::renderers::{self, RenderContext};
-use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};

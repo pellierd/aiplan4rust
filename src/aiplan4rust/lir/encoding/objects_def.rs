@@ -3,12 +3,12 @@
 //! Ce module encode les symboles globaux dans le LIR. Il gère la distinction
 //! entre les objets locaux au problème et les constantes partagées du domaine.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::symbol::origin::Origin;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::{NodeId, SyntaxSubtree};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 
 /// Encode une liste d'objets (typiquement la section :objects du PDDL).
 ///

@@ -6,9 +6,9 @@
 //! 3. The `build_cli` function, which constructs the top-level `aiplan` CLI command
 //!    including all subcommands (`link` and `parse`).
 
-use crate::aiplan4rust::cli::ground::cli::build_ground_subcommand;
-use crate::aiplan4rust::cli::link::cli::build_link_subcommand;
-use crate::aiplan4rust::cli::parse::cli::build_parse_subcommand;
+use crate::aiplan4rust::cli::commands::ground::cli::build_ground_subcommand;
+use crate::aiplan4rust::cli::commands::link::cli::build_link_subcommand;
+use crate::aiplan4rust::cli::commands::parse::cli::build_parse_subcommand;
 use clap::Command;
 
 /// Application author.

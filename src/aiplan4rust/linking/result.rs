@@ -16,8 +16,8 @@
 //! - Provides access to diagnostics for troubleshooting or reporting.
 //! - Allows access to the symbol interner regardless of linking success.
 
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use std::fmt;
 

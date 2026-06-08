@@ -56,7 +56,7 @@
 //! Semantic errors are returned as variants of [`SemanticError`]. These may include unexpected AST node kinds,
 //! typing errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
-use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
+use crate::aiplan4rust::core::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;

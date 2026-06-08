@@ -1,6 +1,5 @@
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::CompareOp;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
@@ -8,8 +7,9 @@ use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{Node, NodeId};
 use crate::SymbolTable;
 
 /// Checks the type compatibility of typed expressions in the syntax tree, including

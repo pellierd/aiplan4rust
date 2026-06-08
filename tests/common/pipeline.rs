@@ -5,11 +5,11 @@ use crate::common::io::{
     write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file,
     write_lir_diag_to_file, write_symbol_table_to_file,
 };
-use aiplan4rust::aiplan4rust::artefact::Source;
+use aiplan4rust::aiplan4rust::cli::io::artefact::Source;
 use aiplan4rust::aiplan4rust::linking::LinkerResult;
+use aiplan4rust::aiplan4rust::normalization::validation::check_well_normalized;
 use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
 use aiplan4rust::aiplan4rust::syntax::{ParserResult, SyntaxDisplay};
-use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
 use aiplan4rust::{
     check_well_formed, AnalyzerResult, LirEncoder, LirEncoderResult, Normalizer, Parser, Severity,

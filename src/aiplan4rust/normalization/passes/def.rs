@@ -1,11 +1,11 @@
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeId, Tree};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 

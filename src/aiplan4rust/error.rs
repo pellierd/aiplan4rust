@@ -1,16 +1,16 @@
-use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::cli::io::artefact::error::ArtefactError;
+use crate::aiplan4rust::cli::io::serialization::SerializationError;
+use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::normalization::validation::WellNormalizedError;
 use crate::aiplan4rust::normalization::NormalizationError;
 use crate::aiplan4rust::semantic::SemanticError;
-use crate::aiplan4rust::serialization::SerializationError;
+use crate::aiplan4rust::syntax::ast::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::SyntaxError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::validation::common::WellNormalizedError;
 use thiserror::Error;
 
 pub trait Traceable: std::fmt::Debug + std::fmt::Display + Sized {

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{Id, RemapSymbol, SymbolId, TypeId};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use core::borrow::Borrow;

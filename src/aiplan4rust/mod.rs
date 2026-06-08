@@ -1,28 +1,22 @@
 pub mod cli;
-pub mod diagnostic;
-pub mod linking;
-pub mod syntax;
-pub mod semantic;
-pub mod normalization;
-pub mod interner;
-pub mod lir;
-pub mod serialization;
 pub mod lang;
+pub mod linking;
+pub mod lir;
+pub mod normalization;
+pub mod semantic;
+pub mod syntax;
 
-pub mod frontend;
-pub mod validation;
 pub mod error;
+pub mod frontend;
 
-pub mod artefact;
+pub mod core;
 pub mod grounding;
-pub mod arena;
-pub mod tree;
 
 pub use frontend::Frontend;
+pub use linking::Linker;
+pub use lir::LirEncoder;
 pub use normalization::Normalizer;
 pub use semantic::Analyzer;
 pub use syntax::Parser;
-pub use linking::Linker;
-pub use lir::LirEncoder;
 
 pub use error::AiplanError;

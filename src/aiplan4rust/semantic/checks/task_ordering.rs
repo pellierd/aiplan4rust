@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
+use crate::aiplan4rust::syntax::ast::tree::{Node, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{Node, Tree};
 
 /// Checks the task ordering constraints in the syntax tree and detects any
 /// cyclic dependencies.

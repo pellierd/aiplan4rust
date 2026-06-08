@@ -24,7 +24,7 @@
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::declaration::DeclarationError;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Filterable, Scope, SymbolKind, Usage};
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 
 /// A unified representation of a symbol's signature, bridging the gap between
 /// its static declaration and its specific usage sites.

@@ -9,14 +9,14 @@
 //! The struct is immutable (except when explicitly modified via setters), hashable,
 //! and suitable for use as a key in maps or sets.
 
-use std::collections::HashMap;
+use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
-use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// Represents a reference to a declared symbol, consisting of its identifier and kind.
 ///
@@ -81,7 +81,6 @@ impl Symbol {
     pub fn set_kind(&mut self, kind: SymbolKind) {
         self.kind = kind;
     }
-
 }
 
 impl RemapSymbol for Symbol {
@@ -97,7 +96,7 @@ impl RemapSymbol for Symbol {
     /// # Errors
     ///
     /// Returns `InternerError` if the remapping fails (propagated from inner calls).
-    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>{
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         self.id().remap_idents(map)?;
         Ok(())
     }

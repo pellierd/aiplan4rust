@@ -1,13 +1,13 @@
-use crate::aiplan4rust::arena::ArenaError;
+use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type, TypeId};
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::problem::LiftedProblemError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::aiplan4rust::syntax::ast::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::tree::NodeId;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

@@ -23,10 +23,10 @@
 //! println!("{}", output);
 //! ```
 
+use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::syntax::ast::tree::Tree;
+use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
 use std::fmt::{self, Formatter};
-use crate::aiplan4rust::syntax::ast::{AstNode, AstContent};
-use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
-use crate::aiplan4rust::tree::Tree;
 
 /// Recursively renders an [`AstNode`] and its subtree as a visually indented tree.
 ///
@@ -114,11 +114,11 @@ pub fn render(
         write!(
             f,
             "{}{}{}{}{}",
-            prefix,       // Indentation prefix passed from recursive calls
-            branch,       // Branch character (└─ or ├─)
-            node.kind(),  // AST node kind
-            content_str,  // Formatted content string
-            span_str      // Source code position span
+            prefix,      // Indentation prefix passed from recursive calls
+            branch,      // Branch character (└─ or ├─)
+            node.kind(), // AST node kind
+            content_str, // Formatted content string
+            span_str     // Source code position span
         )?;
 
         // If the node has children, write a newline before printing them

@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::{Expr, ExprId, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::ActionDef;
-use crate::aiplan4rust::tree::SyntaxContent;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxContent;
 use crate::analysis::reachability::datalog::cause::Cause;
 use std::collections::HashMap;
 ////// ATENTION JE NE GERE PAS les AXIOMS

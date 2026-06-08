@@ -53,7 +53,7 @@
 //!
 //! This module assumes that the symbol table has been fully populated before typing checking.
 
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;

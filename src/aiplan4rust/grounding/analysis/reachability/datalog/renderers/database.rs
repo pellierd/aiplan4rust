@@ -1,5 +1,5 @@
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::database::Database;
-use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::AtomSkeletonId;
 use crate::analysis::reachability::datalog::relation::Relation;
 use crate::analysis::reachability::datalog::renderers::context::RenderContext;

@@ -15,12 +15,12 @@
 //! - `multiline`: if true, output will include indentation and newlines for readability
 //! - `indent`: current indentation level (number of indent steps)
 
+use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::syntax;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
+use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::syntax;
-use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
-use crate::aiplan4rust::tree::Tree;
 
 /// Recursively renders the given AST node and its children into the formatter.
 ///

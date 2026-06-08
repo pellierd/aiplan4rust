@@ -4,12 +4,12 @@
 //! `required_requirements`) have been explicitly enabled in the `:requirements`
 //! section (represented by `declared_requirements`).
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::LiteralId;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
+use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::{Node, NodeId};
 use std::collections::{HashMap, HashSet};
 
 /// Validates that all requirements triggered by the AST are covered by the declared ones.

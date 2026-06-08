@@ -30,7 +30,7 @@ use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::signature_checker::{MatchResult, SignatureChecker};
 use crate::aiplan4rust::semantic::symbol::Signature;
 use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::SymbolTable;
 
 /// Resolves relationships between derived predicates (axioms) and their base declarations.

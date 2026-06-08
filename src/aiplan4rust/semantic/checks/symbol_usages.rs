@@ -1,4 +1,4 @@
-use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::core::diagnostic::Diagnostic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::rules::is_pddl_builtin_symbol_id;
 use crate::aiplan4rust::semantic::signature_checker::MatchResult;

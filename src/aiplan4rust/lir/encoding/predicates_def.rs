@@ -3,11 +3,11 @@
 //! Ce module orchestre l'extraction des signatures de prédicats (skeletons)
 //! depuis l'AST du domaine et les enregistre dans le LIR.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::encoding::{atomic_skeleton, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encode la section :predicates d'un domaine PDDL.
 ///

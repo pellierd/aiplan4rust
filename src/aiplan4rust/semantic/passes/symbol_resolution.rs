@@ -43,7 +43,7 @@
 //! within the [`ParseContext`]. This approach prevents "Unused Variable" warnings
 //! while allowing the rest of the compiler to treat them as valid symbols.
 
-use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::passes::PassContext;
@@ -54,9 +54,9 @@ use crate::aiplan4rust::semantic::symbol::{
 };
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ParseContext;
-use crate::aiplan4rust::tree::NodeId;
 
 /// Performs a two-phase symbol resolution on the provided table.
 ///

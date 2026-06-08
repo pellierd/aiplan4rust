@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
