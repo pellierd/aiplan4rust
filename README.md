@@ -104,6 +104,7 @@ src/
         ├── diagnostic/  # Compiler diagnostics engine and layout renderers
         ├── interner/    # High-performance string interning engine
         └── lang/        # Language primitives (operators, basic types, requirements)
+```
 
 ## Quickstart Commands
 
@@ -137,13 +138,16 @@ cargo install flamegraph         # for profiling with cargo-flamegraph
 
 ```bash
 cargo run --release -- parse path/to/domain.pddl path/to/problem.pddl
+```
 
 ### Link a Domain and Problem into a Unified Artefact
 
 ```bash
 cargo run --release -- link path/to/domain.pddl path/to/problem.pddl
+```
 
 ### 5. Run all tests (unit + integration)
+
 ```bash
 cargo test
 ```
@@ -152,8 +156,10 @@ cargo test
 
 ```bash
 sudo cargo flamegraph --root --test frontend_parser_integration_tests```
+```
 
 ### 7. View the generated flamegraph
+
 ```bash
 open flamegraph.svg   # or open with your browser of choice
 ```
