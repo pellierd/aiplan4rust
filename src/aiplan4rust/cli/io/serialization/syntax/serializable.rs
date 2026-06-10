@@ -37,7 +37,7 @@
 //! ```
 
 use crate::aiplan4rust::cli::io::serialization::SerializationError;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::compiler::syntax::SyntaxDisplay;
 use std::fs;
 use std::io::Write;
 

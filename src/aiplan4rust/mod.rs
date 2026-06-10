@@ -1,23 +1,16 @@
 pub mod cli;
-pub mod linking;
-pub mod lir;
-pub mod normalization;
-pub mod semantic;
-pub mod syntax;
 
 pub mod error;
 pub mod frontend;
 
-mod compiler;
-#[allow(warnings)]
-pub mod grounding;
+pub mod compiler;
 pub mod support;
 
+pub use compiler::linking::Linker;
+pub use compiler::lir::LirEncoder;
+pub use compiler::normalization::Normalizer;
+pub use compiler::semantic::Analyzer;
+pub use compiler::syntax::Parser;
 pub use frontend::Frontend;
-pub use linking::Linker;
-pub use lir::LirEncoder;
-pub use normalization::Normalizer;
-pub use semantic::Analyzer;
-pub use syntax::Parser;
 
 pub use error::AiplanError;

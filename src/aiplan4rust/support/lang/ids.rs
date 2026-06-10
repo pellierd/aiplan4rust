@@ -4,8 +4,8 @@ use std::fmt;
 use std::fmt::Formatter;
 
 // Imports de ton projet
+use crate::aiplan4rust::compiler::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 // Masque sur les 60 bits de poids faible (Espace d'adressage utile)
 pub const INDEX_MASK: usize = (1 << 60) - 1;

@@ -23,30 +23,30 @@
 //! println!("{}", req); // prints "strips"
 //! ```
 
+use crate::aiplan4rust::compiler::syntax::lexer::token::ADL;
+use crate::aiplan4rust::compiler::syntax::lexer::token::CONDITIONAL_EFFECTS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::CONSTRAINTS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::DERIVED_PREDICATES;
+use crate::aiplan4rust::compiler::syntax::lexer::token::DISJUNCTIVE_PRECONDITION;
+use crate::aiplan4rust::compiler::syntax::lexer::token::DURATIVE_ACTIONS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::DURATIVE_INEQUALITIES;
+use crate::aiplan4rust::compiler::syntax::lexer::token::EQUALITY;
+use crate::aiplan4rust::compiler::syntax::lexer::token::EXISTENTIAL_PRECONDITIONS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::FLUENTS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::HIERARCHY;
+use crate::aiplan4rust::compiler::syntax::lexer::token::METHOD_PRECONDITIONS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::NEGATIVE_PRECONDITION;
+use crate::aiplan4rust::compiler::syntax::lexer::token::NUMERIC_FLUENTS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::OBJECT_FLUENTS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::PREFERENCES;
+use crate::aiplan4rust::compiler::syntax::lexer::token::QUANTIFIED_PRECONDITIONS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::STRIPS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::TIME_INITIAL_LITERALS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::TYPING;
+use crate::aiplan4rust::compiler::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::{ACTION_COSTS, GOAL_UTILITIES};
+use crate::aiplan4rust::compiler::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
-use crate::aiplan4rust::syntax::lexer::token::ADL;
-use crate::aiplan4rust::syntax::lexer::token::CONDITIONAL_EFFECTS;
-use crate::aiplan4rust::syntax::lexer::token::CONSTRAINTS;
-use crate::aiplan4rust::syntax::lexer::token::DERIVED_PREDICATES;
-use crate::aiplan4rust::syntax::lexer::token::DISJUNCTIVE_PRECONDITION;
-use crate::aiplan4rust::syntax::lexer::token::DURATIVE_ACTIONS;
-use crate::aiplan4rust::syntax::lexer::token::DURATIVE_INEQUALITIES;
-use crate::aiplan4rust::syntax::lexer::token::EQUALITY;
-use crate::aiplan4rust::syntax::lexer::token::EXISTENTIAL_PRECONDITIONS;
-use crate::aiplan4rust::syntax::lexer::token::FLUENTS;
-use crate::aiplan4rust::syntax::lexer::token::HIERARCHY;
-use crate::aiplan4rust::syntax::lexer::token::METHOD_PRECONDITIONS;
-use crate::aiplan4rust::syntax::lexer::token::NEGATIVE_PRECONDITION;
-use crate::aiplan4rust::syntax::lexer::token::NUMERIC_FLUENTS;
-use crate::aiplan4rust::syntax::lexer::token::OBJECT_FLUENTS;
-use crate::aiplan4rust::syntax::lexer::token::PREFERENCES;
-use crate::aiplan4rust::syntax::lexer::token::QUANTIFIED_PRECONDITIONS;
-use crate::aiplan4rust::syntax::lexer::token::STRIPS;
-use crate::aiplan4rust::syntax::lexer::token::TIME_INITIAL_LITERALS;
-use crate::aiplan4rust::syntax::lexer::token::TYPING;
-use crate::aiplan4rust::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
-use crate::aiplan4rust::syntax::lexer::token::{ACTION_COSTS, GOAL_UTILITIES};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use std::collections::HashSet;
 
 use serde::Deserialize;

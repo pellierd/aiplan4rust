@@ -14,13 +14,13 @@
 //! tailored to different diagnostic kinds, ensuring precise and
 //! context-aware messages for various error and warning scenarios.
 
-use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::compiler::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::compiler::syntax::ast::AstKind;
 use crate::aiplan4rust::support::diagnostic::kind::Kind;
 use crate::aiplan4rust::support::diagnostic::renderer::formatting;
 use crate::aiplan4rust::support::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::support::lang::{Requirement, SymbolId, Type};
-use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::Language;
 
 /// Formats a diagnostic message using a `StringInterner`.

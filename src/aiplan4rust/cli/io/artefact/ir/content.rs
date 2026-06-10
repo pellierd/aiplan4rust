@@ -70,9 +70,9 @@ use crate::aiplan4rust::cli::io::artefact::ir::kind::IRKind;
 use crate::aiplan4rust::cli::io::serialization::{
     SerdeFormat, SerdeSerializable, SerializationError,
 };
-use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::compiler::grounding::problem::Problem;
+use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
+use crate::aiplan4rust::compiler::semantic::SemanticContext;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

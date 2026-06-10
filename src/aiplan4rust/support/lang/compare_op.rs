@@ -28,13 +28,13 @@
 //! assert_eq!(op.to_string(), ">=");
 //! ```
 
+use crate::aiplan4rust::compiler::syntax::lexer::token::EQUAL;
+use crate::aiplan4rust::compiler::syntax::lexer::token::GREATER;
+use crate::aiplan4rust::compiler::syntax::lexer::token::GREATER_EQ;
+use crate::aiplan4rust::compiler::syntax::lexer::token::LESS;
+use crate::aiplan4rust::compiler::syntax::lexer::token::LESS_EQ;
+use crate::aiplan4rust::compiler::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
-use crate::aiplan4rust::syntax::lexer::token::EQUAL;
-use crate::aiplan4rust::syntax::lexer::token::GREATER;
-use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;
-use crate::aiplan4rust::syntax::lexer::token::LESS;
-use crate::aiplan4rust::syntax::lexer::token::LESS_EQ;
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::Deserialize;
 use serde::Serialize;

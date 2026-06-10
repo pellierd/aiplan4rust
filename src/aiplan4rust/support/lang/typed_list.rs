@@ -1,6 +1,6 @@
+use crate::aiplan4rust::compiler::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::support::lang::{Id, RemapSymbol, SymbolId, TypedSymbol};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::collections::HashMap;

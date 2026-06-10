@@ -15,13 +15,13 @@
 //! ```
 
 use crate::aiplan4rust::cli::io::artefact::source::Source;
-use crate::aiplan4rust::grounding::{Grounder, GroundingResult};
-use crate::aiplan4rust::linking::Linker;
-use crate::aiplan4rust::lir::{LirEncoder, LirEncoderResult};
-use crate::aiplan4rust::normalization::Normalizer;
-use crate::aiplan4rust::semantic::{Analyzer, AnalyzerResult};
+use crate::aiplan4rust::compiler::grounding::{Grounder, GroundingResult};
+use crate::aiplan4rust::compiler::linking::Linker;
+use crate::aiplan4rust::compiler::lir::{LirEncoder, LirEncoderResult};
+use crate::aiplan4rust::compiler::normalization::Normalizer;
+use crate::aiplan4rust::compiler::semantic::{Analyzer, AnalyzerResult};
+use crate::aiplan4rust::compiler::syntax::Parser;
 use crate::aiplan4rust::support::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::AiplanError;
 
 /// Frontend struct for the AI planning pipeline.

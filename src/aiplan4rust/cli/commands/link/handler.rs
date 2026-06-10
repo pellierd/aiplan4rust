@@ -24,7 +24,7 @@ use crate::aiplan4rust::cli::io::artefact::path::{default_lifted_output_path, ou
 use crate::aiplan4rust::cli::io::artefact::source::Source;
 use crate::aiplan4rust::cli::io::artefact::{Artefact, IRContent};
 use crate::aiplan4rust::cli::io::serialization::serde::SerdeFormat;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::support::lang::Requirement;
 use crate::{Frontend, Renderer, Severity};
 use clap::error::ErrorKind;

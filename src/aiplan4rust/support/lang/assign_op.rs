@@ -33,13 +33,13 @@
 //!
 //! Works seamlessly with lexer tokens and syntax display for syntax languages.
 
+use crate::aiplan4rust::compiler::syntax::lexer::token::ASSIGN;
+use crate::aiplan4rust::compiler::syntax::lexer::token::DECREASE;
+use crate::aiplan4rust::compiler::syntax::lexer::token::INCREASE;
+use crate::aiplan4rust::compiler::syntax::lexer::token::SCALE_DOWN;
+use crate::aiplan4rust::compiler::syntax::lexer::token::SCALE_UP;
+use crate::aiplan4rust::compiler::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
-use crate::aiplan4rust::syntax::lexer::token::ASSIGN;
-use crate::aiplan4rust::syntax::lexer::token::DECREASE;
-use crate::aiplan4rust::syntax::lexer::token::INCREASE;
-use crate::aiplan4rust::syntax::lexer::token::SCALE_DOWN;
-use crate::aiplan4rust::syntax::lexer::token::SCALE_UP;
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::Deserialize;
 use serde::Serialize;

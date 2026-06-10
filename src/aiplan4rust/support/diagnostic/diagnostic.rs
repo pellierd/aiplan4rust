@@ -40,16 +40,16 @@
 //!
 //! This system enables consistent error reporting across the parsing and compilation pipeline.
 
+use crate::aiplan4rust::compiler::syntax::lexer::Token;
+use crate::aiplan4rust::compiler::syntax::CustomParseError;
+use crate::aiplan4rust::compiler::syntax::{FastLineTable, Span};
 use crate::aiplan4rust::support::diagnostic::kind::Kind;
 use crate::aiplan4rust::support::diagnostic::{DiagnosticKind, Provider};
 use crate::aiplan4rust::support::interner::InternerError;
-use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::CustomParseError;
-use crate::aiplan4rust::syntax::{FastLineTable, Span};
 
-use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::compiler::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::compiler::syntax::ast::AstKind;
 use crate::aiplan4rust::support::lang::{LiteralId, RemapSymbol, Requirement, SymbolId, Type};
-use crate::aiplan4rust::syntax::ast::AstKind;
 use lalrpop_util::ParseError;
 use std::collections::HashMap;
 use std::fmt;

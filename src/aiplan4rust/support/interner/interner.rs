@@ -43,11 +43,11 @@
 //! each string on its own line with its index, which is useful for debugging and inspection.
 //!
 
-use crate::aiplan4rust::support::interner::InternerError;
-use crate::aiplan4rust::support::lang::{LiteralId, SymbolId};
-use crate::aiplan4rust::syntax::lexer::token::{
+use crate::aiplan4rust::compiler::syntax::lexer::token::{
     CONTINUOUS_VARIABLE, DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_COST, TOTAL_TIME,
 };
+use crate::aiplan4rust::support::interner::InternerError;
+use crate::aiplan4rust::support::lang::{LiteralId, SymbolId};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 

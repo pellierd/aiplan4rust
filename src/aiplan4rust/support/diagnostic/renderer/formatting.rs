@@ -12,10 +12,10 @@
 //! - Comma-separated formatting of identifier, declaration, and requirement lists
 //! - Friendly formatting for expected parser tokens (`format_expected_message`)
 
-use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind};
+use crate::aiplan4rust::compiler::semantic::symbol::{Declaration, Symbol, SymbolKind};
+use crate::aiplan4rust::compiler::syntax::{Span, SyntaxInternerDisplay};
 use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::support::lang::{Requirement, SymbolId, Type};
-use crate::aiplan4rust::syntax::{Span, SyntaxInternerDisplay};
 use crate::Severity;
 use colored::Colorize;
 

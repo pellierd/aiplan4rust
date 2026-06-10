@@ -27,12 +27,12 @@
 //! and the syntax display system, allowing seamless formatting of PDDL numeric
 //! logic in user-friendly syntax.
 
+use crate::aiplan4rust::compiler::syntax::lexer::token::ADD;
+use crate::aiplan4rust::compiler::syntax::lexer::token::DIV;
+use crate::aiplan4rust::compiler::syntax::lexer::token::MUL;
+use crate::aiplan4rust::compiler::syntax::lexer::token::SUB;
+use crate::aiplan4rust::compiler::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
-use crate::aiplan4rust::syntax::lexer::token::ADD;
-use crate::aiplan4rust::syntax::lexer::token::DIV;
-use crate::aiplan4rust::syntax::lexer::token::MUL;
-use crate::aiplan4rust::syntax::lexer::token::SUB;
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::Deserialize;
 use serde::Serialize;

@@ -24,14 +24,14 @@
 //! This module complements the [`formatting`] module by offering structured, interner-aware
 //! formatting for diagnostic suggestions, separate from primary error/warning messages.
 
-use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::compiler::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::compiler::syntax::ast::AstKind;
+use crate::aiplan4rust::compiler::syntax::Span;
 use crate::aiplan4rust::support::diagnostic::kind::Kind;
 use crate::aiplan4rust::support::diagnostic::renderer::formatting;
 use crate::aiplan4rust::support::diagnostic::{renderer, DiagnosticKind};
 use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::support::lang::{Requirement, SymbolId, Type};
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::Span;
 
 /// Formats a suggestion string using the provided `StringInterner`.
 ///

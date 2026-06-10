@@ -1,0 +1,1722 @@
+use lalrpop_util::ErrorRecovery;
+use lalrpop_util::ParseError;
+use ordered_float::OrderedFloat;
+
+use crate::aiplan4rust::support::lang::ArithmeticOp;
+use crate::aiplan4rust::support::lang::AssignOp;
+use crate::aiplan4rust::support::lang::CompareOp;
+use crate::aiplan4rust::support::lang::OptimizationOp;
+use crate::aiplan4rust::support::lang::Requirement;
+use crate::aiplan4rust::compiler::syntax::lexer::Token;
+use crate::aiplan4rust::compiler::syntax::ast::AstKind;
+use crate::aiplan4rust::compiler::syntax::ast::AstContent;
+use crate::aiplan4rust::compiler::syntax::context::ParseContext;
+use crate::aiplan4rust::compiler::syntax::context::ParseContextError;
+use crate::aiplan4rust::compiler::syntax::CustomParseError;
+use crate::aiplan4rust::compiler::syntax::ast::tree::NodeId;
+use crate::aiplan4rust::cli::io::artefact::Language;
+
+grammar<'ctx>(context: &'ctx mut ParseContext);
+
+extern {
+
+  type Location = usize;
+  type Error = CustomParseError;
+
+    enum Token {
+
+       // Identifiers
+       "id" => Token::ID(<String>),
+       //"?id" => Token::VarID(<String>),
+       "number" => Token::Number(<f64>),
+
+        // Keywords
+        "define" => Token::Define,
+        "domain" => Token::Domain,
+        "problem" => Token::Problem,
+        ":requirements" => Token::Requirements,
+        ":types" => Token::Types,
+        "either" => Token::Either,
+        ":constants" => Token::Constants,
+        ":predicates" => Token::Predicates,
+        ":functions" => Token::Functions,
+        ":action" => Token::Action,
+        ":parameters" => Token::Parameters,
+        ":precondition" => Token::Precondition,
+        ":effect" => Token::Effect,
+        ":derived" => Token::Derived,
+        ":durative-action" => Token::DurativeAction,
+        ":duration" => Token::Duration,
+        ":condition" => Token::Condition,
+        ":domain" => Token::DomainDef,
+        ":objects" => Token::Objects,
+        ":init" => Token::Init,
+        ":goal" => Token::Goal,
+        ":metric" => Token::Metric,
+
+        // Deprecated since PDDL2.1
+        ":length" => Token::Length,
+        ":serial" => Token::Serial,
+        ":parallel" => Token::Parallel,
+
+        // Expressions
+        "preference" => Token::Preference,
+        "and" => Token::And,
+        "or" => Token::Or,
+        "not" => Token::Not,
+        "imply" => Token::Imply,
+        "forall" => Token::Forall,
+        "exists" => Token::Exists,
+        "when" => Token::When,
+
+        // Requirements
+        ":strips" => Token::Strips,
+        ":typing" => Token::Typing,
+        ":negative-preconditions" => Token::NegativePreconditions,
+        ":disjunctive-preconditions" => Token::DisjunctivePreconditions,
+        ":equality" => Token::Equality,
+        ":existential-preconditions" => Token::ExistentialPreconditions,
+        ":universal-preconditions" => Token::UniversalPreconditions,
+        ":quantified-preconditions" => Token::QuantifiedPreconditions,
+        ":conditional-effects" => Token::ConditionalEffects,
+        ":fluents" => Token::Fluents,
+        ":numeric-fluents" => Token::NumericFluents,
+        ":object-fluents" => Token::ObjectFluents,
+        ":adl" => Token::Adl,
+        ":durative-actions" => Token::DurativeActions,
+        ":duration-inequalities" => Token::DurationInequalities,
+        ":continuous-effects" => Token::ContinuousEffects,
+        ":derived-predicates" => Token::DerivedPredicates,
+        ":timed-initial-literals" => Token::TimedInitialLiterals,
+        ":preferences" => Token::Preferences,
+        ":constraints" => Token::Constraints,
+        ":action-costs" => Token::ActionCosts,
+        ":goal-utilities" => Token::GoalUtilities,
+
+        // Time
+        "at" => Token::At,
+        "start" => Token::Start,
+        "end" => Token::End,
+        "over" => Token::Over,
+        "all" => Token::All,
+
+        // Constraints
+        "always" => Token::Always,
+        "sometime" => Token::Sometime,
+        "within" => Token::Within,
+        "at-most-once" => Token::AtMostOnce,
+        "sometime-after" => Token::SometimeAfter,
+        "sometime-before" => Token::SometimeBefore,
+        "always-within" => Token::AlwaysWithin,
+        "hold-during" => Token::HoldDuring,
+        "hold-after" => Token::HoldAfter,
+
+        // Separators
+        "(" => Token::LParen,
+        ")" => Token::RParen,
+
+        // Arithmetic operators
+        "-" => Token::Sub,
+        "+" => Token::Add,
+        "/" => Token::Div,
+        "*" => Token::Mul,
+
+        // Comparison operators
+        ">" => Token::Greater,
+        "<" => Token::Less,
+        "=" => Token::Equal,
+        ">=" => Token::GreaterEq,
+        "<=" => Token::LessEq,
+
+        // Assign operators
+        "assign" => Token::Assign,
+        "scale-up" => Token::ScaleUp,
+        "scale-down" => Token::ScaleDown,
+        "increase" => Token::Increase,
+        "decrease" => Token::Decrease,
+
+        // Opitimization
+        "minimize" => Token::Minimize,
+        "maximize" => Token::Maximize,
+
+        // Special
+        "object_type" => Token::ObjectType,
+        "number_type" => Token::NumberType,
+        "undefined" => Token::Undefined,
+        "?duration" => Token::DurationVariable,
+        "#t" => Token::SharpT,
+        "total-time" => Token::TotalTime,
+        "total-cost" => Token::TotalCost,
+        "is-violated" => Token::IsViolated,
+
+        // Error
+        "error" => Token::Error(<String>),
+
+        // HDDL
+        ":hierarchy" => Token::Hierarchy,
+        ":method-preconditions" => Token::MethodPreconditions,
+        ":task" => Token::Task,
+        ":tasks" => Token::Tasks,
+        ":method" => Token::Method,
+        ":ordered-subtasks" => Token::OrderedSubtasks,
+        ":ordered-tasks" => Token::OrderedTasks,
+        ":subtasks" => Token::Subtasks,
+        ":ordering" => Token::Ordering,
+        ":order" => Token::Order,
+        ":htn" => Token::Htn,
+    }
+}
+
+pub Name : Result<AstContent, ()> = {
+    <start:@L>  <name:"id"> <end:@R> => {
+        if name.starts_with("?") {
+            let parse_error = ParseError::UnrecognizedToken {
+                token : (start, Token::ID(name), end),
+                expected : vec!["\"id\"".to_string()],
+            };
+           let error_recovery = ErrorRecovery { error: parse_error, dropped_tokens: Vec::new() };
+           context.push_error(error_recovery);
+           Err(())
+        } else {
+            Ok(AstContent::Ident(context.intern(name.to_string())))
+        }
+    },
+    <start:@L> <error:!> <end:@R>  => {
+        context.push_error(error);
+        Err(())
+    },
+   // Time and Durative Action keywords allowed as Identifiers
+   <start:@L> <name:"at"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"start"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"end"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"over"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"all"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+
+   // Metric-related keywords allowed as Identifiers
+   <start:@L> <name:"total-time"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"total-cost"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+
+   // Base types allowed as Identifiers (critical for IPC02/04 domains)
+   <start:@L> <name:"object_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+   <start:@L> <name:"number_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+}
+
+pub VarName : Result<AstContent, ()> = {
+    <start:@L>  <name:"id"> <end:@R> => {
+        if !name.starts_with("?") {
+            let parse_error = ParseError::UnrecognizedToken {
+                token : (start, Token::ID(name), end),
+                expected : vec!["\"?id\"".to_string()],
+            };
+           let error_recovery = ErrorRecovery { error: parse_error, dropped_tokens: Vec::new() };
+           context.push_error(error_recovery);
+           Err(())
+        } else {
+            Ok(AstContent::Ident(context.intern(name.to_string())))
+        }
+    },
+    <start:@L> <error:!> <end:@R>  => {
+        context.push_error(error);
+        Err(())
+    },
+}
+
+pub Object: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::Object, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    }
+}
+
+pub Variable: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:VarName> <end:@R> => {
+        match name {
+            Ok(name) => context.alloc_node(AstKind::Variable, name, Vec::new(), start, end),
+            Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+        }
+    },
+    <var:DurationVariable> => var,
+}
+
+pub FunctionSymbol: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => {
+        match name {
+            Ok(name) => context.alloc_node(AstKind::FunctionSymbol, name, Vec::new(), start, end),
+            Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+        }
+    },
+}
+
+pub Number: Result<NodeId, ParseContextError> = {
+    <start:@L> <value:"number"> <end:@R> => {
+        context.alloc_node(AstKind::Number, AstContent::Number(OrderedFloat(value)), Vec::new(), start, end)
+    },
+}
+
+pub DomainName: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::DomainName, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    },
+}
+
+pub ProblemName: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::ProblemName, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    },
+}
+
+pub PrimitiveType: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::PrimitiveType, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    },
+}
+
+pub Predicate: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::PredicateSymbol, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    },
+}
+
+pub ActionSymbol: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::ActionSymbol, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    },
+}
+
+pub DASymbol: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::DASymbol, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    },
+}
+
+pub PrefName: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::PrefName, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    },
+}
+
+pub Requirement: Result<NodeId, ParseContextError> = {
+    <start:@L> ":strips" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Strips), Vec::new(), start, end),
+    <start:@L> ":typing" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Typing), Vec::new(), start, end),
+    <start:@L> ":equality" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Equality), Vec::new(), start, end),
+    <start:@L> ":negative-preconditions" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::NegativePreconditions), Vec::new(), start, end),
+    <start:@L> ":disjunctive-preconditions" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::DisjunctivePreconditions), Vec::new(), start, end),
+    <start:@L> ":existential-preconditions" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::ExistentialPreconditions), Vec::new(), start, end),
+    <start:@L> ":universal-preconditions" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::UniversalPreconditions), Vec::new(), start, end),
+    <start:@L> ":quantified-preconditions" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::QuantifiedPreconditions), Vec::new(), start, end),
+    <start:@L> ":conditional-effects" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::ConditionalEffects), Vec::new(), start, end),
+    <start:@L> ":fluents" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Fluents), Vec::new(), start, end),
+    <start:@L> ":numeric-fluents" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::NumericFluents), Vec::new(), start, end),
+    <start:@L> ":object-fluents" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::ObjectFluents), Vec::new(), start, end),
+    <start:@L> ":adl" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Adl), Vec::new(), start, end),
+    <start:@L> ":durative-actions" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::DurativeActions), Vec::new(), start, end),
+    <start:@L> ":duration-inequalities" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::DurationInequalities), Vec::new(), start, end),
+    <start:@L> ":continuous-effects" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::ContinuousEffects), Vec::new(), start, end),
+    <start:@L> ":derived-predicates" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::DerivedPredicates), Vec::new(), start, end),
+    <start:@L> ":timed-initial-literals" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::TimedInitialLiterals), Vec::new(), start, end),
+    <start:@L> ":preferences" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Preferences), Vec::new(), start, end),
+    <start:@L> ":constraints" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Constraints), Vec::new(), start, end),
+    <start:@L> ":action-costs" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::ActionCosts), Vec::new(), start, end),
+    <start:@L> ":goal-utilities" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::GoalUtilities), Vec::new(), start, end),
+    <start:@L> <error:!> <end:@R> => {
+        context.push_error(error);
+        context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end)
+    },
+}
+
+pub RequireDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":requirements" <requirements:Requirement*> ")" <end:@R> => {
+        let requirements = requirements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::RequireDef, AstContent::None, requirements, start, end)
+    }
+}
+
+pub Type: Result<NodeId, ParseContextError> = {
+    <start:@L> <ty:PrimitiveType> <end:@R> => {
+        context.alloc_node(AstKind::Type, AstContent::None, vec![ty?], start, end)
+    },
+    <start:@L> "(" "either" <types:PrimitiveType+> ")" <end:@R> => {
+        let types = types.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::Type, AstContent::None, types, start, end)
+    }
+}
+
+TypedList<T>: Result<NodeId, ParseContextError> = {
+    <start:@L> <elements:T*> <end:@R> => {
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        if elements.is_empty() {
+            context.alloc_node(AstKind::TypedList, AstContent::None, vec![], start, end)
+        } else {
+            let typed_item_elt = context.alloc_node(AstKind::TypedItemElements, AstContent::None, elements, start, end);
+            let typed_item = context.alloc_node(AstKind::TypedItem, AstContent::None, vec![typed_item_elt?], start, end);
+            context.alloc_node(AstKind::TypedList, AstContent::None, vec![typed_item?], start, end)
+        }
+    },
+    <start:@L> <elements:T+> <end_elements:@R> "-" <ty:Type> <end_typed_item:@R> <next:TypedList<T>> <end:@R> => {
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let typed_item_elt = context.alloc_node(AstKind::TypedItemElements, AstContent::None, elements, start, end_elements);
+        let typed_item = context.alloc_node(AstKind::TypedItem, AstContent::None, vec![typed_item_elt?, ty?], start, end_typed_item);
+        let typed_list = context.alloc_node(AstKind::TypedList, AstContent::None, vec![typed_item?], start, end);
+        context.merge_typed_list(typed_list?, next?)
+    }
+}
+
+pub TypesDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":types" <types:TypedList<PrimitiveType>> ")" <end:@R> => {
+        context.alloc_node(AstKind::TypesDef, AstContent::None, vec![types?], start, end)
+    }
+}
+
+pub ConstantsDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":constants" <constants:TypedList<Object>> ")" <end:@R> => {
+        context.alloc_node(AstKind::ConstantsDef, AstContent::None, vec![constants?], start, end)
+    }
+}
+
+pub PredicatesDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":predicates" <predicates:AtomicFormulaSkeleton+> ")" <end:@R> => {
+        let predicates = predicates.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::PredicatesDef, AstContent::None, predicates, start, end)
+    }
+}
+
+pub AtomicFormulaSkeleton: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <predicate:Predicate> <arguments:TypedList<Variable>> ")" <end:@R> => {
+        context.alloc_node(AstKind::AtomicFormulaSkeleton, AstContent::None, vec![predicate?, arguments?], start, end)
+    }
+}
+
+pub FunctionsDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":functions" <functions:TypedList<AtomicFunctionSkeleton>> ")" <end:@R> => {
+        context.alloc_node(AstKind::FunctionsDef, AstContent::None, vec![functions?], start, end)
+    }
+}
+
+pub AtomicFunctionSkeleton:  Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <functor:FunctionSymbol> <arguments:TypedList<Variable>> ")" <end:@R> => {
+        context.alloc_node(AstKind::AtomicFunctionSkeleton, AstContent::None, vec![functor?, arguments?], start, end)
+    }
+}
+
+pub StructureDef: Result<NodeId, ParseContextError> = {
+    <action:ActionDef> => action,
+    <derived:DerivedDef> => derived,
+    <durative_action:DurativeActionDef> => durative_action,
+}
+
+pub ActionDef: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        "(" ":action"
+            <name:ActionSymbol>
+            <parameters:ParameterDef>
+            <body:ActionDefBody>
+        ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::ActionDef, AstContent::None, vec![name?, parameters?, body?], start, end)
+    }
+}
+
+pub ParameterDef: Result<NodeId, ParseContextError> = {
+    <start:@L>
+       ":parameters" "(" <parameters:TypedList<Variable>> ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::ParametersDef, AstContent::None, vec![parameters?], start, end)
+    }
+}
+
+pub ActionDefBody: Result<NodeId, ParseContextError> = {
+    <start:@L> <precondition:PreconditionDef?> <effect:EffectDef?> <end:@R> => {
+        let mut children = Vec::new();
+        if let Some(pre) = precondition {
+            children.push(pre?);
+        }
+        if let Some(eff) = effect {
+            children.push(eff?);
+        }
+        context.alloc_node(AstKind::ActionDefBody, AstContent::None, children, start, end)
+    }
+}
+
+pub PreconditionDef: Result<NodeId, ParseContextError> = {
+    <start:@L> ":precondition" <precondition:EmptyOr<PreGD>> <end:@R> => {
+        context.alloc_node(AstKind::PreconditionDef, AstContent::None, vec![precondition?], start, end)
+    }
+}
+
+pub EffectDef: Result<NodeId, ParseContextError> = {
+    <start:@L> ":effect" <effect:EmptyAnd<Effect>> <end:@R> => {
+        context.alloc_node(AstKind::EffectDef, AstContent::None, vec![effect?], start, end)
+    }
+}
+
+EmptyOr<T>: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ")" <end:@R> => {
+        context.alloc_node(AstKind::Or, AstContent::None, Vec::new(), start, end)
+    },
+    <start:@L> <element:T> <end:@R> => element,
+}
+
+EmptyAnd<T>: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ")" <end:@R> => {
+        context.alloc_node(AstKind::And, AstContent::None, Vec::new(), start, end)
+    },
+    <start:@L> <element:T> <end:@R> => element,
+}
+
+pub PreGD: Result<NodeId, ParseContextError> = {
+    <start:@L> <pref_gd:PrefGD> <end:@R> => pref_gd,
+    <atom:AtomicFormula<Term>> => atom,
+    <start:@L> "(" "and" <pre_gd:PreGD*> ")" <end:@R> => {
+        let pre_gd = pre_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, pre_gd, start, end)
+    },
+    <start:@L> "(" "or" <gd:GD*> ")" <end:@R> => {
+        let gd = gd.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::Or, AstContent::None, gd, start, end)
+    },
+    <start:@L> "(" "not" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Not, AstContent::None, vec![gd?], start, end)
+    },
+    <start:@L> "(" "imply" <antecedent:GD> <consequence:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Imply, AstContent::None, vec![antecedent?, consequence?], start, end)
+    },
+    <start:@L>
+        "(" "exists"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <gd:GD>
+        ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::Exists, AstContent::None, vec![variables?, gd?], start, end)
+    },
+    <start:@L>
+        "(" "forall"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <pre_gd:PreGD>
+        ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, pre_gd?], start, end)
+    },
+    <comparison:Comparison> => comparison,
+}
+
+
+pub PrefGD: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "preference" <pref_name:PrefName?> <gd:GD> ")" <end:@R> => {
+        let mut children = Vec::new();
+        if let Some(pref_name) = pref_name {
+            children.push(pref_name?);
+        }
+        children.push(gd?);
+        context.alloc_node(AstKind::Preference, AstContent::None, children, start, end)
+    },
+}
+
+pub GD: Result<NodeId, ParseContextError> = {
+    <atom:AtomicFormula<Term>> => atom,
+    <start:@L> "(" "and" <gd:GD*> ")" <end:@R> => {
+        let gd = gd.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, gd, start, end)
+    },
+    <start:@L> "(" "or" <gd:GD*> ")" <end:@R> => {
+        let gd = gd.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::Or, AstContent::None, gd, start, end)
+    },
+    <start:@L> "(" "not" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Not, AstContent::None, vec![gd?], start, end)
+    },
+    <start:@L> "(" "imply" <antecedent:GD> <consequence:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Imply, AstContent::None, vec![antecedent?, consequence?], start, end)
+    },
+    <start:@L>
+        "(" "exists"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <gd:GD>
+        ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::Exists, AstContent::None, vec![variables?, gd?], start, end)
+    },
+    <start:@L>
+        "(" "forall"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <gd:GD>
+        ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, gd?], start, end)
+    },
+    <comparison:Comparison> => comparison,
+}
+
+pub Effect: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "and" <effects:CEffect*> ")" <end:@R> => {
+        let effects = effects.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, effects, start, end)
+    },
+    <effect:CEffect> => effect,
+}
+
+pub CEffect: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        "(" "forall"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <effect:Effect>
+        ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, effect?], start, end)
+    },
+    <start:@L> "(" "when" <gd:GD> <effect:CondEffect> ")" <end:@R> => {
+        context.alloc_node(AstKind::When, AstContent::None, vec![gd?, effect?], start, end)
+    },
+    <effect:PEffect> => effect,
+}
+
+pub PEffect: Result<NodeId, ParseContextError> = {
+    <literal:Literal<Term>> => literal,
+    <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexp:_FExp> ")" <end:@R> => {
+        context.alloc_node(AstKind::Assignment, op, vec![fhead?, fexp?], start, end)
+    },
+}
+
+pub CondEffect: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "and" <effects:PEffect*> ")" <end:@R> => {
+        let effects = effects.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, effects, start, end)
+    },
+    <effect:PEffect> => effect,
+}
+
+pub Term: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:"id"> <end:@R> => {
+        if !name.starts_with("?") {
+            context.alloc_node(AstKind::Object, AstContent::Ident(context.intern(name)), Vec::new(), start, end)
+        } else {
+            context.alloc_node(AstKind::Variable, AstContent::Ident(context.intern(name)), Vec::new(), start, end)
+        }
+    },
+    <duration:DurationVariable> => duration,
+    <function:FunctionTerm> => function,
+}
+
+pub FunctionTerm: Result<NodeId, ParseContextError> = {
+    <function_term:_FunctionTerm<Term>> => function_term,
+}
+
+_FunctionTerm<T>: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <function_symbol:FunctionSymbol> <arguments:T*> ")" <end:@R> => {
+        let arguments = arguments.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let mut children = Vec::new();
+        children.push(function_symbol?);
+        children.extend(arguments);
+        context.alloc_node(AstKind::Function, AstContent::None, children, start, end)
+    }
+}
+
+pub Comparison: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <comparator:CompareOp> <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
+        context.alloc_node(AstKind::Comparison, comparator, vec![arg1?, arg2?], start, end)
+    }
+}
+
+pub CompareOp : AstContent = {
+    ">" =>AstContent::CompareOp(CompareOp::Greater),
+    "<" =>AstContent::CompareOp(CompareOp::Less),
+    "=" =>AstContent::CompareOp(CompareOp::Equal),
+    ">=" =>AstContent::CompareOp(CompareOp::GreaterEq),
+    "<=" =>AstContent::CompareOp(CompareOp::LessEq),
+}
+
+pub AssignOp : AstContent = {
+    "assign" =>AstContent::AssignOp(AssignOp::Assign),
+    "scale-up" =>AstContent::AssignOp(AssignOp::ScaleUp),
+    "scale-down" =>AstContent::AssignOp(AssignOp::ScaleDown),
+    "increase" =>AstContent::AssignOp(AssignOp::Increase),
+    "decrease" =>AstContent::AssignOp(AssignOp::Decrease),
+}
+
+pub ArithmeticOp : AstContent = {
+    "-" =>AstContent::ArithmeticOp(ArithmeticOp::Sub),
+    "+" =>AstContent::ArithmeticOp(ArithmeticOp::Add),
+    "/" =>AstContent::ArithmeticOp(ArithmeticOp::Div),
+    "*" =>AstContent::ArithmeticOp(ArithmeticOp::Mul),
+}
+
+Literal<T>: Result<NodeId, ParseContextError> = {
+    <atom:AtomicFormula<T>> => atom,
+    <start:@L> "(" "not" <atom:AtomicFormula<T>> ")" <end:@R> => {
+        context.alloc_node(AstKind::Not, AstContent::None, vec![atom?], start, end)
+    }
+}
+
+AtomicFormula<T>: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <predicate:Predicate> <terms:T*> ")" <end:@R> => {
+        let terms = terms.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let mut children = Vec::new();
+        children.push(predicate?);
+        children.extend(terms);
+        context.alloc_node(AstKind::AtomicFormula, AstContent::None, children, start, end)
+    }
+}
+
+_FExp: Result<NodeId, ParseContextError> = {
+    <term:Term> => term,
+    <number:Number> => number,
+    <start:@L> "(" "-" <arg1:_FExp> <arg2:_FExp?> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(arg1?);
+        if let Some(arg2) = arg2 {
+            children.push(arg2?);
+        }
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
+    },
+    <start:@L> "(" "/" <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
+    },
+    <start:@L> "(" "+" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
+        let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let mut children = Vec::new();
+        children.push(arg1?);
+        children.extend(next_args);
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
+    },
+    <start:@L> "(" "*" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(arg1?);
+        let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
+        children.extend(next_args);
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
+    },
+}
+
+pub FExp: Result<NodeId, ParseContextError> = {
+    <number:Number> => number,
+    <start:@L> "(" "-" <arg1:FExp> <arg2:FExp?> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(arg1?);
+        if let Some(arg2) = arg2 {
+            children.push(arg2?);
+        }
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
+    },
+    <start:@L> "(" "/" <arg1:FExp> <arg2:FExp> ")" <end:@R> => {
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
+    },
+    <start:@L> "(" "+" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(arg1?);
+        let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
+        children.extend(next_args);
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
+    },
+    <start:@L> "(" "*" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(arg1?);
+        let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
+        children.extend(next_args);
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
+    },
+    <fhead:FHead> => fhead,
+}
+
+pub FExpDA: Result<NodeId, ParseContextError> = {
+    <number:Number> => number,
+    <start:@L> "(" "-" <arg1:FExpDA> <arg2:FExpDA?> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(arg1?);
+        if let Some(arg2) = arg2 {
+            children.push(arg2?);
+        }
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
+    },
+    <start:@L> "(" "/" <arg1:FExpDA> <arg2:FExpDA> ")" <end:@R> => {
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
+    },
+    <start:@L> "(" "+" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(arg1?);
+        let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
+        children.extend(next_args);
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
+    },
+    <start:@L> "(" "*" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(arg1?);
+        let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
+        children.extend(next_args);
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
+    },
+    <fhead:FHead> => fhead, // Add to accept the good syntax
+    //<fexp:FExp> => fexp, // Remove for conflict
+    <duration:DurationVariable> => duration,
+}
+
+pub FHead: Result<NodeId, ParseContextError> = {
+    <function:FunctionTerm> => function,
+    <start:@L> <symbol:FunctionSymbol> <end:@R> => {
+        context.alloc_node(AstKind::Function, AstContent::None, vec![symbol?], start, end)
+    }
+}
+
+pub DomainConstraints: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":constraints" <con_gd:ConGD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Constraints, AstContent::None, vec![con_gd?], start, end)
+    }
+}
+
+pub ProblemConstraints: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":constraints" <pref_con_gd:PrefConGD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Constraints, AstContent::None, vec![pref_con_gd?], start, end)
+    }
+}
+
+pub PrefConGD:Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "preference" <pref_name:PrefName?> <gd:ConGD> ")" <end:@R> => {
+            let mut children = Vec::new();
+            if let Some(pref_name) = pref_name {
+                children.push(pref_name?);
+            }
+            children.push(gd?);
+            context.alloc_node(AstKind::Preference, AstContent::None, children, start, end)
+        },
+    <start:@L> "(" "and" <pre_con_gd:PrefConGD*> ")" <end:@R> => {
+        let pre_con_gd = pre_con_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, pre_con_gd, start, end)
+    },
+    <start:@L>
+        "(" "forall"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <pre_con_gd:PrefConGD>
+        ")"
+    <end:@R> => {
+            context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, pre_con_gd?], start, end)
+    },
+    <con_gd:TemporalConGD> => con_gd,
+}
+
+pub ConGD: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "and" <con_gd:ConGD*> ")" <end:@R> => {
+        let con_gd = con_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, con_gd, start, end)
+    },
+    <start:@L> "(" "forall" "(" <variables:TypedList<Variable>> ")" <con_gd:ConGD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, con_gd?], start, end)
+    },
+    <gd:TemporalConGD> => gd,
+}
+
+pub TemporalConGD: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "at" "end" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::AtEnd, AstContent::None, vec![gd?], start, end)
+    },
+    <start:@L> "(" "always" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Always, AstContent::None, vec![gd?], start, end)
+    },
+    <start:@L> "(" "sometime" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Sometime, AstContent::None, vec![gd?], start, end)
+    },
+    <start:@L> "(" "within" <number:Number> <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Within, AstContent::None, vec![number?, gd?], start, end)
+    },
+    <start:@L> "(" "at-most-once" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::AtMostOnce, AstContent::None, vec![gd?], start, end)
+    },
+    <start:@L> "(" "sometime-after" <gd1:GD> <gd2:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::SometimeAfter, AstContent::None, vec![gd1?, gd2?], start, end)
+    },
+    <start:@L> "(" "sometime-before" <gd1:GD> <gd2:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::SometimeBefore, AstContent::None, vec![gd1?, gd2?], start, end)
+    },
+    <start:@L> "(" "always-within" <number:Number> <gd1:GD> <gd2:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::AlwaysWithin, AstContent::None, vec![number?, gd1?, gd2?], start, end)
+    },
+    <start:@L> "(" "hold-during" <lower:Number> <upper:Number> <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::HoldDuring, AstContent::None, vec![lower?, upper?, gd?], start, end)
+    },
+    <start:@L> "(" "hold-after" <number:Number> <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::HoldAfter, AstContent::None, vec![number?, gd?], start, end)
+    },
+}
+
+pub DerivedDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":derived" <atom:AtomicFormulaSkeleton> <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::DerivedDef, AstContent::None, vec![atom?, gd?], start, end)
+    }
+}
+
+pub DurativeActionDef: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        "(" ":durative-action" <name:DASymbol>
+        <parameters:ParameterDef>
+        <body:DADefBody>
+    ")" <end:@R> => {
+        context.alloc_node(AstKind::DurativeActionDef, AstContent::None, vec![name?, parameters?, body?], start, end)
+    }
+}
+
+pub DADefBody: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        ":duration" <constraint:DurationConstraint>
+        ":condition" <condition:EmptyOr<DAGD>>
+        ":effect" <effect:EmptyAnd<DAEffect>>
+    <end:@R> => {
+        context.alloc_node(AstKind::DADefBody, AstContent::None, vec![constraint?, condition?, effect?], start, end)
+    }
+}
+
+pub DurationConstraint: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "and" <constraints:SimpleDurationConstraint*> ")" <end:@R> => {
+        let constraints = constraints.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let and_node = context.alloc_node(AstKind::And, AstContent::None, constraints, start, end)?;
+        context.alloc_node(AstKind::DurationConstraint, AstContent::None, vec![and_node], start, end)
+    },
+    <start:@L> "(" ")" <end:@R> => {
+        let and_node = context.alloc_node(AstKind::And, AstContent::None, vec![], start, end)?;
+        context.alloc_node(AstKind::DurationConstraint, AstContent::None, vec![and_node], start, end)
+    },
+    <start:@L> <constraint:SimpleDurationConstraint> <end:@R> => {
+        context.alloc_node(AstKind::DurationConstraint, AstContent::None, vec![constraint?], start, end)
+    },
+}
+
+pub SimpleDurationConstraint: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <op:DOp> <var:DurationVariable> <value:DValue> ")" <end:@R> => {
+        context.alloc_node(AstKind::Comparison, op, vec![var?, value?], start, end)
+    },
+    <start:@L> "at" "start" <constraints:SimpleDurationConstraint> <end:@R> => {
+        context.alloc_node(AstKind::AtStart, AstContent::None, vec![constraints?], start, end)
+    },
+    <start:@L> "at" "end" <constraints:SimpleDurationConstraint> <end:@R> => {
+        context.alloc_node(AstKind::AtEnd, AstContent::None, vec![constraints?], start, end)
+    },
+}
+
+pub DurationVariable: Result<NodeId, ParseContextError> = {
+    <start:@L> <var:"?duration"> <end:@R> => {
+        context.alloc_node(AstKind::Variable, AstContent::Ident(context.intern(var.to_string())), vec![], start, end)
+    }
+}
+
+pub DOp : AstContent = {
+    ">=" =>AstContent::CompareOp(CompareOp::GreaterEq),
+    "<=" =>AstContent::CompareOp(CompareOp::LessEq),
+    "=" =>AstContent::CompareOp(CompareOp::Equal),
+}
+
+pub DValue: Result<NodeId, ParseContextError> = {
+    <fexp:FExp> => fexp,
+}
+
+pub DAGD: Result<NodeId, ParseContextError> = {
+    <pref_timed_gd:PrefTimedGD> => pref_timed_gd,
+    <start:@L> "(" "and" <da_gd:DAGD*> ")" <end:@R> => {
+        let da_gd = da_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, da_gd, start, end)
+    },
+    <start:@L>
+        "(" "forall"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <da_gd:DAGD>
+        ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, da_gd?], start, end)
+    },
+}
+
+pub PrefTimedGD: Result<NodeId, ParseContextError> = {
+    <timed_gd:TimedGD> => timed_gd,
+    <start:@L> "(" "preference" <pref_name:PrefName?> <timed_gd:TimedGD> ")" <end:@R> => {
+        let mut children = Vec::new();
+        if let Some(pref_name) = pref_name {
+            children.push(pref_name?);
+        }
+        children.push(timed_gd?);
+        context.alloc_node(AstKind::Preference, AstContent::None, children, start, end)
+    },
+}
+
+pub TimedGD: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "at" "start" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::AtStart, AstContent::None, vec![gd?], start, end)
+    },
+    <start:@L> "(" "at" "end" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::AtEnd, AstContent::None, vec![gd?], start, end)
+    },
+    <start:@L> "(" "over" "all" <gd:GD> ")" <end:@R> => {
+        context.alloc_node(AstKind::Overall, AstContent::None, vec![gd?], start, end)
+    },
+}
+
+pub DAEffect: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "and" <da_effect:DAEffect*> ")" <end:@R> => {
+        let da_effect = da_effect.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, da_effect, start, end)
+    },
+    <timed_effect:TimedEffect> => timed_effect,
+    <start:@L>
+        "(" "forall"
+            <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
+            <da_effect:DAEffect>
+        ")"
+    <end:@R> => {
+        context.alloc_node(AstKind::Forall, AstContent::None, vec![variables?, da_effect?], start, end)
+    },
+    <start:@L> "(" "when" <da_gd:DAGD> <da_effect:DAEffect> ")" <end:@R> => {
+        context.alloc_node(AstKind::When, AstContent::None, vec![da_gd?, da_effect?], start, end)
+    },
+}
+
+pub TimedEffect: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "at" "start" <con_effect:CondEffect> ")" <end:@R> => {
+        context.alloc_node(AstKind::AtStart, AstContent::None, vec![con_effect?], start, end)
+    },
+    <start:@L> "(" "at" "end" <con_effect:CondEffect> ")" <end:@R> => {
+        context.alloc_node(AstKind::AtEnd, AstContent::None, vec![con_effect?], start, end)
+    },
+    <start:@L> "(" <op:AssignOpT> <fhead:FHead> <fexpt:FExpT> ")" <end:@R> => {
+        context.alloc_node(AstKind::Assignment, op, vec![fhead?, fexpt?], start, end)
+    },
+}
+
+pub FAssignDA: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexpda:FExpDA> ")" <end:@R> => {
+        context.alloc_node(AstKind::Assignment, op, vec![fhead?, fexpda?], start, end)
+    },
+}
+
+pub AssignOpT : AstContent = {
+    "increase" =>AstContent::AssignOp(AssignOp::Increase),
+    "decrease" =>AstContent::AssignOp(AssignOp::Decrease),
+}
+
+pub FExpT: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "*" <fexp:FExp> <var:ContinusVariable> ")" <end:@R> => {
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), vec![fexp?, var?], start, end)
+    },
+    <start:@L> "(" "*" <var:ContinusVariable> <fexp:FExp> ")" <end:@R> => {
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), vec![var?, fexp?], start, end)
+    },
+    <var:ContinusVariable> => var,
+}
+
+pub ContinusVariable: Result<NodeId, ParseContextError> = {
+    <start:@L> <var:"#t"> <end:@R> => {
+        context.alloc_node(AstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end)
+    }
+}
+
+DomainElement: Result<NodeId, ParseContextError> = {
+    <r:RequireDef> => r,
+    <t:TypesDef> => t,
+    <c:ConstantsDef> => c,
+    <p:PredicatesDef> => p,
+    <f:FunctionsDef> => f,
+    <s:DomainConstraints> => s,
+}
+
+pub Domain: Result<NodeId, ParseContextError> = {
+    <start:@L>
+    "(" "define" "(" "domain" <name:DomainName> ")"
+        <elements:DomainElement*>
+        <structure:StructureDef*>
+    ")"
+    <end:@R> => {
+        let name_node = name?;
+
+        // 1. Slots for canonical ordering (Header elements)
+        let mut req_node = None;
+        let mut types_node = None;
+        let mut const_node = None;
+        let mut pred_node = None;
+        let mut func_node = None;
+        let mut constraint_node = None;
+
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        for node_id in elements {
+            let node_info = {
+                let tree = context.borrow_syntax_tree();
+                tree.get_node(node_id).map(|n| (n.kind(), n.span().clone()))
+            };
+
+            if let Some((kind, span)) = node_info {
+                // Fill slots and detect duplicate header blocks
+                let duplicate = match kind {
+                    AstKind::RequireDef => { let d = req_node.is_some(); req_node = Some(node_id); d },
+                    AstKind::TypesDef => { let d = types_node.is_some(); types_node = Some(node_id); d },
+                    AstKind::ConstantsDef => { let d = const_node.is_some(); const_node = Some(node_id); d },
+                    AstKind::PredicatesDef => { let d = pred_node.is_some(); pred_node = Some(node_id); d },
+                    AstKind::FunctionsDef => { let d = func_node.is_some(); func_node = Some(node_id); d },
+                    AstKind::Constraints => { let d = constraint_node.is_some(); constraint_node = Some(node_id); d },
+                    _ => false,
+                };
+
+                if duplicate {
+                    context.push_custom_error(CustomParseError::duplicate_definition_block(
+                        kind, span.start(), span.end()
+                    ));
+                }
+            }
+        }
+
+        // 2. Final construction in CANONICAL order
+        let mut children = Vec::new();
+        children.push(name_node);
+
+        // Header blocks in standard PDDL sequence
+        if let Some(node) = req_node { children.push(node); }
+        if let Some(node) = types_node { children.push(node); }
+        if let Some(node) = const_node { children.push(node); }
+        if let Some(node) = pred_node { children.push(node); }
+        if let Some(node) = func_node { children.push(node); }
+        if let Some(node) = constraint_node { children.push(node); }
+
+        // 3. Append structural elements (Actions, etc.)
+        // These are already validated by the LALRPOP grammar rules
+        for s in structure {
+            children.push(s?);
+        }
+
+        context.alloc_node(AstKind::Domain, AstContent::None, children, start, end)
+    }
+}
+
+pub ObjectsDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":objects" <objects:TypedList<Object>> ")" <end:@R> => {
+        context.alloc_node(AstKind::ObjectsDef, AstContent::None, vec![objects?], start, end)
+    }
+}
+
+pub BasicFunctionTerm : Result<NodeId, ParseContextError> = {
+    <function:FunctionTerm> => function,
+    <symbol:FunctionSymbol> => symbol,
+}
+
+pub InitEl: Result<NodeId, ParseContextError> = {
+    <literal:Literal<Object>> => literal,
+    <start:@L> "(" "at" <number:Number> <literal:Literal<Object>> ")" <end:@R> => {
+        context.alloc_node(AstKind::TimedInitialLiteral, AstContent::None, vec![number?, literal?], start, end)
+    },
+    <start:@L> "(" "=" <function:BasicFunctionTerm> <number:Number> ")" <end:@R> => {
+        context.alloc_node(AstKind::Comparison, AstContent::CompareOp(CompareOp::Equal), vec![function?, number?], start, end)
+    },
+    <start:@L> "(" "=" <function:BasicFunctionTerm> <constant:Object> ")" <end:@R> => {
+        context.alloc_node(AstKind::Comparison, AstContent::CompareOp(CompareOp::Equal), vec![function?, constant?], start, end)
+    },
+}
+
+pub Init: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":init" <init_els:InitEl*> ")" <end:@R> => {
+        // Add and expression to uniformize
+        let init_els = init_els.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let and_node = context.alloc_node(AstKind::And, AstContent::None, init_els, start, end);
+        context.alloc_node(AstKind::Init, AstContent::None, vec![and_node?], start, end)
+    },
+}
+
+pub Goal: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":goal" <pre_gd:PreGD> ")" <end:@R> => {
+        let children = vec![pre_gd?];
+        context.alloc_node(AstKind::Goal, AstContent::None, children, start, end)
+    },
+}
+
+pub OptimizationOp : AstContent = {
+    "minimize" => AstContent::OptimizationOp(OptimizationOp::Minimize),
+    "maximize" => AstContent::OptimizationOp(OptimizationOp::Maximize),
+}
+
+pub MetricFExp: Result<NodeId, ParseContextError> = {
+    <number:Number> => number,
+    <function:_FunctionTerm<Object>> => function,
+    <start:@L> <symbol:FunctionSymbol> <end:@R> => {
+        context.alloc_node(AstKind::Function, AstContent::None, vec![symbol?], start, end)
+    },
+    <start:@L> "(" "-" <arg1:MetricFExp> <arg2:MetricFExp?> ")" <end:@R> => {
+        let mut children = vec![arg1?];
+        if let Some(arg2) = arg2 {
+            children.push(arg2?);
+        }
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end)
+    },
+    <start:@L> "(" "/" <arg1:MetricFExp> <arg2:MetricFExp> ")" <end:@R> => {
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Div), vec![arg1?, arg2?], start, end)
+    },
+    <start:@L> "(" "+" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
+        let mut children = vec![arg1?];
+        let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
+        children.extend(next_args);
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end)
+    },
+    <start:@L> "(" "*" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
+        let mut children = vec![arg1?];
+        let next_args = next_args.into_iter().collect::<Result<Vec<_>, _>>()?;
+        children.extend(next_args);
+        context.alloc_node(AstKind::Arithmetic, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end)
+    },
+    //<start:@L> "total-time" <end:@R> => {
+    //    Context.alloc_node(AstKind::TotalTime, AstContent::None, Vec::new(), start, end)
+    //}
+    <start:@L> "(" "is-violated" <pref:PrefName> ")" <end:@R> => {
+        context.alloc_node(AstKind::IsViolated, AstContent::None, vec![pref?], start, end)
+    }
+}
+
+pub MetricSpec: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":metric" <op:OptimizationOp> <fexp:MetricFExp> ")" <end:@R> => {
+        context.alloc_node(AstKind::Metric, op, vec![fexp?], start, end)
+    },
+}
+
+pub LengthSpec: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        "(" ":length"
+            <start_serial:@L> "(" ":serial" <serial_value:"number"?> ")" <end_serial:@R>
+            <start_parallel:@L> "(" ":parallel" <parallel_value:"number"?> ")" <end_parallel:@R>
+        ")"
+    <end:@R> => {
+        let mut children = Vec::new();
+        if let Some(serial_value) = serial_value {
+            let serial = context.alloc_node(AstKind::Serial, AstContent::Number(OrderedFloat(serial_value)), vec![], start_serial, end_serial);
+            children.push(serial?);
+        }
+        if let Some(parallel_value) = parallel_value {
+            let parallel = context.alloc_node(AstKind::Parallel, AstContent::Number(OrderedFloat(parallel_value)), vec![], start_parallel, end_parallel);
+            children.push(parallel?);
+        }
+        context.alloc_node(AstKind::Length, AstContent::None, children, start, end)
+    },
+}
+
+ProblemElement: Result<NodeId, ParseContextError> = {
+    <r:RequireDef> => r,
+    <o:ObjectsDef> => o,
+    <i:Init> => i,
+    <g:Goal> => g,
+    <c:ProblemConstraints> => c,
+    <m:MetricSpec> => m,
+    <l:LengthSpec> => l,
+}
+
+pub Problem: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        "(" "define" "(" "problem" <problem:ProblemName> ")"
+        "(" ":domain" <domain:DomainName> ")"
+        <elements:ProblemElement*>
+        ")"
+    <end:@R> => {
+        let problem_node = problem?;
+        let domain_node = domain?;
+
+        // 1. Slots for canonical ordering
+        // Standard PDDL order: requirements > objects > init > goal > constraints > metric > length
+        let mut req_node = None;
+        let mut obj_node = None;
+        let mut init_node = None;
+        let mut goal_node = None;
+        let mut constraint_node = None;
+        let mut metric_node = None;
+        let mut length_node = None;
+
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        for node_id in elements {
+            // Scope the tree borrow to extract kind and span
+            let node_info = {
+                let tree = context.borrow_syntax_tree();
+                tree.get_node(node_id).map(|n| (n.kind(), n.span().clone()))
+            };
+
+            if let Some((kind, span)) = node_info {
+                // Check for duplicate blocks while filling the slots
+                let duplicate = match kind {
+                    AstKind::RequireDef => { let d = req_node.is_some(); req_node = Some(node_id); d },
+                    AstKind::ObjectsDef => { let d = obj_node.is_some(); obj_node = Some(node_id); d },
+                    AstKind::Init => { let d = init_node.is_some(); init_node = Some(node_id); d },
+                    AstKind::Goal => { let d = goal_node.is_some(); goal_node = Some(node_id); d },
+                    AstKind::Constraints => { let d = constraint_node.is_some(); constraint_node = Some(node_id); d },
+                    AstKind::Metric => { let d = metric_node.is_some(); metric_node = Some(node_id); d },
+                    AstKind::Length => {
+                        // Flag the deprecated ':length' feature but continue parsing
+                        context.push_custom_error(CustomParseError::deprecated_feature(
+                            AstKind::Length,
+                            span.start(),
+                            span.end()
+                        ));
+                        let d = length_node.is_some();
+                        length_node = Some(node_id);
+                        d
+                    },
+                    _ => false,
+                };
+
+                if duplicate {
+                    context.push_custom_error(CustomParseError::duplicate_definition_block(
+                        kind, span.start(), span.end()
+                    ));
+                }
+            }
+        }
+
+        // 2. --- MANDATORY SECTIONS VALIDATION (PDDL) ---
+        // A valid PDDL problem must define both an initial state and a goal condition.
+        if init_node.is_none() {
+            context.push_custom_error(CustomParseError::missing_mandatory_block(
+                Language::PDDL, AstKind::Init, start, end
+            ));
+        }
+        if goal_node.is_none() {
+            context.push_custom_error(CustomParseError::missing_mandatory_block(
+                Language::PDDL, AstKind::Goal, start, end
+            ));
+        }
+
+        // 3. Final construction in CANONICAL order
+        let mut children = Vec::new();
+        children.push(problem_node);
+        children.push(domain_node);
+
+        if let Some(node) = req_node { children.push(node); }
+        if let Some(node) = obj_node { children.push(node); }
+        if let Some(node) = init_node { children.push(node); }
+        if let Some(node) = goal_node { children.push(node); }
+        if let Some(node) = constraint_node { children.push(node); }
+        if let Some(node) = metric_node { children.push(node); }
+        if let Some(node) = length_node { children.push(node); }
+
+        context.alloc_node(AstKind::Problem, AstContent::None, children, start, end)
+    },
+}
+
+pub PDDL: Result<NodeId, ParseContextError> = {
+    <domain:Domain> => domain,
+    <problem:Problem> => problem,
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+// HDDL Dialect
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+pub TaskSymbol: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => {
+        match name {
+            Ok(name) => context.alloc_node(AstKind::TaskSymbol, name, Vec::new(), start, end),
+            Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+        }
+    },
+}
+
+pub TaskDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":task" <symbol:TaskSymbol> <parameters:ParameterDef> ")" <end:@R> => {
+        context.alloc_node(AstKind::TaskDef, AstContent::None, vec![symbol?, parameters?], start, end)
+    },
+}
+
+pub MethodSymbol: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => {
+        match name {
+            Ok(name) => context.alloc_node(AstKind::MethodSymbol, name, Vec::new(), start, end),
+            Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+        }
+    },
+}
+
+pub TaskID: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:Name> <end:@R> => match name {
+        Ok(name) => context.alloc_node(AstKind::TaskLabel, name, Vec::new(), start, end),
+        Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
+    }
+}
+
+pub TaskTerm: Result<NodeId, ParseContextError> = {
+    <start:@L> <name:"id"> <end:@R> => {
+        if !name.starts_with("?") {
+            context.alloc_node(AstKind::Object, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end)
+        } else {
+            context.alloc_node(AstKind::Variable, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end)
+        }
+    }
+}
+
+pub Task: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" <symbol:TaskSymbol> <terms:TaskTerm*> ")" <end:@R> => {
+        let terms = terms.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let mut children = Vec::new();
+        children.push(symbol?);
+        children.extend(terms);
+        context.alloc_node(AstKind::Task, AstContent::None, children, start, end)
+    }
+}
+
+pub Subtask: Result<NodeId, ParseContextError> = {
+    "(" <start_name:@L> <name:Name> <end_name:@R> <rest:SubtaskRest> <end_rest:@R> => {
+        let rest = rest?;
+        match name {
+            Ok(name_value) => {
+                match rest.first().map(|node| context.borrow_syntax_tree().get_node(*node).unwrap().kind()) {
+                    Some(AstKind::TaskSymbol) => {
+                        let task_id = context.alloc_node(AstKind::TaskLabel, name_value, Vec::new(), start_name, end_name);
+                        let task = context.alloc_node(AstKind::Task, AstContent::None, rest, end_name, end_rest);
+                        context.alloc_node(AstKind::LabeledTask, AstContent::None, vec![task_id?, task?], start_name, end_rest)
+                    },
+                    Some(AstKind::Object) | Some(AstKind::Variable) => {
+                        let task_symbol = context.alloc_node(AstKind::TaskSymbol, name_value, Vec::new(), start_name, end_name);
+                        let mut children = Vec::with_capacity(1 + rest.len());
+                        children.push(task_symbol?);
+                        children.extend(rest);
+                        context.alloc_node(AstKind::Task, AstContent::None, children, start_name, end_rest)
+                    },
+                    None => {
+                        let task_symbol = context.alloc_node(AstKind::TaskSymbol, name_value, Vec::new(), start_name, end_name);
+                        context.alloc_node(AstKind::Task, AstContent::None, vec![task_symbol?], start_name, end_rest)
+                    },
+                    _ => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start_name, end_name)
+                }
+            },
+            Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start_name, end_rest)
+        }
+    }
+}
+
+SubtaskRest: Result<Vec<NodeId>, ParseContextError> = {
+    <start:@L> "(" <task_symbol:TaskSymbol> <terms:TaskTerm*> ")" ")" <end:@R> => {
+        let terms = terms.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let mut children = Vec::new();
+        children.push(task_symbol?);
+        children.extend(terms);
+        Ok(children)
+    },
+    <start:@L> <terms:TaskTerm*> ")" <end:@R> => {
+        let terms = terms.into_iter().collect::<Result<Vec<_>, _>>()?;
+        Ok(terms)
+    }
+}
+pub SubtaskDef: Result<NodeId, ParseContextError> = {
+    <start:@L> <subtask:Subtask> <end:@R> => {
+        context.alloc_node(AstKind::And, AstContent::None, vec![subtask?], start, end)
+    },
+    <start:@L> "(" ")" <end:@R> => {
+        context.alloc_node(AstKind::And, AstContent::None, vec![], start, end)
+    },
+    <start:@L> "(" "and" <subtasks:Subtask*> ")" <end:@R> => {
+        let subtasks = subtasks.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, subtasks, start, end)
+    }
+}
+
+pub TaskNetworkSubtaskDef: Result<NodeId, ParseContextError> = {
+    <start:@L> ":ordered-tasks" <subtasks:SubtaskDef> <end:@R> => {
+        context.alloc_node(AstKind::OrderedSubtaskDef, AstContent::None, vec![subtasks?], start, end)
+    },
+    <start:@L> ":ordered-subtasks" <subtasks:SubtaskDef> <end:@R> => {
+        context.alloc_node(AstKind::OrderedSubtaskDef, AstContent::None, vec![subtasks?], start, end)
+    },
+    <start:@L> ":tasks" <subtasks:SubtaskDef> <end:@R> => {
+        context.alloc_node(AstKind::PartiallyOrderedSubtaskDef, AstContent::None, vec![subtasks?], start, end)
+    },
+    <start:@L> ":subtasks" <subtasks:SubtaskDef> <end:@R> => {
+        context.alloc_node(AstKind::PartiallyOrderedSubtaskDef, AstContent::None, vec![subtasks?], start, end)
+    }
+}
+
+pub SimpleTaskOrderingConstraint: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "<" <t1:TaskID> <t2:TaskID> ")" <end:@R> => {
+        context.alloc_node(AstKind::TaskOrderingConstraint, AstContent::CompareOp(CompareOp::Less), vec![t1?, t2?], start, end)
+    }
+}
+
+pub TaskOrderingConstraint: Result<NodeId, ParseContextError> = {
+    <start:@L> <constraint:SimpleTaskOrderingConstraint> <end:@R> => {
+        context.alloc_node(AstKind::And, AstContent::None, vec![constraint?], start, end)
+    },
+    <start:@L> "(" ")" <end:@R> => {
+        context.alloc_node(AstKind::And, AstContent::None, Vec::new(), start, end)
+    },
+    <start:@L> "(" "and" <constraints:SimpleTaskOrderingConstraint*> ")" <end:@R> => {
+        let constraints = constraints.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, constraints, start, end)
+    },
+}
+
+pub TaskNetworkOrderingConstraintDef: Result<NodeId, ParseContextError> = {
+    <start:@L> ":ordering" <constraints:TaskOrderingConstraint> <end:@R> => {
+        context.alloc_node(AstKind::TaskOrderingConstraintDef, AstContent::None, vec![constraints?], start, end)
+    },
+    <start:@L> ":order" <constraints:TaskOrderingConstraint> <end:@R> => {
+        context.alloc_node(AstKind::TaskOrderingConstraintDef, AstContent::None, vec![constraints?], start, end)
+    },
+}
+
+pub SimpleTaskLogicalConstraint: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" "=" <t1:Term> <t2:Term> ")" <end:@R> => {
+        context.alloc_node(AstKind::Comparison, AstContent::CompareOp(CompareOp::Equal), vec![t1?, t2?], start, end)
+    },
+    <start:@L> "(" "not" <constraint:SimpleTaskLogicalConstraint> ")" <end:@R> => {
+        context.alloc_node(AstKind::Not, AstContent::None, vec![constraint?], start, end)
+    },
+}
+
+pub TaskLogicalConstraint: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ")" <end:@R> => {
+        context.alloc_node(AstKind::And, AstContent::None, Vec::new(), start, end)
+    },
+    <start:@L> <constraint:SimpleTaskLogicalConstraint> <end:@R> => {
+        context.alloc_node(AstKind::And, AstContent::None, vec![constraint?], start, end)
+    },
+    <start:@L> "(" "and" <constraints:SimpleTaskLogicalConstraint*> ")" <end:@R> => {
+        let constraints = constraints.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::And, AstContent::None, constraints, start, end)
+    },
+}
+
+pub TaskNetworkLogicalConstraintDef: Result<NodeId, ParseContextError> = {
+    <start:@L> ":constraints" <constraint:TaskLogicalConstraint> <end:@R> => {
+        context.alloc_node(AstKind::TaskLogicalConstraintDef, AstContent::None, vec![constraint?], start, end)
+    },
+}
+
+pub TaskNetworkDef: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        <subtasks:TaskNetworkSubtaskDef?>
+        <ordering_constraints:TaskNetworkOrderingConstraintDef?>
+        <logical_constraints:TaskNetworkLogicalConstraintDef?>
+    <end:@R> => {
+        let mut children = Vec::new();
+        if let Some(subtasks) = subtasks {
+            children.push(subtasks?);
+        }
+        if let Some(ordering_constraints) = ordering_constraints {
+            children.push(ordering_constraints?);
+        }
+        if let Some(logical_constraints) = logical_constraints {
+            children.push(logical_constraints?);
+        }
+        context.alloc_node(AstKind::TaskNetworkDef, AstContent::None, children, start, end)
+    },
+}
+
+pub MethodPreconditionDef: Result<NodeId, ParseContextError> = {
+    <start:@L> ":precondition" <gd:EmptyOr<GD>> <end:@R> => {
+        context.alloc_node(AstKind::MethodPreconditionDef, AstContent::None, vec![gd?], start, end)
+    },
+}
+
+pub MethodDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":method" <name:MethodSymbol> <parameters:ParameterDef> <body:MethodDefBody> ")" <end:@R> => {
+        context.alloc_node(AstKind::MethodDef, AstContent::None, vec![name?, parameters?, body?], start, end)
+    },
+}
+
+pub MethodDefBody: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        ":task" <task:Task>
+        <precondition:MethodPreconditionDef?>
+        <task_network:TaskNetworkDef>
+    <end:@R> => {
+        let mut children = vec![task?];
+        if let Some(precondition) = precondition {
+            children.push(precondition?);
+        }
+        children.push(task_network?);
+        context.alloc_node(AstKind::MethodDefBody, AstContent::None, children, start, end)
+    },
+}
+
+pub InitialTaskNetwork: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":htn" <parameters:ParameterDef?> <task_network:TaskNetworkDef> ")" <end:@R> => {
+        let mut children = Vec::new();
+        if let Some(parameters) = parameters {
+            children.push(parameters?);
+        }
+        children.push(task_network?);
+        context.alloc_node(AstKind::InitialTaskNetwork, AstContent::None, children, start, end)
+    },
+}
+
+pub HDDLRequirement: Result<NodeId, ParseContextError> = {
+    <requirement:Requirement> => requirement,
+    <start:@L> ":hierarchy" <end:@R> => {
+        context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Hierarchy), Vec::new(), start, end)
+    },
+    <start:@L> ":method-preconditions" <end:@R> => {
+        context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::MethodPreconditions), Vec::new(), start, end)
+    },
+}
+
+pub HDDLRequireDef: Result<NodeId, ParseContextError> = {
+    <start:@L> "(" ":requirements" <requirements:HDDLRequirement*> ")" <end:@R> => {
+        let requirements = requirements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        context.alloc_node(AstKind::RequireDef, AstContent::None, requirements, start, end)
+    },
+}
+
+HDDLDomainElement: Result<NodeId, ParseContextError> = {
+    <r:HDDLRequireDef> => r,
+    <t:TypesDef> => t,
+    <c:ConstantsDef> => c,
+    <p:PredicatesDef> => p,
+    <f:FunctionsDef> => f,
+    <task:TaskDef> => task,
+    <action:ActionDef> => action,
+    <method:MethodDef> => method,
+    <durative:DurativeActionDef> => durative,
+    <derived:DerivedDef> => derived,
+};
+
+pub HDDLDomain: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        "(" "define" "(" "domain" <name:DomainName> ")"
+            <elements:HDDLDomainElement*>
+        ")"
+    <end:@R> => {
+        let name_node = name?;
+
+        // 1. Slots for canonical ordering
+        // Standard PDDL/HDDL order: requirements > types > constants > predicates > functions.
+        // All other elements (actions, methods, tasks) are stored in 'structures'.
+        let mut req_node = None;
+        let mut types_node = None;
+        let mut const_node = None;
+        let mut pred_node = None;
+        let mut func_node = None;
+        let mut structures = Vec::new();
+
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        for node_id in elements {
+            let node_info = {
+                let tree = context.borrow_syntax_tree();
+                tree.get_node(node_id).map(|n| (n.kind(), n.span().clone()))
+            };
+
+            if let Some((kind, span)) = node_info {
+                // Check for duplicate definition blocks
+                let duplicate = match kind {
+                    AstKind::RequireDef => { let d = req_node.is_some(); req_node = Some(node_id); d },
+                    AstKind::TypesDef => { let d = types_node.is_some(); types_node = Some(node_id); d },
+                    AstKind::ConstantsDef => { let d = const_node.is_some(); const_node = Some(node_id); d },
+                    AstKind::PredicatesDef => { let d = pred_node.is_some(); pred_node = Some(node_id); d },
+                    AstKind::FunctionsDef => { let d = func_node.is_some(); func_node = Some(node_id); d },
+                    // Non-singleton blocks (actions, tasks, methods) are collected separately
+                    _ => {
+                        structures.push(node_id);
+                        false
+                    },
+                };
+
+                if duplicate {
+                    context.push_custom_error(CustomParseError::duplicate_definition_block(
+                        kind, span.start(), span.end()
+                    ));
+                }
+            }
+        }
+
+        // 2. Construction in CANONICAL order
+        // We re-assemble the children vector to ensure a predictable structure
+        // for the semantic analyzer and type checker.
+        let mut children = Vec::new();
+        children.push(name_node);
+
+        if let Some(node) = req_node { children.push(node); }
+        if let Some(node) = types_node { children.push(node); }
+        if let Some(node) = const_node { children.push(node); }
+        if let Some(node) = pred_node { children.push(node); }
+        if let Some(node) = func_node { children.push(node); }
+
+        // Append all structural definitions (Actions, Tasks, Methods, etc.) at the end
+        children.extend(structures);
+
+        context.alloc_node(AstKind::Domain, AstContent::None, children, start, end)
+    },
+};
+
+HDDLProblemElement: Result<NodeId, ParseContextError> = {
+    <r:HDDLRequireDef> => r,
+    <o:ObjectsDef> => o,
+    <t:InitialTaskNetwork> => t,
+    <i:Init> => i,
+    <g:Goal> => g,
+}
+
+pub HDDLProblem: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        "(" "define" "(" "problem" <p_name:ProblemName> ")"
+        "(" ":domain" <d_name:DomainName> ")"
+        <elements:HDDLProblemElement*>
+        ")"
+    <end:@R> => {
+        let p_name_node = p_name?;
+        let d_name_node = d_name?;
+
+        // 1. Slots for canonical ordering
+        // We use Options to store nodes; this allows us to detect duplicates
+        // while ensuring the final AST follows the standard PDDL/HDDL sequence.
+        let mut req_node = None;
+        let mut obj_node = None;
+        let mut htn_node = None;
+        let mut init_node = None;
+        let mut goal_node = None;
+
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        for node_id in elements {
+            let node_info = {
+                let tree = context.borrow_syntax_tree();
+                tree.get_node(node_id).map(|n| (n.kind(), n.span().clone()))
+            };
+
+            if let Some((kind, span)) = node_info {
+                // Check if the block has already been defined
+                let duplicate = match kind {
+                    AstKind::RequireDef => { let d = req_node.is_some(); req_node = Some(node_id); d },
+                    AstKind::ObjectsDef => { let d = obj_node.is_some(); obj_node = Some(node_id); d },
+                    AstKind::InitialTaskNetwork => { let d = htn_node.is_some(); htn_node = Some(node_id); d },
+                    AstKind::Init => { let d = init_node.is_some(); init_node = Some(node_id); d },
+                    AstKind::Goal => { let d = goal_node.is_some(); goal_node = Some(node_id); d },
+                    _ => false,
+                };
+
+                if duplicate {
+                    context.push_custom_error(CustomParseError::duplicate_definition_block(
+                        kind, span.start(), span.end()
+                    ));
+                }
+            }
+        }
+
+        // 2. --- MANDATORY SECTIONS VALIDATION (HDDL) ---
+        // A valid HDDL problem must define both an initial state (:init)
+        // and an initial task network (:htn).
+        if htn_node.is_none() {
+            context.push_custom_error(CustomParseError::missing_mandatory_block(
+                Language::HDDL, AstKind::InitialTaskNetwork, start, end
+            ));
+        }
+        if init_node.is_none() {
+            context.push_custom_error(CustomParseError::missing_mandatory_block(
+                Language::HDDL, AstKind::Init, start, end
+            ));
+        }
+
+        // 3. Final construction in CANONICAL order
+        // This ensures the AST is predictable for semantic analysis,
+        // regardless of the order in the source file.
+        let mut children = Vec::new();
+        children.push(p_name_node);
+        children.push(d_name_node);
+
+        if let Some(node) = req_node { children.push(node); }
+        if let Some(node) = obj_node { children.push(node); }
+        if let Some(node) = init_node { children.push(node); }
+        if let Some(node) = htn_node { children.push(node); }
+        if let Some(node) = goal_node { children.push(node); }
+
+        context.alloc_node(AstKind::Problem, AstContent::None, children, start, end)
+    },
+}
+
+pub HDDL: Result<NodeId, ParseContextError> = {
+    <domain:HDDLDomain> => domain,
+    <problem:HDDLProblem> => problem,
+}

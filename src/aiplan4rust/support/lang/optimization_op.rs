@@ -16,10 +16,10 @@
 //!
 //! This type_checker is typically used in goal representations, metric definitions, or solver configurations.
 
+use crate::aiplan4rust::compiler::syntax::lexer::token::MAXIMIZE;
+use crate::aiplan4rust::compiler::syntax::lexer::token::MINIMIZE;
+use crate::aiplan4rust::compiler::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
-use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
-use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::Deserialize;
 use serde::Serialize;

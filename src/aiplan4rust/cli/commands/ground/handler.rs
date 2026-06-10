@@ -11,7 +11,7 @@ use crate::aiplan4rust::cli::io::artefact::path::default_grounded_output_path;
 use crate::aiplan4rust::cli::io::artefact::source::Source;
 use crate::aiplan4rust::cli::io::artefact::{Artefact, IRContent};
 use crate::aiplan4rust::cli::io::serialization::serde::SerdeFormat;
-use crate::aiplan4rust::grounding::Problem;
+use crate::aiplan4rust::compiler::grounding::Problem;
 use crate::{Frontend, Renderer};
 use clap::ArgMatches;
 use colored::Colorize;
