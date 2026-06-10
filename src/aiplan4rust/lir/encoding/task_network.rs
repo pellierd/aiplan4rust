@@ -2,12 +2,12 @@
 //!
 //! Transforms syntax subtrees into a structured `TaskNetwork` using an explicit builder.
 
-use crate::aiplan4rust::lang::TaskSkeletonId;
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::{expr, EncodingError};
 use crate::aiplan4rust::lir::expr::iter::TreePreorderIter;
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId, ExprKind};
 use crate::aiplan4rust::lir::problem::TaskNetwork;
+use crate::aiplan4rust::support::lang::TaskSkeletonId;
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};

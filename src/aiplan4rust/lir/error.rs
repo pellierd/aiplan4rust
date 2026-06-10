@@ -1,14 +1,14 @@
-use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::lang::{
-    AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, PreferenceSymbolId, SymbolId,
-    TaskSkeletonId, Type, TypeId,
-};
 use crate::aiplan4rust::lir::encoding::EncodingError;
 use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
 use crate::aiplan4rust::lir::normalization::NormalizationError;
 use crate::aiplan4rust::lir::problem::registry::IndexTableError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::aiplan4rust::support::interner::InternerError;
+use crate::aiplan4rust::support::lang::{
+    AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, PreferenceSymbolId, SymbolId,
+    TaskSkeletonId, Type, TypeId,
+};
 use crate::aiplan4rust::syntax::ast::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::tree::NodeId;

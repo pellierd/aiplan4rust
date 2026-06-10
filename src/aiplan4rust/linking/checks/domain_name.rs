@@ -19,9 +19,9 @@
 //! Functions return linking-related errors (e.g., `LinkingError`) if essential declarations are missing
 //! or internal inconsistencies are detected.
 
-use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::linking::checks::error::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::support::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::SymbolTable;
 
 /// Checks for consistency between the domain name declared in the domain context

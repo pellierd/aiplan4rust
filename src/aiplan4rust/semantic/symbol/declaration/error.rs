@@ -1,5 +1,5 @@
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::support::lang::SymbolId;
 
 use thiserror::Error;
 

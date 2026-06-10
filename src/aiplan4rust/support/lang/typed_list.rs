@@ -1,5 +1,5 @@
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{Id, RemapSymbol, SymbolId, TypedSymbol};
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{Id, RemapSymbol, SymbolId, TypedSymbol};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -205,7 +205,7 @@ where
     /// list.retain(|ts| ts.symbol() != target_id);
     /// ```
     #[inline]
-    pub fn retain<F>(&mut self, mut f: F)
+    pub fn retain<F>(&mut self, f: F)
     where
         // SmallVec attend &mut TypedSymbol, on ajuste donc la borne du trait
         F: FnMut(&mut TypedSymbol<SID, TID>) -> bool,

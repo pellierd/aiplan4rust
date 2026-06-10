@@ -6,7 +6,7 @@
 //!
 //! # Architecture
 //!
-//! The module is organized around two core traits:
+//! The module is organized around two support traits:
 //! * [`LiftedSyntaxDisplay`]: Focused on generating valid PDDL/HDDL source code.
 //! * [`LiftedDebugDisplay`]: Focused on structural diagnostics and interning verification.
 //!
@@ -28,7 +28,7 @@ use std::fmt::{self, Write};
 /// This trait should be implemented by any LIR element that needs to be
 /// exported to a planner or displayed as valid domain code.
 pub trait LiftedSyntaxDisplay {
-    /// The core formatting logic for PDDL/HDDL generation.
+    /// The support formatting logic for PDDL/HDDL generation.
     ///
     /// ### Parameters
     /// - `f`: The standard format writer.
@@ -65,7 +65,7 @@ pub trait LiftedSyntaxDisplay {
     ///
     /// ### Returns
     /// - A private wrapper implementing [`fmt::Display`].
-    fn as_syntax<'a>(&'a self, ctx: &'a RenderContext<'a>) -> LiftedSyntaxDisplayWrapper<'a, Self>
+    fn as_syntax<'a>(&'a self, ctx: &'a RenderContext<'a>) -> impl fmt::Display + 'a
     where
         Self: Sized,
     {
@@ -90,7 +90,7 @@ pub trait LiftedSyntaxDisplay {
 /// Implementations of this trait provide a detailed view of the LIR, typically
 /// including resolved names alongside their raw internal IDs (e.g., `[p#42]`).
 pub trait LiftedDebugDisplay {
-    /// The core formatting logic for structural debugging.
+    /// The support formatting logic for structural debugging.
     ///
     /// ### Parameters
     /// - `f`: The standard format writer.
@@ -114,7 +114,7 @@ pub trait LiftedDebugDisplay {
     ///
     /// ### Parameters
     /// - `ctx`: The rendering context.
-    fn as_debug<'a>(&'a self, ctx: &'a RenderContext<'a>) -> LiftedDebugDisplayWrapper<'a, Self>
+    fn as_debug<'a>(&'a self, ctx: &'a RenderContext<'a>) -> impl fmt::Display + 'a
     where
         Self: Sized,
     {
@@ -152,16 +152,5 @@ struct LiftedDebugDisplayWrapper<'a, T: ?Sized> {
 impl<'a, T: LiftedDebugDisplay + ?Sized> fmt::Display for LiftedDebugDisplayWrapper<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.value.fmt_debug(f, self.ctx)
-    }
-}
-
-/// Private bridge for self-contained root elements.
-struct SelfSyntaxDisplayWrapper<'a, T: ?Sized> {
-    value: &'a T,
-}
-
-impl<'a, T: LiftedSyntaxDisplay + ?Sized> fmt::Display for SelfSyntaxDisplayWrapper<'a, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt_syntax_self(f)
     }
 }

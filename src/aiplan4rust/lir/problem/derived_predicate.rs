@@ -4,12 +4,12 @@
 //! A `DerivedPredicate` is a logical fact derived from other facts,
 //! consisting of a head (name and parameters) and a body (logical expression).
 
-use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, VariableId};
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 

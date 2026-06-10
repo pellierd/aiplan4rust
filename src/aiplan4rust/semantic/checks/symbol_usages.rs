@@ -1,10 +1,10 @@
-use crate::aiplan4rust::core::diagnostic::Diagnostic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::rules::is_pddl_builtin_symbol_id;
 use crate::aiplan4rust::semantic::signature_checker::MatchResult;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticError;
+use crate::aiplan4rust::support::diagnostic::Diagnostic;
 use crate::{DiagnosticManager, SymbolTable};
 
 /// Checks for undeclared symbols within the syntax tree and reports missing declarations.

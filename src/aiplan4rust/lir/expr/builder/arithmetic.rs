@@ -39,9 +39,9 @@
 //! // Result: ExprId pointing to (+ 5.0 x)
 //! ```
 
-use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::ArithmeticOp;
 use ordered_float::OrderedFloat;
 
 impl<'a> ExprBuilder<'a> {
@@ -653,8 +653,8 @@ impl<'a> ExprBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::VariableId;
     use crate::aiplan4rust::lir::expr::ExprStore;
+    use crate::aiplan4rust::support::lang::VariableId;
 
     /// Test: (+ 2 3) -> 5
     /// Verifies basic constant folding for addition.

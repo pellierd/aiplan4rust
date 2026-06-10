@@ -1,6 +1,6 @@
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::lir::expr::error::StorerError;
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use thiserror::Error;
 

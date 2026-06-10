@@ -5,7 +5,7 @@
 //!
 //! ## Overview
 //! Since [`TypedSymbol`] is a generic container used throughout the lifted representation,
-//! these functions handle the extraction of mutable type references and delegate the core
+//! these functions handle the extraction of mutable type references and delegate the support
 //! atomic resolution logic to the [`ty`] module.
 //!
 //! By ensuring that every [`TypedSymbol`] (whether it's an action parameter or a constant)
@@ -15,10 +15,10 @@
 //! The transformation of composite types (e.g., `either`) into unified atomic identifiers
 //! is consistent across the problem thanks to the shared [`TypeRegistry`].
 
-use crate::aiplan4rust::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::lir::normalization::typing::ty;
 use crate::aiplan4rust::lir::normalization::typing::TypeRegistry;
+use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
 
 /// Normalizes the type of a constant object in-place.
 ///

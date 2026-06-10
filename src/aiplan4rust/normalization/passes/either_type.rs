@@ -56,10 +56,10 @@
 //!
 //! See individual function docs for detailed behavior and examples.
 
-use crate::aiplan4rust::core::diagnostic::Diagnostic;
-use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::core::diagnostic::Provider;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::support::diagnostic::Diagnostic;
+use crate::aiplan4rust::support::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::support::diagnostic::Provider;
 use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstNode};

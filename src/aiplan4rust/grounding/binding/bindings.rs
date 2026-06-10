@@ -1,5 +1,5 @@
+use crate::aiplan4rust::support::lang::{ObjectId, VariableId};
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{VariableId, ObjectId};
 
 #[derive(Debug, Clone, Default)]
 pub struct Bindings {
@@ -11,7 +11,9 @@ impl Bindings {
         Self::default()
     }
     pub fn with_capacity(capacity: usize) -> Self {
-        Self { mapping: HashMap::with_capacity(capacity) }
+        Self {
+            mapping: HashMap::with_capacity(capacity),
+        }
     }
 
     pub fn insert(&mut self, var: VariableId, obj: ObjectId) {

@@ -1,6 +1,6 @@
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::ids::Id;
-use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::ids::Id;
+use crate::aiplan4rust::support::lang::SymbolId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;

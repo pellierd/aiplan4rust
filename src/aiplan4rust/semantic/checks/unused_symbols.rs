@@ -1,9 +1,9 @@
-use crate::aiplan4rust::core::diagnostic::Diagnostic;
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::Requirement::{DurativeActions, NumericFluents};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
 use crate::aiplan4rust::semantic::SemanticError;
+use crate::aiplan4rust::support::diagnostic::Diagnostic;
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::Requirement::{DurativeActions, NumericFluents};
 use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::{DiagnosticManager, SymbolTable};

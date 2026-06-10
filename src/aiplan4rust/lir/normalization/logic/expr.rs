@@ -34,8 +34,8 @@ pub fn normalize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::{ArithmeticOp, AtomSkeletonId, PredicateSymbolId};
     use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
+    use crate::aiplan4rust::support::lang::{ArithmeticOp, AtomSkeletonId, PredicateSymbolId};
 
     /// Complex test for AND-flattening and structural deduplication.
     ///
@@ -646,7 +646,7 @@ mod tests {
             let child = store.fetch(child_id)?;
             match child.kind() {
                 ExprKind::And => has_and = true,
-                ExprKind::AtomicFormula(_CustomSkelID) => has_atom = true,
+                ExprKind::AtomicFormula(_) => has_atom = true,
                 // Au cas où ta NNF ne pousse pas De Morgan et garde le NOT en surface :
                 ExprKind::Not => has_and = true,
                 _ => {}
@@ -945,7 +945,7 @@ mod tests {
             let child = store.fetch(child_id)?;
             match child.kind() {
                 ExprKind::Not => has_not = true,
-                ExprKind::AtomicFormula(_CustomSkelID) => has_atom = true,
+                ExprKind::AtomicFormula(_) => has_atom = true,
                 _ => {}
             }
         }

@@ -55,7 +55,7 @@
 //! assert_eq!(value.to_syntax_string(), "SimpleType(example)");
 //! ```
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::support::interner::SymbolInterner;
 use std::fmt;
 use std::fmt::{Formatter, Write};
 

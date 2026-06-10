@@ -21,9 +21,9 @@
 //! Create a `Renderer` with references to a `DiagnosticManager` and `StringInterner`,
 //! then invoke its methods to write formatted diagnostics to your desired output.
 
-use crate::aiplan4rust::core::diagnostic::renderer::{formatting, message, suggestion};
-use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticError, DiagnosticManager};
-use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::support::diagnostic::renderer::{formatting, message, suggestion};
+use crate::aiplan4rust::support::diagnostic::{Diagnostic, DiagnosticError, DiagnosticManager};
+use crate::aiplan4rust::support::interner::SymbolInterner;
 
 use crate::Severity;
 use std::io::{self, Write};

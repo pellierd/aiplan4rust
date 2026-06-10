@@ -1,6 +1,6 @@
-use std::fmt;
+use crate::aiplan4rust::support::lang::ids::{FunctionSymbolId, ObjectId, TypeId};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ObjectId, TypeId};
+use std::fmt;
 
 /// Représente un numeric-fluent (fonction numérique)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -16,7 +16,11 @@ pub struct NumericFluent {
 impl NumericFluent {
     /// Constructeur
     pub fn new(symbol: FunctionSymbolId, parameters: Vec<ObjectId>, ty: TypeId) -> Self {
-        Self { symbol, arguments: parameters, ty }
+        Self {
+            symbol,
+            arguments: parameters,
+            ty,
+        }
     }
 
     /// Accès au symbole (FunctionID)
@@ -48,7 +52,6 @@ impl NumericFluent {
     pub fn set_ty(&mut self, ty: TypeId) {
         self.ty = ty;
     }
-
 }
 
 impl fmt::Display for NumericFluent {
@@ -57,7 +60,9 @@ impl fmt::Display for NumericFluent {
         write!(f, "{}(", self.symbol)?;
         let mut first = true;
         for arg in &self.arguments {
-            if !first { write!(f, ", ")?; }
+            if !first {
+                write!(f, ", ")?;
+            }
             write!(f, "{}", arg)?;
             first = false;
         }

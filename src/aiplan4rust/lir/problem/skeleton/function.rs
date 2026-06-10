@@ -18,11 +18,11 @@
 //! );
 //! ```
 
-use crate::aiplan4rust::lang::{FunctionSymbolId, Type, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::support::lang::{FunctionSymbolId, Type, TypeId, TypedList, VariableId};
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use std::fmt;

@@ -5,12 +5,12 @@
 //! lower-level components (AST, Syntax Tree, Symbol Table) while introducing
 //! specific variants for logical inconsistencies in the planning domain.
 
-use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
+use crate::aiplan4rust::support::interner::InternerError;
+use crate::aiplan4rust::support::lang::SymbolId;
 use crate::aiplan4rust::syntax::ast::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::tree::NodeId;

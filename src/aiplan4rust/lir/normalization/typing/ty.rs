@@ -1,6 +1,6 @@
 //! # Type In-Place Normalization
 //!
-//! This module implements the core logic for simplifying the Lifted IR (LIR) type system.
+//! This module implements the support logic for simplifying the Lifted IR (LIR) type system.
 //! It ensures that every type in the problem is reduced to a single, atomic identifier.
 //!
 //! ## Core Logic
@@ -14,10 +14,10 @@
 //! This ensures that downstream components, like the Grounder, can operate on a uniform
 //! space of atomic [`TypeId`]s without handling logical unions or missing types.
 
-use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::lir::normalization::typing::problem::ROOT_TYPE_ID;
 use crate::aiplan4rust::lir::normalization::typing::TypeRegistry;
+use crate::aiplan4rust::support::lang::{Type, TypeId};
 
 /// Normalizes a type definition in-place.
 ///

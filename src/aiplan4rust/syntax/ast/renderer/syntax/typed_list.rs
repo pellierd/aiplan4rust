@@ -15,7 +15,7 @@
 //! - `multiline`: if true, output will include indentation and newlines for readability
 //! - `indent`: current indentation level (number of indent steps)
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::{renderer, AstNode};

@@ -12,15 +12,16 @@
 //! They provide useful diagnostics for debugging and error handling across
 //! semantic analysis, symbol resolution, and linking.
 
+use crate::aiplan4rust::support::lang::{LiteralId, SymbolId};
 use thiserror::Error;
-use crate::aiplan4rust::lang::{LiteralId, SymbolId};
 
 /// Represents errors that can occur when working with a [`StringInterner`].
 #[derive(Error, Debug)]
 pub enum InternerError {
-
     /// The requested identifier index is out of bounds of the interner's string pool.
-    #[error("Invalid identifier index {ident_index}: out of bounds for interner size {interner_size}")]
+    #[error(
+        "Invalid identifier index {ident_index}: out of bounds for interner size {interner_size}"
+    )]
     InvalidIdent {
         /// The invalid identifier index requested.
         ident_index: usize,
@@ -61,12 +62,18 @@ pub enum InternerError {
 impl InternerError {
     /// Creates a new [`InvalidIdent`] error.
     pub fn invalid_ident(ident_index: usize, interner_size: usize) -> Self {
-        Self::InvalidIdent { ident_index, interner_size }
+        Self::InvalidIdent {
+            ident_index,
+            interner_size,
+        }
     }
 
     /// Creates a new [`InvalidLiteral`] error.
     pub fn invalid_literal(literal_index: usize, interner_size: usize) -> Self {
-        Self::InvalidLiteral { literal_index, interner_size }
+        Self::InvalidLiteral {
+            literal_index,
+            interner_size,
+        }
     }
 
     /// Creates a new [`MissingLiteral`] error.

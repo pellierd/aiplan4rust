@@ -5,10 +5,10 @@
 //! It also stores source files to associate diagnostics with concrete source
 //! locations for better error reporting and user feedback.
 
-use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticKind, Severity};
-use crate::aiplan4rust::core::interner::InternerError;
+use crate::aiplan4rust::support::diagnostic::{Diagnostic, DiagnosticKind, Severity};
+use crate::aiplan4rust::support::interner::InternerError;
 
-use crate::aiplan4rust::lang::{LiteralId, SymbolId};
+use crate::aiplan4rust::support::lang::{LiteralId, SymbolId};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt;

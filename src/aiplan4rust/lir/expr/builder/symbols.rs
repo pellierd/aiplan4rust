@@ -8,9 +8,11 @@
 //! layer between the LIR (Low-level Intermediate Representation) and the user-facing
 //! API has zero runtime overhead.
 
-use crate::aiplan4rust::lang::{FunctionSymbolId, ObjectId, PredicateSymbolId, VariableId};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::{
+    FunctionSymbolId, ObjectId, PredicateSymbolId, VariableId,
+};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a constant leaf node representing a PDDL Object.

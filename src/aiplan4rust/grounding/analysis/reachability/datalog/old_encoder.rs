@@ -144,7 +144,7 @@ impl DatalogEncoder {
     /// Encodes a PDDL Type as a unary Datalog predicate and maintains a semantic mapping.
     /// Encodes a PDDL Type as a unary Datalog predicate using sequential allocation.
     ///
-    /// This function is a core component of the **ID Segmentation** strategy. Type IDs
+    /// This function is a support component of the **ID Segmentation** strategy. Type IDs
     /// are allocated contiguously, enabling O(1) conversion between Datalog
     /// `AtomSkeletonId` and PDDL `TypeId` through pointer-free arithmetic.
     ///
@@ -1002,7 +1002,7 @@ impl DatalogEncoder {
 
     /// Creates a new auxiliary atom and registers its skeleton locally.
     ///
-    /// This method is a core part of the **Skolemization** process during flattening.
+    /// This method is a support part of the **Skolemization** process during flattening.
     /// It generates a unique predicate ID for a sub-formula and maps the provided
     /// variables to their respective types based on the action's parameter list.
     ///

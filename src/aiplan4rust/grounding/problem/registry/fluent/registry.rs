@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{FluentId, NumericFluentId};
-use crate::aiplan4rust::grounding::problem::{Fluent, NumericFluent};
 use crate::aiplan4rust::grounding::problem::registry::fluent::error::FluentRegistryError;
+use crate::aiplan4rust::grounding::problem::{Fluent, NumericFluent};
+use crate::aiplan4rust::support::lang::ids::{FluentId, NumericFluentId};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FluentRegistry {
@@ -40,7 +40,8 @@ impl FluentRegistry {
         }
 
         let id = NumericFluentId::from(self.numeric_fluents.len());
-        self.numeric_fluents_lookup.insert(numeric_fluent.clone(), id);
+        self.numeric_fluents_lookup
+            .insert(numeric_fluent.clone(), id);
         self.numeric_fluents.push(numeric_fluent);
         id
     }
@@ -66,9 +67,13 @@ impl FluentRegistry {
     }
 
     /// Tente de résoudre un `NumericFluentID` ou retourne une erreur `FluentRegistryError`.
-    pub fn try_resolve_numeric_fluent(&self, id: NumericFluentId) -> Result<&NumericFluent, FluentRegistryError> {
-        self.resolve_numeric_fluent(id)
-            .ok_or_else(|| FluentRegistryError::invalid_numeric_fluent_id(id, self.numeric_fluents.len()))
+    pub fn try_resolve_numeric_fluent(
+        &self,
+        id: NumericFluentId,
+    ) -> Result<&NumericFluent, FluentRegistryError> {
+        self.resolve_numeric_fluent(id).ok_or_else(|| {
+            FluentRegistryError::invalid_numeric_fluent_id(id, self.numeric_fluents.len())
+        })
     }
 
     /// Consomme le registre pour ne retourner que les vecteurs de données.

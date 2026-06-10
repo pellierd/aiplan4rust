@@ -30,7 +30,7 @@
 //! }
 //! ```
 //!
-//! [`Arena`]: crate::aiplan4rust::core::arena::Arena
+//! [`Arena`]: crate::aiplan4rust::support::arena::Arena
 
 use thiserror::Error;
 
@@ -93,7 +93,6 @@ pub enum ArenaError {
 }
 
 impl ArenaError {
-
     /// Captures the current call site and backtrace for debugging purposes.
     #[track_caller]
     fn capture(self) -> Self {

@@ -1,8 +1,8 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::pnf::scratchpad::PnfScratchpad;
 use crate::aiplan4rust::grounding::passes::pnf::{action, derived_predicate, expr, method};
-use crate::aiplan4rust::lang::AtomSkeletonId;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
 /// Fully applies the Positive Normal Form (PNF) transformation across the entire planning problem.
 ///

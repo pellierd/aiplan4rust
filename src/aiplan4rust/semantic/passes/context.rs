@@ -1,6 +1,6 @@
-use crate::aiplan4rust::core::diagnostic::Provider;
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::LiteralId;
+use crate::aiplan4rust::support::diagnostic::Provider;
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::LiteralId;
 use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::AstNode;
 

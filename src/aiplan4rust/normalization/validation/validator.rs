@@ -36,6 +36,7 @@ use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::validation;
 use crate::aiplan4rust::syntax::validation::checks;
+use crate::aiplan4rust::syntax::validation::validator::verify_tree_integrity;
 
 /// Checks if the entire AST is well normalized starting from the root node.
 ///
@@ -74,6 +75,10 @@ pub fn is_well_normalized(ast: &Ast) -> bool {
 /// for the rest of the compilation pipeline.
 pub fn check_well_normalized(ast: &Ast) -> Result<(), WellNormalizedError> {
     let arena = ast.syntax_tree();
+
+    // 0. FIRST: Verify bidirectional parent-child pointer integrity in the arena
+    // We map the error to WellNormalizedError to keep types consistent.
+    verify_tree_integrity(arena)?;
 
     // 1. Basic structural integrity
     if !arena.is_tree() {

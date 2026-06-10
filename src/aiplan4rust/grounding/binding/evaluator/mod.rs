@@ -1,6 +1,6 @@
 //! Unified Expression Evaluation and Constant Simplification Module.
 //!
-//! This module provides the core traits and data structures necessary to inject domain knowledge
+//! This module provides the support traits and data structures necessary to inject domain knowledge
 //! and static analysis markers directly into the Logical Intermediate Representation (LIR) binding engine.
 //!
 //! By combining structural expression rewriting (`ExprBinder`) with static lookups via [`ExprEvaluator`],

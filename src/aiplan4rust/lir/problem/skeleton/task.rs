@@ -14,11 +14,11 @@
 //! let task = AtomicTaskSkeleton::new(Ident::new("move"), TypedList::empty());
 //! ```
 
-use crate::aiplan4rust::lang::{TaskSymbolId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::support::lang::{TaskSymbolId, TypeId, TypedList, VariableId};
 use core::fmt::{Debug, Formatter};
 use serde::{Deserialize, Serialize};
 use std::fmt;

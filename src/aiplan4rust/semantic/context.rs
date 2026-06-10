@@ -52,16 +52,16 @@
 //! semantic analysis.
 
 use crate::aiplan4rust::cli::io::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::core::interner::{InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, Requirement, SymbolId};
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
+use crate::aiplan4rust::support::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{LiteralId, RemapSymbol, Requirement, SymbolId};
 use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 
-use crate::aiplan4rust::core::diagnostic::Provider;
 use crate::aiplan4rust::linking::finalization::FinalizationContext;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;
+use crate::aiplan4rust::support::diagnostic::Provider;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -211,6 +211,7 @@ impl Context {
     /// # Errors
     /// - Returns `SemanticError::empty_syntax_tree()` if the tree is empty.
     /// - Returns `SemanticError::unexpected_syntax_tree_root()` if the root node is not a valid domain or problem.
+    #[cfg(debug_assertions)]
     fn check_invariant(tree: &Tree<AstNode>) -> Result<(), SemanticError> {
         // Check that the tree is not empty
         let root_node = match tree.root_node() {

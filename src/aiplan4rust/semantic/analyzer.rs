@@ -56,7 +56,6 @@
 //! Semantic errors are returned as variants of [`SemanticError`]. These may include unexpected AST node kinds,
 //! typing errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
-use crate::aiplan4rust::core::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
@@ -64,6 +63,7 @@ use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
+use crate::aiplan4rust::support::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use std::collections::{HashMap, HashSet};
 
@@ -343,7 +343,7 @@ impl Analyzer {
         // =========================================================================
         // Transfer ownership of the SyntaxTree and Interner to the SemanticContext.
         // We return a context even if can_continue was false to provide IDE feedback.
-        let mut context = SemanticContext::new(
+        let context = SemanticContext::new(
             ast.take_syntax_tree(),
             ast.source_id(),
             symbol_table,
@@ -411,7 +411,7 @@ impl Analyzer {
         // 3. SEMANTIC VALIDATIONS
         // =========================================================================
         // Initial structural checks on problem-level declarations.
-        let mut can_continue = semantic::checks::check_symbol_declarations(
+        semantic::checks::check_symbol_declarations(
             &check_ctx,
             &mut symbol_table,
             &mut self.diagnostic_manager,
@@ -428,7 +428,7 @@ impl Analyzer {
         ];
 
         // Check symbol usage, ignoring those defined externally in the Domain.
-        can_continue &= semantic::checks::check_symbol_usage(
+        semantic::checks::check_symbol_usage(
             &check_ctx,
             &symbol_table,
             external_symbols,
@@ -436,7 +436,7 @@ impl Analyzer {
         )?;
 
         // Detect objects that are declared but never referenced in Init or Goal.
-        can_continue &= semantic::checks::check_unused_symbols(
+        semantic::checks::check_unused_symbols(
             &check_ctx,
             &mut symbol_table,
             &[],
@@ -444,8 +444,7 @@ impl Analyzer {
         )?;
 
         // Perform specific task ordering validations (e.g., for HTN problems).
-        can_continue &=
-            semantic::checks::check_task_ordering(&check_ctx, &mut self.diagnostic_manager)?;
+        semantic::checks::check_task_ordering(&check_ctx, &mut self.diagnostic_manager)?;
 
         // =========================================================================
         // 4. FINAL PACKING
@@ -453,7 +452,7 @@ impl Analyzer {
         // Metadata containers, usually populated during the Domain-Problem linking.
 
         // Finalize by moving the AST and Interner into the SemanticContext.
-        let mut context = SemanticContext::new(
+        let context = SemanticContext::new(
             ast.take_syntax_tree(),
             ast.source_id(),
             symbol_table,

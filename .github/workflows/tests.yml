@@ -11,7 +11,7 @@ env:
   CARGO_INCREMENTAL: false
   # Aggressive RAM optimization: use LLD linker, disable debuginfo, and strip symbols
   RUSTFLAGS: "-C link-arg=-fuse-ld=lld -C debuginfo=0 -C strip=symbols"
-  # Single-core compilation to prevent RAM spikes during the build phase
+  # Single-support compilation to prevent RAM spikes during the build phase
   CARGO_BUILD_JOBS: 1
   RUST_LOG: info
   RUST_BACKTRACE: 1

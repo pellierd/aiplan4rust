@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lang::ObjectId;
+use crate::aiplan4rust::support::lang::ObjectId;
 use ordered_float::OrderedFloat;
 
 /// Represents a fully resolved constant value extracted during compile-time or static analysis.

@@ -9,11 +9,11 @@
 //! This avoids the "heap churn" associated with allocating temporary vectors for
 //! argument lists during the construction of complex terms.
 
-use crate::aiplan4rust::lang::{
-    AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId,
-};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::{
+    AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId,
+};
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs an `AtomicFormula` (Predicate with arguments) using a zero-alloc strategy.
@@ -140,11 +140,11 @@ impl<'a> ExprBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::{
-        AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId, VariableId,
-    };
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::{ExprKind, ExprStore};
+    use crate::aiplan4rust::support::lang::{
+        AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, PredicateSymbolId, VariableId,
+    };
 
     /// Objective: Verify that identical atomic formulas are deduplicated via Hash-Consing.
     /// Input: Calling builder.atomic_formula twice with identical predicate, arguments, and skeleton.

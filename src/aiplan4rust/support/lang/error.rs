@@ -21,7 +21,7 @@
 //!     Err(LangError::from(syntax_error))
 //! }
 //! ```
-use crate::aiplan4rust::lang::ObjectId;
+use crate::aiplan4rust::support::lang::ObjectId;
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use thiserror::Error;
 

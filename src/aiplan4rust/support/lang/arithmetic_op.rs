@@ -27,7 +27,7 @@
 //! and the syntax display system, allowing seamless formatting of PDDL numeric
 //! logic in user-friendly syntax.
 
-use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::ADD;
 use crate::aiplan4rust::syntax::lexer::token::DIV;
 use crate::aiplan4rust::syntax::lexer::token::MUL;

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lang::{ObjectId, VariableId};
+use crate::aiplan4rust::support::lang::{ObjectId, VariableId};
 use std::fmt;
 
 /// Represents a term within a Datalog atom.

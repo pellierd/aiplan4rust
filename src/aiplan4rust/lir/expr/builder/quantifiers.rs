@@ -1,6 +1,6 @@
-use crate::aiplan4rust::lang::{Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::expr::builder::{ExprBuilder, ExprBuilderError};
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::{Type, TypeId, TypedList, TypedSymbol, VariableId};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a universal quantifier (`forall`) expression.
@@ -241,8 +241,8 @@ impl<'a> ExprBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, VariableId};
     use crate::aiplan4rust::lir::expr::ExprStore;
+    use crate::aiplan4rust::support::lang::{AtomSkeletonId, PredicateSymbolId, VariableId};
 
     // This test ensures that nested quantifiers of the same type are merged into one
     // and that variables are sorted to maintain a unique structural identity.

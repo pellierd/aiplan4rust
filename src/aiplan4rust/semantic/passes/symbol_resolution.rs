@@ -43,8 +43,6 @@
 //! within the [`ParseContext`]. This approach prevents "Unused Variable" warnings
 //! while allowing the rest of the compiler to treat them as valid symbols.
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::passes::error::SemanticPassError;
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::rules::{find_shadowing_candidate, is_nominal_kind};
@@ -54,9 +52,10 @@ use crate::aiplan4rust::semantic::symbol::{
 };
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::SymbolId;
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ParseContext;
 
 /// Performs a two-phase symbol resolution on the provided table.
 ///
@@ -84,7 +83,7 @@ pub fn resolve_symbols(
 
     // Apply nominal resolutions immediately so they are available for Phase 2.
     if !nominal_res.is_empty() {
-        apply_resolutions(table, nominal_res);
+        apply_resolutions(table, nominal_res)?;
     }
 
     // CRITICAL: If nominal resolution failed to resolve everything it should
@@ -109,7 +108,7 @@ pub fn resolve_symbols(
 
     // Apply the final set of structural resolutions.
     if !signature_res.is_empty() {
-        apply_resolutions(table, signature_res);
+        apply_resolutions(table, signature_res)?;
     }
 
     // Returns true only if both phases were successful.
@@ -297,34 +296,6 @@ pub fn apply_resolutions(
     Ok(())
 }
 
-/// Searches for an existing domain-originated symbol within the given entry.
-///
-/// This function is a key part of the "Proxy Pattern" used during the fusion
-/// of a Domain and a Problem. It ensures idempotency by preventing the
-/// creation of duplicate proxy declarations for the same external symbol.
-///
-/// # Arguments
-/// * `entry` - The specific symbol table entry to inspect.
-/// * `proxy_source` - The [`NodeId`] of the original declaration in the Domain's AST.
-///
-/// # Returns
-/// * `Some(NodeId)` - The ID of the existing proxy if a match is found.
-/// * `None` - If this domain symbol has not been imported into the local table yet.
-fn find_domain_proxy(entry: &SymbolEntry, proxy_source: NodeId) -> Option<NodeId> {
-    // Iterate through all existing declarations for this symbol name
-    for declaration in entry.declarations() {
-        // A duplicate is identified if:
-        // 1. The declaration's origin is the Domain (it's a Proxy).
-        // 2. The source NodeId matches the one we are trying to resolve.
-        if declaration.origin() == SymbolOrigin::Domain && declaration.source() == proxy_source {
-            return Some(declaration.source());
-        }
-    }
-
-    // No matching proxy found
-    None
-}
-
 /// Utility function for resolving symbols within the global Domain (external) context.
 ///
 /// If a matching declaration is found in the domain, it returns a `Resolution::Domain`
@@ -471,7 +442,7 @@ pub fn resolve_local_match(
 /// This enum acts as a temporary buffer during the "Collection Phase" of the
 /// resolve-apply pattern. It captures where a symbol was found and the semantic
 /// quality of the match.
-enum Resolution {
+pub(crate) enum Resolution {
     /// Found in the current [`SymbolTable`].
     /// Holds the [`NodeId`] of the target declaration and the [`MatchResult`].
     Local(NodeId, MatchResult),
@@ -488,6 +459,7 @@ enum Resolution {
 
 impl Resolution {
     /// Returns the semantic match status of this resolution.
+    #[allow(dead_code)]
     fn status(&self) -> &MatchResult {
         match self {
             Resolution::Local(_, s) | Resolution::Domain(_, s) | Resolution::Implicite(_, s) => s,

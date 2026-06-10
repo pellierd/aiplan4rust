@@ -1,10 +1,10 @@
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{
+use crate::aiplan4rust::lir::expr::ExprStore;
+use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolRegistry};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{
     ActionSymbolId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, SymbolId,
     TaskSymbolId, TypeId, VariableId,
 };
-use crate::aiplan4rust::lir::expr::ExprStore;
-use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolRegistry};
 
 pub struct RenderContext<'a> {
     interner: &'a SymbolInterner,

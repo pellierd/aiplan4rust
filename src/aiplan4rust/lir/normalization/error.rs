@@ -1,12 +1,12 @@
 use crate::aiplan4rust::error::Traceable;
 
-use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::ops::error::ExprOpError;
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::registry::IndexTableError;
 use crate::aiplan4rust::lir::problem::LiftedProblemError;
+use crate::aiplan4rust::support::interner::InternerError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

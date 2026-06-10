@@ -22,10 +22,10 @@
 //! - [`ExprBuilderError`]: For logical construction errors (e.g., arity mismatch).
 //! - [`StorerError`]: For low-level storage issues within the interned memory.
 
-use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind, ExprNode, ExprStore};
+use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
 
 /// The debug tolerance used for floating-point comparisons within the builder.
 ///
@@ -333,7 +333,7 @@ impl<'a> ExprBuilder<'a> {
 
     /// Restores the max-heap property for a sub-section of the provided buffer.
     ///
-    /// This is a core utility for heap-based operations (like heapsort or priority queue management).
+    /// This is a support utility for heap-based operations (like heapsort or priority queue management).
     /// It moves the element at the `root` index down the tree until it is no longer smaller
     /// than its children, ensuring the max-heap invariant is maintained.
     ///

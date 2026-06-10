@@ -9,7 +9,7 @@
 //! These traits allow rendering values into strings while resolving interned identifiers,
 //! with convenient methods to obtain a `String` directly or via `Result`.
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::support::interner::SymbolInterner;
 use std::fmt::{self, Write};
 
 /// A trait for displaying a value with the help of an external `StringInterner`.

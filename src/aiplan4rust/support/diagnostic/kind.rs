@@ -14,12 +14,12 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::aiplan4rust::core::diagnostic::{renderer, DiagnosticKind, Severity};
-use crate::aiplan4rust::core::interner::InternerError;
-use crate::aiplan4rust::lang::{RemapSymbol, Requirement};
-use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
+use crate::aiplan4rust::support::diagnostic::{renderer, DiagnosticKind, Severity};
+use crate::aiplan4rust::support::interner::InternerError;
+use crate::aiplan4rust::support::lang::{RemapSymbol, Requirement};
+use crate::aiplan4rust::support::lang::{SymbolId, Type};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 use crate::Language;

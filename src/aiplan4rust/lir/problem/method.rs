@@ -25,14 +25,14 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
-use crate::aiplan4rust::lang::typed_list::TypedList;
-use crate::aiplan4rust::lang::{MethodSymbolId, TaskLabelSymbolId, TypeId, VariableId};
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::problem::TaskNetwork;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::support::lang::typed_list::TypedList;
+use crate::aiplan4rust::support::lang::{MethodSymbolId, TaskLabelSymbolId, TypeId, VariableId};
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 

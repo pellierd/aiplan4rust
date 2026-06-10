@@ -29,9 +29,9 @@
 //! let constraint = builder.length(Some(50.0), None);
 //! ```
 
-use crate::aiplan4rust::lang::OptimizationOp;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::OptimizationOp;
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs a metric expression for plan optimization.

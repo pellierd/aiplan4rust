@@ -36,7 +36,6 @@
 //! let lifted_problem = encoder.encode(&linked_context)?;
 //! ```
 
-use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::encoding::encoding::encode_domain as new_encode_domain;
 use crate::aiplan4rust::lir::encoding::encoding::encode_problem as new_encode_problem;
@@ -44,6 +43,7 @@ use crate::aiplan4rust::lir::encoding::EncodingRegistry as NewEncodingRegistry;
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprStore};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::{normalization, LirError};
+use crate::aiplan4rust::support::diagnostic::DiagnosticManager;
 use crate::LirEncoderResult;
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
@@ -150,7 +150,7 @@ impl LirEncoder {
 }
 
 /// Encode a LiftedProblem from a LinkedSemanticContext.
-/// This is the core transformation that now integrates the ExprStore.
+/// This is the support transformation that now integrates the ExprStore.
 fn encode_lifted_problem(mut context: LinkedSemanticContext) -> Result<LiftedProblem, LirError> {
     // 1. Consommation de l'interner et des requirements
     let interner = context.take_interner();

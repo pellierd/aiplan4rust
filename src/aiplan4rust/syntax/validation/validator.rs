@@ -18,6 +18,7 @@
 //! ```
 
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
+use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::validation::checks::METRIC_EXPRESSION;
 use crate::aiplan4rust::syntax::validation::{checks, WellFormedError};
@@ -43,30 +44,44 @@ pub fn is_well_formed(ast: &Ast) -> bool {
 
 /// Checks that the AST is structurally well-formed starting from its root node.
 ///
-/// This validation ensures that the AST:
-/// 1. Forms a valid tree (no cycles detected).
-/// 2. Contains a non-empty root node.
-/// 3. Starts with either a `Domain` or a `Problem` kind, as required by PDDL.
+/// This validation serves as a comprehensive structural gatekeeper, ensuring that the
+/// AST under inspection is perfectly sound before proceeding to semantic passes.
 ///
-/// This is a structural sanity check typically run in debug mode to ensure
-/// subsequent compiler finalization (like normalization) can safely use direct access
-/// methods (e.g., `.unwrap()`) on expected nodes.
+/// Specifically, this function ensures that the AST:
+/// 1. Has consistent bidirectional parent-child pointer integrity.
+/// 2. Forms a valid tree topology (no cycles detected).
+/// 3. Contains a non-empty root node.
+/// 4. Starts with either a `Domain` or a `Problem` kind, as required by PDDL.
+///
+/// This structural sanity check allows subsequent compiler passes (such as normalization
+/// or grounding) to safely use direct access methods and assumptions on expected nodes.
 ///
 /// # Arguments
 ///
-/// * `ast` - The AST to validate.
+/// * `ast` - A reference to the [`Ast`] to validate.
 ///
 /// # Returns
 ///
-/// * `Ok(())` if the AST root and global structure are valid.
-/// * `Err(ValidationError)` if the tree is cyclic, empty, or has an invalid root.
+/// * `Ok(())` if the AST's structural integrity, root, and global topology are valid.
+///
+/// # Errors
+///
+/// Returns a [`WellFormedError`] if:
+/// * A parent-child relationship inconsistency is found in the arena storage.
+/// * The tree structure is cyclic or corrupted.
+/// * The AST is empty (missing a root node).
+/// * The root node has an invalid kind (neither `Domain` nor `Problem`).
+/// * Any deep structural constraints fail during recursive child validation.
 ///
 /// # Note
 ///
-/// This function only checks basic structural requirements. It does not perform
-/// full semantic analysis or check PDDL logic.
+/// This function only checks structural and well-formedness requirements. It does not
+/// perform deep semantic analysis or check advanced PDDL logic rules.
 pub fn check_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
     let arena = ast.syntax_tree();
+
+    // 0. FIRST: Verify bidirectional parent-child pointer integrity in the arena
+    verify_tree_integrity(arena)?;
 
     // 1. Basic structural integrity: Must be a valid tree (no cycles)
     if !arena.is_tree() {
@@ -89,6 +104,45 @@ pub fn check_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
 
     // 4. Recursive check for children
     check_well_formed_from(root, ast)
+}
+
+/// Verifies the structural integrity of the syntax tree (AST).
+///
+/// This validation pass traverses the entire tree and ensures that the bidirectional
+/// parent-child relationships are perfectly consistent. For every node, all of its
+/// registered children must point back to it as their parent.
+///
+/// # Arguments
+///
+/// * `syntax_tree` - A reference to the [`Tree<AstNode>`] to be validated.
+///
+/// # Returns
+///
+/// * `Ok(())` - If the tree structure is perfectly consistent.
+///
+/// # Errors
+///
+/// Returns a [`WellFormedError`] if:
+/// * Any node ID referenced in the tree cannot be found within the arena storage.
+/// * A structural inconsistency is detected (e.g., a child node points to a different
+///   parent or has no parent assigned).
+pub fn verify_tree_integrity(syntax_tree: &Tree<AstNode>) -> Result<(), WellFormedError> {
+    // Iterate over the node IDs in traversal order
+    for (node_id, node) in syntax_tree.preorder().ids() {
+        for &child_id in node.children() {
+            let child = syntax_tree.try_node(child_id)?;
+
+            // Compare the parent ID stored in the child with the current node ID
+            if child.parent() != Some(node_id) {
+                return Err(WellFormedError::structural_inconsistency(
+                    child_id,
+                    child.parent(),
+                    node_id,
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Recursively checks that the given AST node and all its descendants are structurally well-formed.

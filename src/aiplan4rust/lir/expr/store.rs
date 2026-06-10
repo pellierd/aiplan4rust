@@ -1,13 +1,13 @@
-use crate::aiplan4rust::lang::VariableId;
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::iter::postorder::PostorderIter;
 use crate::aiplan4rust::lir::expr::iter::preorder::PreorderIter;
 use crate::aiplan4rust::lir::expr::iter::tree_preorder::TreePreorderIter;
 use crate::aiplan4rust::lir::expr::{ExprEntry, ExprId, ExprKind, ExprNode};
+use crate::aiplan4rust::support::lang::VariableId;
 use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 /// Structure de recherche temporaire pour le Zero-Copy.
 /// Elle permet de chercher dans la HashMap avec des références sans allouer de Vec.

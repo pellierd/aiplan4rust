@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager};
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
+use crate::aiplan4rust::support::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::support::lang::SymbolId;
 use crate::aiplan4rust::syntax::ast::tree::{Node, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 

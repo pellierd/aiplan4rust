@@ -3,9 +3,9 @@
 //! Ce module gère l'encodage des structures de fonctions numériques (fluents).
 //! Il transforme une déclaration syntaxique en un `AtomicFunctionSkeleton`.
 
-use crate::aiplan4rust::lang::{FunctionSymbolId, Type, TypeId};
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFunctionSkeleton;
+use crate::aiplan4rust::support::lang::{FunctionSymbolId, Type, TypeId};
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;

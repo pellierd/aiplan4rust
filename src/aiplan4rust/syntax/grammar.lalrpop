@@ -2,11 +2,11 @@ use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
 use ordered_float::OrderedFloat;
 
-use crate::aiplan4rust::lang::ArithmeticOp;
-use crate::aiplan4rust::lang::AssignOp;
-use crate::aiplan4rust::lang::CompareOp;
-use crate::aiplan4rust::lang::OptimizationOp;
-use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::support::lang::ArithmeticOp;
+use crate::aiplan4rust::support::lang::AssignOp;
+use crate::aiplan4rust::support::lang::CompareOp;
+use crate::aiplan4rust::support::lang::OptimizationOp;
+use crate::aiplan4rust::support::lang::Requirement;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstContent;

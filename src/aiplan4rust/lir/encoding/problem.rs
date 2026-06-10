@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::encoding::{
 };
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId, SyntaxSubtree, Tree};
+use crate::aiplan4rust::syntax::ast::tree::{Node, SyntaxSubtree, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 
 /// Encodes a PDDL/HTN problem AST into the Lifted Intermediate Representation (LIR).

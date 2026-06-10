@@ -38,9 +38,9 @@
 //! let effect = builder.increase(battery_id, zero_id);
 //! ```
 
-use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::AssignOp;
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a functional assignment node: `(op target value)`.
@@ -205,9 +205,9 @@ impl<'a> ExprBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, VariableId};
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::{ExprKind, ExprStore};
+    use crate::aiplan4rust::support::lang::{ArithmeticOp, AssignOp, VariableId};
 
     /// Test: (increase f1 0.0) -> empty_and
     /// Description: Verifies that additive and multiplicative identity operations

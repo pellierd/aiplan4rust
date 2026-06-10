@@ -1,8 +1,8 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::pnf::scratchpad::PnfScratchpad;
-use crate::aiplan4rust::lang::AtomSkeletonId;
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind, ExprStore};
+use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
 /// Lowering final d'un arbre d'expression vers sa forme PNF encodée.
 ///
@@ -200,8 +200,8 @@ mod tests {
     use crate::aiplan4rust::grounding::error::GroundingError;
     use crate::aiplan4rust::grounding::passes::pnf::expr::to_pnf_with_scratchpad;
     use crate::aiplan4rust::grounding::passes::pnf::scratchpad::PnfScratchpad;
-    use crate::aiplan4rust::lang::{AtomSkeletonId, CompareOp};
     use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
+    use crate::aiplan4rust::support::lang::{AtomSkeletonId, CompareOp};
 
     #[test]
     fn test_encode_simple_atom_negation_logical() -> Result<(), GroundingError> {

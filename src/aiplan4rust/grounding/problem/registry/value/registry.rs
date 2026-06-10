@@ -1,4 +1,3 @@
-
 //! This module provides a high-performance registry for object domains in grounded problems.
 //!
 //! # Technical Choice: Flattened Memory Layout
@@ -30,14 +29,15 @@
 //! this registry explicitly checks for and rejects circular dependencies during
 //! construction to ensure system stability.
 
-use std::collections::HashMap;
-use std::fmt;
-use itertools::Itertools;
-use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
 use crate::aiplan4rust::grounding::problem::registry::value::range::TypeRange;
-use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, TypedSymbol, VariableId};
-
+use crate::aiplan4rust::support::lang::{
+    ObjectId, Type, TypeId, TypedList, TypedSymbol, VariableId,
+};
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt;
 
 /// A high-performance, lookup-optimized registry for object domains.
 ///
@@ -68,7 +68,6 @@ pub struct ValueRegistry {
 }
 
 impl ValueRegistry {
-
     /// Creates an empty registry with no types or objects.
     ///
     /// Useful for initializing a placeholder registry or for testing purposes
@@ -140,7 +139,7 @@ impl ValueRegistry {
     /// references an invalid or unnormalized type.
     pub fn get_variable_domains(
         &self,
-        variables: &TypedList<VariableId, TypeId>
+        variables: &TypedList<VariableId, TypeId>,
     ) -> Result<Vec<&[ObjectId]>, ValueRegistryError> {
         variables
             .iter()
@@ -189,10 +188,16 @@ impl ValueRegistry {
     /// # Performance
     ///
     /// This operation is $O(1)$ as it only involves a range lookup and a slice re-borrow.
-    pub fn get_primitive_type_domain(&self, type_id: TypeId) -> Result<&[ObjectId], ValueRegistryError> {
+    pub fn get_primitive_type_domain(
+        &self,
+        type_id: TypeId,
+    ) -> Result<&[ObjectId], ValueRegistryError> {
         let idx = type_id.as_usize();
         if idx >= self.ranges.len() {
-            return Err(ValueRegistryError::type_out_of_bounds(type_id, self.ranges.len()));
+            return Err(ValueRegistryError::type_out_of_bounds(
+                type_id,
+                self.ranges.len(),
+            ));
         }
 
         let r = &self.ranges[idx];
@@ -221,7 +226,10 @@ impl ValueRegistry {
     pub fn get_range(&self, type_id: TypeId) -> Result<TypeRange, ValueRegistryError> {
         let idx = type_id.as_usize();
         if idx >= self.ranges.len() {
-            return Err(ValueRegistryError::type_out_of_bounds(type_id, self.ranges.len()));
+            return Err(ValueRegistryError::type_out_of_bounds(
+                type_id,
+                self.ranges.len(),
+            ));
         }
         Ok(self.ranges[idx])
     }
@@ -284,7 +292,7 @@ impl ValueRegistry {
         Ok(Self {
             all_values,
             ranges,
-            unique_objects_count: object_defs.len()
+            unique_objects_count: object_defs.len(),
         })
     }
 
@@ -453,7 +461,9 @@ impl ValueRegistry {
                     let u_idx = u.as_usize();
 
                     // Skip if already finalized (Black node)
-                    if computed[u_idx] { continue; }
+                    if computed[u_idx] {
+                        continue;
+                    }
 
                     // Check for cycles (re-entering a Grey node)
                     if in_stack[u_idx] {
@@ -476,12 +486,13 @@ impl ValueRegistry {
                 }
                 State::Exit(u) => {
                     let u_idx = u.as_usize();
-                    if computed[u_idx] { continue; }
+                    if computed[u_idx] {
+                        continue;
+                    }
 
                     // All children are now guaranteed to be in `ranges`
-                    ranges[u_idx] = Self::compute_type_domain(
-                        u_idx, adj, direct_objects, all_values, ranges
-                    );
+                    ranges[u_idx] =
+                        Self::compute_type_domain(u_idx, adj, direct_objects, all_values, ranges);
 
                     computed[u_idx] = true;
                     in_stack[u_idx] = false; // Mark as finalized (Black node)
@@ -493,7 +504,7 @@ impl ValueRegistry {
 
     /// Computes the complete value domain for a type by merging its own objects with those of its subtypes.
     ///
-    /// This function implements the core logic of the domain hierarchy:
+    /// This function implements the support logic of the domain hierarchy:
     /// 1. It flattens the hierarchy for a specific node in the type graph.
     /// 2. It collects direct objects associated with the type.
     /// 3. It copies all objects from previously computed child domains (subtypes).
@@ -593,7 +604,6 @@ impl ValueRegistry {
 
         j + 1 // New length
     }
-
 }
 
 /// **Implements a visual representation of the ValueRegistry.**
@@ -640,19 +650,21 @@ impl fmt::Display for ValueRegistry {
             }
         }
 
-        writeln!(f, "================================================================================")
+        writeln!(
+            f,
+            "================================================================================"
+        )
     }
 }
 
 #[cfg(test)]
-impl  ValueRegistry {
-
+impl ValueRegistry {
     /// Helper pour les tests unitaires : construit un registre à partir d'une liste d'objets.
     /// Note : Dans cette version de test, on considère que les types sont indépendants
     /// (pas de calcul de hiérarchie récursive, juste le mapping direct).
     pub fn from_objects<I>(objects: I) -> Self
     where
-        I: IntoIterator<Item = TypedSymbol<ObjectId, TypeId>>
+        I: IntoIterator<Item = TypedSymbol<ObjectId, TypeId>>,
     {
         use std::collections::{HashMap, HashSet};
 

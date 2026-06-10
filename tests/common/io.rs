@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use aiplan4rust::aiplan4rust::core::diagnostic::DiagnosticManager;
-use aiplan4rust::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
 use aiplan4rust::aiplan4rust::semantic::SymbolTable;
+use aiplan4rust::aiplan4rust::support::diagnostic::DiagnosticManager;
+use aiplan4rust::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
 use aiplan4rust::aiplan4rust::syntax::ast::Ast;
 use aiplan4rust::Renderer;
 use chrono::Utc;

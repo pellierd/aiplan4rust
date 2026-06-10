@@ -13,9 +13,9 @@ use crate::aiplan4rust::cli::io::artefact::path::{default_parsed_output_path, ou
 use crate::aiplan4rust::cli::io::artefact::source::Source;
 use crate::aiplan4rust::cli::io::artefact::{Artefact, IRContent};
 use crate::aiplan4rust::cli::io::serialization::SerdeFormat;
-use crate::aiplan4rust::core::diagnostic::{Renderer, Severity};
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::support::diagnostic::{Renderer, Severity};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::Frontend;
 

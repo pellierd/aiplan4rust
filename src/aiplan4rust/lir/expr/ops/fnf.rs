@@ -104,7 +104,7 @@ const MAX_CHILDREN: usize = 32;
 /// 1. **Phase 1: Preparation (`prepare_input`)**: Flattens the top-level disjunction. It fills
 ///    the `Scratchpad` with sorted conjunctive groups (`group_buffer`) and isolates non-`AND`
 ///    elements on the stack (`naked_literals`).
-/// 2. **Phase 2 & 3: Slice Factorization & Assembly (`factorize_slice`)**: Executes the core
+/// 2. **Phase 2 & 3: Slice Factorization & Assembly (`factorize_slice`)**: Executes the support
 ///    recursive window-based engine on the entire buffer slice `[0..total_groups]`. If fewer than
 ///    two groups are present, it safely bypasses factorization using `rebuild_flat_groups`.
 /// 3. **Phase C: Final Synthesis**: Combines the structurally optimized factored branch with
@@ -173,7 +173,7 @@ pub fn to_fnf(
 ///   `group_boundaries` buffers without deallocating their underlying capacities, preventing
 ///   thousands of microscopic heap reallocations.
 /// - **Unstable Canonical Sorting**: Every segment of child IDs added to `flat_groups` is sorted
-///   immediately using `sort_unstable`. This is a **strict prerequisite** for the core factorization engine,
+///   immediately using `sort_unstable`. This is a **strict prerequisite** for the support factorization engine,
 ///   as it unlocks:
 ///   1. $O(\log n)$ lookup times via `binary_search` instead of $O(n)$ linear scans when matching factors.
 ///   2. Canonical representation guarantees so that Hash-Consing treats structurally uniform
@@ -322,8 +322,8 @@ fn rebuild_flat_groups(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::AtomSkeletonId;
     use crate::aiplan4rust::lir::expr::ExprStore;
+    use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
     /// Utility helper to create unique atomic formulas for testing.
     fn atom(builder: &mut ExprBuilder, id: usize) -> ExprId {
@@ -331,7 +331,7 @@ mod tests {
     }
 
     /// TEST 1: Basic Factorization
-    /// Why: Verify the core distributive law: (A & B) | (A & C) => A & (B | C).
+    /// Why: Verify the support distributive law: (A & B) | (A & C) => A & (B | C).
     /// Input:  OR(AND(A, B), AND(A, C))
     /// Output: AND(A, OR(B, C))
     #[test]

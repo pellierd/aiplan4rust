@@ -1,15 +1,11 @@
+use crate::aiplan4rust::support::lang::ids::{FluentId, NumericFluentId};
 use thiserror::Error;
-use crate::aiplan4rust::lang::ids::{FluentId, NumericFluentId};
 
 #[derive(Error, Debug)]
 pub enum FluentRegistryError {
-
     /// Erreur lorsqu'un FluentID ne correspond à aucune entrée dans le pool des prédicats.
     #[error("Invalid FluentID: {id:?} (pool size: {pool_size})")]
-    InvalidFluentID {
-        id: FluentId,
-        pool_size: usize,
-    },
+    InvalidFluentID { id: FluentId, pool_size: usize },
 
     /// Erreur lorsqu'un NumericFluentID est introuvable.
     #[error("Invalid NumericFluentID: {id:?} (pool size: {pool_size})")]
@@ -17,7 +13,6 @@ pub enum FluentRegistryError {
         id: NumericFluentId,
         pool_size: usize,
     },
-
 }
 
 impl FluentRegistryError {
@@ -30,5 +25,4 @@ impl FluentRegistryError {
     pub fn invalid_numeric_fluent_id(id: NumericFluentId, pool_size: usize) -> Self {
         Self::InvalidNumericFluentID { id, pool_size }
     }
-
 }

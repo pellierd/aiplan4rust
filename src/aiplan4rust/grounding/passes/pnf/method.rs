@@ -1,8 +1,8 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::pnf::scratchpad::PnfScratchpad;
-use crate::aiplan4rust::lang::AtomSkeletonId;
 use crate::aiplan4rust::lir::expr::ExprStore;
 use crate::aiplan4rust::lir::problem::MethodDef;
+use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
 use super::expr;
 

@@ -43,11 +43,12 @@
 //!
 //! Even in failure, collected diagnostics can provide useful context for recovery or debugging.
 
-use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::normalization::error::NormalizationError;
 use crate::aiplan4rust::normalization::passes;
+#[cfg(debug_assertions)]
 use crate::aiplan4rust::normalization::validation::check_well_normalized;
 use crate::aiplan4rust::normalization::NormalizerResult;
+use crate::aiplan4rust::support::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::ParserResult;
 
@@ -105,10 +106,8 @@ impl Normalizer {
                 // This catches internal bugs in normalization finalization before they reach
                 // the code generation or grounding stages.
                 #[cfg(debug_assertions)]
-                {
-                    if let Some(normalized_ast) = normalizer_result.ast() {
-                        check_well_normalized(normalized_ast)?;
-                    }
+                if let Some(normalized_ast) = normalizer_result.ast() {
+                    check_well_normalized(normalized_ast)?;
                 }
 
                 // Return the successful logic result

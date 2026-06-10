@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::syntax::ast::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use thiserror::Error;

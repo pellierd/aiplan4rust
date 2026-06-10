@@ -1,5 +1,4 @@
 pub mod cli;
-pub mod lang;
 pub mod linking;
 pub mod lir;
 pub mod normalization;
@@ -9,8 +8,10 @@ pub mod syntax;
 pub mod error;
 pub mod frontend;
 
-pub mod core;
+mod compiler;
+#[allow(warnings)]
 pub mod grounding;
+pub mod support;
 
 pub use frontend::Frontend;
 pub use linking::Linker;

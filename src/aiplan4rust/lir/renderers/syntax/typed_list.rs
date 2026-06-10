@@ -1,6 +1,6 @@
-use crate::aiplan4rust::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::renderers::syntax::ty;
 use crate::aiplan4rust::lir::renderers::RenderContext;
+use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
 use std::fmt;
 
 /// Rendu syntaxique PDDL pour une liste de variables : ?x0 - type ?x1 - type

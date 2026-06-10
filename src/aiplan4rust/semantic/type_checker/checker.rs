@@ -46,18 +46,17 @@
 //!
 //! - [`SymbolTable`](crate::aiplan4rust::semantic::symbol_table::SymbolTable)
 //! - [`SymbolKind`](crate::aiplan4rust::semantic::symbol::SymbolKind)
-//! - [`Ident`](crate::aiplan4rust::lang::SymbolId)
-//! - [`Type`](crate::aiplan4rust::lang::Type)
+//! - [`Ident`](crate::aiplan4rust::support::lang::SymbolId)
+//! - [`Type`](crate::aiplan4rust::support::lang::Type)
 //!
 //! # Notes
 //!
 //! This module assumes that the symbol table has been fully populated before typing checking.
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::SymbolId;
-use crate::aiplan4rust::lang::Type;
-use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::type_checker::{TypeCheckerError, TypeHierarchy};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::SymbolId;
+use crate::aiplan4rust::support::lang::Type;
 
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};

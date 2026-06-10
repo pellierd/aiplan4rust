@@ -6,14 +6,14 @@
 //! The module leverages hash sets to ensure uniqueness of declarations and usages, and supports serialization via Serde.
 //! It integrates with a string interner for efficient symbol name handling.
 
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{RemapSymbol, SymbolId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 /// Represents a symbol in a given context, with associated declarations and usages.
 ///
@@ -138,7 +138,7 @@ impl SymbolEntry {
     /// # Returns
     ///
     /// `true` if merged successfully, `false` if identifiers differ and no merge was performed.
-    pub fn merge_with(&mut self, other: SymbolEntry) -> bool {
+    /*pub fn merge_with(&mut self, other: SymbolEntry) -> bool {
         // 1. Vérification d'identité
         if self.ident != other.ident {
             return false;
@@ -161,6 +161,25 @@ impl SymbolEntry {
                 self.usages.push(usage);
             }
         }
+
+        true
+    }*/
+
+    pub fn merge_with(&mut self, mut other: SymbolEntry) -> bool {
+        if self.ident != other.ident {
+            return false;
+        }
+
+        // 1. Fusion des déclarations : On déplace tout d'un coup (0 allocation supplémentaire)
+        self.declarations.append(&mut other.declarations);
+        // On trie par source et on supprime les doublons consécutifs
+        self.declarations.sort_unstable_by_key(|d| d.source());
+        self.declarations.dedup_by(|a, b| a.source() == b.source());
+
+        // 2. Fusion des usages : Même chose, traitement de masse en bloc
+        self.usages.append(&mut other.usages);
+        self.usages.sort_unstable_by_key(|u| u.source());
+        self.usages.dedup_by(|a, b| a.source() == b.source());
 
         true
     }

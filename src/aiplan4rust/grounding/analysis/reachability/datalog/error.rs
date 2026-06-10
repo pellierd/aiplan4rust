@@ -1,8 +1,8 @@
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTableError;
-use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use thiserror::Error;

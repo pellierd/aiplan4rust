@@ -24,12 +24,12 @@
 //! argument types are compatible with the base declaration, as determined by
 //! the [`SignatureChecker`].
 
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::passes::context::PassContext;
 use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::signature_checker::{MatchResult, SignatureChecker};
 use crate::aiplan4rust::semantic::symbol::Signature;
 use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::support::lang::SymbolId;
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::SymbolTable;
 
@@ -80,7 +80,7 @@ pub fn resolve_derived_predicates(
     // 3. APPLICATION PHASE (Mutable)
     // Only proceed to mutation if at least one valid link was discovered.
     if !derived_links.is_empty() {
-        apply_derived_links(table, derived_links);
+        apply_derived_links(table, derived_links)?;
     }
 
     Ok(())
@@ -196,7 +196,8 @@ pub fn apply_derived_links(
 /// It stores the connection between an axiom implementation and its
 /// corresponding base predicate declaration.
 #[derive(Debug, Clone, Copy)]
-struct DerivedLink {
+#[allow(dead_code)]
+pub(crate) struct DerivedLink {
     /// The unique identifier of the symbol (e.g., 'at').
     symbol_id: SymbolId,
     /// The NodeId of the formal predicate declaration (The 'Base').
@@ -220,6 +221,7 @@ impl DerivedLink {
         }
     }
     /// Returns the unique identifier of the symbol.
+    #[allow(dead_code)]
     pub fn symbol_id(&self) -> SymbolId {
         self.symbol_id
     }

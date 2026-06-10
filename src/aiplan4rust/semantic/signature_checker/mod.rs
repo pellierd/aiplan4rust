@@ -5,7 +5,7 @@
 //! hierarchical symbol resolution, and advanced type checking (including upcasting).
 //!
 //! ## Sub-modules
-//! * [`checker`]: The core logic for checking signatures.
+//! * [`checker`]: The support logic for checking signatures.
 //! * [`result`]: Defines the outcome of a match (Success, Upcast, or Failure).
 //! * [`failure`]: Detailed diagnostic information for mismatches.
 //! * [`error`]: Internal and propagation errors for the matching process.

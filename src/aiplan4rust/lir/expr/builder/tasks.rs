@@ -6,9 +6,11 @@
 //! Performance is optimized through the use of `SmallVec` to avoid heap allocations
 //! for common task signatures and aggressive inlining of symbol constructors.
 
-use crate::aiplan4rust::lang::{CompareOp, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId};
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::{
+    CompareOp, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId,
+};
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a leaf node representing a Task Symbol in an HTN domain.

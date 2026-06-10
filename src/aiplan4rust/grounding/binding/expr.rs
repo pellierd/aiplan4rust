@@ -131,7 +131,9 @@ fn is_evaluable(kind: &ExprKind) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::{AtomSkeletonId, ObjectId, PredicateSymbolId, VariableId};
+    use crate::aiplan4rust::support::lang::{
+        AtomSkeletonId, ObjectId, PredicateSymbolId, VariableId,
+    };
 
     #[test]
     fn test_bind_variable_substitution() {

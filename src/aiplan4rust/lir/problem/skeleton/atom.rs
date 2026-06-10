@@ -19,11 +19,11 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-use crate::aiplan4rust::lang::{PredicateSymbolId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::support::lang::{PredicateSymbolId, TypeId, TypedList, VariableId};
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
 ///

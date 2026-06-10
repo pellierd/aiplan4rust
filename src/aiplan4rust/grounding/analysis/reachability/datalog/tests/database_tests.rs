@@ -1,6 +1,6 @@
-use std::error::Error;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::database::Database;
-use crate::aiplan4rust::lang::{AtomSkeletonId, ObjectId};
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
+use std::error::Error;
 
 /// Type alias for cleaner test signatures using the standard Error trait.
 type TestResult = Result<(), Box<dyn Error>>;
@@ -23,8 +23,14 @@ fn test_add_and_contains() {
 
     db.insert_stable_fact(sk_id, &fact);
 
-    assert!(db.contains_stable(sk_id, &fact), "Fact should be confirmed in stable storage");
-    assert!(!db.contains_delta(sk_id, &fact), "Fact should not exist in the delta buffer");
+    assert!(
+        db.contains_stable(sk_id, &fact),
+        "Fact should be confirmed in stable storage"
+    );
+    assert!(
+        !db.contains_delta(sk_id, &fact),
+        "Fact should not exist in the delta buffer"
+    );
 }
 
 /// # Objective
@@ -44,7 +50,8 @@ fn test_no_duplicates() -> TestResult {
     db.insert_stable_fact(sk_id, &fact);
     db.insert_stable_fact(sk_id, &fact);
 
-    let (len, _) = db.get_layout(sk_id, false)
+    let (len, _) = db
+        .get_layout(sk_id, false)
         .ok_or("Relation missing after insertion")?;
 
     assert_eq!(len, 1, "Database should only store unique facts");
@@ -69,10 +76,15 @@ fn test_indexing_offsets() -> TestResult {
     db.insert_stable_fact(sk_id, &[ObjectId::from(2), ObjectId::from(20)]);
     db.insert_stable_fact(sk_id, &[ObjectId::from(1), ObjectId::from(30)]);
 
-    let offsets = db.lookup_index(sk_id, false, ObjectId::from(1))
+    let offsets = db
+        .lookup_index(sk_id, false, ObjectId::from(1))
         .ok_or("Index for value '1' should have been created")?;
 
-    assert_eq!(offsets.len(), 2, "Index should find all facts matching the first argument");
+    assert_eq!(
+        offsets.len(),
+        2,
+        "Index should find all facts matching the first argument"
+    );
     Ok(())
 }
 
@@ -93,11 +105,17 @@ fn test_semi_naive_cycle() -> TestResult {
     let fact = vec![ObjectId::from(55)];
 
     db.insert_delta_fact(sk_id, &fact);
-    assert!(db.contains_delta(sk_id, &fact), "Fact must be isolated in delta initially");
+    assert!(
+        db.contains_delta(sk_id, &fact),
+        "Fact must be isolated in delta initially"
+    );
 
     db.commit_delta();
     assert!(db.is_delta_empty(), "Delta must be flushed after commit");
-    assert!(db.contains_stable(sk_id, &fact), "Fact must be promoted to the stable set");
+    assert!(
+        db.contains_stable(sk_id, &fact),
+        "Fact must be promoted to the stable set"
+    );
 
     Ok(())
 }
@@ -118,7 +136,14 @@ fn test_mixed_arities() -> TestResult {
     let sk_ternary = AtomSkeletonId::from(2);
 
     db.insert_stable_fact(sk_unary, &[ObjectId::from(100)]);
-    db.insert_stable_fact(sk_ternary, &[ObjectId::from(100), ObjectId::from(200), ObjectId::from(300)]);
+    db.insert_stable_fact(
+        sk_ternary,
+        &[
+            ObjectId::from(100),
+            ObjectId::from(200),
+            ObjectId::from(300),
+        ],
+    );
 
     let (_, arity1) = db.get_layout(sk_unary, false).ok_or("Unary missing")?;
     let (_, arity2) = db.get_layout(sk_ternary, false).ok_or("Ternary missing")?;
@@ -128,7 +153,11 @@ fn test_mixed_arities() -> TestResult {
 
     let mut buffer = [ObjectId::from(0); 3];
     db.read_tuple(sk_ternary, false, 0, 3, &mut buffer);
-    assert_eq!(buffer[2], ObjectId::from(300), "Should retrieve the correct argument from memory");
+    assert_eq!(
+        buffer[2],
+        ObjectId::from(300),
+        "Should retrieve the correct argument from memory"
+    );
 
     Ok(())
 }
@@ -149,8 +178,14 @@ fn test_empty_database_queries() {
     let sk_id = AtomSkeletonId::from(999);
     let fact = vec![ObjectId::from(1)];
 
-    assert!(!db.contains_stable(sk_id, &fact), "Should not contain facts in empty DB");
-    assert!(db.lookup_index(sk_id, false, ObjectId::from(1)).is_none(), "Offsets should be None");
+    assert!(
+        !db.contains_stable(sk_id, &fact),
+        "Should not contain facts in empty DB"
+    );
+    assert!(
+        db.lookup_index(sk_id, false, ObjectId::from(1)).is_none(),
+        "Offsets should be None"
+    );
 }
 
 /// # Objective
@@ -197,8 +232,14 @@ fn test_move_all_to_delta() {
     db.insert_stable_fact(sk_id, &fact);
     db.move_all_to_delta();
 
-    assert!(db.get_relation(sk_id).is_none(), "Stable should be empty after move");
-    assert!(db.contains_delta(sk_id, &fact), "Fact should now be in Delta");
+    assert!(
+        db.get_relation(sk_id).is_none(),
+        "Stable should be empty after move"
+    );
+    assert!(
+        db.contains_delta(sk_id, &fact),
+        "Fact should now be in Delta"
+    );
 }
 
 /// # Objective
@@ -298,7 +339,9 @@ fn test_index_integrity() -> TestResult {
     db.insert_stable_fact(sk_id, &[ObjectId::from(5), ObjectId::from(50)]);
     db.insert_stable_fact(sk_id, &[ObjectId::from(1), ObjectId::from(99)]);
 
-    let offsets = db.lookup_index(sk_id, false, ObjectId::from(1)).ok_or("Index failed")?;
+    let offsets = db
+        .lookup_index(sk_id, false, ObjectId::from(1))
+        .ok_or("Index failed")?;
     let mut buffer = [ObjectId::from(0); 2];
 
     // Verify first occurrence

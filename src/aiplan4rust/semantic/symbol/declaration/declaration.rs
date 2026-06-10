@@ -51,14 +51,14 @@
 //!
 //! This module relies on `serde` for robust serialization/deserialization of the semantic model.
 
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::Type;
-use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::declaration::DeclarationError;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolOrigin};
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::Type;
+use crate::aiplan4rust::support::lang::TypedList;
+use crate::aiplan4rust::support::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::Span;
 use serde::Deserialize;

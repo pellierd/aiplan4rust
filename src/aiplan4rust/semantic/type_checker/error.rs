@@ -33,7 +33,7 @@
 //! # See Also
 //!
 //! - [`SymbolTableError`](crate::aiplan4rust::semantic::symbol_table::SymbolTableError)
-//! - [`Type`](crate::aiplan4rust::lang::Type)
+//! - [`Type`](crate::aiplan4rust::support::lang::Type)
 //! - [`SymbolTable`](crate::aiplan4rust::semantic::SymbolTable)
 //!
 //! [`thiserror`]: https://docs.rs/thiserror

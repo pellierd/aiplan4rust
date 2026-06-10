@@ -19,7 +19,7 @@
 //! println!("Predicate name: {}", pred.name());
 //! ```
 
-use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
 use serde::{Deserialize, Serialize};
 
 /// Abstract skeleton common to both predicates and functions in PDDL.

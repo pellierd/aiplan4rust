@@ -407,21 +407,8 @@ where
     /// ```rust
     /// tree.move_node_to(source_id, target_id)?;
     /// ```
-    /*pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), SyntaxTreeError> {
-        let (kind, content, children) = {
-            let source = self.try_node_mut(source_id)?;
-            (
-                source.kind(),
-                std::mem::take(source.content_mut()),
-                std::mem::take(source.children_mut()),
-            )
-        };
-        self.set(target_id, kind, content, children)?;
-
-        Ok(())
-    }*/
     pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), SyntaxTreeError> {
-        let (kind, content, mut children) = {
+        let (kind, content, children) = {
             // Note le 'mut' ici
             let source = self.try_node_mut(source_id)?;
             (

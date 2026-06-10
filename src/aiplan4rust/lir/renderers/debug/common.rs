@@ -1,7 +1,7 @@
-use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::renderers::debug::typed_list;
 use crate::aiplan4rust::lir::renderers::{debug, RenderContext};
+use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
 use std::fmt;
 
 // Taille standard d'un palier d'indentation.

@@ -11,7 +11,7 @@
 //! - Minimal memory overhead using raw tuple buffers.
 
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::relation::Relation;
-use crate::aiplan4rust::lang::{AtomSkeletonId, ObjectId};
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
 use std::collections::HashMap;
 
 /// A two-tier relational database for Datalog facts.

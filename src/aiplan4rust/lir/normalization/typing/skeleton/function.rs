@@ -12,7 +12,7 @@
 //! 1. **Parameter Normalization**: Resolving the types of the function's arguments
 //!    using the [`typed_list`] utility via in-place mutation.
 //! 2. **Return Type Normalization**: Resolving the function's result type using
-//!    the core [`ty`] logic.
+//!    the support [`ty`] logic.
 //!
 //! This ensures that when a function is used as a term within an expression, its
 //! return type is already simplified, allowing for direct value comparison and

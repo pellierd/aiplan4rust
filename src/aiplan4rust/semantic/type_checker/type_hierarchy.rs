@@ -10,14 +10,14 @@
 //! and [`SymbolId`]. This allows the [`TypeChecker`](crate::semantic::type_checker::TypeChecker)
 //! to perform transitive closure computations and subtype validations efficiently.
 
-use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::support::lang::SymbolId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
 /// Represents the raw bidirectional mapping of the type hierarchy.
 ///
-/// This structure serves as the core data provider for the [`TypeChecker`]. It stores
+/// This structure serves as the support data provider for the [`TypeChecker`]. It stores
 /// the relationships between types as declared in the PDDL domain (e.g., `truck - vehicle`).
 ///
 /// The hierarchy is stored as an adjacency list in both directions to allow for

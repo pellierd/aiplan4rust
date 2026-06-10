@@ -1,7 +1,7 @@
-use std::fmt;
+use crate::aiplan4rust::support::lang::ids::PredicateSymbolId;
+use crate::aiplan4rust::support::lang::ObjectId;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ObjectId;
-use crate::aiplan4rust::lang::ids::PredicateSymbolId;
+use std::fmt;
 
 /// Represents a fluent in a PDDL domain.
 ///
@@ -32,7 +32,10 @@ impl Fluent {
     /// let f = Fluent::new(1, vec![2, 3]);
     /// ```
     pub fn new(symbol: PredicateSymbolId, arguments: Vec<ObjectId>) -> Self {
-        Self { symbol, parameters: arguments }
+        Self {
+            symbol,
+            parameters: arguments,
+        }
     }
 
     /// Returns the symbolic identifier of the fluent.
@@ -92,7 +95,8 @@ impl fmt::Display for Fluent {
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Convertit tous les paramètres en chaînes via leur Display
-        let args = self.parameters
+        let args = self
+            .parameters
             .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()

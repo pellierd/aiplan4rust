@@ -401,7 +401,7 @@ impl<'a> ExprBuilder<'a> {
 
     /// Restores the max-heap property for the 'When' nodes segment based on their effect IDs.
     ///
-    /// This function is a core component of the in-place Heapsort algorithm. It ensures that
+    /// This function is a support component of the in-place Heapsort algorithm. It ensures that
     /// the subtree rooted at `root` satisfies the heap property: the effect ID of a parent
     /// node must be greater than or equal to the effect IDs of its children.
     ///
@@ -463,7 +463,7 @@ impl<'a> ExprBuilder<'a> {
             return false;
         }
 
-        for (i, &id) in sorted_ids.iter().enumerate() {
+        for &id in sorted_ids.iter() {
             if let Some(node) = self.get(id) {
                 // We look for negation nodes to find their corresponding atoms
                 if let ExprKind::Not = node.kind() {
@@ -716,9 +716,9 @@ impl<'a> ExprBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::{AtomSkeletonId, PredicateSymbolId, VariableId};
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::{ExprKind, ExprStore};
+    use crate::aiplan4rust::support::lang::{AtomSkeletonId, PredicateSymbolId, VariableId};
 
     /// Test: (and P True) -> P
     /// Verifies that the neutral element (True) is removed from an AND operation.

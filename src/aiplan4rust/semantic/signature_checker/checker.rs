@@ -1,6 +1,6 @@
 //! Signature Matching and Validation Engine
 //!
-//! This module provides the core logic for verifying that symbol usages in the AST
+//! This module provides the support logic for verifying that symbol usages in the AST
 //! align with their respective declarations. It is a critical part of the semantic
 //! analysis phase, ensuring that the planning model is structurally and
 //! semantically sound.
@@ -74,7 +74,7 @@ impl<'a> SignatureChecker<'a> {
     /// # Arguments
     /// * `local_table` - The primary symbol table for the current context (e.g., the Problem file).
     /// * `ast` - The syntax tree used to navigate usage sites and retrieve identifiers.
-    /// * `type_checker` - The core engine for validating type hierarchies and compatibility.
+    /// * `type_checker` - The support engine for validating type hierarchies and compatibility.
     /// * `domain_table` - An optional global reference (the Domain file) for cross-file
     ///   constant and type resolution.
     ///

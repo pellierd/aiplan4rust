@@ -25,8 +25,8 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{LiteralId, SymbolId};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{LiteralId, SymbolId};
 
 use std::collections::HashMap;
 use std::fmt;

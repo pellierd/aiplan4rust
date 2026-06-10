@@ -33,14 +33,13 @@
 //! let task_network = problem_wrapper.initial_task_network();
 //! ```
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
 use core::fmt::Formatter;
-use std::fmt::Display;
 
 /// Wrapper around a specific problem instance within a domain.
 ///

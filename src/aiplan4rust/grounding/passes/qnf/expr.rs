@@ -4,8 +4,8 @@ use crate::aiplan4rust::grounding::binding::{bind_with, BindingScratchpad};
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::passes::qnf::ExpansionScratchpad;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind, ExprStore};
+use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
 use std::collections::hash_map::Entry;
 
 /// Point d'entrée standard autonome pour l'expansion des quantificateurs.

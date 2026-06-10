@@ -19,16 +19,15 @@
 //! This modular design isolates symbol table construction from other compiler phases,
 //! enabling better error handling and easier testing.
 
-use crate::aiplan4rust::lang::{SymbolId, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
+use crate::aiplan4rust::support::lang::{SymbolId, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::syntax::ast::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::syntax::ast::tree::NodeRef;
-use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
-use crate::aiplan4rust::syntax::ParseContext;
 
 /// Builds a complete [`SymbolTable`] from the given abstract syntax tree.
 ///
@@ -779,7 +778,7 @@ fn init_from_atomic_function_skeleton(
     )?;
 
     // Step 4: Extraction du triplet complet (Args, IDs symboles, IDs types)
-    let (args, ids, arg_ty_ids) = extract_arguments_from_typed_list(context, &arguments)?;
+    let (args, ids, _arg_ty_ids) = extract_arguments_from_typed_list(context, &arguments)?;
 
     // Step 5: Enregistrement
     add_declaration_symbol(
@@ -1024,7 +1023,7 @@ fn init_from_def(
 
     // 4. Extraction complète (Triplet : Args, IDs des symboles, IDs des types)
     // C'est ici qu'on récupère 'ty_ids' pour s#22 et les autres.
-    let (params, ids, ty_ids) = extract_arguments_from_typed_list(context, &parameters)?;
+    let (params, ids, _ty_ids) = extract_arguments_from_typed_list(context, &parameters)?;
 
     // 5. Enregistrement de la déclaration avec TOUTES les informations AST
     add_declaration_symbol(
@@ -1205,7 +1204,7 @@ fn init_from_atomic_formula_skeleton(
 
     // Step 4: Extract everything from the list (Sémantique, IDs symboles, IDs types)
     // C'est ici que le triplet (args, ids, ty_ids) devient vital
-    let (args, ids, ty_ids) = extract_arguments_from_typed_list(context, &arguments)?;
+    let (args, ids, _ty_ids) = extract_arguments_from_typed_list(context, &arguments)?;
 
     // Step 5: Register the predicate symbol declaration
     // On passe enfin 'ty_ids' à add_declaration_symbol.
@@ -1710,7 +1709,7 @@ fn init_from_derived_predicate_def(
 
     // --- CORRECTION : Extraction du triplet complet ---
     // On récupère 'ty_ids' (les IDs de types des arguments)
-    let (args, ids, ty_ids) = extract_arguments_from_typed_list(context, &args_ref)?;
+    let (args, ids, _ty_ids) = extract_arguments_from_typed_list(context, &args_ref)?;
 
     // Enregistrement du prédicat dérivé
     add_declaration_symbol(

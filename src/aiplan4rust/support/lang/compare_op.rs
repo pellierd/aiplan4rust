@@ -28,7 +28,7 @@
 //! assert_eq!(op.to_string(), ">=");
 //! ```
 
-use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::EQUAL;
 use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;

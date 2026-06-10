@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
 use crate::aiplan4rust::grounding::binding::Bindings;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lang::{ObjectId, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedList, VariableId};
 use std::fmt;
 
 /// A lazy combination iterator designed for exploring variable value domains.

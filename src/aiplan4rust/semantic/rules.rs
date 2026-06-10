@@ -1,8 +1,8 @@
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::{
     Declaration, Filterable, Scope, SymbolEntry, SymbolKind,
 };
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::SymbolId;
 
 /// Version 1 : Comparaison de deux déclarations existantes
 pub fn can_share_namespace(existing: &Declaration, new: &Declaration) -> bool {

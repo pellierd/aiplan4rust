@@ -1,5 +1,5 @@
-use crate::aiplan4rust::core::interner::InternerError;
-use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::support::interner::InternerError;
+use crate::aiplan4rust::support::lang::SymbolId;
 use std::collections::HashMap;
 
 /// Trait for remapping identifiers (`Ident`) within a structure.

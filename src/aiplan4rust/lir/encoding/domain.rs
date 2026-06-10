@@ -9,8 +9,6 @@
 //!    against the maps created in the first pass.
 //!
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{Requirement, SymbolId, Type, TypeId, TypedList};
 use crate::aiplan4rust::lir::encoding::{
     action, constants_def, constraints, derived_predicate, functions_def, method, predicates_def,
     preference, task, types_def, EncodingError, EncodingRegistry,
@@ -18,6 +16,8 @@ use crate::aiplan4rust::lir::encoding::{
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{Requirement, SymbolId, Type, TypeId, TypedList};
 use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId, SyntaxSubtree, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 
@@ -58,7 +58,7 @@ pub(crate) fn encode(
     // while traversing the symbol tables.
     collect_definitions(syntax_tree, registry, ir)?;
 
-    // 2. Built-in Phase: Ensure core PDDL functions are registered.
+    // 2. Built-in Phase: Ensure support PDDL functions are registered.
     encode_builtin_functions(registry, ir)?;
 
     // 3. Logic Encoding Phase:

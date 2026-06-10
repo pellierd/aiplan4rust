@@ -11,7 +11,6 @@
 //! these specific error types to enable convenient and consistent error handling across
 //! the semantic analysis pipeline.
 
-use crate::aiplan4rust::core::interner::InternerError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::linking::finalization::error::FinalizationError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
@@ -19,6 +18,7 @@ use crate::aiplan4rust::semantic::passes::SemanticPassError;
 use crate::aiplan4rust::semantic::signature_checker::SignatureMatcherError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
+use crate::aiplan4rust::support::interner::InternerError;
 use crate::aiplan4rust::syntax::ast::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
@@ -33,7 +33,7 @@ use thiserror::Error;
 ///
 /// # Variants
 ///
-/// - `Ast`: Errors related to the core AST structure.
+/// - `Ast`: Errors related to the support AST structure.
 /// - `Arena`: Errors originating from the node storage arena.
 /// - `SyntaxTree`: Errors related to syntax tree construction or traversal.
 /// - `SymbolTable`: Errors originating from symbol table operations.

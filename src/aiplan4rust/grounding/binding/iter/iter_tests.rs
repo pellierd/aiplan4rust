@@ -1,6 +1,8 @@
 use crate::aiplan4rust::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lang::{Type, TypedSymbol, VariableId, TypeId, ObjectId, TypedList};
+use crate::aiplan4rust::support::lang::{
+    ObjectId, Type, TypeId, TypedList, TypedSymbol, VariableId,
+};
 
 /// Helper to create a list of typed objects and populate the value evaluator.
 ///
@@ -16,12 +18,7 @@ use crate::aiplan4rust::lang::{Type, TypedSymbol, VariableId, TypeId, ObjectId, 
 /// - A `ValueRegistry` containing the newly created typed objects, ready for domain extraction.
 fn create_registry_with_objects(type_id: TypeId, num_objs: usize) -> ValueRegistry {
     let objects: Vec<TypedSymbol<ObjectId, TypeId>> = (0..num_objs)
-        .map(|i| {
-            TypedSymbol::new(
-                ObjectId::from(i),
-                Type::primitive(type_id)
-            )
-        })
+        .map(|i| TypedSymbol::new(ObjectId::from(i), Type::primitive(type_id)))
         .collect();
 
     // Utilisation du constructeur statique de test
@@ -97,9 +94,10 @@ fn test_iterator_direct_constants() {
     let tid = TypeId::from(0);
 
     // 1. Setup a single variable for tracking
-    let vars = TypedList::from(vec![
-        TypedSymbol::new(VariableId::from(0), Type::primitive(tid)),
-    ]);
+    let vars = TypedList::from(vec![TypedSymbol::new(
+        VariableId::from(0),
+        Type::primitive(tid),
+    )]);
 
     // 2. Populate the evaluator with exactly 2 objects
     let registry = create_registry_with_objects(tid, 2);
@@ -189,9 +187,10 @@ fn test_reset_and_consistency() {
     let tid = TypeId::from(0);
 
     // 1. Setup a single variable for tracking
-    let vars = TypedList::from(vec![
-        TypedSymbol::new(VariableId::from(0), Type::primitive(tid)),
-    ]);
+    let vars = TypedList::from(vec![TypedSymbol::new(
+        VariableId::from(0),
+        Type::primitive(tid),
+    )]);
 
     // 2. Populate the evaluator with 3 objects
     let registry = create_registry_with_objects(tid, 3);
@@ -240,5 +239,8 @@ fn test_iterator_empty_vars_is_none_immediately() {
 
     // 3. Verify that the iterator is treated as empty/exhausted
     assert_eq!(it.total_count(), 0);
-    assert!(it.next().is_none(), "Should be None because there are no variables to instantiate.");
+    assert!(
+        it.next().is_none(),
+        "Should be None because there are no variables to instantiate."
+    );
 }

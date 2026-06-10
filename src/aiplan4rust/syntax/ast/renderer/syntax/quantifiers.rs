@@ -1,4 +1,4 @@
-use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::tree::{Node, Tree};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-use crate::aiplan4rust::lang::AtomSkeletonId;
+use crate::aiplan4rust::support::lang::AtomSkeletonId;
 use std::fmt;
 
 /// Represents a logical atom in a Datalog rule.

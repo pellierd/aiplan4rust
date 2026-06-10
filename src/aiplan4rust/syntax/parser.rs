@@ -6,13 +6,15 @@
 
 use crate::aiplan4rust::cli::io::artefact::language::Language;
 use crate::aiplan4rust::cli::io::artefact::source::Source;
-use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager, Severity};
-use crate::aiplan4rust::lang::LiteralId;
+use crate::aiplan4rust::support::diagnostic::{Diagnostic, DiagnosticManager, Severity};
+use crate::aiplan4rust::support::lang::LiteralId;
 use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::lalrpop;
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
+#[cfg(debug_assertions)]
+use crate::aiplan4rust::syntax::validation;
 use crate::aiplan4rust::syntax::CustomParseError;
-use crate::aiplan4rust::syntax::{lalrpop, validation};
 use crate::aiplan4rust::syntax::{FastLineTable, ParseContext, ParserResult, SyntaxError};
 use lalrpop_util::ErrorRecovery;
 use std::mem;
@@ -165,12 +167,10 @@ impl Parser {
                     // Initialize line/column span info for AST nodes using the line table
                     ast.init_span(&fast_line_table)?;
 
+                    // This check ensures that internal parser invariants are respected.
+                    // It prevents crashes (panics) in subsequent stages that rely on direct access.
                     #[cfg(debug_assertions)]
-                    {
-                        // This check ensures that internal parser invariants are respected.
-                        // It prevents crashes (panics) in subsequent stages that rely on direct access.
-                        validation::check_well_formed(&ast)?;
-                    }
+                    validation::check_well_formed(&ast)?;
 
                     // Return the successful parse result with AST and diagnostics
                     Ok(ParserResult::success(

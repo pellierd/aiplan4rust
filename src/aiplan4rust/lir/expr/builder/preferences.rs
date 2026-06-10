@@ -8,9 +8,9 @@
 //! preferences share the same [`ExprId`], enabling efficient $O(1)$ structural
 //! equality checks during the planning process.
 
-use crate::aiplan4rust::lang::PreferenceSymbolId;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::PreferenceSymbolId;
 
 impl<'a> ExprBuilder<'a> {
     /// Creates a leaf node representing a preference name.
@@ -68,8 +68,8 @@ impl<'a> ExprBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::PreferenceSymbolId;
     use crate::aiplan4rust::lir::expr::ExprStore;
+    use crate::aiplan4rust::support::lang::PreferenceSymbolId;
 
     /// Test: (preference P1 body)
     /// Verifies that the preference node is correctly constructed with two children:

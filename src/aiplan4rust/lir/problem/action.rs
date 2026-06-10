@@ -3,13 +3,13 @@
 //! Cette structure unifiée simplifie le grounding tout en préservant la sémantique PDDL.
 //! L'interface est conçue pour ressembler à une structure à plat pour la facilité d'usage.
 
-use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lang::{ActionSymbolId, TypeId, VariableId};
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::support::lang::TypedList;
+use crate::aiplan4rust::support::lang::{ActionSymbolId, TypeId, VariableId};
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 

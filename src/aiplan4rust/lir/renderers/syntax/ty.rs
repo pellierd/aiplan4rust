@@ -1,5 +1,5 @@
-use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::renderers::RenderContext;
+use crate::aiplan4rust::support::lang::{Type, TypeId};
 use std::fmt;
 
 /// Rendu syntaxique PDDL pour un Type.

@@ -34,8 +34,8 @@
 use crate::aiplan4rust::cli::io::serialization::{
     deserialize_ordered_float, serialize_ordered_float,
 };
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{
     ArithmeticOp, AssignOp, CompareOp, OptimizationOp, RemapSymbol, Requirement, SymbolId,
 };
 use crate::aiplan4rust::syntax::ast::tree::SyntaxContent;

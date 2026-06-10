@@ -17,8 +17,6 @@
 //! - [`SelfInternerDisplay`] – formats the domain using its internal `StringInterner`.
 //! - [`Display`] – debug string representation of the domain.
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedList, TypedSymbol};
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::problem::Problem;
 use crate::aiplan4rust::lir::problem::skeleton::{
@@ -27,7 +25,11 @@ use crate::aiplan4rust::lir::problem::skeleton::{
 use crate::aiplan4rust::lir::problem::{ActionDef, DerivedPredicateDef, LiftedProblem, MethodDef};
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext};
-use core::fmt::{Display, Formatter};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{
+    ObjectId, Requirement, SymbolId, TypeId, TypedList, TypedSymbol,
+};
+use core::fmt::Formatter;
 
 /// Wrapper around the domain view of a lifted problem.
 ///

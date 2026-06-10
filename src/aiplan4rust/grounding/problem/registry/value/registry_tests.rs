@@ -1,6 +1,6 @@
 use crate::aiplan4rust::grounding::problem::registry::value::error::ValueRegistryError;
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedSymbol};
+use crate::aiplan4rust::support::lang::{ObjectId, Type, TypeId, TypedSymbol};
 
 /// **Test 1: Linear Inheritance Chain**
 ///

@@ -40,8 +40,8 @@
 use lalrpop_util::{ErrorRecovery, ParseError};
 use std::cell::RefCell;
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::SymbolId;
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::SymbolId;
 use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::syntax::context::error::ParseContextError;

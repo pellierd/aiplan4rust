@@ -7,7 +7,7 @@
 //! that the semantic engine provides clear and actionable feedback for
 //! structural, identity, and type-based errors.
 
-use crate::aiplan4rust::lang::{SymbolId, Type};
+use crate::aiplan4rust::support::lang::{SymbolId, Type};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

@@ -12,9 +12,9 @@
 //! This step is crucial for the grounder, as it ensures that the domains of all
 //! parameters are clearly defined by atomic type identifiers.
 
-use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::lir::normalization::typing::{typed_symbol, TypeRegistry};
+use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
 
 /// Normalizes all variables within a typed list in-place.
 ///

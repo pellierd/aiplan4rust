@@ -24,12 +24,12 @@
 //! This module complements the [`formatting`] module by offering structured, interner-aware
 //! formatting for diagnostic suggestions, separate from primary error/warning messages.
 
-use crate::aiplan4rust::core::diagnostic::kind::Kind;
-use crate::aiplan4rust::core::diagnostic::renderer::formatting;
-use crate::aiplan4rust::core::diagnostic::{renderer, DiagnosticKind};
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{Requirement, SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::support::diagnostic::kind::Kind;
+use crate::aiplan4rust::support::diagnostic::renderer::formatting;
+use crate::aiplan4rust::support::diagnostic::{renderer, DiagnosticKind};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{Requirement, SymbolId, Type};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 
@@ -97,7 +97,7 @@ pub fn format_suggestion_debug(kind: &DiagnosticKind) -> Option<String> {
 /// This function does not emit any diagnostics; it only generates suggestion strings.
 ///
 /// [`DiagnosticKind`]: crate::aiplan4rust::diagnostics::DiagnosticKind
-/// [`StringInterner`]: crate::aiplan4rust::core::interner::SymbolInterner
+/// [`StringInterner`]: crate::aiplan4rust::support::interner::SymbolInterner
 /// [`format_suggestion`]: crate::aiplan4rust::renderer::formatting::format_suggestion
 /// [`format_suggestion_debug`]: crate::aiplan4rust::renderer::formatting::format_suggestion_debug
 fn format_suggestion_internal(

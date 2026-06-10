@@ -248,8 +248,8 @@ impl<'a> ExprBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::VariableId;
     use crate::aiplan4rust::lir::expr::ExprStore;
+    use crate::aiplan4rust::support::lang::VariableId;
 
     /// Objective: Verify that 'always' correctly folds True and interns other expressions.
     /// Input: always(True) and always(variable).

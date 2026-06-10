@@ -49,8 +49,6 @@ pub fn encode(
     let head_node_id = node.try_child(0)?;
     let head_node = ast.try_node(head_node_id)?;
     let predicate_symbol_node_id = head_node.try_child(0)?;
-    let predicate_node = ast.try_node(predicate_symbol_node_id)?;
-    let predicate_symbol_id = predicate_node.try_ident()?;
 
     let symbol_table = registry.symbol_table();
     let declaration = symbol_table.try_get_declaration(predicate_symbol_node_id)?;

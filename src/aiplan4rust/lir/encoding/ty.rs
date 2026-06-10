@@ -1,7 +1,7 @@
-use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::EncodingError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::aiplan4rust::support::lang::{Type, TypeId};
 use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;
 

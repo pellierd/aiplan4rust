@@ -2,10 +2,6 @@
 //! specifically targeting detection of duplicated declarations. It integrates with
 //! the diagnostic infrastructure to report errors or warnings as needed during analysis.
 
-use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager};
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::Requirement::ActionCosts;
-use crate::aiplan4rust::lang::{Requirement, SymbolId};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::rules::{
     can_kind_share_namespace, can_share_namespace, is_structural,
@@ -13,6 +9,10 @@ use crate::aiplan4rust::semantic::rules::{
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolEntry};
+use crate::aiplan4rust::support::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::Requirement::ActionCosts;
+use crate::aiplan4rust::support::lang::{Requirement, SymbolId};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::SymbolTable;
 use std::collections::{HashMap, HashSet};

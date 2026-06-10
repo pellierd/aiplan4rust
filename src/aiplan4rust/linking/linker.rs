@@ -32,9 +32,6 @@
 //! }
 //! ````
 
-use crate::aiplan4rust::core::diagnostic::{DiagnosticManager, Provider};
-use crate::aiplan4rust::core::interner::{InternerMergeResult, SymbolInterner};
-use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::finalization::FinalizationContext;
 use crate::aiplan4rust::linking::{finalization, LinkedSemanticContext, LinkerResult};
@@ -42,6 +39,9 @@ use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::{passes, AnalyzerResult, SemanticContext};
 use crate::aiplan4rust::semantic::{SymbolTable, TypeChecker};
+use crate::aiplan4rust::support::diagnostic::{DiagnosticManager, Provider};
+use crate::aiplan4rust::support::interner::{InternerMergeResult, SymbolInterner};
+use crate::aiplan4rust::support::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::{linking, semantic};
@@ -204,7 +204,7 @@ impl Linker {
     ///    immutably referencing the rest of the contexts.
     /// 3. **Context Preparation**: Creates ephemeral `CheckContext` instances for both
     ///    sides using the unified global interner.
-    /// 4. **Cross-Analysis**: Executes the core semantic checks (binding, type checking, etc.).
+    /// 4. **Cross-Analysis**: Executes the support semantic checks (binding, type checking, etc.).
     /// 5. **Restoration**: Re-inserts the symbol tables back into their respective
     ///    semantic contexts regardless of analysis success.
     ///

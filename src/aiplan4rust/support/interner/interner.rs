@@ -43,8 +43,8 @@
 //! each string on its own line with its index, which is useful for debugging and inspection.
 //!
 
-use crate::aiplan4rust::core::interner::InternerError;
-use crate::aiplan4rust::lang::{LiteralId, SymbolId};
+use crate::aiplan4rust::support::interner::InternerError;
+use crate::aiplan4rust::support::lang::{LiteralId, SymbolId};
 use crate::aiplan4rust::syntax::lexer::token::{
     CONTINUOUS_VARIABLE, DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_COST, TOTAL_TIME,
 };

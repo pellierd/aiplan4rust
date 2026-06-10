@@ -1,9 +1,9 @@
-use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::support::diagnostic::{Diagnostic, DiagnosticManager, Provider};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::SymbolId;
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
-use crate::aiplan4rust::syntax::ast::tree::{NodeId, Tree};
+use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::Span;
 use std::collections::hash_map::Entry;
@@ -51,31 +51,9 @@ pub fn normalize_def(
     // 3. Perform the in-place AST transformation to merge the duplicates.
     let modified = merge_duplicate_declarations(def_id, ast)?;
 
-    //verify_tree_integrity(ast.syntax_tree())?;
     Ok(modified)
 }
 
-#[cfg(debug_assertions)]
-fn verify_tree_integrity(syntax_tree: &Tree<AstNode>) -> Result<(), NormalizationPassError> {
-    // On itère sur les IDs des nœuds dans l'ordre de traversée
-    for (node_id, node) in syntax_tree.preorder().ids() {
-        for &child_id in node.children() {
-            let child = syntax_tree.try_node(child_id)?;
-
-            // On compare l'ID du parent stocké dans l'enfant
-            // avec l'ID du nœud actuel (node_id)
-            assert_eq!(
-                child.parent(),
-                Some(node_id),
-                "Incohérence détectée : l'enfant {:?} prétend avoir le parent {:?} au lieu de {:?}",
-                child_id,
-                child.parent(),
-                node_id
-            );
-        }
-    }
-    Ok(())
-}
 /// Validates that duplicated declarations have compatible return types or supertypes.
 ///
 /// In PDDL, the `number` type is primitive and incompatible with object types.
@@ -192,8 +170,13 @@ fn report_duplicated_declaration_warning(
     diagnostic_manager: &mut DiagnosticManager,
     kind: AstKind,
 ) -> Result<(), NormalizationPassError> {
-    // 1. Group all declarations by their unique signature (identity)
+    // Group all declarations by their unique signature (identity).
     let seen = collect_duplicated_declarations(def_id, ast)?;
+
+    // Validate that duplicated declarations have compatible type signatures
+    // by scanning the `seen` map for conflicts, specifically regarding the `number` type.
+    report_declaration_incompatibility(&seen, kind, ast, diagnostic_manager)?;
+    // ===========================================================
 
     for (key, occurrences) in seen {
         // Only trigger a warning if at least one duplicate exists
@@ -451,6 +434,7 @@ pub fn merge_duplicate_declarations(
 /// of a definition during the normalization pass.
 struct Occurrences {
     /// The supertypes/return types of the first encountered declaration.
+    #[allow(dead_code)]
     first_supertypes: HashSet<SymbolId>,
     /// The source location of the first declaration.
     first_span: Span,

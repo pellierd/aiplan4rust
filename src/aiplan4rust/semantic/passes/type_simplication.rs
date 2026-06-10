@@ -1,10 +1,9 @@
-use crate::aiplan4rust::core::diagnostic::Diagnostic;
-use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
-use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::passes::context::PassContext;
 use crate::aiplan4rust::semantic::passes::SemanticPassError;
-use crate::aiplan4rust::semantic::type_checker::{TypeCheckerError, TypeHierarchy};
 use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::support::diagnostic::Diagnostic;
+use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::support::lang::{SymbolId, Type};
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use crate::{DiagnosticManager, SymbolTable};
 use std::fmt;
@@ -53,7 +52,7 @@ pub fn simplify_types(
     type_checker: &TypeChecker,
     target_table: &mut SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<Vec<Simplification>, TypeCheckerError> {
+) -> Result<Vec<Simplification>, SemanticPassError> {
     // Étape 1 : Collecte (Phase Immuable)
     // On récupère une Box<[TypeSimplification]> (taille fixe, immuable)
     let changes =
@@ -61,9 +60,7 @@ pub fn simplify_types(
 
     // Étape 2 : Application (Phase Mutable)
     if !changes.is_empty() {
-        // On passe une RÉFÉRENCE car on veut garder 'changes' pour le retour.
-        // Cela implique des .clone() internes dans apply_type_simplifications.
-        apply_type_simplifications(target_table, &changes);
+        apply_type_simplifications(target_table, &changes)?;
     }
 
     // On retourne la liste des changements pour le reste du pipeline
@@ -102,7 +99,7 @@ fn collect_type_simplifications(
     type_checker: &TypeChecker,
     target_table: &SymbolTable,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<Vec<Simplification>, TypeCheckerError> {
+) -> Result<Vec<Simplification>, SemanticPassError> {
     let mut changes = Vec::new();
 
     for (id, symbol) in target_table.into_iter().enumerate() {
@@ -150,11 +147,19 @@ fn collect_type_simplifications(
 fn simplify_type(
     type_checker: &TypeChecker,
     ty: &Type<SymbolId>,
-) -> Result<Option<(Type<SymbolId>, Vec<usize>)>, TypeCheckerError> {
+) -> Result<Option<(Type<SymbolId>, Vec<usize>)>, SemanticPassError> {
     let members = ty.members();
     let n = members.len();
     if n <= 1 {
         return Ok(None);
+    }
+
+    // 1. Validate maximum capacity and return the appropriate semantic error if exceeded
+    if n > MAX_UNION_SIMPLIFICATION_CAPACITY {
+        return Err(SemanticPassError::union_capacity_exceeded(
+            MAX_UNION_SIMPLIFICATION_CAPACITY,
+            n,
+        ));
     }
 
     let mut to_remove_mask: u128 = 0;

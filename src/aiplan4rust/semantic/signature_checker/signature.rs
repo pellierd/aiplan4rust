@@ -21,9 +21,9 @@
 //! This duality allows the `SignatureChecker` to perform structural and semantic
 //! validation using a single, consistent interface.
 
-use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::declaration::DeclarationError;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Filterable, Scope, SymbolKind, Usage};
+use crate::aiplan4rust::support::lang::{SymbolId, Type};
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
 
 /// A unified representation of a symbol's signature, bridging the gap between

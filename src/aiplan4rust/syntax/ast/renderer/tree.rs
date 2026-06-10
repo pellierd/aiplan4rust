@@ -23,7 +23,7 @@
 //! println!("{}", output);
 //! ```
 
-use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
 use std::fmt::{self, Formatter};

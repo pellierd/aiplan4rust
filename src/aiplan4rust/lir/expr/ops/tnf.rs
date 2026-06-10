@@ -425,8 +425,8 @@ impl TimeSpecifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::{AtomSkeletonId, TypedSymbol, VariableId};
     use crate::aiplan4rust::lir::expr::ExprStore;
+    use crate::aiplan4rust::support::lang::{AtomSkeletonId, TypedSymbol, VariableId};
 
     /// Helper to verify the top-level structure of a TNF (Temporal Normal Form) result.
     ///

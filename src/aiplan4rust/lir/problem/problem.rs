@@ -39,12 +39,6 @@
 //!
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
-use crate::aiplan4rust::core::interner::{InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{
-    ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
-    MethodSymbolId, ObjectId, PredicateSymbolId, PreferenceSymbolId, Requirement, SymbolId,
-    TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol,
-};
 use crate::aiplan4rust::lir::expr::{ExprId, ExprStore};
 use crate::aiplan4rust::lir::problem::error::LiftedProblemError;
 use crate::aiplan4rust::lir::problem::skeleton::{
@@ -53,6 +47,12 @@ use crate::aiplan4rust::lir::problem::skeleton::{
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::problem::{
     ActionDef, DerivedPredicateDef, DomainDef, InitialTaskNetwork, MethodDef, ProblemDef,
+};
+use crate::aiplan4rust::support::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{
+    ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
+    MethodSymbolId, ObjectId, PredicateSymbolId, PreferenceSymbolId, Requirement, SymbolId,
+    TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol,
 };
 // Regroupement des imports de rendu
 use crate::aiplan4rust::cli::io::serialization::serde::SerdeSerializable;

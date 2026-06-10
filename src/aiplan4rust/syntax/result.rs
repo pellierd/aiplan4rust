@@ -3,8 +3,8 @@
 //! This module provides a unified enum-based result typing for parsing,
 //! including diagnostics and optional AST.
 
-use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::support::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::Ast;
 use std::fmt;
 

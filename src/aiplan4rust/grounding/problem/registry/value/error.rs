@@ -1,6 +1,6 @@
-use thiserror::Error;
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::lang::TypeId;
+use crate::aiplan4rust::support::lang::TypeId;
+use thiserror::Error;
 
 /// Errors related to the construction, validation, and querying of a [`ValueRegistry`].
 ///

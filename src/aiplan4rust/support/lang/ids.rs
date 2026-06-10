@@ -1,10 +1,10 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 
 // Imports de ton projet
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 // Masque sur les 60 bits de poids faible (Espace d'adressage utile)
@@ -58,11 +58,11 @@ macro_rules! impl_id_type {
 #[doc(hidden)]
 macro_rules! impl_id_type_core {
     ($id:ident) => {
-        impl $crate::aiplan4rust::lang::ids::Id for $id {
+        impl $crate::aiplan4rust::support::lang::ids::Id for $id {
             #[inline(always)]
             fn new(value: usize) -> Self {
                 assert!(
-                    value <= $crate::aiplan4rust::lang::ids::RAW_NONE,
+                    value <= $crate::aiplan4rust::support::lang::ids::RAW_NONE,
                     "Index brut hors limite"
                 );
                 Self { value }
@@ -70,13 +70,13 @@ macro_rules! impl_id_type_core {
 
             #[inline(always)]
             fn as_usize(self) -> usize {
-                self.value & $crate::aiplan4rust::lang::ids::INDEX_MASK
+                self.value & $crate::aiplan4rust::support::lang::ids::INDEX_MASK
             }
 
             #[inline(always)]
             fn is_none(self) -> bool {
-                let idx = self.value & $crate::aiplan4rust::lang::ids::INDEX_MASK;
-                idx == $crate::aiplan4rust::lang::ids::RAW_NONE
+                let idx = self.value & $crate::aiplan4rust::support::lang::ids::INDEX_MASK;
+                idx == $crate::aiplan4rust::support::lang::ids::RAW_NONE
             }
 
             #[inline(always)]
@@ -94,7 +94,7 @@ macro_rules! impl_id_type_core {
 
         impl $id {
             pub const NONE: Self = Self {
-                value: $crate::aiplan4rust::lang::ids::RAW_NONE,
+                value: $crate::aiplan4rust::support::lang::ids::RAW_NONE,
             };
 
             #[inline(always)]
@@ -104,13 +104,13 @@ macro_rules! impl_id_type_core {
 
             #[inline(always)]
             pub fn as_usize(self) -> usize {
-                self.value & $crate::aiplan4rust::lang::ids::INDEX_MASK
+                self.value & $crate::aiplan4rust::support::lang::ids::INDEX_MASK
             }
 
             #[inline(always)]
             pub fn is_none(self) -> bool {
                 let idx = self.as_usize();
-                idx == $crate::aiplan4rust::lang::ids::RAW_NONE
+                idx == $crate::aiplan4rust::support::lang::ids::RAW_NONE
             }
 
             #[inline(always)]
@@ -121,7 +121,7 @@ macro_rules! impl_id_type_core {
             #[inline(always)]
             pub fn is_valid(&self) -> bool {
                 // Valide si l'ID nettoyé de ses flags est strictement inférieur à la sentinelle
-                (self.value & $crate::aiplan4rust::lang::ids::INDEX_MASK) < $crate::aiplan4rust::lang::ids::RAW_NONE
+                (self.value & $crate::aiplan4rust::support::lang::ids::INDEX_MASK) < $crate::aiplan4rust::support::lang::ids::RAW_NONE
             }
 
             #[inline(always)]
@@ -151,7 +151,7 @@ macro_rules! impl_id_type_core {
             #[inline(always)]
             fn from(value: usize) -> Self {
                 assert!(
-                    value < $crate::aiplan4rust::lang::ids::RAW_NONE,
+                    value < $crate::aiplan4rust::support::lang::ids::RAW_NONE,
                     "L'index donné écrase les sentinelles système !"
                 );
                 Self { value }

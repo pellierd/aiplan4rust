@@ -1,6 +1,6 @@
-use crate::aiplan4rust::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::renderers::debug::ty;
 use crate::aiplan4rust::lir::renderers::RenderContext;
+use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
 use std::fmt;
 
 /// Rendu pour n'importe quelle séquence de variables : ?x0 [v#0] - type (id)

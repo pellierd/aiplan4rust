@@ -15,7 +15,7 @@ pub fn render(f: &mut Formatter<'_>, itn: &InitialTaskNetwork, ctx: &RenderConte
         write!(f, ")")?;
     }
 
-    // 2. The core network
+    // 2. The support network
     write!(f, "\n    ")?;
     syntax::task_network::render(f, itn.task_network(), ctx)?;
 

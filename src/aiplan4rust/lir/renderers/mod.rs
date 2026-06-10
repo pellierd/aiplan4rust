@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod context;
 pub mod debug;
 pub mod display;

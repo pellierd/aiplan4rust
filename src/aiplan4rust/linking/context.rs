@@ -18,10 +18,10 @@
 //!
 
 use crate::aiplan4rust::cli::io::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::core::interner::{InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
+use crate::aiplan4rust::support::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::syntax::ast::tree::Tree;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use chrono::{DateTime, Local};

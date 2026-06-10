@@ -39,6 +39,16 @@ pub enum ValidationError {
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
 
+    /// A parent-child relationship inconsistency detected within the arena structure.
+    #[error(
+        "Structural inconsistency: child node {child_id:?} claims to have parent {actual_parent:?} instead of expected parent {expected_parent:?}"
+    )]
+    StructuralInconsistency {
+        child_id: NodeId,
+        actual_parent: Option<NodeId>,
+        expected_parent: NodeId,
+    },
+
     /// The number of children of a node is not exactly the expected count.
     #[error(
         "Wrong number of children: expected {expected}, found {found} (parent: kind={}, content={}, span={})",
@@ -113,6 +123,26 @@ pub enum ValidationError {
 }
 
 impl ValidationError {
+    /// Creates a `StructuralInconsistency` error when an arena link is corrupted.
+    ///
+    /// # Parameters
+    /// - `child_id`: The ID of the node that has an incorrect parent pointer.
+    /// - `actual_parent`: The actual parent ID currently stored in the child node.
+    /// - `expected_parent`: The ID of the parent that was iterating over this child.
+    #[track_caller]
+    pub fn structural_inconsistency(
+        child_id: NodeId,
+        actual_parent: Option<NodeId>,
+        expected_parent: NodeId,
+    ) -> Self {
+        ValidationError::StructuralInconsistency {
+            child_id,
+            actual_parent,
+            expected_parent,
+        }
+        .trace()
+    }
+
     /// Creates a `ChildrenArityMismatch` error.
     ///
     /// # Parameters

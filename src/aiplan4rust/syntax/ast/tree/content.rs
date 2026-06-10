@@ -30,7 +30,7 @@
 //! The `remap_idents` method allows updating identifiers according to a
 //! provided mapping, facilitating tasks like renaming or symbol resolution.
 
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp};
+use crate::aiplan4rust::support::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp};
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use ordered_float::OrderedFloat;
 use std::fmt::{Debug, Display};

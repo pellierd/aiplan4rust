@@ -1,5 +1,5 @@
+use crate::aiplan4rust::support::lang::ObjectId;
 use std::fmt;
-use crate::aiplan4rust::lang::ObjectId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Tuple<ID> {
@@ -18,7 +18,7 @@ impl<ID> Tuple<ID> {
     /// Accesseur pour le symbole (souvent un ID copiable comme u32/u64)
     pub fn symbol(&self) -> ID
     where
-        ID: Copy
+        ID: Copy,
     {
         self.symbol
     }

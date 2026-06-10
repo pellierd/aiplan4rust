@@ -12,9 +12,9 @@
 //! - Comma-separated formatting of identifier, declaration, and requirement lists
 //! - Friendly formatting for expected parser tokens (`format_expected_message`)
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{Requirement, SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind};
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{Requirement, SymbolId, Type};
 use crate::aiplan4rust::syntax::{Span, SyntaxInternerDisplay};
 use crate::Severity;
 use colored::Colorize;
@@ -122,6 +122,7 @@ pub(crate) fn idents_to_string_list(
 /// Formats a list of symbols into a PDDL-style type string.
 ///
 /// Helper wrapper around [`idents_to_string_list`] for slices of [`Symbol`].
+#[allow(dead_code)]
 pub(crate) fn format_symbol_list(symbols: &[Symbol], interner: Option<&SymbolInterner>) -> String {
     let idents: Vec<SymbolId> = symbols.iter().map(|s| s.id()).collect();
     idents_to_string_list(&idents, interner)
@@ -258,6 +259,7 @@ pub(crate) fn format_expected_message(expected: &[String]) -> Option<String> {
 /// # Returns
 ///
 /// A static string slice containing the capitalized entity name.
+#[allow(dead_code)]
 pub(crate) fn symbol_kind_to_string(kind: SymbolKind) -> &'static str {
     match kind {
         SymbolKind::Constant => "Constant",

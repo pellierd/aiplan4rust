@@ -4,11 +4,11 @@
 //! It processes action signatures (parameters) and encodes their logical body,
 //! adapting to the specific structure of instant or temporal actions.
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprId};
 use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};

@@ -6,7 +6,7 @@
 
 use thiserror::Error;
 
-use crate::aiplan4rust::core::interner::InternerError;
+use crate::aiplan4rust::support::interner::InternerError;
 use crate::aiplan4rust::syntax::ast::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::AstError;

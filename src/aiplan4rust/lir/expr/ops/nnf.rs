@@ -311,9 +311,9 @@ fn decode(val: usize) -> (ExprId, bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprStore;
+    use crate::aiplan4rust::support::lang::{AtomSkeletonId, VariableId};
 
     /// Test pushing negation through AND using De Morgan's law.
     /// Input: (not (and (A) (B))) -> (or (not (A)) (not (B)))

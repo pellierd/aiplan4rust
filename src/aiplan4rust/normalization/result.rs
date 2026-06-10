@@ -15,8 +15,8 @@
 
 use std::fmt;
 
-use crate::aiplan4rust::core::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::core::interner::SymbolInterner;
+use crate::aiplan4rust::support::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::Ast;
 
 /// Represents the result of the AST logic phase.

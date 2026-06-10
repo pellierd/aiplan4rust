@@ -147,9 +147,9 @@ impl<'a> ExprBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::VariableId;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilderError;
     use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
+    use crate::aiplan4rust::support::lang::VariableId;
 
     /// Verifies successful creation and Hash-Consing (deduplication).
     #[test]
@@ -310,7 +310,7 @@ mod tests {
 
         // This should technically be invalid in most PDDL contexts
         let result = builder.at_start(not_start_p);
-        // assert!(result.is_err()); // Only if you implement recursive checking
+        assert!(result.is_err()); // Only if you implement recursive checking
     }
 
     /// Objective: Verify the consistency of Timed Initial Literals (TIL) construction.

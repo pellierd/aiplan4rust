@@ -1,5 +1,5 @@
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{Id, RemapSymbol, SymbolId, Type};
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{Id, RemapSymbol, SymbolId, Type};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

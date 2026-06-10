@@ -18,10 +18,10 @@
 //! 3. **Type Resolution**: Uses the `SymbolTable` to distinguish between `:numeric-fluents`
 //!    and `:object-fluents` based on function return types.
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{AssignOp, CompareOp, Requirement, SymbolId};
 use crate::aiplan4rust::semantic::passes::PassContext;
 use crate::aiplan4rust::semantic::SemanticError;
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{AssignOp, CompareOp, Requirement, SymbolId};
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::tree::{NodeId, SyntaxContent, Tree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
@@ -132,12 +132,12 @@ pub fn extract_required_requirements(
     // node is within a scope that requires specific requirement checks.
     let mut gd: Option<usize> = None;
 
-    /// Sentinel for the durative action context.
-    ///
-    /// This variable tracks the starting depth of a `:duration` constraint block.
-    /// It is used to suppress certain requirements that are usually mandatory for
-    /// numeric expressions (like raw numbers) but are implicitly covered by
-    /// `:durative-actions` when used within a duration specification.
+    // Sentinel for the durative action context.
+    //
+    // This variable tracks the starting depth of a `:duration` constraint block.
+    // It is used to suppress certain requirements that are usually mandatory for
+    // numeric expressions (like raw numbers) but are implicitly covered by
+    // `:durative-actions` when used within a duration specification.
     let mut duration_depth: Option<usize> = None;
 
     // Perform a preorder traversal (root-to-leaves) of the syntax tree.
@@ -266,7 +266,7 @@ pub fn extract_required_requirements(
                         if let Some(s_node_id) = sym_node_id {
                             let sym_node = syntax_tree.try_node(s_node_id)?;
 
-                            if let Ok(sym_id) = sym_node.try_ident() {
+                            if let Ok(_) = sym_node.try_ident() {
                                 // --- CORRECTION ICI ---
                                 // On ne résout pas (recherche d'usage), on récupère la déclaration directe
                                 // car nous sommes au moment de la définition dans l'AST.

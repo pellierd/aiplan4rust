@@ -1,9 +1,9 @@
-use crate::aiplan4rust::core::interner::SymbolInterner;
 use crate::aiplan4rust::lir::encoding::error::EncodingError;
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::encoding::typed_list;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::ExprId;
+use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::tree::{Node, NodeId, SyntaxSubtree};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};

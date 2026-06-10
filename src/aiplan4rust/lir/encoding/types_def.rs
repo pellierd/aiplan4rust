@@ -4,9 +4,9 @@
 //! 1. **Phase 1 (Discovery):** Scans all typing names to populate the evaluator with unique `TypeID`s.
 //! 2. **Phase 2 (Definition):** Resolves inheritance relationships and adds full typing declarations to the LIR.
 
-use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingError, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::support::lang::Requirement;
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::ast::AstNode;

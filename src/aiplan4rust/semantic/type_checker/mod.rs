@@ -31,7 +31,7 @@
 //! # See Also
 //!
 //! - [`SymbolTable`](crate::aiplan4rust::semantic::SymbolTable)
-//! - [`Type`](crate::aiplan4rust::lang::Type)
+//! - [`Type`](crate::aiplan4rust::support::lang::Type)
 //! - [`SymbolRef`](crate::aiplan4rust::syntax::symbol::SymbolRef)
 //!
 //! This module is part of the semantic layer and assumes a correctly constructed symbol table.

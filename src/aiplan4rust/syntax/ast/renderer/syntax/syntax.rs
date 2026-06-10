@@ -1,4 +1,4 @@
-use crate::aiplan4rust::core::interner::{InternerDisplay, SymbolInterner};
+use crate::aiplan4rust::support::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use std::fmt;
 use std::fmt::Formatter;

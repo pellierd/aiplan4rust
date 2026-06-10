@@ -25,8 +25,6 @@
 //! assert!(table.iter().count() == 0);
 //! ```
 
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::signature_checker::MatchResult;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
@@ -37,8 +35,9 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
-use ahash::HashMapExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;

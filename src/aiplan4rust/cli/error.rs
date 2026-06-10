@@ -1,6 +1,6 @@
 use crate::aiplan4rust::cli::io::artefact::error::ArtefactError;
 use crate::aiplan4rust::cli::io::serialization::SerializationError;
-use crate::aiplan4rust::core::diagnostic::DiagnosticError;
+use crate::aiplan4rust::support::diagnostic::DiagnosticError;
 use crate::aiplan4rust::AiplanError;
 use std::io;
 use std::path::PathBuf;

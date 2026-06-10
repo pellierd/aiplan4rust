@@ -2,14 +2,14 @@ use crate::aiplan4rust::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-use crate::aiplan4rust::lang::{ActionSymbolId, CompareOp};
-use crate::aiplan4rust::lang::{
-    AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
-};
 use crate::aiplan4rust::lir::expr::error::StorerError;
 use crate::aiplan4rust::lir::expr::{Expr, ExprId, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::ActionDef;
+use crate::aiplan4rust::support::lang::{ActionSymbolId, CompareOp};
+use crate::aiplan4rust::support::lang::{
+    AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
+};
 use crate::aiplan4rust::syntax::ast::tree::SyntaxContent;
 use crate::analysis::reachability::datalog::cause::Cause;
 use std::collections::HashMap;
@@ -145,7 +145,7 @@ impl DatalogEncoder {
     /// Encodes a PDDL Type as a unary Datalog predicate and maintains a semantic mapping.
     /// Encodes a PDDL Type as a unary Datalog predicate using sequential allocation.
     ///
-    /// This function is a core component of the **ID Segmentation** strategy. Type IDs
+    /// This function is a support component of the **ID Segmentation** strategy. Type IDs
     /// are allocated contiguously, enabling O(1) conversion between Datalog
     /// `AtomSkeletonId` and PDDL `TypeId` through pointer-free arithmetic.
     ///
@@ -934,7 +934,7 @@ impl DatalogEncoder {
 
     /// Creates a new auxiliary atom and registers its skeleton locally.
     ///
-    /// This method is a core part of the **Skolemization** process during flattening.
+    /// This method is a support part of the **Skolemization** process during flattening.
     /// It generates a unique predicate ID for a sub-formula and maps the provided
     /// variables to their respective types based on the action's parameter list.
     ///

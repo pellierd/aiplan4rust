@@ -5,7 +5,7 @@
 //!
 //! ## Design Principles
 //!
-//! The comparison logic is built upon three core pillars:
+//! The comparison logic is built upon three support pillars:
 //!
 //! 1. **Structural Canonicalization**: Reducing the variety of syntactic forms
 //!    into a minimal set of canonical representations (e.g., always using `Less`
@@ -24,9 +24,9 @@
 //! Every comparison passes through a multi-stage pipeline:
 //! **Canonicalize** → **Identity Check** → **Constant Fold** → **Intern**.
 
-use crate::aiplan4rust::lang::CompareOp;
 use crate::aiplan4rust::lir::expr::ExprBuilder;
 use crate::aiplan4rust::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::support::lang::CompareOp;
 
 impl<'a> ExprBuilder<'a> {
     /// Constructs a functional comparison expression: `(op left right)`.
@@ -335,8 +335,10 @@ impl<'a> ExprBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::lang::{CompareOp, FunctionSkeletonId, FunctionSymbolId, VariableId};
     use crate::aiplan4rust::lir::expr::ExprStore;
+    use crate::aiplan4rust::support::lang::{
+        CompareOp, FunctionSkeletonId, FunctionSymbolId, VariableId,
+    };
     /// Objective: Ensure 'Greater' is normalized to 'Less' and operands are swapped.
     /// Input: Calling builder.greater(a, b).
     /// Output: An ExprId pointing to a Comparison(Less) with children [b, a].

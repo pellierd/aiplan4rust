@@ -47,7 +47,7 @@ pub mod ty;
 pub mod typed_list;
 pub mod typed_symbol;
 
-pub use crate::aiplan4rust::core::interner::remap_symbol::RemapSymbol;
+pub use crate::aiplan4rust::support::interner::remap_symbol::RemapSymbol;
 pub use arithmetic_op::ArithmeticOp;
 pub use assign_op::AssignOp;
 pub use compare_op::CompareOp;

@@ -4,17 +4,17 @@
 //! the logical encoding pass. It links syntactic declarations (AST) to their
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{
-    AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId,
-    PreferenceSymbolId, SymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId,
-    VariableId,
-};
 use crate::aiplan4rust::lir::encoding::expr::Step;
 use crate::aiplan4rust::lir::encoding::EncodingError;
 use crate::aiplan4rust::lir::expr::ExprId;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
+use crate::aiplan4rust::support::interner::SymbolInterner;
+use crate::aiplan4rust::support::lang::{
+    AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId,
+    PreferenceSymbolId, SymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId,
+    VariableId,
+};
 use crate::aiplan4rust::syntax::ast::tree::NodeId;
 use std::collections::HashMap;
 
@@ -153,10 +153,12 @@ impl EncodingRegistry {
         }
     }
 
+    #[allow(dead_code)]
     pub fn types_count(&self) -> usize {
         self.type_node_to_id.len()
     }
 
+    #[allow(dead_code)]
     pub fn type_symbols_count(&self) -> usize {
         self.type_symbol_to_id.len()
     }
@@ -171,6 +173,7 @@ impl EncodingRegistry {
     }
 
     /// Version avec erreur fatale
+    #[allow(dead_code)]
     pub fn try_resolve_type_symbol(&self, symbol: NodeId) -> Result<TypeId, EncodingError> {
         self.resolve_type_symbol(symbol)
             .ok_or_else(|| EncodingError::symbol_binding_failed(symbol))
@@ -282,6 +285,7 @@ impl EncodingRegistry {
         registry
     }
 
+    #[allow(dead_code)]
     pub fn resolve_variable(&self, decl_id: NodeId) -> Option<VariableId> {
         self.variable_to_id.get(&decl_id).copied()
     }
@@ -319,10 +323,12 @@ impl EncodingRegistry {
             .ok_or_else(|| EncodingError::symbol_binding_failed(symbol.clone()))
     }
 
+    #[allow(dead_code)]
     pub fn resolve_preference(&self, symbol: NodeId) -> Option<PreferenceSymbolId> {
         self.preference_to_id.get(&symbol).copied()
     }
 
+    #[allow(dead_code)]
     pub fn try_resolve_preference(
         &self,
         symbol: NodeId,
@@ -349,6 +355,7 @@ impl EncodingRegistry {
         new_id
     }
 
+    #[allow(dead_code)]
     pub fn register_object(&mut self, symbol: NodeId, id: ObjectId) {
         self.object_to_id.insert(symbol, id);
     }
@@ -411,11 +418,13 @@ impl EncodingRegistry {
     }
 
     /// Résout un nom de préférence (utilisé dans les expressions is-violated).
+    #[allow(dead_code)]
     pub fn resolve_preference_by_name(&self, symbol: SymbolId) -> Option<PreferenceSymbolId> {
         self.preference_symbol_to_id.get(&symbol).copied()
     }
 
     /// Version avec erreur pour la résolution de nom dans les expressions.
+    #[allow(dead_code)]
     pub fn try_resolve_preference_by_name(
         &self,
         symbol: SymbolId,
@@ -449,6 +458,7 @@ impl EncodingRegistry {
             .ok_or_else(|| EncodingError::symbol_binding_failed(NodeId::default()))
     }
     /// La méthode dont tu as besoin dans finalize_task_network
+    #[allow(dead_code)]
     pub fn resolve_task_label_symbol(&self, id: TaskLabelSymbolId) -> SymbolId {
         self.task_label_id_to_symbol[id.as_usize()]
     }

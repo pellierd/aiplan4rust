@@ -4,9 +4,9 @@
 //! failures that can occur when synchronizing the Symbol Table with the Syntax Tree.
 
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::aiplan4rust::support::lang::SymbolId;
 use crate::aiplan4rust::syntax::ast::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use thiserror::Error;

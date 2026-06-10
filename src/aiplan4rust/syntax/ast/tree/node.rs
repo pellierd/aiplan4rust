@@ -28,7 +28,7 @@
 //! println!("{}", syntax);
 //! ```
 
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp};
+use crate::aiplan4rust::support::lang::{ArithmeticOp, AssignOp, CompareOp, OptimizationOp};
 use crate::aiplan4rust::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::ast::tree::SyntaxContent;

@@ -1,3 +1,4 @@
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::semantic::signature_checker::SignatureMatcherError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckerError;
@@ -24,4 +25,17 @@ pub enum SemanticPassError {
 
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
+
+    // La nouvelle erreur ajoutée pour la capacité
+    #[error("Union type exceeds maximum simplification capacity of {max} members (found {found})")]
+    UnionCapacityExceeded { max: usize, found: usize },
 }
+
+impl SemanticPassError {
+    /// Helper constructor to create a `UnionCapacityExceeded` error variant.
+    pub fn union_capacity_exceeded(max: usize, found: usize) -> Self {
+        Self::UnionCapacityExceeded { max, found }.trace()
+    }
+}
+
+impl Traceable for SemanticPassError {}

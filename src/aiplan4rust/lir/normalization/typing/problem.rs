@@ -23,19 +23,15 @@
 //! By the end of this pass, the LIR is guaranteed to have a flat, non-hierarchical
 //! type system where every symbol points to a single canonical [`TypeId`].
 
-use crate::aiplan4rust::core::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{
-    AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedSymbol, VariableId,
-};
 use crate::aiplan4rust::lir::expr::iter::Scratchpad;
-use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
+use crate::aiplan4rust::lir::expr::ExprStore;
 use crate::aiplan4rust::lir::normalization::typing::registry::TypeRegistry;
 use crate::aiplan4rust::lir::normalization::typing::{
     action, derived_predicate, expr, method, skeleton, typed_list, typed_symbol,
 };
 use crate::aiplan4rust::lir::normalization::NormalizationError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use std::collections::HashSet;
+use crate::aiplan4rust::support::lang::{Type, TypeId, TypedSymbol};
 
 /// Prefix used for the generation of unified anonymous type symbols.
 const ANONYMOUS_PREFIX: &str = "anonymous_either";
@@ -344,99 +340,108 @@ pub fn normalize_problem(
     Ok(())
 }
 
-#[test]
-/// ### Objective
-/// Verify that the flattening process correctly identifies and transforms ad-hoc
-/// `Either` types located inside quantified expressions (Exists/Forall).
-fn test_flatten_quantified_expression_types() -> Result<(), Box<dyn std::error::Error>> {
-    let interner = SymbolInterner::new();
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind, ExprStore};
+    use crate::aiplan4rust::support::interner::SymbolInterner;
+    use crate::aiplan4rust::support::lang::{AtomSkeletonId, PredicateSymbolId, VariableId};
+    use std::collections::HashSet;
 
-    // 1. Initialize the problem (NewLiftedProblem) and its backing stores
-    let mut problem = LiftedProblem::new(HashSet::new());
-    problem.set_interner(interner);
+    #[test]
+    /// ### Objective
+    /// Verify that the flattening process correctly identifies and transforms ad-hoc
+    /// `Either` types located inside quantified expressions (Exists/Forall).
+    fn test_flatten_quantified_expression_types() -> Result<(), Box<dyn std::error::Error>> {
+        let interner = SymbolInterner::new();
 
-    let mut store = ExprStore::new();
-    let mut pad = Scratchpad::new();
+        // 1. Initialize the problem (NewLiftedProblem) and its backing stores
+        let mut problem = LiftedProblem::new(HashSet::new());
+        problem.set_interner(interner);
 
-    // 2. Define the base root types
-    let sym_a = problem.interner_mut().intern_symbol("a");
-    let sym_b = problem.interner_mut().intern_symbol("b");
+        let mut store = ExprStore::new();
+        let mut pad = Scratchpad::new();
 
-    let id_a = problem.add_type_symbol(sym_a);
-    let id_b = problem.add_type_symbol(sym_b);
+        // 2. Define the base root types
+        let sym_a = problem.interner_mut().intern_symbol("a");
+        let sym_b = problem.interner_mut().intern_symbol("b");
 
-    problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?;
-    problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?;
+        let id_a = problem.add_type_symbol(sym_a);
+        let id_b = problem.add_type_symbol(sym_b);
 
-    // 3. Build an expression featuring an ad-hoc "Either" union type
-    let mut builder = ExprBuilder::new(&mut store);
+        problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?;
+        problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?;
 
-    // Define the members [a, b] directly within the variable signature
-    let adhoc_members = vec![id_a.as_usize(), id_b.as_usize()];
+        // 3. Build an expression featuring an ad-hoc "Either" union type
+        let mut builder = ExprBuilder::new(&mut store);
 
-    // Create the variable ?X (ID 1) bound to this composite typing
-    let var_x = builder.typed_variable(1, &adhoc_members);
-    let list_x = builder.typed_variable_list(vec![var_x]);
+        // Define the members [a, b] directly within the variable signature
+        let adhoc_members = vec![id_a.as_usize(), id_b.as_usize()];
 
-    // To prevent the variable from being pruned, it must be referenced inside the body
-    let arg_x = builder.variable(VariableId::from(1));
+        // Create the variable ?X (ID 1) bound to this composite typing
+        let var_x = builder.typed_variable(1, &adhoc_members);
+        let list_x = builder.typed_variable_list(vec![var_x]);
 
-    // Mock identifiers for the predicate P(?X)
-    let pred_sym = PredicateSymbolId::from(3);
-    let skel_id = AtomSkeletonId::from(100);
+        // To prevent the variable from being pruned, it must be referenced inside the body
+        let arg_x = builder.variable(VariableId::from(1));
 
-    // Expression body: P(?X)
-    let atomic_p = builder.atomic_formula(pred_sym, &[arg_x], skel_id);
-    let exists_x = builder.exists(list_x, atomic_p)?;
+        // Mock identifiers for the predicate P(?X)
+        let pred_sym = PredicateSymbolId::from(3);
+        let skel_id = AtomSkeletonId::from(100);
 
-    // Inject the finalized expression into the problem constraints
-    problem.set_problem_constraints(exists_x);
+        // Expression body: P(?X)
+        let atomic_p = builder.atomic_formula(pred_sym, &[arg_x], skel_id);
+        let exists_x = builder.exists(list_x, atomic_p)?;
 
-    // --- 4. EXECUTE STEP-BY-STEP FLATTENING PASS ---
-    normalize(&mut problem, &mut store, &mut pad)?;
+        // Inject the finalized expression into the problem constraints
+        problem.set_problem_constraints(exists_x);
 
-    // --- 5. VERIFICATIONS ---
-    let final_expr = problem.problem_constraints();
+        // --- 4. EXECUTE STEP-BY-STEP FLATTENING PASS ---
+        normalize(&mut problem, &mut store, &mut pad)?;
 
-    // Extract the root node to verify the in-place variable type mutation
-    let node = store.get(final_expr).expect("Expression should exist");
+        // --- 5. VERIFICATIONS ---
+        let final_expr = problem.problem_constraints();
 
-    // Extract and validate the quantifier's bound variables
-    if let ExprKind::Exists(vars) = node.kind() {
-        assert_eq!(vars.len(), 1, "Should have exactly 1 variable");
-        let var_type = vars[0].ty();
+        // Extract the root node to verify the in-place variable type mutation
+        let node = store.get(final_expr).expect("Expression should exist");
 
-        // Verification 1: The ad-hoc typing [a, b] must be replaced by a single unique ID (length 1)
-        assert_eq!(
-            var_type.members().len(),
-            1,
-            "The type within the quantifier must be a redirection to the newly materialized atomic type"
-        );
+        // Extract and validate the quantifier's bound variables
+        if let ExprKind::Exists(vars) = node.kind() {
+            assert_eq!(vars.len(), 1, "Should have exactly 1 variable");
+            let var_type = vars[0].ty();
 
-        // Verification 2: Retrieve the definition of the newly created materialized type
-        let new_type_id = var_type.members()[0];
-        let new_type_def = problem.try_get_type(new_type_id)?.ty();
+            // Verification 1: The ad-hoc typing [a, b] must be replaced by a single unique ID (length 1)
+            assert_eq!(
+                var_type.members().len(),
+                1,
+                "The type within the quantifier must be a redirection to the newly materialized atomic type"
+            );
 
-        // Verification 3: The materialized type must encapsulate the original root members
-        assert!(
-            new_type_def.members().contains(&id_a),
-            "The new materialized type must contain member 'a'"
-        );
-        assert!(
-            new_type_def.members().contains(&id_b),
-            "The new materialized type must contain member 'b'"
-        );
+            // Verification 2: Retrieve the definition of the newly created materialized type
+            let new_type_id = var_type.members()[0];
+            let new_type_def = problem.try_get_type(new_type_id)?.ty();
 
-        // Verification 4: The generated name must be deterministic and use the anonymous prefix
-        let sym_id = problem.type_symbols().try_get_ident(new_type_id)?;
-        let final_name = problem.interner().try_resolve_symbol(*sym_id)?;
+            // Verification 3: The materialized type must encapsulate the original root members
+            assert!(
+                new_type_def.members().contains(&id_a),
+                "The new materialized type must contain member 'a'"
+            );
+            assert!(
+                new_type_def.members().contains(&id_b),
+                "The new materialized type must contain member 'b'"
+            );
 
-        assert!(final_name.starts_with(ANONYMOUS_PREFIX));
-        assert!(final_name.contains("a"));
-        assert!(final_name.contains("b"));
-    } else {
-        panic!("Resulting expression root is not an Exists node !");
+            // Verification 4: The generated name must be deterministic and use the anonymous prefix
+            let sym_id = problem.type_symbols().try_get_ident(new_type_id)?;
+            let final_name = problem.interner().try_resolve_symbol(*sym_id)?;
+
+            assert!(final_name.starts_with(ANONYMOUS_PREFIX));
+            assert!(final_name.contains("a"));
+            assert!(final_name.contains("b"));
+        } else {
+            panic!("Resulting expression root is not an Exists node !");
+        }
+
+        Ok(())
     }
-
-    Ok(())
 }

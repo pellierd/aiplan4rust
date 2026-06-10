@@ -20,10 +20,10 @@
 
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use crate::aiplan4rust::lir::expr::ExprKind;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::analysis::inertia::table::InertiaTableError;
 use std::collections::HashSet;
 

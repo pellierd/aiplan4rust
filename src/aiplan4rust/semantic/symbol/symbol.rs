@@ -9,9 +9,9 @@
 //! The struct is immutable (except when explicitly modified via setters), hashable,
 //! and suitable for use as a key in maps or sets.
 
-use crate::aiplan4rust::core::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::support::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::support::lang::{RemapSymbol, SymbolId};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

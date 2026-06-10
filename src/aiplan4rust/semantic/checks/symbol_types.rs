@@ -32,11 +32,11 @@
 //! root declarations, an [`error_undeclared_type`](crate::diagnostic::Diagnostic::error_undeclared_type)
 //! is emitted through the [`DiagnosticManager`].
 
-use crate::aiplan4rust::core::diagnostic::{Diagnostic, DiagnosticManager};
-use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::type_checker::TypeHierarchy;
 use crate::aiplan4rust::semantic::{SemanticError, TypeChecker};
+use crate::aiplan4rust::support::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::support::lang::SymbolId;
 use crate::SymbolTable;
 
 /// Validates the semantic consistency of all type references within the symbol table.
