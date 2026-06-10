@@ -69,8 +69,8 @@ impl Grounder {
             lifted_problem.object_defs().as_slice(),
         )?;
 
-        println!("{}", lifted_problem);
-        println!("{}", registry);
+        //println!("{}", lifted_problem);
+        //println!("{}", registry);
 
         let init = Expr::new(lifted_problem.init(), lifted_problem.store());
         let evaluator = InertiaEvaluator::build(

@@ -1,4 +1,4 @@
 mod datalog;
+mod inertia;
 mod inertia_evaluator;
-mod new_inertia;
 mod value_registry;
