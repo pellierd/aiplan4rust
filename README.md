@@ -52,13 +52,13 @@ with a structured intermediate representation and a powerful command-line interf
 
 - Domain ↔ Problem consistency checks
 - Construction of a typed, optimized **Lifted Intermediate Representation (LIR)**
-- Deep formula transformations (NNF, TNF, FNF tree-walking operations)
+- Deep formula transformations :(NNF, TNF, FNF tree-walking operations)
 
 ### Advanced Grounding Engine 🚧 *(In Progress)*
 
 - State-of-the-art reachability analysis driven by a custom **Datalog engine**
 - High-performance evaluator for inertia and predicate analysis
-- Grounding passes optimizing expressions into **PNF** (*Prenex Normal Form*) and **QNF** (*Quantifier Normal Form*)
+- Grounding passes optimizing expressions into **PNF** (*Positive Normal Form*) and **QNF** (*Quantifier Normal Form*)
 - Fast fluent registry and value range tracking
 
 ### Serialization
@@ -88,22 +88,22 @@ utilities:
 
 ```text
 src/
-├── bin/                 # CLI executable entry points
-├── lib.rs               # Library root interface
-└── aiplan4rust/         # Main framework core
-    ├── cli/             # CLI app definitions, error handling, and serialization I/O
-    │   └── commands/    # Subcommands mapping: parse, link, ground
-    ├── compiler/        # The compiler pipeline stages
-    │   ├── syntax/      # LALRPOP grammar, Lexer, Parser, and Arena AST
-    │   ├── semantic/    # Symbol tables, Type checker, and Pass-based analyzers
-    │   ├── linking/     # Cross-declaration checks between Domain and Problem
-    │   ├── normalization/# Global restructuring and validation passes
-    │   ├── lir/         # Lifted IR storage, trees, and formula normalizers (NNF, TNF)
-    │   └── grounding/   # Datalog engine, reachability analysis, and PNF/QNF passes
-    └── support/         # Shared workspace-wide utilities
-        ├── diagnostic/  # Compiler diagnostics engine and layout renderers
-        ├── interner/    # High-performance string interning engine
-        └── lang/        # Language primitives (operators, basic types, requirements)
+├── bin/                   # CLI executable entry points
+├── lib.rs                 # Library root interface
+└── aiplan4rust/           # Main framework core
+    ├── cli/               # CLI app definitions, error handling, and serialization I/O
+    │   └── commands/      # Subcommands mapping: parse, link, ground
+    ├── compiler/          # The compiler pipeline stages
+    │   ├── syntax/        # LALRPOP grammar, Lexer, Parser, and Arena AST
+    │   ├── semantic/      # Symbol tables, Type checker, and Pass-based analyzers
+    │   ├── linking/       # Cross-declaration checks between Domain and Problem
+    │   ├── normalization/ # Global restructuring and validation passes
+    │   ├── lir/           # Lifted IR storage, trees, and formula normalizers (NNF, TNF)
+    │   └── grounding/     # Datalog engine, reachability analysis, and PNF/QNF passes
+    └── support/           # Shared workspace-wide utilities
+        ├── diagnostic/    # Compiler diagnostics engine and layout renderers
+        ├── interner/      # High-performance string interning engine
+        └── lang/          # Language primitives (operators, basic types, requirements)
 ```
 
 ## Quickstart Commands

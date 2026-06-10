@@ -335,7 +335,7 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
                 ("painted", |i| i.is_fluent(), "FLUENT"),
                 ("has-hole", |i| i.is_fluent(), "FLUENT"),
             ],
-            "rover/roverprob1234" => vec![
+            "rover/pb01" => vec![
                 // --- Static Predicates (Inertia Positive-Negative) ---
                 // Physical topology and hardware capabilities defined at startup that never alter.
                 (
