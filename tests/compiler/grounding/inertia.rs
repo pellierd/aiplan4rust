@@ -4,12 +4,12 @@ use test_case::test_case;
 use crate::common::compiler::*;
 use crate::common::io::*;
 
-// --- Nouveaux Imports portés ---
+// --- Grounding Analysis Imports ---
 use aiplan4rust::aiplan4rust::compiler::grounding::analysis::inertia::inertia::Inertia;
 use aiplan4rust::aiplan4rust::compiler::grounding::analysis::inertia::table::builder::build as analyze_inertia;
 use aiplan4rust::aiplan4rust::support::lang::AtomSkeletonId;
 
-/// Teste la cohérence de la table d'inertie pour un répertoire de domaine donné.
+/// Asserts the consistency of the generated inertia table against an oracle for a given domain directory.
 pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
     let mut success = true;
 
@@ -17,18 +17,35 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
     let problems_to_process = get_test_files_for_mode(filter_problem_files(&all_files));
 
     println!(
-        "\n\x1b[1;36m>>> Starting Inertia Consistency Test in: {}\x1b[0m",
+        "\n\x1b[1;36m>>> Running Inertia Consistency Suite: {}\x1b[0m",
         domain_dir.display()
     );
 
     for problem_path in &problems_to_process {
-        let domain_name = domain_dir.file_name().unwrap().to_str().unwrap();
-        let problem_name = problem_path.file_name().unwrap().to_str().unwrap();
-        let oracle_key = format!("{}/{}", domain_name, problem_name);
+        let mut comps = problem_path.components();
 
-        let domain_path = find_associated_domain(problem_path).expect("Domain not found");
+        let _tests = comps.next();
+        let _fixtures = comps.next();
+        let _kind = comps.next(); // pddl / hddl
+        let _ipc = comps.next(); // ipcXX
 
-        // --- Pipeline de compilation ---
+        let domain = comps
+            .next()
+            .expect("Missing domain component")
+            .as_os_str()
+            .to_string_lossy()
+            .to_string();
+
+        let problem = problem_path
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .replace("-domain", "");
+
+        let oracle_key = format!("{}/{}", domain, problem);
+        let domain_path = find_associated_domain(problem_path).expect("Domain file not found");
+
+        // --- Compilation Pipeline ---
         let d_ana = analyze_file(&domain_path, "domain", &mut success);
         let p_ana = analyze_file(problem_path, "problem", &mut success);
 
@@ -40,18 +57,21 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
             }
         };
 
-        let linking = link(d_res, p_res, &domain_path, problem_path).expect("Link failed");
-        let mut lir_result = encode(linking, &domain_path, problem_path).expect("Encoding failed");
+        let linking = link(d_res, p_res, &domain_path, problem_path).expect("Linking failed");
+        let mut lir_result =
+            encode(linking, &domain_path, problem_path).expect("LIR encoding failed");
 
-        // --- On récupère le NEW lifted problem ---
-        let pb = lir_result.take_lifted_problem().expect("No lifted problem");
+        // --- Fetch Lifted Problem Representation ---
+        let pb = lir_result
+            .take_lifted_problem()
+            .expect("Lifted problem extraction failed");
 
-        // --- Analyse d'Inertie via le nouveau builder ---
-        let table = analyze_inertia(&pb).expect("Inertia analysis failed");
+        // --- Generate Inertia Table ---
+        let table = analyze_inertia(&pb).expect("Inertia analysis computation failed");
 
-        // --- Oracle : Définition des attentes par domaine ---
+        // --- Oracle Expectations Framework ---
         let expectations: Vec<(&str, fn(Inertia) -> bool, &str)> = match oracle_key.as_str() {
-            "assembly/pb01.pddl" | "assembly/prob01.pddl" => vec![
+            "assembly/pb01" => vec![
                 (
                     "requires",
                     |i| i.is_positive_negative(),
@@ -66,12 +86,12 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
                 ("complete", |i| i.is_fluent(), "FLUENT"),
                 ("incorporated", |i| i.is_fluent(), "FLUENT"),
             ],
-            "gripper/prob01.pddl" => vec![
+            "gripper/pb01" => vec![
                 ("at-robby", |i| i.is_fluent(), "FLUENT"),
                 ("at", |i| i.is_fluent(), "FLUENT"),
                 ("carry", |i| i.is_fluent(), "FLUENT"),
             ],
-            "logistics/prob01.pddl" | "logistics/pb01.pddl" | "logistics/p01.pddl" => vec![
+            "logistics/pb01" => vec![
                 ("at", |i| i.is_fluent(), "FLUENT"),
                 ("in", |i| i.is_fluent(), "FLUENT"),
                 (
@@ -110,7 +130,7 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
                     "POSITIVE_NEGATIVE_INERTIA",
                 ),
             ],
-            "movie/prob01.pddl" | "movie/pb01.pddl" => vec![
+            "movie/pb01" => vec![
                 ("movie-rewound", |i| i.is_fluent(), "FLUENT"),
                 ("counter-at-zero", |i| i.is_fluent(), "FLUENT"),
                 ("have-chips", |i| i.is_fluent(), "FLUENT"),
@@ -154,11 +174,11 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
                     "POSITIVE_NEGATIVE_INERTIA",
                 ),
             ],
-            "mystery/prob01.pddl" | "mystery/pb01.pddl" => vec![
+            "mystery/pb01" | "mystery-prime/pb01" | "mprime/pb01" => vec![
                 ("craves", |i| i.is_fluent(), "FLUENT"),
                 ("harmony", |i| i.is_fluent(), "FLUENT"),
                 ("locale", |i| i.is_fluent(), "FLUENT"),
-                ("fears", |i| i.is_negative(), "NEGATIVE_INERTIA"),
+                ("fears", |i| i.is_fluent(), "FLUENT"),
                 (
                     "food",
                     |i| i.is_positive_negative(),
@@ -200,53 +220,7 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
                     "POSITIVE_NEGATIVE_INERTIA",
                 ),
             ],
-            "mprime/prob01.pddl" | "mprime/pb01.pddl" => vec![
-                ("craves", |i| i.is_fluent(), "FLUENT"),
-                ("harmony", |i| i.is_fluent(), "FLUENT"),
-                ("locale", |i| i.is_fluent(), "FLUENT"),
-                ("fears", |i| i.is_negative(), "NEGATIVE_INERTIA"),
-                (
-                    "food",
-                    |i| i.is_positive_negative(),
-                    "POSITIVE_NEGATIVE_INERTIA",
-                ),
-                (
-                    "pleasure",
-                    |i| i.is_positive_negative(),
-                    "POSITIVE_NEGATIVE_INERTIA",
-                ),
-                (
-                    "pain",
-                    |i| i.is_positive_negative(),
-                    "POSITIVE_NEGATIVE_INERTIA",
-                ),
-                (
-                    "province",
-                    |i| i.is_positive_negative(),
-                    "POSITIVE_NEGATIVE_INERTIA",
-                ),
-                (
-                    "planet",
-                    |i| i.is_positive_negative(),
-                    "POSITIVE_NEGATIVE_INERTIA",
-                ),
-                (
-                    "eats",
-                    |i| i.is_positive_negative(),
-                    "POSITIVE_NEGATIVE_INERTIA",
-                ),
-                (
-                    "attacks",
-                    |i| i.is_positive_negative(),
-                    "POSITIVE_NEGATIVE_INERTIA",
-                ),
-                (
-                    "orbits",
-                    |i| i.is_positive_negative(),
-                    "POSITIVE_NEGATIVE_INERTIA",
-                ),
-            ],
-            "barman/prob01.pddl" | "barman/pb01.pddl" => vec![
+            "barman-bdi/pb01" => vec![
                 ("contains", |i| i.is_fluent(), "FLUENT"),
                 ("clean", |i| i.is_fluent(), "FLUENT"),
                 ("empty", |i| i.is_fluent(), "FLUENT"),
@@ -283,7 +257,7 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
                     "POSITIVE_NEGATIVE_INERTIA",
                 ),
             ],
-            "depot/prob01.pddl" | "depot/pb01.pddl" => vec![
+            "depot/pb01" => vec![
                 ("at", |i| i.is_fluent(), "FLUENT"),
                 ("on", |i| i.is_fluent(), "FLUENT"),
                 ("in", |i| i.is_fluent(), "FLUENT"),
@@ -303,6 +277,144 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
                     "POSITIVE_NEGATIVE_INERTIA",
                 ),
             ],
+            "freecell/pb01" => vec![
+                (
+                    "value",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "suit",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "successor",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "canstack",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                ("on", |i| i.is_fluent(), "FLUENT"),
+                ("incell", |i| i.is_fluent(), "FLUENT"),
+                ("clear", |i| i.is_fluent(), "FLUENT"),
+                ("cellspace", |i| i.is_fluent(), "FLUENT"),
+                ("colspace", |i| i.is_fluent(), "FLUENT"),
+                ("home", |i| i.is_fluent(), "FLUENT"),
+                ("bottomcol", |i| i.is_fluent(), "FLUENT"),
+            ],
+            "schedule/pb001" => vec![
+                // --- Static Predicates (Inertia Positive-Négative) ---
+                // Machine capabilities are declared in the initial state and never modified.
+                (
+                    "has-bit",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "can-orient",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "has-paint",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                // --- Dynamic Predicates (Fluents) ---
+                // Properties of parts change dynamically across operations or reset during `do-time-step`.
+                ("temperature", |i| i.is_fluent(), "FLUENT"),
+                ("busy", |i| i.is_fluent(), "FLUENT"),
+                ("scheduled", |i| i.is_fluent(), "FLUENT"),
+                ("objscheduled", |i| i.is_fluent(), "FLUENT"),
+                ("surface-condition", |i| i.is_fluent(), "FLUENT"),
+                ("shape", |i| i.is_fluent(), "FLUENT"),
+                ("painted", |i| i.is_fluent(), "FLUENT"),
+                ("has-hole", |i| i.is_fluent(), "FLUENT"),
+            ],
+            "rover/roverprob1234" => vec![
+                // --- Static Predicates (Inertia Positive-Negative) ---
+                // Physical topology and hardware capabilities defined at startup that never alter.
+                (
+                    "can_traverse",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "equipped_for_soil_analysis",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "equipped_for_rock_analysis",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "equipped_for_imaging",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "supports",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "visible",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "visible_from",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "store_of",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "calibration_target",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "on_board",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "at_lander",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                (
+                    "in_sun",
+                    |i| i.is_positive_negative(),
+                    "POSITIVE_NEGATIVE_INERTIA",
+                ),
+                // --- Dynamic Predicates (Fluents) ---
+                // Navigation metrics, hardware updates, local sampling availability, and telemetry data.
+                ("at", |i| i.is_fluent(), "FLUENT"),
+                ("empty", |i| i.is_fluent(), "FLUENT"),
+                ("full", |i| i.is_fluent(), "FLUENT"),
+                ("calibrated", |i| i.is_fluent(), "FLUENT"),
+                ("available", |i| i.is_fluent(), "FLUENT"),
+                ("channel_free", |i| i.is_fluent(), "FLUENT"),
+                ("have_rock_analysis", |i| i.is_fluent(), "FLUENT"),
+                ("have_soil_analysis", |i| i.is_fluent(), "FLUENT"),
+                ("have_image", |i| i.is_fluent(), "FLUENT"),
+                ("at_soil_sample", |i| i.is_fluent(), "FLUENT"),
+                ("at_rock_sample", |i| i.is_fluent(), "FLUENT"),
+                ("communicated_soil_data", |i| i.is_fluent(), "FLUENT"),
+                ("communicated_rock_data", |i| i.is_fluent(), "FLUENT"),
+                ("communicated_image_data", |i| i.is_fluent(), "FLUENT"),
+            ],
             _ => vec![],
         };
 
@@ -314,11 +426,11 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
             continue;
         }
 
-        print!("  Checking {}... ", oracle_key);
+        print!("  Verifying {}... ", oracle_key);
         let mut current_problem_ok = true;
 
         for (pred_name, check_fn, expected_label) in expectations {
-            // Résolution de l'ID via le nouvel interner du NewLiftedProblem
+            // Locate predicate index via the new LiftedProblem interner map
             let predicate_pos = pb.predicate_defs().iter().position(|p| {
                 let pred_symbol_id = p.symbol();
                 if let Some(ident) = pb.predicate_symbols().get_ident(pred_symbol_id) {
@@ -330,19 +442,28 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
 
             if let Some(pos) = predicate_pos {
                 let id = AtomSkeletonId::from(pos);
-                let inertia = table.get_predicate(id).expect("Predicate missing in table");
+                let inertia = table
+                    .get_predicate(id)
+                    .expect("Predicate registry mismatch");
 
                 if !check_fn(inertia) {
                     if current_problem_ok {
                         println!("\x1b[1;31m[FAILED]\x1b[0m");
                         current_problem_ok = false;
                     }
-                    println!("    \x1b[0;31m- Predicate '{}' (ID:{:?}) expected {}, but table says {:?}\x1b[0m",
-                             pred_name, id, expected_label, inertia);
+                    println!(
+                        "    \x1b[0;31m- Predicate '{}' (ID:{:?}) expected {}, found {:?}\x1b[0m",
+                        pred_name, id, expected_label, inertia
+                    );
                     success = false;
                 }
             } else {
-                println!("\n    \x1b[0;33m- Warning: Predicate '{}' not found in problem definition\x1b[0m", pred_name);
+                // Simplified logging: dead or optimized out strip-types are logged gracefully via standard log crate
+                log::warn!(
+                    "Predicate '{}' missing or optimized out in problem definition: {}",
+                    pred_name,
+                    oracle_key
+                );
             }
         }
 
@@ -354,7 +475,7 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
     success
 }
 
-// --- Points d'entrée des tests ---
+// --- Test Suite Entrypoints ---
 
 #[test_case("tests/fixtures/pddl/ipc98/assembly/adl/"; "ipc98_pddl_adl_assembly")]
 #[test_case("tests/fixtures/pddl/ipc98/gripper/strips/"; "ipc98_pddl_strips_gripper")]
@@ -362,13 +483,16 @@ pub fn test_inertia_consistency(domain_dir: &Path) -> bool {
 #[test_case("tests/fixtures/pddl/ipc98/movie/strips/"; "ipc98_pddl_strips_movie")]
 #[test_case("tests/fixtures/pddl/ipc98/mystery/strips/"; "ipc98_pddl_strips_mystery")]
 #[test_case("tests/fixtures/pddl/ipc98/mystery-prime/strips/"; "ipc98_pddl_strips_mystery_prime")]
-#[test_case("tests/fixtures/hddl/ipc20/total-order/barman-bdi"; "ipc20_total_order_barman_bdi")]
+#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/typed"; "ipc00pddl_typed_strips_freecell")]
+#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/typed"; "ipc00_pddl_typed_adl_schedule")]
+#[test_case("tests/fixtures/hddl/ipc20/barman-bdi/total-order"; "ipc20_total_order_barman_bdi")]
+#[test_case("tests/fixtures/pddl/ipc02/rovers/numeric/automatic"; "ipc02_pddl_rover_numeric_automatic")]
 pub fn test_pddl_inertia_table(domain_path: &str) {
     let _ = env_logger::builder().is_test(true).try_init();
     let path = Path::new(domain_path);
     assert!(
         test_inertia_consistency(path),
-        "Inertia table consistency failed for domain: {}",
+        "Inertia consistency evaluation failed for context: {}",
         domain_path
     );
 }

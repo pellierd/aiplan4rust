@@ -213,35 +213,53 @@ pub fn filter_files_by_mode(all_files: Vec<PathBuf>) -> Vec<PathBuf> {
     }
 }
 
-// Centralise la sélection des fichiers pour tous les tests d'intégration.
+/// Centralise la sélection des fichiers pour tous les tests d'intégration.
 /// - Mode Swallow (par défaut) : 1 domaine + 1 problème.
 /// - Mode Full (FULL_TESTS=1) : Tous les fichiers du répertoire.
-pub fn get_test_files_for_mode(all_files: Vec<PathBuf>) -> Vec<PathBuf> {
+///
+/// Ordre garanti (mode Swallow) :
+///   1. domaine (non pb*)
+///   2. premier problème (pb*)
+///
+/// Le tri est alphabétique pour garantir la reproductibilité.
+pub fn get_test_files_for_mode(mut all_files: Vec<PathBuf>) -> Vec<PathBuf> {
     let full_mode = std::env::var("FULL_TESTS").is_ok();
 
+    // Mode FULL : aucun filtrage
     if full_mode {
-        all_files
-    } else {
-        let mut selection = Vec::new();
-
-        // 1. Trouver le domaine (tout ce qui n'est pas un problème 'pb*')
-        if let Some(df) = all_files.iter().find(|f| {
-            let name = f.file_name().and_then(|s| s.to_str()).unwrap_or("");
-            !name.starts_with("pb")
-        }) {
-            selection.push(df.clone());
-        }
-
-        // 2. Trouver le premier problème (commence par 'pb')
-        if let Some(pf) = all_files.iter().find(|f| {
-            let name = f.file_name().and_then(|s| s.to_str()).unwrap_or("");
-            name.starts_with("pb")
-        }) {
-            selection.push(pf.clone());
-        }
-
-        selection
+        all_files.sort();
+        return all_files;
     }
+
+    // Mode SWALLOW
+    all_files.sort();
+
+    let mut domain_files: Vec<PathBuf> = Vec::new();
+    let mut problem_files: Vec<PathBuf> = Vec::new();
+
+    for f in all_files {
+        let name = f.file_name().and_then(|s| s.to_str()).unwrap_or("");
+
+        if name.starts_with("pb") {
+            problem_files.push(f);
+        } else {
+            domain_files.push(f);
+        }
+    }
+
+    let mut selection = Vec::new();
+
+    // 1. domaine (toujours en premier)
+    if let Some(df) = domain_files.first() {
+        selection.push(df.clone());
+    }
+
+    // 2. premier problème (toujours en second)
+    if let Some(pf) = problem_files.first() {
+        selection.push(pf.clone());
+    }
+
+    selection
 }
 
 /// Helper to print a consistent status message in the console.

@@ -149,7 +149,7 @@ pub fn test_registry_consistency(domain_dir: &Path) -> bool {
 #[test_case("tests/fixtures/pddl/ipc98/gripper/strips/"; "registry_gripper")]
 #[test_case("tests/fixtures/pddl/ipc98/logistics/strips/"; "registry_logistics")]
 #[test_case("tests/fixtures/pddl/ipc98/movie/strips/"; "registry_movie")]
-#[test_case("tests/fixtures/hddl/ipc20/total-order/barman-bdi"; "registry_barman")]
+#[test_case("tests/fixtures/hddl/ipc20/total-order/total-order"; "registry_barman")]
 pub fn test_pddl_value_registry(domain_path: &str) {
     let _ = env_logger::builder().is_test(true).try_init();
     let path = Path::new(domain_path);
