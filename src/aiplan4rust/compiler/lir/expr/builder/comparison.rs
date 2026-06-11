@@ -234,7 +234,7 @@ impl<'a> ExprBuilder<'a> {
                 CompareOp::Less => self.is_lt(l_val, r_val),
                 CompareOp::LessEq => self.is_le(l_val, r_val),
                 // Safety: Greater and GreaterEq are handled by canonicalization phase.
-                _ => unsafe { std::hint::unreachable_unchecked() },
+                _ => unreachable!("Greater operators must be canonicalized in Phase 1"),
             };
 
             return Some(if truth {

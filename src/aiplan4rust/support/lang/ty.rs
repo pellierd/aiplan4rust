@@ -235,6 +235,19 @@ impl<ID: Id> From<Vec<ID>> for Type<ID> {
     }
 }
 
+/// Converts a single atomic identifier directly into a primitive `Type`.
+///
+/// This implementation allows functions or tests expecting an `Into<Type<ID>>`
+/// to seamlessly accept a raw ID. The resulting `Type` is guaranteed to be
+/// stored inline on the stack without any heap allocation.
+impl<ID: Id> From<ID> for Type<ID> {
+    /// Performs the conversion by wraping the single ID into a primitive type.
+    #[inline]
+    fn from(id: ID) -> Self {
+        Self::primitive(id)
+    }
+}
+
 /// Specialization for `SymbolId` (Syntactic/Symbolic phase).
 ///
 /// These methods provide direct access to PDDL built-in types using
