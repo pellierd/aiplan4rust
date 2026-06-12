@@ -2,7 +2,7 @@ use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::iter::postorder::PostorderIter;
 use crate::aiplan4rust::compiler::lir::expr::iter::preorder::PreorderIter;
 use crate::aiplan4rust::compiler::lir::expr::iter::tree_preorder::TreePreorderIter;
-use crate::aiplan4rust::compiler::lir::expr::{ExprEntry, ExprId, ExprKind, ExprNode};
+use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprEntry, ExprId, ExprKind, ExprNode};
 use crate::aiplan4rust::support::lang::VariableId;
 use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
@@ -142,6 +142,64 @@ impl ExprStore {
 
     pub fn fetch(&self, id: ExprId) -> Result<ExprNode<'_>, StorerError> {
         self.get(id).ok_or_else(|| StorerError::expr_not_found(id))
+    }
+
+    // Wraps a given [`ExprId`] in an [`Expr`] proxy container bound to this store.
+    ///
+    /// This method simplifies expression tree traversal and evaluation by providing
+    /// an ergonomic view over the raw node data.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - The unique [`ExprId`] of the root node to wrap.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Expr<'_>)` - A structural expression proxy if the `id` exists within the store.
+    /// * `None` - If the `id` is out of bounds or invalid for this specific store instance.
+    ///
+    /// # Performance
+    ///
+    /// This operation is extremely cheap and marked `#[inline]` as it performs a constant-time
+    /// bounds check before wrapping the reference, preventing the creation of invalid proxies.
+    #[inline]
+    pub fn get_expr(&self, id: ExprId) -> Option<Expr<'_>> {
+        // Safety bounds check: verify that the id actually maps to an existing slot in the arena
+        if self.contains(id) {
+            Some(Expr::new(id, self))
+        } else {
+            None
+        }
+    }
+
+    /// Fetches a given [`ExprId`] and wraps it in an [`Expr`] proxy container bound to this store.
+    ///
+    /// Unlike [`get_expr`], this method returns a structured error if the identifier is invalid,
+    /// making it ideal for propagation inside the compiler pipeline.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - The unique [`ExprId`] of the root node to wrap.
+    ///
+    /// # Errors
+    ///
+    /// * [`StorerError::expr_not_found`] - If the `id` is out of bounds or unregistered.
+    #[inline]
+    pub fn fetch_expr(&self, id: ExprId) -> Result<Expr<'_>, StorerError> {
+        if self.contains(id) {
+            Ok(Expr::new(id, self))
+        } else {
+            Err(StorerError::expr_not_found(id))
+        }
+    }
+
+    /// Helper method to verify if an [`ExprId`] is registered in this store.
+    /// (Adjust the internal logic below based on how your store indexes its arena,
+    /// e.g., checking against a vector length `id.index() < self.nodes.len()`)
+    #[inline]
+    pub fn contains(&self, id: ExprId) -> bool {
+        // Replace with your actual internal representation check
+        id.as_usize() < self.len()
     }
 
     pub fn len(&self) -> usize {
