@@ -100,7 +100,10 @@ pub fn bind_with(
                 if is_evaluable(current_kind) {
                     let expr_wrapper = Expr::new(current_id, builder.store);
 
-                    if let Some(static_val) = eval.evaluate(expr_wrapper) {
+                    if let Some(static_val) = eval
+                        .evaluate(expr_wrapper)
+                        .map_err(|e| BindingError::Evaluator(e))?
+                    {
                         current_id = match static_val {
                             ExprConstant::Boolean(true) => builder.store.empty_and(),
                             ExprConstant::Boolean(false) => builder.store.empty_or(),
@@ -131,6 +134,7 @@ fn is_evaluable(kind: &ExprKind) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprEvaluatorError;
     use crate::aiplan4rust::support::lang::{
         AtomSkeletonId, ObjectId, PredicateSymbolId, VariableId,
     };
@@ -208,11 +212,14 @@ mod tests {
     }
 
     impl ExprEvaluator for MockEvaluator {
-        fn evaluate(&self, expr: Expr) -> Option<ExprConstant> {
+        fn evaluate(
+            &self,
+            expr: Expr,
+        ) -> Result<Option<ExprConstant>, Box<dyn ExprEvaluatorError>> {
             if expr.root_id() == self.should_be_true {
-                Some(ExprConstant::Boolean(true))
+                Ok(Some(ExprConstant::Boolean(true)))
             } else {
-                None
+                Ok(None)
             }
         }
     }
@@ -338,19 +345,22 @@ mod tests {
     }
 
     impl ExprEvaluator for MockEvaluatorPruneFalse {
-        fn evaluate(&self, expr: Expr) -> Option<ExprConstant> {
+        fn evaluate(
+            &self,
+            expr: Expr,
+        ) -> Result<Option<ExprConstant>, Box<dyn ExprEvaluatorError>> {
             let expr_id = expr.root_id();
             let entry_kind = expr.store()[expr_id].kind();
 
             match entry_kind {
                 ExprKind::AtomicFormula(skel_id) => {
                     if *skel_id == self.target_skeleton {
-                        Some(ExprConstant::Boolean(false))
+                        Ok(Some(ExprConstant::Boolean(false)))
                     } else {
-                        None
+                        Ok(None)
                     }
                 }
-                _ => None,
+                _ => Ok(None),
             }
         }
     }
@@ -425,14 +435,17 @@ mod tests {
     }
 
     impl ExprEvaluator for MockEvaluatorNumber {
-        fn evaluate(&self, expr: Expr) -> Option<ExprConstant> {
+        fn evaluate(
+            &self,
+            expr: Expr,
+        ) -> Result<Option<ExprConstant>, Box<dyn ExprEvaluatorError>> {
             let expr_id = expr.root_id();
             if let ExprKind::AtomicFormula(skel_id) = expr.store()[expr_id].kind() {
                 if *skel_id == self.target_skeleton {
-                    return Some(ExprConstant::Number(42.0.into()));
+                    return Ok(Some(ExprConstant::Number(42.0.into())));
                 }
             }
-            None
+            Ok(None)
         }
     }
 
@@ -469,8 +482,11 @@ mod tests {
     struct MockEvaluatorAggressive;
 
     impl ExprEvaluator for MockEvaluatorAggressive {
-        fn evaluate(&self, _expr: Expr) -> Option<ExprConstant> {
-            Some(ExprConstant::Boolean(true))
+        fn evaluate(
+            &self,
+            _expr: Expr,
+        ) -> Result<Option<ExprConstant>, Box<dyn ExprEvaluatorError>> {
+            Ok(Some(ExprConstant::Boolean(true)))
         }
     }
 }

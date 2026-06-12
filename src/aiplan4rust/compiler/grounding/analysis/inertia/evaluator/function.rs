@@ -1,3 +1,40 @@
+//! Inertia-Based Expression Evaluation and Branch Pruning Engine.
+//!
+//! This module implements the core static analysis and constant-folding dispatchers
+//! for the grounding phase, leveraging structural invariants computed from the initial state.
+//! It acts as the concrete implementation bridging the unified expression layout (`ExprStore`)
+//! and the abstract `ExprEvaluator` trait interface.
+//!
+//! # Architecture & Theoretical Foundations
+//!
+//! The module splits evaluation into two highly specialized domains, both executing
+//! post-order upward tree simplifications:
+//!
+//! 1. **Logical Predicate Pruning ([`evaluate_predicate_internal`])**: Implements Section 3.2
+//!    (Definition 6) of the **IPP (Inertia Planning Graph)** framework. It cross-references
+//!    positive ($I^+$) and negative ($I^-$) structural rigidities against multi-level live instance
+//!    counting tables to deduce early `true` or `false` constants.
+//! 2. **Functional Constant Folding ([`evaluate_function_internal`])**: Manages rigid
+//!    functional fluents (e.g., unchanging object distances or action costs). It enforces
+//!    PDDL functional defaults (such as totality fallbacks to `0.0` for unbound numeric terms)
+//!    and propagates unanimous functional values up the evaluation tree.
+//!
+//! # Strategic Performance Layout
+//!
+//! Designed strictly for the compiler's hot path, the module guarantees heavy throughput
+//! optimizations:
+//!
+//! * **Gated Lazy Filters**: Invariant flags (inertia bitsets) are evaluated as the absolute
+//!   first step. If a term is dynamic (fluent), execution is aborted in $\mathcal{O}(1)$ time
+//!   before reading token slices, extracting bitmasks, or querying data registries.
+//! * **Zero-Allocation Scratchpads**: Rather than allocating dynamic arrays to inspect bound
+//!   arguments, the module utilizes a mutable stack-allocated [`ArgumentBuffer`] (`SmallVec`).
+//! * **Cache-Locality Lookup**: Counting structures and function registers use consecutive,
+//!   short-circuited map chains (`and_then`) tailored to minimize CPU pointer-chasing.
+//! * **Integer Safety**: Combinatorial space evaluation utilizes explicit saturating math
+//!   (`saturating_mul`) to immunize the grounder against integer overflow during massive
+//!   Cartesian product explosions.
+
 use crate::aiplan4rust::compiler::grounding::analysis::inertia::evaluator::InertiaEvaluatorError;
 use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprConstant;
 use crate::aiplan4rust::compiler::lir::expr::{ExprKind, ExprNode, ExprStore};
@@ -6,63 +43,109 @@ use crate::analysis::inertia::evaluator::InertiaEvaluator;
 use ordered_float::OrderedFloat;
 
 impl<'a> InertiaEvaluator<'a> {
-    /// Évalue un terme de fonction numériquement ou par objet selon l'état initial.
+    /// Evaluates a functional expression (static fluent) using structural rigidity
+    /// and pre-computed static functional maps.
     ///
-    /// Cette méthode applique les simplifications d'inertie positive sur les fonctions numériques
-    /// et s'assure de renvoyer le fallback PDDL par défaut (0.0) si aucun fait n'a été fourni
-    /// dans l'état initial pour une fonction pleinement instanciée.
+    /// This function handles the evaluation and constant-folding of numeric or symbolic
+    /// functions (e.g., rigid costs, distances, or capacities) that exhibit positive inertia.
+    /// It avoids pointer-chasing and runtime lookups by querying localized static registers,
+    /// enforcing PDDL functional defaults where applicable.
+    ///
+    /// # Mathematical & Functional Semantics
+    ///
+    /// * **Functional Positive Inertia**: A function whose assignments are strictly static
+    ///   and immutable after the initial state initialization (never modified by numerical effects).
+    /// * **Grounded Total Resolution**: If all parameters are bound constants (`grounded == true`)
+    ///   and no entry is recorded in the map, numerical functions safely default to `0.0` to maintain
+    ///   structural totality.
+    /// * **Partial Evaluation / Unanimity**: For non-grounded terms containing free variables,
+    ///   if the underlying registry stores a universal or partial invariant value, it is
+    ///   short-circuited and returned immediately.
+    ///
+    /// # Parameters
+    ///
+    /// * `node` - The abstract syntax tree node representation (`ExprNode`) of the functional term.
+    /// * `store` - A reference to the immutable global `ExprStore` holding the tree context.
+    /// * `buffer` - A mutable scratchpad reference (`ArgumentBuffer`) used for zero-allocation
+    ///   argument extraction during dynamic mask processing.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(ExprConstant))` - The evaluated constant numeric or symbolic representation if
+    ///   the function resolves deterministically.
+    /// * `Ok(None)` - If the function is dynamic (fluent) or cannot be conclusively simplified.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(InertiaEvaluatorError)` if an internal structural lookup fails
+    /// within the functional inertia bitsets.
+    ///
+    /// # Performance & Allocation Invariants
+    ///
+    /// * **Gated Execution**: Evaluates the inertia status *before* parsing parameters or
+    ///   allocating slice ranges. Dynamic functional fluents exit immediately in $\mathcal{O}(1)$ time.
+    /// * **Bounded Slice Windowing**: Constrains the argument lookup window using `self.max_proj`
+    ///   to prevent out-of-bounds pointer reads and ensure highly localized CPU cache hits during map lookups.
+    /// * **Zero Heap Allocation**: Completely reuses the provided stack-allocated `ArgumentBuffer`.
     pub(super) fn evaluate_function_internal(
         &self,
         node: ExprNode<'_>,
         store: &ExprStore,
         buffer: &mut ArgumentBuffer,
     ) -> Result<Option<ExprConstant>, InertiaEvaluatorError> {
-        // Dans le LIR, l'ID de la fonction est encapsulé dans le Kind
+        // 1. Isolate the functional identifier from the node layout
         let func_id = match node.kind() {
             ExprKind::Function(id) => *id,
             _ => return Ok(None),
         };
 
-        // 1. Check d'inertie : Si la fonction peut changer (fluent), on ne simplifie rien ici.
+        // 2. Structural Gate: ignore immediately if the function is not static (positive inertia)
         if !self.inertia.is_function_positive_inertia(func_id)? {
             return Ok(None);
         }
 
-        // 2. Extraction du masque et des arguments constants (saute l'index 0 du symbole)
-        let mask = self.extract_mask_dynamic(node, store, buffer);
+        // --- STEP A: Dynamic Mask Extraction ---
+        let mask = self.extract_mask_dynamic(node, store, buffer) as u16;
 
-        // Protection contre les projections trop larges (IPP Section 3.4)
+        let def = &self.function_defs[func_id.as_usize()];
+        let arity = def.parameters().len();
+
+        // --- STEP B: Validate projection bounds and extract grounding status ---
+        let grounded = match self.validate_projection_and_grounding(mask, arity) {
+            Some(status) => status,
+            None => return Ok(None), // Hard circuit-break if max_proj threshold is breached
+        };
+
+        // 3. Prevent slicing out of bounds by capping at max_proj threshold
         let n_limit = buffer.len().min(self.max_proj);
         let lookup_slice = &buffer[..n_limit];
 
-        // 3. Recherche de la valeur dans le registre statique construit au build()
-        let mut value = self
+        // --- STEP C: Direct O(1) multi-level map lookups for function values ---
+        let value = self
             .static_functions
             .get(&func_id)
             .and_then(|masks| masks.get(&mask))
             .and_then(|entries| entries.get(lookup_slice))
             .copied();
 
-        // 4. Logique de décision et Fallback standard PDDL
-        if self.all_args_grounded(node, store) {
-            if value.is_none() {
-                // Si aucune valeur n'est trouvée dans l'init pour une fonction totalement instanciée
-                let def = &self.function_defs[func_id.as_usize()];
-
-                // Standard PDDL : une fonction numérique non initialisée vaut 0.0 par défaut
-                if def.ty().is_number() {
-                    value = Some(ExprConstant::Number(OrderedFloat(0.0)));
-                } else {
-                    // Pour les fonctions d'objets (Object-Fluents), on renvoie None.
-                    value = None;
-                }
+        // --- STEP D: Core Decision Logic & Totality Fallbacks ---
+        if grounded {
+            if value.is_some() {
+                return Ok(value);
             }
-            return Ok(value);
+            // PDDL/Functional totality fallback: uninitialized numeric items default to 0.0
+            if def.ty().is_number() {
+                return Ok(Some(ExprConstant::Number(OrderedFloat(0.0))));
+            }
         } else {
-            // Cas avec Variables (instanciation partielle) :
-            // Pas de simplification sans analyse d'unanimité (non implémentée).
-            Ok(None)
+            // For terms containing free variables:
+            // If the static registry contains a unanimous value, propagate it upward
+            if value.is_some() {
+                return Ok(value);
+            }
         }
+
+        Ok(None)
     }
 }
 
@@ -105,8 +188,6 @@ mod tests {
         let mut i_table = InertiaTable::empty();
         i_table.insert_function(skel_id, Inertia::positive());
 
-        // --- ALIGNEMENT SUR L'OPTION A ---
-        // On s'assure que le type de retour est bien numérique.
         let numeric_type = Type::<TypeId>::number();
 
         let f_defs = vec![
@@ -121,27 +202,30 @@ mod tests {
                     VariableId::from(0),
                     Type::from(type_id),
                 )]),
-                numeric_type, // Type de retour numérique pour activer le fallback PDDL à 0.0
+                numeric_type,
             ),
         ];
         let p_defs = vec![];
         let v_reg = ValueRegistry::empty();
 
-        // Utilisation du mock d'InertiaEvaluator
         let registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
 
-        // Construction du nœud f(99) avec l'index 0 réservé au symbole dans ton LIR
+        // Build the structure: index 0 = Function metadata symbol, index 1 = object parameter
+        let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
         let const_node = builder.intern(ExprKind::Object(obj_99), &[]);
-        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[const_node]);
+        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[symbol_node, const_node]);
         let func_node = store.get(func_node_id).unwrap();
 
+        // Simulate real runtime evaluation conditions by populating the buffer
         let mut buffer = ArgumentBuffer::new();
+        buffer.push(obj_99);
+
         let res = registry.evaluate_function_internal(func_node, &store, &mut buffer);
 
         assert_eq!(
             res.unwrap(),
             Some(ExprConstant::Number(ordered_float::OrderedFloat(0.0))),
-            "Une fonction numérique grounded manquante à l'init doit retourner 0.0 par défaut"
+            "A grounded numeric function missing from the initial state must return 0.0 by default"
         );
     }
 }

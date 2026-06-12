@@ -1,7 +1,9 @@
 use crate::aiplan4rust::compiler::grounding::analysis::inertia::table::InertiaTableError;
+use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprEvaluatorError;
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::error::ValueRegistryError;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::syntax::ast::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, FunctionSkeletonId};
 use thiserror::Error;
 
@@ -52,6 +54,15 @@ pub enum InertiaEvaluatorError {
         /// The actual number of arguments found in the LIR node.
         arity: usize,
     },
+
+    /// Invalid configuration limits where max_proj is strictly greater than max_arity.
+    #[error("Invalid limits configuration: max_proj ({max_proj}) cannot be greater than max_arity ({max_arity})")]
+    InvalidLimits {
+        /// The configured maximum arity allowed.
+        max_arity: usize,
+        /// The configured maximum projection depth.
+        max_proj: usize,
+    },
 }
 
 impl InertiaEvaluatorError {
@@ -68,7 +79,7 @@ impl InertiaEvaluatorError {
     #[inline]
     #[track_caller]
     pub fn predicate_arity_too_high(pred_id: AtomSkeletonId, arity: usize) -> Self {
-        Self::PredicateArityTooHigh { pred_id, arity }
+        Self::PredicateArityTooHigh { pred_id, arity }.trace()
     }
 
     /// Creates a new [`InertiaEvaluatorError::FunctionArityTooHigh`] error variant.
@@ -84,6 +95,21 @@ impl InertiaEvaluatorError {
     #[inline]
     #[track_caller]
     pub fn function_arity_too_high(func_id: FunctionSkeletonId, arity: usize) -> Self {
-        Self::FunctionArityTooHigh { func_id, arity }
+        Self::FunctionArityTooHigh { func_id, arity }.trace()
+    }
+
+    /// Creates a new [`InertiaEvaluatorError::InvalidLimits`] error variant.
+    #[inline]
+    #[track_caller]
+    pub fn invalid_limits(max_arity: usize, max_proj: usize) -> Self {
+        Self::InvalidLimits {
+            max_arity,
+            max_proj,
+        }
+        .trace()
     }
 }
+
+impl ExprEvaluatorError for InertiaEvaluatorError {}
+
+impl Traceable for InertiaEvaluatorError {}

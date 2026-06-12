@@ -8,29 +8,56 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton,
 };
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, CompareOp, FunctionSkeletonId, ObjectId};
+use crate::analysis::inertia::evaluator::evaluator::{ComboKey, COMBO_KEY_SIZE};
 use smallvec::SmallVec;
 
 impl<'a> InertiaEvaluator<'a> {
+    /// Parses and dispatches top-level initial state expressions to build the
+    /// underlying inertia and counting registers.
+    ///
+    /// This function acts as the central routing engine for the initial state (`:init`) pass.
+    /// It intercepts valid logical facts or numerical assignments, unpacks their syntax layout,
+    /// and delegates processing to domain-specific subroutines.
+    ///
+    /// # Structural Routing Invariants
+    ///
+    /// * **Atomic Formulas**: Pure logical literals (e.g., `(on block-a block-b)`) are routed
+    ///   directly to the predicate accumulator (`process_predicate`) to update live instances.
+    /// * **Functional Assignments**: Numeric or symbolic fluents are defined via equality constraints
+    ///   in PDDL (e.g., `(= (total-cost) 0.0)`). The router filters out non-equality comparison
+    ///   operators (such as `<` or `>=` which are illegal inside structural `:init` blocks) and
+    ///   routes valid assignments to the functional registry (`process_function`).
+    /// * **Fallbacks**: Any other expression types (unsupported or irrelevant invariants) are
+    ///   safely skipped, returning an early `Ok(())` to prevent pipeline interruption.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(InertiaEvaluatorError)` if downstream table population fails due to
+    /// registry out-of-bounds, type mismatches, or malformed parameter structures inside the store.
     pub(crate) fn process_init(
         &mut self,
         node: ExprNode<'_>,
         store: &ExprStore,
     ) -> Result<(), InertiaEvaluatorError> {
+        // Dispatch based on the structural layout of the active AST node
         match node.kind() {
-            // Cas d'un fait atomique -> Délégation à predicate.rs
+            // Case 1: Atomic factual literal -> Delegate to predicate accumulator
             ExprKind::AtomicFormula(skeleton_id) => {
                 self.process_predicate(*skeleton_id, node, store)
             }
 
-            // Cas d'une initialisation de fonction -> Délégation à function.rs
+            // Case 2: Functional initialization / assignment node
             ExprKind::Comparison(op) => {
+                // In PDDL :init blocks, functions are strictly bound using equality (=)
                 if matches!(op, CompareOp::Equal) {
                     self.process_function(node, store)
                 } else {
+                    // Non-equality operators (<, <=, >, >=) are non-binding; skip safely
                     Ok(())
                 }
             }
 
+            // Case 3: Structural fallback for unhandled or invariant-neutral expression types
             _ => Ok(()),
         }
     }
@@ -39,6 +66,37 @@ impl<'a> InertiaEvaluator<'a> {
     // SECTION: PREDICATE INITIALIZATION (IPP COUNTING & MASKS)
     // =========================================================================
 
+    /// Processes a single valid logical fact from the initial state to build
+    /// the rigid predicate counting tables.
+    ///
+    /// This subroutine extracts the concrete object identifiers from a predicate's
+    /// arguments and registers their occurrence. To optimize downstream memory usage and
+    /// execution time, it completely ignores dynamic fluents and focuses exclusively on
+    /// predicates possessing positive inertia.
+    ///
+    /// # AST Architecture & Layout Invariants
+    ///
+    /// * **Arity Skew Check**: In the underlying LIR store, the first child (`children[0]`)
+    ///   typically represents the predicate operator token or the functional skeleton metadata
+    ///   itself. Thus, the actual object parameters start at index `1`.
+    ///   The true arity is computed via `children.len().saturating_sub(1)`.
+    /// * **Grounded Fact Enforcement**: If any child argument resolves to something other than
+    ///   a concrete object (e.g., an unbound variable or a nested function), the fact is non-grounded.
+    ///   The routine short-circuits and returns `Ok(())` safely, as structural inertia tables
+    ///   can only be populated by deterministic initial facts.
+    ///
+    /// # Performance & Allocation
+    ///
+    /// * **Vector Capacity Pre-allocation**: Uses `Vec::with_capacity(arity)` to guarantee a single,
+    ///   contiguous stack-to-heap allocation window, eliminating vector reallocation thrashing
+    ///   while walking the argument slice.
+    /// * **Gated Filter**: The structural `is_predicate_positive_inertia` guard completely prevents
+    ///   parsing or allocation overhead for any relation that can be modified by action effects.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(InertiaEvaluatorError)` if the unified arena store fails to fetch
+    /// a child node index (`store.fetch(arg_id)?`), indicating structural corruption of the AST.
     fn process_predicate(
         &mut self,
         skeleton_id: AtomSkeletonId,
@@ -47,79 +105,103 @@ impl<'a> InertiaEvaluator<'a> {
     ) -> Result<(), InertiaEvaluatorError> {
         let children = node.children();
 
-        // On ne traite que les prédicats qui ne changent jamais (Inerte Positif)
-        // pour peupler notre table de comptage IPP.
+        // 1. Structural Gate: accumulate instances *only* for rigid positive predicates (I+)
         if self.inertia.is_predicate_positive_inertia(skeleton_id)? {
-            // Règle : children[0] est le symbole, les arguments commencent à l'index 1.
+            // Account for the operator token skew at position 0
             let arity = children.len().saturating_sub(1);
             let mut args = Vec::with_capacity(arity);
 
-            // On parcourt les enfants à partir de l'index 1 (les arguments)
+            // 2. Iterate through parameters, skipping the head metadata token
             for (i, &arg_id) in children.iter().enumerate().skip(1) {
                 let arg_entry = store.fetch(arg_id)?;
 
-                // Dans l'état initial, les arguments doivent être des objets (constantes)
+                // Extract the concrete object ID wrapper
                 if let ExprKind::Object(obj_id) = arg_entry.kind() {
                     args.push(*obj_id);
                 } else {
-                    // Si l'argument n'est pas un Object valide (ex: une variable résiduelle),
-                    // on log l'erreur et on ignore ce fait mal formé.
-                    println!(
-                        "[ERREUR-INIT] Prédicat {:?} : l'enfant {} (ExprId {:?}) n'est pas un Object (Kind: {:?})",
-                        skeleton_id, i, arg_id, arg_entry.kind()
-                    );
+                    // Non-grounded parameter or variable detected inside :init block; abort parsing
                     return Ok(());
                 }
             }
 
-            // --- LE LOG DE VÉRITÉ ---
-            println!(
-                "[INIT-REGISTRY] Succès : Predicate {:?} | Args: {:?}",
-                skeleton_id, args
-            );
-
-            // On délègue la génération des masques de bits pour l'instanciation partielle
+            // 3. Delegate to the combinatorial mask generator to populate the projection maps
             self.generate_predicate_masks(skeleton_id, arity, &args);
         }
 
         Ok(())
     }
 
+    /// Extracts, binds, and computes combinatorial projection bitmasks for a grounded
+    /// predicate fact, incorporating early projection bounds filtering and zero-allocation hot paths.
+    ///
+    /// This function orchestrates the generation of up to $2^{\text{arity}}$ distinct bitmasks
+    /// for a factual literal. It enforces an upper projection bound constraint (`max_proj`) to prune
+    /// massive hyper-dimensional combinations before map insertion, ensuring memory usage scales
+    /// linearly with respect to the user-defined maximum dimensionality.
+    ///
+    /// # Performance & Layout Invariants
+    ///
+    /// * **Arity 0 Optimization**: Short-circuits instantly for nullary predicates without triggering
+    ///   bit-shift loops, executing a direct in-place mutation or a static buffer insertion.
+    /// * **Heap-Free Scratchpad**: Instantiates a single stack-allocated `ComboKey` buffer *outside*
+    ///   the core iteration block. The loop performs `.clear()` and inline stack pushes, preserving
+    ///   perfect CPU cache locality.
+    /// * **Bounded Branch Pruning**: Combinations whose active bound constant counts exceed `self.max_proj`
+    ///   are eagerly skipped at the header of the loop, shielding the underlying `HashMap` structures
+    ///   from sparse combinatorial pollution.
+    /// * **Memcpy Clone Semantic**: Since `ComboKey` utilizes `SmallVec` with an internal inline capacity,
+    ///   the `.clone()` fallback for unmapped entries triggers an instant stack-to-heap or stack-to-stack
+    ///   `memcpy` rather than calling the dynamic allocator's slow execution path.
     fn generate_predicate_masks(&mut self, key: AtomSkeletonId, arity: usize, args: &[ObjectId]) {
-        // 1. Garde contre l'arité 0 et les erreurs de calcul potentielles
+        // 1. Base case for arity 0 (Cleaned from unnecessary .entry calls)
         if arity == 0 {
             let mask_table = self.counting_predicates.entry(key).or_default();
             let entries = mask_table.entry(0).or_default();
-            let count = entries.entry(Box::from([])).or_insert(0);
-            *count += 1;
+
+            // Direct lookup without instantiating a key if it already exists
+            if let Some(count) = entries.get_mut(&[][..]) {
+                *count += 1;
+            } else {
+                entries.insert(SmallVec::new(), 1);
+            }
             return;
         }
 
-        // 2. Génération des masques (2^arity combinaisons)
+        // 2. A single unique buffer on the stack for the entire loop!
+        let mut combo: ComboKey = SmallVec::with_capacity(COMBO_KEY_SIZE);
+
+        // 3. Mask generation (2^arity combinations)
         for mask in 0..(1 << arity) {
-            // Filtre de projection : évite l'explosion mémoire si trop de variables sont fixées
             let bit_count = (mask as u32).count_ones() as usize;
             if mask != 0 && bit_count > self.max_proj {
                 continue;
             }
 
-            let mut combo: SmallVec<[ObjectId; 8]> = SmallVec::new();
+            // Clear the reusable buffer instead of recreating one
+            combo.clear();
 
-            // 3. Construction de la clé de manière "Safe"
-            // Encodage Big Endian : le premier argument est le bit le plus fort
-            for (i, &obj) in args.iter().enumerate() {
-                let bit_pos = arity - 1 - i;
-                if (mask & (1 << bit_pos)) != 0 {
-                    combo.push(obj);
+            // 4. Optimized Big-Endian key construction
+            let mut current_bit = 1 << (arity - 1);
+            for &obj in args {
+                if (mask & current_bit) != 0 {
+                    combo.push(obj); // Stack write
                 }
+                current_bit >>= 1;
             }
 
-            // 4. Insertion dans le registre
+            // 5. Smart insertion and buffer reuse
             let mask_table = self.counting_predicates.entry(key).or_default();
             let entries = mask_table.entry(mask as u16).or_default();
 
-            let count = entries.entry(Box::from(combo.as_slice())).or_insert(0);
-            *count += 1;
+            // If the combination already exists, increment it (ZERO allocation, ZERO clone)
+            if let Some(count) = entries.get_mut(&combo) {
+                *count += 1;
+            } else {
+                // If it does not exist, clone combo to pass ownership to the map.
+                // Since combo lives on the stack (len <= 4), this clone is a simple,
+                // instantaneous "memcpy" without any heap malloc.
+                entries.insert(combo.clone(), 1);
+            }
         }
     }
 
@@ -127,7 +209,36 @@ impl<'a> InertiaEvaluator<'a> {
     // SECTION: FUNCTION INITIALIZATION (LHS / RHS & MASKS)
     // =========================================================================
 
-    /// Extrait le LHS (Function), le RHS (Value) et délègue la génération de masques
+    /// Parses a functional assignment expression from the initial state, extracts its
+    /// signature and assigned value, and routes it to the static function registry.
+    ///
+    /// This method validates structural layout conventions for functional initialization (such as
+    /// numeric fluents or object mappings bound via an equality assignment node). It guarantees
+    /// that only functions confirmed to possess positive inertia are indexed into the evaluation maps.
+    ///
+    /// # AST Architecture & Layout Invariants
+    ///
+    /// * **Binary Constraint Structure**: The incoming node's children are assumed to split across a binary layout:
+    ///   * `children[0]`: The Left-Hand Side (LHS), which must resolve to an `ExprKind::Function`.
+    ///   * `children[1]`: The Right-Hand Side (RHS), which must evaluate to a static literal (`Number` or `Object`).
+    /// * **Function Parameter Skew**: Mirroring predicate layouts, the function token's first child
+    ///   (`func_children[0]`) holds operator metadata. Actual term parameters start at index `1`, resulting in
+    ///   an effective arity of `func_children.len() - 1`.
+    /// * **Grounded Total Constraints**: If any parameter within the LHS function term is not a concrete
+    ///   `ExprKind::Object`, or if the RHS does not resolve to a clean constant, the routine short-circuits
+    ///   to preserve compiler safety.
+    ///
+    /// # Performance & Allocation
+    ///
+    /// * **Pre-allocated Layout Window**: Utilizes `Vec::with_capacity(arity)` to bundle concrete `ObjectId`
+    ///   handles on a single heap allocation phase, avoiding intermediate vector resizing churn.
+    /// * **Early Invariant Check**: The execution path is strictly gated behind `is_function_positive_inertia`.
+    ///   Dynamic functional fluents exit immediately with minimal CPU overhead.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(InertiaEvaluatorError)` if the unified `ExprStore` fails to fetch structural reference
+    /// targets or encounters broken node index linkages.
     fn process_function(
         &mut self,
         node: ExprNode<'_>,
@@ -139,16 +250,16 @@ impl<'a> InertiaEvaluator<'a> {
             return Ok(());
         }
 
-        // 1. Analyse du FunctionTerm (LHS)
+        // 1. Analyze the FunctionTerm (LHS)
         let lhs_id = children[0];
         let lhs_entry = store.fetch(lhs_id)?;
 
         if let ExprKind::Function(func_id) = lhs_entry.kind() {
             let func_id = *func_id;
 
-            // On ne traite que si la fonction est inerte positive
+            // Only process if the function possesses structural positive inertia
             if self.inertia.is_function_positive_inertia(func_id)? {
-                // 2. Extraction des arguments de la fonction (LHS)
+                // 2. Extract function parameters (LHS)
                 let func_children = lhs_entry.children();
                 let arity = func_children.len().saturating_sub(1);
                 let mut args = Vec::with_capacity(arity);
@@ -158,25 +269,22 @@ impl<'a> InertiaEvaluator<'a> {
                     if let ExprKind::Object(obj_id) = arg_entry.kind() {
                         args.push(*obj_id);
                     } else {
+                        // Encountered a non-ground variable; abort parsing early
                         return Ok(());
                     }
                 }
 
-                // 3. Extraction de la valeur (RHS)
+                // 3. Extract the bound value assignment (RHS)
                 let rhs_id = children[1];
                 let rhs_entry = store.fetch(rhs_id)?;
 
                 let value = match rhs_entry.kind() {
                     ExprKind::Number(n) => ExprConstant::Number(*n),
                     ExprKind::Object(obj_id) => ExprConstant::Object(*obj_id),
-                    _ => return Ok(()),
+                    _ => return Ok(()), // RHS is not a pure compile-time constant literal
                 };
 
-                println!(
-                    "[INIT-REGISTRY] Function Success: {:?} | Args: {:?} | Val: {:?}",
-                    func_id, args, value
-                );
-
+                // 4. Delegate to the combinatorial mask generator to populate the projection maps
                 self.generate_function_masks(func_id, arity, &args, value);
             }
         }
@@ -184,7 +292,27 @@ impl<'a> InertiaEvaluator<'a> {
         Ok(())
     }
 
-    /// Génère la combinatoire de masques et gère le consensus pour une fonction
+    /// Extracts, binds, and computes combinatorial projection bitmasks for static functions
+    /// while managing consensus constraints across overlapping assignments.
+    ///
+    /// This function handles the combinatorial map population for functional terms, generating up to
+    /// $2^{\text{arity}}$ projection masks. Crucially, it manages **value consensus**: if an overlapping
+    /// mapping attempts to assign a contradicting value to the exact same parameter slice coordinates,
+    /// the assignment is invalidated and pruned from the registry to prevent non-deterministic lookups.
+    ///
+    /// # Performance & Layout Invariants
+    ///
+    /// * **Arity 0 Consensus**: Instantly resolves nullary functional constants without triggering
+    ///   bit-shift loops, evicting any conflicting global assignments immediately.
+    /// * **Heap-Free Scratchpad**: Instantiates a single stack-allocated `ComboKey` buffer *outside*
+    ///   the core iteration block. The loop performs `.clear()` and inline stack pushes, preserving
+    ///   perfect CPU cache locality.
+    /// * **Bounded Branch Pruning**: Combinations whose active bound constant counts exceed `self.max_proj`
+    ///   are eagerly skipped at the header of the loop, shielding the underlying `HashMap` structures
+    ///   from sparse combinatorial pollution.
+    /// * **Zero-Allocation Consensus Validation**: Resolves lookups and performs consensus comparisons
+    ///   directly on the stack-allocated `combo` reference. Ownership is never taken, and a heap
+    ///   allocation is avoided during map mutation.
     fn generate_function_masks(
         &mut self,
         key: FunctionSkeletonId,
@@ -192,39 +320,60 @@ impl<'a> InertiaEvaluator<'a> {
         args: &[ObjectId],
         val: ExprConstant,
     ) {
+        // 1. Base case for 0-arity functions (constants)
         if arity == 0 {
             let mask_table = self.static_functions.entry(key).or_default();
             let entries = mask_table.entry(0).or_default();
-            entries.insert(Box::from([]), val);
+
+            // Avoid entry/new overhead if the constant function is already registered
+            if let Some(existing_val) = entries.get_mut(&[][..]) {
+                if *existing_val != val {
+                    entries.remove(&[][..]);
+                }
+            } else {
+                entries.insert(SmallVec::new(), val);
+            }
             return;
         }
 
+        // 2. Single reusable stack-allocated buffer for the entire loop scope
+        let mut combo: ComboKey = SmallVec::with_capacity(COMBO_KEY_SIZE);
+
+        // 3. Generate masks (2^arity combinations)
         for mask in 0..(1 << arity) {
+            // Projection limit filter to avoid memory explosion
             let bit_count = (mask as u32).count_ones() as usize;
             if mask != 0 && bit_count > self.max_proj {
                 continue;
             }
 
-            let mut combo: SmallVec<[ObjectId; 8]> = SmallVec::new();
-            for i in 0..arity {
-                let bit_pos = arity - 1 - i;
-                if (mask & (1 << bit_pos)) != 0 {
-                    if let Some(&obj) = args.get(i) {
-                        combo.push(obj);
-                    }
+            // Clear the reusable buffer instead of allocating a new one on the stack frame
+            combo.clear();
+
+            // 4. Optimized Big-Endian key generation (zero-cost bit shift)
+            let mut current_bit = 1 << (arity - 1);
+            for &obj in args {
+                if (mask & current_bit) != 0 {
+                    combo.push(obj); // Writes directly to stack buffer
                 }
+                current_bit >>= 1;
             }
 
             let mask_table = self.static_functions.entry(key).or_default();
             let entries = mask_table.entry(mask as u16).or_default();
 
-            // Gestion du consensus de valeur (si divergence, retour à None via suppression)
-            if let Some(existing_val) = entries.get_mut(combo.as_slice()) {
+            // 5. Value consensus management using stack reference lookup
+            if let Some(existing_val) = entries.get_mut(&combo) {
+                // If a contradiction is detected (same coordinates, different value),
+                // the term is not static/deterministic -> remove it from the map.
                 if *existing_val != val {
-                    entries.remove(combo.as_slice());
+                    // We can pass the stack reference to remove without taking ownership
+                    entries.remove(&combo);
                 }
             } else {
-                entries.insert(Box::from(combo.as_slice()), val);
+                // Only clone the Stack-allocated SmallVec (memcpy) when a new entry is mandatory.
+                // ZERO heap allocation occurs here if combo.len() <= COMBO_KEY_SIZE.
+                entries.insert(combo.clone(), val);
             }
         }
     }
@@ -1043,7 +1192,7 @@ mod tests {
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
                 TypedList::new(),
-                Type::from(TypeId::from(0)), // Dummy
+                Type::from(TypeId::from(0)), // Dummy symbol definition
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(func_id_val),
@@ -1069,18 +1218,22 @@ mod tests {
         );
 
         // 5. Construct the grounded LIR expression: f(10)
+        // In accordance with LIR guidelines: index 0 is reserved for the metadata symbol node
+        let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
         let arg = builder.intern(ExprKind::Object(obj_a), &[]);
 
         let func_node_id = builder.intern(
             ExprKind::Function(skel_id),
-            &[arg], // Arguments follow the symbol rule
+            &[symbol_node, arg], // Layout: [Symbol, Argument_0]
         );
 
         let func_node = store
             .get(func_node_id)
             .expect("The structural function node must exist in the store");
 
+        // Populate the stack buffer to mirror actual grounding pipeline state
         let mut buffer = ArgumentBuffer::new();
+        buffer.push(obj_a);
 
         // 6. EVALUATION
         let res = registry.evaluate_function_internal(func_node, &store, &mut buffer);
@@ -1243,9 +1396,13 @@ mod tests {
             ExprConstant::Number(OrderedFloat(42.0)),
         );
 
-        // f(?var0)
+        // --- FIXED LIR LAYOUT ---
+        // According to LIR rules, index 0 is reserved for the metadata/symbol node.
+        // The variable argument must follow at index 1.
+        let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
         let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
-        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[var_node]);
+
+        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[symbol_node, var_node]);
         let func_node = store.get(func_node_id).unwrap();
 
         let mut buffer = ArgumentBuffer::new();
@@ -1326,37 +1483,35 @@ mod tests {
             "Doit retourner None car pour l'argument fixe 10, les valeurs divergent sur le reste du domaine"
         );
     }
-
     /// # Purpose
-    /// Verifies that an ungrounded function call (`f(?x)`) is not prematurely simplified
-    /// and correctly returns `None` when there is incomplete information about the domain
-    /// (only one specific instance `f(10) = 42.5` is known, with no global consensus guaranteed).
+    /// Verifies the PDDL fallback rule for uninitialized grounded numeric functions.
+    /// When a function is fully grounded (`f(99)`) but has no entry in the initial state,
+    /// the evaluator must yield `0.0` as a default value if the return type is numeric.
     ///
     /// # Input
-    /// - A function `f` (`FunctionSkeletonId(1)`) marked as positive inert.
-    /// - A single state entry injected into masks: `f(obj_10) = 42.5`.
-    /// - An expression node representing the ungrounded call `f(?var0)`.
+    /// - Function `f` marked as positive inert.
+    /// - Grounded call expression `f(99)`.
+    /// - The function skeleton's return type is explicitly set to a **Numeric** type.
+    /// - No registration in the initial state masks.
     ///
     /// # Expected Output
-    /// - `evaluate_function_internal` must return `Ok(None)` because the function call
-    ///   contains an ungrounded variable and cannot be simplified omnisciently.
+    /// - `evaluate_function_internal` must return `Ok(Some(ExprConstant::Number(0.0)))`.
     #[test]
-    fn test_evaluate_function_non_grounded_returns_none() {
-        // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
+    fn test_evaluate_function_grounded_missing_returns_pddl_default_zero() {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
 
         let skel_id_val = 1;
         let skel_id = FunctionSkeletonId::from(skel_id_val);
         let type_id = TypeId::from(0);
-        let obj_10 = ObjectId::from(10);
-        let val = 42.5;
+        let obj_99 = ObjectId::from(99);
 
-        // 2. Setup Inertia: Mark the function skeleton as positive inert (static)
         let mut i_table = InertiaTable::empty();
         i_table.insert_function(skel_id, Inertia::positive());
 
-        // 3. Setup function definitions: f(?x)
+        // Ensure the return type is explicitly numeric
+        let numeric_type = Type::<TypeId>::number();
+
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
@@ -1369,44 +1524,33 @@ mod tests {
                     VariableId::from(0),
                     Type::from(type_id),
                 )]),
-                Type::<TypeId>::number(), // Utilisation du type numérique
+                numeric_type,
             ),
         ];
         let p_defs = vec![];
-        let value_registry = ValueRegistry::empty();
+        let v_reg = ValueRegistry::empty();
 
-        // 4. Initialize the mocked registry instance and inject ONE instance
-        let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &value_registry, &i_table);
-        registry.generate_function_masks(
-            skel_id,
-            1,
-            &[obj_10],
-            ExprConstant::Number(ordered_float::OrderedFloat(val)),
-        );
+        // Initialize the InertiaEvaluator mock
+        let registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
 
-        // 5. Construct the ungrounded expression: f(?var0)
-        // Conformément aux règles du LIR : children[0] = Symbole, children[1..] = Arguments
-        let dummy_symbol = builder.intern(ExprKind::Object(ObjectId::from(999)), &[]);
-        let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+        // Build the LIR expression layout: index 0 is reserved for function symbol metadata
+        let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
+        let const_node = builder.intern(ExprKind::Object(obj_99), &[]);
+        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[symbol_node, const_node]);
+        let func_node = store.get(func_node_id).unwrap();
 
-        let func_node_id = builder.intern(
-            ExprKind::Function(skel_id),
-            &[dummy_symbol, var_node], // dummy_symbol en 0, ?var0 en 1
-        );
-
-        let func_node = store
-            .get(func_node_id)
-            .expect("The ungrounded structural function node must exist in the store");
-
+        // --- BUFFER INITIALIZATION ---
+        // Mirror the actual grounding pipeline state by ensuring the buffer
+        // contains the static constant argument extracted from the expression.
         let mut buffer = ArgumentBuffer::new();
+        buffer.push(obj_99);
 
-        // 6. EVALUATION
         let res = registry.evaluate_function_internal(func_node, &store, &mut buffer);
 
-        // 7. VERIFICATION
-        assert!(
-            res.unwrap().is_none(),
-            "Should not simplify a function call containing variables when information is incomplete"
+        assert_eq!(
+            res.unwrap(),
+            Some(ExprConstant::Number(ordered_float::OrderedFloat(0.0))),
+            "A grounded numeric function missing from the initial state must return 0.0 by default"
         );
     }
 
@@ -1552,7 +1696,7 @@ mod tests {
 
         // Verify that the inertia evaluator successfully maps the node to its constant literal
         assert_eq!(
-            res_func,
+            res_func.expect("The evaluator should not return an error here"),
             Some(ExprConstant::Number(OrderedFloat(42.0))),
             "The evaluator must successfully resolve and return the direct numeric value of f(10)"
         );

@@ -1,3 +1,25 @@
+//! Submodule for Compile-Time Invariant Pruning and Inertia Evaluation.
+//!
+//! This implementation provides the internal mechanisms used by the [`InertiaEvaluator`]
+//! to simplify atomic formulas (predicates) into compile-time constants (`true` or `false`).
+//! By analyzing the structural rigidity of PDDL relations—specifically positive inertia
+//! ($I^+$) and negative inertia ($I^-$)—the evaluator detects dead branches and invariants
+//! before generating the ground planning state.
+//!
+//! # Core Mechanics
+//!
+//! The evaluation pipeline bypasses traditional abstract syntax tree (AST) traversals
+//! by operating directly on unified indexes and flattened structures:
+//!
+//! 1. **Fluency Gating**: Fast $\mathcal{O}(1)$ tracking checks isolate and ignore dynamic
+//!    fluents immediately, minimizing cost for variables that cannot be evaluated statically.
+//! 2. **Bitmask Extraction**: Parameter bindings (constants vs variables) are mapped onto a
+//!    Big-Endian `u16` mask to quickly slice the multivariable constraints.
+//! 3. **Combinatorial Product Space**: Unbound parameters are multiplied by their type domains
+//!    using saturation arithmetic to calculate the upper bound of valid instances.
+//! 4. **IPP Definition 6 Reduction**: Live instances counted from the initial state are cross-referenced
+//!    against the structural invariants to emit a deterministic `Option<bool>`.
+
 use crate::aiplan4rust::compiler::grounding::analysis::inertia::evaluator::InertiaEvaluatorError;
 use crate::aiplan4rust::compiler::lir::expr::{ExprKind, ExprNode, ExprStore};
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
@@ -5,7 +27,51 @@ use crate::analysis::inertia::evaluator::evaluator::ArgumentBuffer;
 use crate::analysis::inertia::evaluator::InertiaEvaluator;
 
 impl<'a> InertiaEvaluator<'a> {
-    /// Évalue une formule atomique selon les règles de simplification du papier IPP (Section 3.2).
+    /// Evaluates an atomic formula (predicate) based on the compile-time simplification
+    /// rules defined in the IPP (Inertia Planning Graph) framework (Section 3.2).
+    ///
+    /// This function executes a critical optimization pass by combining structural rigidity
+    /// analysis (positive/negative inertia) with live counting tables. It applies **Definition 6**
+    /// of the IPP paper to prune or validate truth values before generating the grounding state,
+    /// bypassing downstream combinatorial instantiation loops if a deterministic outcome is found.
+    ///
+    /// # Mathematical & Framework Semantics
+    ///
+    /// * **Positive Inertia ($I^+$)**: Predicates whose truth value can only change from `true` to `false`
+    ///   (never added by an action). If their count in the initial state ($N_{val}$) is $0$, they are
+    ///   statically `false`. If fully grounded and present, they are statically `true`.
+    /// * **Negative Inertia ($I^-$)**: Predicates whose truth value can only change from `false` to `true`
+    ///   (never removed by an action). If fully grounded and missing ($N_{val} = 0$), they are statically `false`.
+    ///   If their count matches the maximum theoretical instances ($\text{MAX}(p, \sim\!a)$), they are universally `true`.
+    ///
+    /// # Parameters
+    ///
+    /// * `node` - The abstract syntax tree node representation (`ExprNode`) of the atomic formula.
+    /// * `store` - A reference to the immutable global `ExprStore` containing the tree context.
+    /// * `buffer` - A mutable scratchpad reference (`ArgumentBuffer`) used for zero-allocation
+    ///   argument extraction during dynamic mask processing.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(true))` - The predicate simplifies deterministically to a compile-time `true` constant.
+    /// * `Ok(Some(false))` - The predicate simplifies deterministically to a compile-time `false` constant.
+    /// * `Ok(None)` - The predicate is dynamic (fluent) or lacks sufficient initial state criteria to be simplified.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(InertiaEvaluatorError)` if:
+    /// * An internal state lookup fails within the underlying inertia bitsets.
+    /// * The maximum combinatorial instance bound calculation overflows or queries an uninitialized type registry.
+    ///
+    /// # Performance & Allocation Invariants
+    ///
+    /// * **Lazy Evaluation / Gated Hot Path**: Structural verification (inertia bit checking) is performed
+    ///   *before* extracting arguments or traversing types. If a predicate is fluent, it returns `Ok(None)`
+    ///   in $\mathcal{O}(1)$ time without reading the arguments.
+    /// * **Zero Heap Allocation**: Reuses the provided stack-allocated `ArgumentBuffer` to collect ground parameters,
+    ///   eliminating heap churn during the compiler's upward post-order reduction traversal.
+    /// * **Minimized Pointer Chasing**: Multilevel counting map structures (`counting_predicates`) are sequentialized
+    ///   and short-circuited via standard `and_then` combinations to maximize CPU cache locality.
     pub(crate) fn evaluate_predicate_internal(
         &self,
         node: ExprNode<'_>,
@@ -17,49 +83,46 @@ impl<'a> InertiaEvaluator<'a> {
             _ => return Ok(None),
         };
 
-        // 1. Sécurité ID : On ne traite pas les prédicats générés dynamiquement (hors définitions PDDL)
+        // 1. Sécurité ID & Extraction directe des statuts d'inertie
         if pred_id.as_usize() >= self.predicate_defs.len() {
             return Ok(None);
         }
-
-        // 2. Détection de l'inertie (Section 3.4)
         let is_negative = self.inertia.is_predicate_negative_inertia(pred_id)?;
         let is_positive = self.inertia.is_predicate_positive_inertia(pred_id)?;
-
-        // Si le prédicat n'est PAS inerte, c'est un Fluent (il change).
         if !is_negative && !is_positive {
             return Ok(None);
         }
 
-        // --- ÉTAPE A : Calcul de N(p, ~a) ---
-        let mask = self.extract_mask_dynamic(node, store, buffer);
+        // --- ÉTAPE A : Extraction dynamique du masque (uniquement si l'inertie est confirmée) ---
+        let mask = self.extract_mask_dynamic(node, store, buffer) as u16;
 
-        // Vérification de la limite de projection (max_proj)
-        let bit_count = (mask as u32).count_ones() as usize;
-        if mask != 0 && bit_count > self.max_proj {
-            return Ok(None);
-        }
+        // Récupération de la définition du prédicat pour obtenir l'arité
+        let def = &self.predicate_defs[pred_id.as_usize()];
+        let arity = def.parameters().len();
 
-        let lookup_slice = buffer.as_slice();
+        // --- ENCAPSULATION REUSSIE : Applique la projection et calcule le statut grounded ---
+        let grounded = match self.validate_projection_and_grounding(mask, arity) {
+            Some(status) => status,
+            None => return Ok(None), // Court-circuit si max_proj est dépassé
+        };
 
-        // Récupération de la valeur N(p, a) dans les tables de comptage
-        let n_p_a = self
+        // --- OPTIMISATION 1 : Chasse aux pointeurs réduite ---
+        let n_val = self
             .counting_predicates
             .get(&pred_id)
             .and_then(|masks| masks.get(&mask))
-            .and_then(|entries| entries.get(lookup_slice))
-            .copied();
+            .and_then(|entries| entries.get(buffer.as_slice()))
+            .copied()
+            .unwrap_or(0);
 
         // --- ÉTAPE B : Application de la Définition 6 (Simplifications Atomiques) ---
-        let n_val = n_p_a.unwrap_or(0);
-        let grounded = self.all_args_grounded(node, store);
 
         // Règle 1 : Inertie Positive
         if is_positive {
             if n_val == 0 {
                 return Ok(Some(false));
             }
-            if grounded && n_val > 0 {
+            if grounded {
                 return Ok(Some(true));
             }
             return Ok(None);
@@ -67,57 +130,151 @@ impl<'a> InertiaEvaluator<'a> {
 
         // Règle 2 : Inertie Négative
         if is_negative {
-            let max_val = self.calculate_max_instances(node, store)?;
+            if n_val == 0 && grounded {
+                return Ok(Some(false));
+            }
 
+            let max_val = self.calculate_max_instances(pred_id, mask)?;
             if n_val == max_val {
                 return Ok(Some(true));
             }
-            if grounded && n_val == 0 {
-                return Ok(Some(false));
-            }
-            return Ok(None);
         }
 
         Ok(None)
     }
 
-    /// Calculates MAX(p, ~a) according to Definition 5 of the IPP paper.
+    /// Calculates the maximum theoretical number of ground instances for a predicate
+    /// based on its signature and a bound variable bitmask.
+    ///
+    /// This represents an optimized computation of $\text{MAX}(p, \sim\!a)$, operating
+    /// directly on the predicate identifier and a pre-extracted argument mask. By bypassing
+    /// the expression AST and the central `ExprStore`, it avoids pointer-chasing and recursive
+    /// tree traversals on the hot path.
+    ///
+    /// # Mathematical Sémantics
+    ///
+    /// Given a predicate $p(t_1, \dots, t_n)$, the maximum number of instances is the
+    /// product of the domain sizes of all positions that are **unbound variables** ($\sim\!a$).
+    /// Constant arguments restrict the position to a single value, contributing a factor of $1$
+    /// to the Cartesian product.
+    ///
+    /// # Parameters
+    ///
+    /// * `pred_id` - The structural identifier (`AtomSkeletonId`) of the target predicate.
+    /// * `mask` - A **Big-Endian bitmask** where each bit corresponds to an argument position:
+    ///   * `1`: The argument is a bound **constant** (fixed value).
+    ///   * `0`: The argument is an unbound **variable** (free to iterate over its type domain).
+    ///
+    /// # Performance & Complexity Guarantees
+    ///
+    /// * **Time Complexity**: $\mathcal{O}(A)$ where $A$ is the arity of the predicate. Since PDDL
+    ///   predicates rarely exceed an arity of 4 or 5, this effectively runs in ultra-fast $\mathcal{O}(1)$ time.
+    /// * **Space Complexity**: $\mathcal{O}(0)$ zero-allocation stack execution.
+    /// * **Inlining**: Marked with `#[inline]` to allow instruction fusion and loop unrolling directly
+    ///   within the counting table generation loops.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(InertiaEvaluatorError)` if the underlying `value_registry` fails to retrieve
+    /// the domain bounds for any of the parameter types (e.g., corrupted or uninitialized type registry).
+    ///
+    /// # Examples
+    ///
+    /// For a predicate `clear(x: Block)` with arity 1 and an unbound variable mask (`0b0`):
+    /// ```rust
+    /// // mask = 0b0 (position 0 is a variable) -> returns domain_size(Block)
+    /// let max = evaluator.calculate_max_instances(clear_id, 0b0)?;
+    /// ```
+    ///
+    /// For a predicate `on(x: Block, y: Block)` where `x` is fixed but `y` is free (`0b10`):
+    /// ```rust
+    /// // mask = 0b10 (pos 0 is constant factor 1, pos 1 is variable factor domain_size)
+    /// let max = evaluator.calculate_max_instances(on_id, 0b10)?;
+    /// ```
+    #[inline]
     pub fn calculate_max_instances(
         &self,
-        node: ExprNode<'_>,
-        store: &ExprStore,
+        pred_id: AtomSkeletonId,
+        mask: u16,
     ) -> Result<usize, InertiaEvaluatorError> {
+        // 1. Safe boundary check: if the predicate is unknown, fallback gracefully to a factor of 1
+        let def = match self.predicate_defs.get(pred_id.as_usize()) {
+            Some(d) => d,
+            None => return Ok(1),
+        };
+
+        let arg_types = def.parameters();
+        let arity = arg_types.len();
+        if arity == 0 {
+            return Ok(1);
+        }
+
         let mut max_val: usize = 1;
-        let children = node.children();
 
-        if let ExprKind::AtomicFormula(pred_id) = node.kind() {
-            if let Some(def) = self.predicate_defs.get(pred_id.as_usize()) {
-                let arg_types = def.parameters();
+        // 2. Compute the Cartesian product of unbound variable domains using Big-Endian bit shifting
+        for (i, param) in arg_types.iter().enumerate() {
+            let shift = arity - 1 - i;
+            let is_variable = ((mask >> shift) & 1) == 0;
 
-                // RÈGLE : children[0] est le symbole. Les arguments commencent à l'index 1.
-                for (i, &child_id) in children.iter().skip(1).enumerate() {
-                    let child_entry = store.fetch(child_id)?;
+            if is_variable {
+                // Fetch type domain size from registry, bubbling up any structural failure
+                let domain_size = self.value_registry.get_type_domain(param.ty())?.len();
 
-                    if let ExprKind::Variable(_) = child_entry.kind() {
-                        if let Some(param) = arg_types.get(i) {
-                            let type_id = param.ty();
-                            let domain_size = self.value_registry.get_type_domain(type_id)?.len();
-                            max_val *= domain_size;
-                        }
-                    }
-                }
+                // Defend against integer overflow during massive combinatorial multiplication
+                max_val = max_val.saturating_mul(domain_size);
             }
         }
 
         Ok(max_val)
     }
 
-    /// Retourne true si le fait doit être inclus dans le BitVector d'état.
-    fn is_fluent(&self, pred_id: AtomSkeletonId) -> bool {
+    /// Determines if a predicate is fluent (dynamic) within the current planning context.
+    ///
+    /// A predicate is considered a **fluent** if its truth value can change over time through
+    /// the execution of actions. Conversely, it is considered **static** (rigid) if it exhibits
+    /// either pure positive inertia (always true if initially true, never added) or pure negative
+    /// inertia (always false if initially false, never removed).
+    ///
+    /// # Performance & Complexity Guarantees
+    ///
+    /// * **Time Complexity**: $\mathcal{O}(1)$ constant time lookup.
+    /// * **Space Complexity**: $\mathcal{O}(0)$ zero-allocation hot path.
+    /// * **Inlining**: Marked with `#[inline]` to allow the compiler to eliminate the function call
+    ///   overhead entirely, enabling aggressive branch-prediction and instruction pipelining inside
+    ///   the core grounding loops.
+    ///
+    /// # Memory Safety & Robustness
+    ///
+    /// Instead of panicking on an invalid or uninitialized `AtomSkeletonId`, this method performs
+    /// a safe bounds check against the internal predicate definitions. If the identifier is out
+    /// of bounds, it gracefully returns `false` (treating the unknown item as non-fluent).
+    ///
+    /// # Internal Mechanics
+    ///
+    /// The function evaluates the structural inertia of the predicate:
+    /// 1. Verifies the validity of `pred_id`.
+    /// 2. Queries the internal `inertia` bitsets/tables for both positive and negative rigidity.
+    /// 3. Safely defaults missing inertia context (`None`) to `false` via `.unwrap_or(false)`.
+    /// 4. Inverts the aggregated static flag (`!is_static`) to deduce fluency.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let pred_id = AtomSkeletonId::from_usize(42);
+    /// if registry.is_fluent(pred_id) {
+    ///     println!("Predicate state must be tracked dynamically in the state transitions.");
+    /// } else {
+    ///     println!("Predicate is rigid; eligible for compile-time branch pruning.");
+    /// }
+    /// ```
+    #[inline]
+    pub fn is_fluent(&self, pred_id: AtomSkeletonId) -> bool {
+        // 1. Safe boundary check to prevent out-of-bounds indexing down the pipeline
         if pred_id.as_usize() >= self.predicate_defs.len() {
             return false;
         }
 
+        // 2. Aggregate positive and negative inertia to determine if the predicate is rigid
         let is_static = self
             .inertia
             .is_predicate_positive_inertia(pred_id)
@@ -127,6 +284,7 @@ impl<'a> InertiaEvaluator<'a> {
                 .is_predicate_negative_inertia(pred_id)
                 .unwrap_or(false);
 
+        // 3. A predicate is fluent if and only if it is not static
         !is_static
     }
 }

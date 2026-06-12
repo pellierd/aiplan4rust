@@ -166,7 +166,9 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
 
                 // 2. Fixed: Wrap it using the correct `(id, store)` sequence matching your implementation
                 let test_expr = Expr::new(atom_id, &local_store);
-                let res = evaluator.evaluate(test_expr);
+                let res = evaluator
+                    .evaluate(test_expr)
+                    .expect("Evaluation failed when it should have succeeded");
 
                 // 3. Fixed: Oracle extraction directly inspecting the original problem's initial state
                 let atom_exists = is_fact_in_init(
