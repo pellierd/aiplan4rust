@@ -1,4 +1,4 @@
-use crate::aiplan4rust::compiler::grounding::analysis::inertia::evaluator::InertiaRegistryError;
+use crate::aiplan4rust::compiler::grounding::analysis::inertia::evaluator::InertiaEvaluatorError;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::compiler::grounding::binding::iter::BindingsIteratorError;
 use crate::aiplan4rust::compiler::grounding::binding::BindingError;
@@ -35,7 +35,7 @@ pub enum GroundingError {
     InertiaTable(#[from] InertiaTableError),
 
     #[error(transparent)]
-    InertiaRegistry(#[from] InertiaRegistryError),
+    InertiaRegistry(#[from] InertiaEvaluatorError),
 
     #[error(transparent)]
     Datalog(#[from] DatalogError),
