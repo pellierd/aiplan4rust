@@ -6,7 +6,6 @@ use crate::aiplan4rust::compiler::grounding::passes::qnf::ExpansionScratchpad;
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
 use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
-use std::collections::hash_map::Entry;
 
 /// Point d'entrée standard autonome pour l'expansion des quantificateurs.
 /// Consomme l'ancien ID et retourne le nouvel ID expansé.
@@ -38,24 +37,37 @@ pub fn expand_with(
     expansion_scratchpad: &mut ExpansionScratchpad,
 ) -> Result<ExprId, GroundingError> {
     expansion_scratchpad.clear();
-
-    // Amorçage du parcours avec la racine. Faux signifie "enfants non empilés".
     expansion_scratchpad.stack.push((expr_id, false));
 
     while let Some((old_id, children_pushed)) = expansion_scratchpad.stack.pop() {
         if !children_pushed {
             // --- ÉTAPE 1 : DESCENTE (Découverte) ---
+
+            // Si ce nœud a déjà été complètement expansé par un autre chemin du DAG,
+            // pas besoin de descendre dans ses enfants.
+            if expansion_scratchpad.cache.contains_key(&old_id) {
+                continue;
+            }
+
             expansion_scratchpad.stack.push((old_id, true));
 
             let entry = &store[old_id];
             for &child_id in entry.children().iter().rev() {
-                if let Entry::Vacant(v) = expansion_scratchpad.cache.entry(child_id) {
-                    v.insert(child_id);
+                // On ne pousse sur la pile QUE si l'enfant n'est pas encore présent
+                // avec sa valeur finale validée dans le cache.
+                if !expansion_scratchpad.cache.contains_key(&child_id) {
                     expansion_scratchpad.stack.push((child_id, false));
                 }
             }
         } else {
             // --- ÉTAPE 2 : REMONTÉE (Évaluation / Post-Order) ---
+
+            // Double check de sécurité pour le DAG : si une autre branche a finalisé
+            // ce nœud exact pendant qu'il attendait dans la pile, on skip.
+            if expansion_scratchpad.cache.contains_key(&old_id) {
+                continue;
+            }
+
             let (entry_kind, body_id) = {
                 let entry = &store[old_id];
                 (entry.kind().clone(), entry.children().first().copied())
@@ -66,6 +78,7 @@ pub fn expand_with(
             let current_id = match entry_kind {
                 ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
                     let body_id = body_id.expect("Quantifier must have a body node");
+                    // On récupère la valeur expansée définitive depuis le cache
                     let expanded_body_id =
                         *expansion_scratchpad.cache.get(&body_id).unwrap_or(&body_id);
 
@@ -96,6 +109,7 @@ pub fn expand_with(
                     }
 
                     if has_changed {
+                        // Ton store.intern garantit le zero-allocation si le motif simplifié existe déjà
                         store.intern(entry_kind, &expansion_scratchpad.children_buffer)
                     } else {
                         old_id
@@ -103,14 +117,12 @@ pub fn expand_with(
                 }
             };
 
-            // Écriture définitive du résultat de l'expansion dans le cache
+            // L'écriture n'intervient qu'ici : elle marque la fin absolue du traitement de ce sous-arbre
             expansion_scratchpad.cache.insert(old_id, current_id);
         }
     }
 
-    // Extraction finale : on récupère la nouvelle racine ou, à défaut, l'ID d'origine
     let final_root = *expansion_scratchpad.cache.get(&expr_id).unwrap_or(&expr_id);
-
     Ok(final_root)
 }
 

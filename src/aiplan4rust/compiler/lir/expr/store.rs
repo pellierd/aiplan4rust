@@ -144,7 +144,7 @@ impl ExprStore {
         self.get(id).ok_or_else(|| StorerError::expr_not_found(id))
     }
 
-    // Wraps a given [`ExprId`] in an [`Expr`] proxy container bound to this store.
+    /// Wraps a given [`ExprId`] in an [`Expr`] proxy container bound to this store.
     ///
     /// This method simplifies expression tree traversal and evaluation by providing
     /// an ergonomic view over the raw node data.
