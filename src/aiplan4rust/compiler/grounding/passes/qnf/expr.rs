@@ -127,6 +127,8 @@ pub fn expand_with(
 }
 
 /// Gère le produit cartésien et la réduction d'un nœud Forall ou Exists.
+/// Gère le produit cartésien, le tri des domaines et l'élagage dynamique (skip_at)
+/// d'un nœud Forall ou Exists grâce au tracking de la variable coupable.
 fn expand_quantified_node(
     body_id: ExprId,
     variables: &TypedList<VariableId, TypeId>,
@@ -146,26 +148,43 @@ fn expand_quantified_node(
         });
     }
 
-    let mut instances = Vec::with_capacity(8);
+    let alloc_capacity = std::cmp::min(iterator.total_count(), 64);
+    let mut instances = Vec::with_capacity(alloc_capacity);
 
     while let Some(bindings) = iterator.next() {
-        let result_id = bind_with(body_id, store, &bindings, evaluator, binding_scratchpad)?;
+        // 1. Appel à bind_with qui propage désormais le tuple (ExprId, Option<VariableId>)
+        // On mappe l'erreur potentielle de Binding en GroundingError
+        let (result_id, culprit) =
+            bind_with(body_id, store, &bindings, evaluator, binding_scratchpad)?;
 
-        // Court-circuit immédiat si une constante dominatrice est rencontrée
-        if result_id == store.empty_or() {
-            if is_forall {
-                return Ok(store.empty_or());
-            }
-            continue;
+        // 2. CONSTANTES DOMINATRICES : Court-circuit absolu de la quantification
+        // Forall + False => L'ensemble s'effondre immédiatement à False
+        if is_forall && result_id == store.empty_or() {
+            return Ok(store.empty_or());
+        }
+        // Exists + True => L'ensemble s'effondre immédiatement à True
+        if !is_forall && result_id == store.empty_and() {
+            return Ok(store.empty_and());
         }
 
-        if result_id == store.empty_and() {
-            if !is_forall {
-                return Ok(store.empty_and());
+        // 3. ÉLÉMENTS NEUTRES : Déclencheur du skip_at (Élagage combinatoire)
+        // Forall + True  => N'apporte rien à l'intersection.
+        // Exists + False => N'apporte rien à l'union.
+        let is_neutral = (is_forall && result_id == store.empty_and())
+            || (!is_forall && result_id == store.empty_or());
+
+        if is_neutral {
+            if let Some(var_id) = culprit {
+                // On cherche l'index syntaxique de la variable coupable dans notre liste d'origine
+                if let Some(syntax_idx) = variables.iter().position(|v| v.symbol() == var_id) {
+                    // L'itérateur traduit cet index via sa permutation et sature le sous-arbre
+                    iterator.skip_at(syntax_idx);
+                    continue;
+                }
             }
-            continue;
         }
 
+        // Si ce n'est ni un court-circuit ni un élément neutre élagué, on conserve le nœud partiel
         instances.push(result_id);
     }
 

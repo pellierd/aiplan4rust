@@ -1,4 +1,5 @@
 use crate::aiplan4rust::compiler::lir::expr::ExprId;
+use crate::aiplan4rust::support::lang::VariableId;
 use fxhash::FxHashMap;
 
 /// ### Binding Scratchpad
@@ -11,9 +12,10 @@ use fxhash::FxHashMap;
 /// fragmentation during high-frequency PDDL grounding phases.
 pub struct BindingScratchpad {
     /// Internal translation cache mapping original `ExprId` keys to their updated,
-    /// substituted, or statically pruned `ExprId` values.
+    /// substituted, or statically pruned `ExprId` values along with the variable responsible
+    /// for any combinatorial collapse (culprit tracking).
     /// Crucial for preventing redundant traversals over shared Directed Acyclic Graph (DAG) branches.
-    pub(in crate::aiplan4rust) substitution_map: FxHashMap<ExprId, ExprId>,
+    pub substitution_map: FxHashMap<ExprId, (ExprId, Option<VariableId>)>,
 
     /// Reusable continuous buffer used to transiently aggregate the transformed child
     /// identifiers of a compound node before routing them into the smart constructor pipeline.

@@ -1,10 +1,10 @@
+use super::scratchpad::BindingScratchpad;
 use crate::aiplan4rust::compiler::grounding::binding::error::BindingError;
 use crate::aiplan4rust::compiler::grounding::binding::evaluator::{ExprConstant, ExprEvaluator};
 use crate::aiplan4rust::compiler::grounding::binding::Bindings;
 use crate::aiplan4rust::compiler::lir::expr::expr::Expr;
 use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprId, ExprKind, ExprStore};
-
-use super::scratchpad::BindingScratchpad;
+use crate::aiplan4rust::support::lang::VariableId;
 
 /// **Version Standard** : Applique uniquement les substitutions de variables (Grounding classique).
 /// Alloue temporairement un scratchpad local.
@@ -13,20 +13,27 @@ pub fn bind(
     expr_id: ExprId,
     store: &mut ExprStore,
     sub: &Bindings,
-) -> Result<ExprId, BindingError> {
+) -> Result<(ExprId, Option<VariableId>), BindingError> {
     let mut scratchpad = BindingScratchpad::new();
     bind_with(expr_id, store, sub, None, &mut scratchpad)
 }
 
 /// **Version Avancée** : Moteur de parcours unique, ultra-optimisé et sans allocation.
 /// Applique les substitutions et exécute l'élagage statique (Köhler) à la volée.
+/// Retourne l'ExprId résultant et potentiellement la VariableId responsable de l'effondrement.
+/// **Version Avancée** : Moteur de parcours unique, ultra-optimisé et sans allocation.
+/// Applique les substitutions et exécute l'élagage statique (Köhler) à la volée.
+/// Retourne l'ExprId résultant et la VariableId responsable de l'effondrement (si unique et valide).
+/// **Version Avancée** : Moteur de parcours unique, ultra-optimisé et sans allocation.
+/// Applique les substitutions et exécute l'élagage statique (Köhler) à la volée.
+/// Retourne l'ExprId résultant et la VariableId responsable de l'effondrement (si unique et valide).
 pub fn bind_with(
     expr_id: ExprId,
     store: &mut ExprStore,
     sub: &Bindings,
     evaluator: Option<&dyn ExprEvaluator>,
     scratchpad: &mut BindingScratchpad,
-) -> Result<ExprId, BindingError> {
+) -> Result<(ExprId, Option<VariableId>), BindingError> {
     scratchpad.clear();
 
     // On initialise notre builder unique pour l'interning
@@ -34,13 +41,12 @@ pub fn bind_with(
 
     // Amorçage du parcours itératif avec la racine
     scratchpad.stack.push((expr_id, false));
-    // CORRECTION 1 : Ne pas pré-remplir la map ici avec la racine (on le fera à la remontée)
 
     while let Some((old_id, children_pushed)) = scratchpad.stack.pop() {
         if !children_pushed {
             // --- PREMIER PASSAGE : Descente ---
 
-            // Sécurité DAG : Si ce nœud a déjà été traité et résolu par un autre chemin, on passe.
+            // Sécurité DAG
             if scratchpad.substitution_map.contains_key(&old_id) {
                 continue;
             }
@@ -49,8 +55,6 @@ pub fn bind_with(
 
             let entry = &builder.store[old_id];
             for &child_id in entry.children().iter().rev() {
-                // CORRECTION 2 : Utiliser contains_key() à la place de Entry::Vacant + v.insert
-                // On pousse l'enfant sur la pile UNIQUEMENT s'il n'a pas encore sa valeur finale calculée.
                 if !scratchpad.substitution_map.contains_key(&child_id) {
                     scratchpad.stack.push((child_id, false));
                 }
@@ -58,36 +62,81 @@ pub fn bind_with(
         } else {
             // --- SECOND PASSAGE : Remontée ---
 
-            // Sécurité DAG : Si le nœud a été finalisé par une autre branche pendant qu'il attendait, on skip.
+            // Sécurité DAG
             if scratchpad.substitution_map.contains_key(&old_id) {
                 continue;
             }
 
-            // Isolation de l'emprunt immuable sur `builder.store` pour extraire les infos du nœud
+            // Isolation de l'emprunt immuable
             let (entry_kind, has_children) = {
                 let entry = &builder.store[old_id];
                 (entry.kind().clone(), !entry.children().is_empty())
             };
 
             let mut has_changed = false;
+            let mut inherited_culprit = None;
+            let mut multiple_or_culprits = false; // Flag de sécurité pour la disjonction
             scratchpad.children_buffer.clear();
 
             // Si le nœud a des enfants, on collecte leurs correspondances mises à jour
             if has_children {
                 let entry = &builder.store[old_id];
                 for &child_id in entry.children() {
-                    let new_child_id = *scratchpad
-                        .substitution_map
-                        .get(&child_id)
-                        .unwrap_or(&child_id);
-                    if new_child_id != child_id {
-                        has_changed = true;
+                    if let Some(&(new_child_id, child_culprit)) =
+                        scratchpad.substitution_map.get(&child_id)
+                    {
+                        if new_child_id != child_id {
+                            has_changed = true;
+
+                            if let ExprKind::Variable(var_id) = builder.store[child_id].kind() {
+                                if inherited_culprit.is_none() {
+                                    inherited_culprit = Some(*var_id);
+                                }
+                            }
+                        }
+
+                        // Analyse et propagation fine du coupable selon l'opérateur courant
+                        if let Some(var_id) = child_culprit {
+                            match entry_kind {
+                                ExprKind::And => {
+                                    // CORRECTION : On ne capture le coupable d'effondrement que si
+                                    // aucun coupable n'a encore été enregistré pour ce AND.
+                                    if builder.store[new_child_id].kind() == &ExprKind::Or
+                                        && builder.store[new_child_id].children().is_empty()
+                                    {
+                                        if inherited_culprit.is_none() {
+                                            inherited_culprit = Some(var_id);
+                                        }
+                                    } else if inherited_culprit.is_none() {
+                                        inherited_culprit = Some(var_id);
+                                    }
+                                }
+                                ExprKind::Or => {
+                                    if inherited_culprit.is_some()
+                                        && inherited_culprit != Some(var_id)
+                                    {
+                                        multiple_or_culprits = true;
+                                    }
+                                    inherited_culprit = Some(var_id);
+                                }
+                                _ => {
+                                    inherited_culprit = Some(var_id);
+                                }
+                            }
+                        }
+                        scratchpad.children_buffer.push(new_child_id);
+                    } else {
+                        scratchpad.children_buffer.push(child_id);
                     }
-                    scratchpad.children_buffer.push(new_child_id);
                 }
             }
 
             // Évaluation et reconstruction du nœud courant
+            let local_variable = match entry_kind {
+                ExprKind::Variable(var_id) => Some(var_id),
+                _ => None,
+            };
+
             let mut current_id = match entry_kind {
                 ExprKind::Variable(var_id) => {
                     if let Some(obj_id) = sub.get(&var_id) {
@@ -98,12 +147,14 @@ pub fn bind_with(
                 }
                 _ => {
                     if has_changed {
-                        builder.reconstruct(entry_kind, &scratchpad.children_buffer)?
+                        builder.reconstruct(entry_kind.clone(), &scratchpad.children_buffer)?
                     } else {
                         old_id
                     }
                 }
             };
+
+            let mut final_culprit = None;
 
             // --- Élagage métier Köhler ---
             if let Some(eval) = evaluator {
@@ -122,19 +173,44 @@ pub fn bind_with(
                             ExprConstant::Number(n) => builder.number(*n),
                             ExprConstant::Object(o) => builder.object(o),
                         };
+
+                        // Effondrement direct via l'évaluateur externe (ex: Prédicat Statique Faux)
+                        final_culprit = local_variable.or(inherited_culprit);
                     }
                 }
             }
 
-            // On écrase la valeur définitive calculée dans notre table
-            scratchpad.substitution_map.insert(old_id, current_id);
+            // Si le nœud s'est effondré structurellement par remontée d'enfants dominants
+            if final_culprit.is_none() {
+                let current_kind = builder.store[current_id].kind();
+                let is_collapsed = matches!(current_kind, ExprKind::And | ExprKind::Or)
+                    && builder.store[current_id].children().is_empty();
+
+                if is_collapsed {
+                    if current_kind == &ExprKind::Or && multiple_or_culprits {
+                        // Sécurité critique : Un OR mort né de variables hétérogènes n'a pas de coupable unique.
+                        final_culprit = None;
+                    } else {
+                        final_culprit = inherited_culprit;
+                    }
+                }
+            }
+
+            // On stocke le tuple définitif pour ce sous-arbre
+            scratchpad
+                .substitution_map
+                .insert(old_id, (current_id, final_culprit));
         }
     }
 
-    Ok(*scratchpad
+    // Extraction du résultat final pour la racine
+    let final_res = scratchpad
         .substitution_map
         .get(&expr_id)
-        .unwrap_or(&expr_id))
+        .copied()
+        .unwrap_or((expr_id, None));
+
+    Ok(final_res)
 }
 
 /// Filtre pour savoir si on doit soumettre le nœud à l'évaluateur statique.
@@ -191,7 +267,9 @@ mod tests {
 
         // 4. Assert successful execution and extract the resulting node identifier
         assert!(result.is_ok(), "The variable binding execution failed.");
-        let final_id = result.unwrap();
+
+        // CORRECTION 1 : Déstructuration du tuple (ExprId, Option<VariableId>) renvoyé par bind
+        let (final_id, culprit) = result.unwrap();
 
         assert_ne!(
             final_id, expr_var,
@@ -207,6 +285,12 @@ mod tests {
         } else {
             panic!("The final resolved expression node should be an Object variant.");
         }
+
+        // CORRECTION 2 : Validation qu'aucun coupable de saut n'est extrait pour une substitution nominale
+        assert!(
+            culprit.is_none(),
+            "No variable culprit should be returned when a variable is successfully substituted without a structural collapse."
+        );
     }
 
     /// ### Test: Bind No Change Returns Same ID
@@ -240,12 +324,19 @@ mod tests {
         let bindings = Bindings::new();
 
         // 3. Run the standard binding execution pipeline
-        let result = bind(expr_num, &mut store, &bindings).unwrap();
+        // CORRECTION : Déstructuration du tuple (ExprId, Option<VariableId>)
+        let (new_root, culprit) = bind(expr_num, &mut store, &bindings).unwrap();
 
         // 4. Assert that the returned node identifier is strictly identical to the input identifier
         assert_eq!(
-            result, expr_num,
+            new_root, expr_num,
             "The binding engine must return the exact same input ID when no structural changes occur."
+        );
+
+        // AJOUT DE SÉCURITÉ : On s'assure qu'aucun coupable n'est extrait puisqu'il n'y a aucun effondrement
+        assert!(
+            culprit.is_none(),
+            "No variable culprit should be returned for literal nodes without variables."
         );
     }
 
@@ -299,13 +390,21 @@ mod tests {
 
         // 4. Assert execution success and extract the final node identifier
         assert!(result.is_ok(), "The advanced binding execution failed.");
-        let final_id = result.unwrap();
+
+        // CORRECTION : Déstructuration du tuple pour séparer l'ExprId du potentiel coupable
+        let (final_id, culprit) = result.unwrap();
 
         // 5. Validate that the root node was successfully replaced by the canonical empty And (True)
         let expected_empty_and = store.empty_and();
         assert_eq!(
             final_id, expected_empty_and,
             "The atomic formula should have been statically pruned into the canonical empty And (True)."
+        );
+
+        // AJOUT DE SÉCURITÉ : On s'assure qu'aucun skip erroné n'est levé pour une réduction à True
+        assert!(
+            culprit.is_none(),
+            "An evaluation to a valid static True constant must not yield a variable culprit for odometer skipping."
         );
     }
 
@@ -376,7 +475,9 @@ mod tests {
 
         // 4. Assert execution success and check that a new node was generated
         assert!(result.is_ok(), "The basic binding execution failed.");
-        let new_root = result.unwrap();
+
+        // CORRECTION : Déstructuration du tuple (ExprId, Option<VariableId>) renvoyé par bind
+        let (new_root, culprit) = result.unwrap();
 
         assert_ne!(
             new_root, root,
@@ -397,6 +498,12 @@ mod tests {
         } else {
             panic!("The atomic formula argument slot failed to transform into an Object variant.");
         }
+
+        // AJOUT DE SÉCURITÉ : Validation qu'aucun coupable n'est extrait (pas d'effondrement)
+        assert!(
+            culprit.is_none(),
+            "No variable culprit should be returned when the formula is successfully grounded without collapsing."
+        );
     }
 
     /// ### Test: Bind Partial Substitution
@@ -447,7 +554,7 @@ mod tests {
         bindings.insert(x_id, obj_100);
 
         // 3. Execute the standard binding pipeline
-        let new_root = bind(root, &mut store, &bindings).unwrap();
+        let (new_root, culprit) = bind(root, &mut store, &bindings).unwrap();
 
         // 4. Assert that a structural change occurred and a new root node was interned
         assert_ne!(
@@ -485,24 +592,8 @@ mod tests {
     /// **Objective:**
     /// Verify that the binding engine operates with zero allocations and zero structural modifications
     /// when evaluated against an empty map of variable bindings. This ensures that the engine
-    /// short-circuits safely and returns the exact same root identifier without wasting cycles or
-    /// creating redundant entries in the `ExprStore`.
-    ///
-    /// **Input Structure:**
-    /// ```text
-    ///  [Root: AtomicFormula]
-    ///           |
-    ///  [Child: Variable(1)]
-    /// ```
-    /// *Bindings:* Empty (No variables to substitute)
-    ///
-    /// **Expected Output:**
-    /// ```text
-    ///  [Root: Same AtomicFormula ID]
-    /// ```
-    /// Because the bindings map contains no substitutions for `Variable(1)`, the upward phase
-    /// must detect that `has_changed` is false for all sub-branches, preventing any call to
-    /// `reconstruct` and returning the original `root` ID unchanged.
+    /// short-circuits safely, returning the exact same root identifier and confirming that no
+    /// variable culprit is flagged when no collapse occurs.
     #[test]
     fn test_bind_zero_clone_on_empty_bindings() {
         let mut store = ExprStore::new();
@@ -517,12 +608,19 @@ mod tests {
         let bindings = Bindings::new();
 
         // 3. Run the binding process
-        let new_root = bind(root, &mut store, &bindings).unwrap();
+        // CORRECTION : Déstructuration du tuple (ExprId, Option<VariableId>)
+        let (new_root, culprit) = bind(root, &mut store, &bindings).unwrap();
 
         // 4. Assert that the resulting node identity is strictly equal to the input root identity
         assert_eq!(
             new_root, root,
             "The binding engine must perform zero modifications and return the identical input ID when bindings are empty."
+        );
+
+        // AJOUT DE SÉCURITÉ : On valide qu'aucun coupable n'est retourné (pas d'effondrement)
+        assert!(
+            culprit.is_none(),
+            "No variable culprit should be returned when the tree remains intact."
         );
     }
 
@@ -530,25 +628,9 @@ mod tests {
     ///
     /// **Objective:**
     /// Verify that when the static evaluator determines an evaluable atomic expression is
-    /// unconditionally false, the binding engine drops the constructed sub-tree and correctly
-    /// replaces its root identifier with the store's canonical `False` constant (empty `Or`).
-    ///
-    /// **Input Structure:**
-    /// ```text
-    ///  [Root: AtomicFormula]
-    ///           |
-    ///  [Child: Variable(1)]
-    /// ```
-    /// *Substitution:* `1 -> Object(100)`
-    /// *Evaluator:* Evaluates the target atomic formula skeleton to `false`
-    ///
-    /// **Expected Output:**
-    /// ```text
-    ///  [Root: Empty Or (False)]
-    /// ```
-    /// Even though a valid variable substitution takes place during the upward phase, the
-    /// subsequent Köhler pruning step must override the reconstructed atomic formula ID,
-    /// mapping the final node identifier to `store.empty_or()`.
+    /// unconditionally false, the binding engine drops the constructed sub-tree, correctly
+    /// replaces its root identifier with the store's canonical `False` constant (empty `Or`),
+    /// and accurately identifies the variable responsible for the collapse.
     #[test]
     fn test_bind_with_evaluator_pruning_propagation_false() {
         let mut store = ExprStore::new();
@@ -556,21 +638,22 @@ mod tests {
 
         let target_predicate = PredicateSymbolId::new(10);
         let target_skeleton = AtomSkeletonId::new(1);
+        let target_var = VariableId::new(1);
 
         // 1. Create a base atomic formula with a variable argument
-        let var_x = builder.variable(VariableId::new(1));
+        let var_x = builder.variable(target_var);
         let expr_atomic = builder.atomic_formula(target_predicate, &[var_x], target_skeleton);
 
         // 2. Prepare bindings for the variable substitution phase
         let mut bindings = Bindings::new();
-        bindings.insert(VariableId::new(1), ObjectId::new(100));
+        bindings.insert(target_var, ObjectId::new(100));
 
         // 3. Set up the static evaluator designed to yield Boolean(false)
         let evaluator = MockEvaluatorPruneFalse { target_skeleton };
         let mut scratchpad = BindingScratchpad::new();
 
         // 4. Execute the pipeline using an isolated scratchpad
-        let new_root = bind_with(
+        let (new_root, culprit) = bind_with(
             expr_atomic,
             &mut store,
             &bindings,
@@ -584,6 +667,13 @@ mod tests {
         assert_eq!(
             new_root, expected_false,
             "The atomic formula should have been statically pruned into the canonical empty Or (False)."
+        );
+
+        // CORRECTION 2 : Validation cruciale du mécanisme de "Culprit Tracking"
+        assert_eq!(
+            culprit,
+            Some(target_var),
+            "The engine must flag Variable(1) as the culprit responsible for the false collapse to allow smart odometer skipping."
         );
     }
 
@@ -666,7 +756,9 @@ mod tests {
         let result = bind(root, &mut store, &bindings);
 
         assert!(result.is_ok(), "The binding process failed to execute.");
-        let new_root = result.unwrap();
+
+        // CORRECTION 1 : Déstructuration du tuple pour isoler l'ExprId pur
+        let (new_root, culprit) = result.unwrap();
 
         // 5. Extract children and validate the shared structural identities
         let children = store[new_root].children();
@@ -685,6 +777,12 @@ mod tests {
         } else {
             panic!("The diamond-shared argument failed to transform into an Object primitive.");
         }
+
+        // CORRECTION 2 : Validation qu'aucun coupable n'est extrait (pas d'effondrement ou d'élagage destructif)
+        assert!(
+            culprit.is_none(),
+            "No variable culprit should be returned when performing nominal substitution in diamond sharing."
+        );
     }
 
     /// ### Test: Bind With Static Evaluation To Number
@@ -709,7 +807,7 @@ mod tests {
     /// ```
     /// The evaluator must recognize the functional atomic skeleton, compute its static numerical
     /// value, and force the engine to substitute the old compound root identifier with a clean,
-    /// interned `Number` primitive leaf node.
+    /// interned `Number` primitive leaf node without reporting a variable culprit.
     #[test]
     fn test_bind_with_static_evaluation_to_number() {
         let mut store = ExprStore::new();
@@ -732,7 +830,7 @@ mod tests {
 
         // 3. Execute the binding and evaluation pipeline using a clean scratchpad
         let mut scratchpad = BindingScratchpad::new();
-        let new_root = bind_with(
+        let (new_root, culprit) = bind_with(
             expr_function,
             &mut store,
             &bindings,
@@ -743,9 +841,16 @@ mod tests {
 
         // 4. Assert that the returned ID matches a freshly interned Number(42.0) node
         let expected_number_node = ExprBuilder::new(&mut store).number(42.0);
+
+        // 5. Validate node identity and ensure no variable culprit is flagged for successful evaluations
         assert_eq!(
             new_root, expected_number_node,
             "The functional expression should have been statically pruned into a structural Number primitive."
+        );
+
+        assert!(
+            culprit.is_none(),
+            "An evaluation to a valid static Number should not report a variable culprit for skips."
         );
     }
 
@@ -809,7 +914,7 @@ mod tests {
 
         // 3. Execute the evaluation using an isolated scratchpad
         let mut scratchpad = BindingScratchpad::new();
-        let new_root = bind_with(
+        let (new_root, culprit) = bind_with(
             expr_var,
             &mut store,
             &bindings,
@@ -828,6 +933,11 @@ mod tests {
         } else {
             panic!("Variable should have bypassed the evaluator and transformed into an Object.");
         }
+
+        assert!(
+            culprit.is_none(),
+            "Bypassing the evaluator for a nominal variable substitution must not report a culprit."
+        );
     }
 
     /// A mock evaluator designed to aggressively intercept nodes and force them to evaluate
@@ -909,7 +1019,8 @@ mod tests {
             result.is_ok(),
             "The binding process should execute without errors."
         );
-        let new_root = result.unwrap();
+
+        let (new_root, culprit) = result.unwrap();
 
         // 6. Validate that the root has collapsed into the unique Not child
         let kind = store[new_root].kind().clone();
@@ -936,6 +1047,247 @@ mod tests {
             );
         } else {
             panic!("The deep leaf node should have been successfully transformed into an Object.");
+        }
+
+        assert!(
+            culprit.is_none(),
+            "An algebraic unary reduction must not produce a variable culprit for odometer skips."
+        );
+    }
+
+    /// ### Test: Bind Or Collapse With Heterogeneous Culprits Extinguishes Skip
+    ///
+    /// **Objective:**
+    /// Verify that when a disjunction (an `Or` node) completely collapses into `False` because
+    /// multiple sub-branches failed due to *different* variables, the engine safely extinguishes
+    /// the culprit (`None`). This prevents the odometer from blindly skipping variables when
+    /// a multi-variable conflict requires standard synchronous iteration.
+    #[test]
+    fn test_bind_or_collapse_with_heterogeneous_culprits_extinguishes_skip() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let var_x = VariableId::new(1);
+        let var_y = VariableId::new(2);
+
+        // CORRECTION : On extrait les variables dans des locales pour calmer le Borrow Checker
+        let v_node_x = builder.variable(var_x);
+        let atom_x = builder.atomic_formula(
+            PredicateSymbolId::new(10),
+            &[v_node_x],
+            AtomSkeletonId::new(1),
+        );
+
+        let v_node_y = builder.variable(var_y);
+        let atom_y = builder.atomic_formula(
+            PredicateSymbolId::new(10),
+            &[v_node_y],
+            AtomSkeletonId::new(2),
+        );
+
+        // 2. Wrap them under a root Or node: Or(Atom(?x), Atom(?y))
+        let root = builder.or(&[atom_x, atom_y]);
+
+        // 3. Setup bindings and an evaluator that forces BOTH specific skeletons to False
+        let mut bindings = Bindings::new();
+        bindings.insert(var_x, ObjectId::new(100));
+        bindings.insert(var_y, ObjectId::new(200));
+
+        let evaluator = MockEvaluatorPruneHeterogeneousFalse;
+        let mut scratchpad = BindingScratchpad::new();
+
+        // 4. Run the binding pipeline
+        let (new_root, culprit) = bind_with(
+            root,
+            &mut store,
+            &bindings,
+            Some(&evaluator),
+            &mut scratchpad,
+        )
+        .unwrap();
+
+        // 5. Assert that the entire root collapsed into False
+        assert_eq!(
+            new_root,
+            store.empty_or(),
+            "The Or root should have collapsed into the canonical False constant."
+        );
+
+        // 6. CRITICAL: The culprit MUST be None due to ambiguity (Heterogeneous variables)
+        assert!(
+            culprit.is_none(),
+            "The culprit must be cleared (None) when multiple distinct variables cause a disjunction failure."
+        );
+    }
+
+    struct MockEvaluatorPruneHeterogeneousFalse;
+
+    impl ExprEvaluator for MockEvaluatorPruneHeterogeneousFalse {
+        fn evaluate(
+            &self,
+            expr: Expr,
+        ) -> Result<Option<ExprConstant>, Box<dyn ExprEvaluatorError>> {
+            let expr_id = expr.root_id();
+            if let ExprKind::AtomicFormula(_) = expr.store()[expr_id].kind() {
+                // Prune toutes les formules atomiques de ce contexte à False
+                Ok(Some(ExprConstant::Boolean(false)))
+            } else {
+                Ok(None)
+            }
+        }
+    }
+
+    /// ### Test: Bind And Collapse Favor First Culprit
+    ///
+    /// **Objective:**
+    /// Verify that when a conjunction (an `And` node) collapses into `False` because multiple
+    /// sub-branches fail, the engine deterministically retains the *first* variable culprit
+    /// that triggered the failure (or follows the deterministic evaluation order). This ensures
+    /// the odometer skips at the correct, most restrictive pivot.
+    #[test]
+    fn test_bind_and_collapse_favor_first_culprit() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let var_x = VariableId::new(1);
+        let var_y = VariableId::new(2);
+
+        let v_node_x = builder.variable(var_x);
+        let atom_x = builder.atomic_formula(
+            PredicateSymbolId::new(10),
+            &[v_node_x],
+            AtomSkeletonId::new(1),
+        );
+
+        let v_node_y = builder.variable(var_y);
+        let atom_y = builder.atomic_formula(
+            PredicateSymbolId::new(10),
+            &[v_node_y],
+            AtomSkeletonId::new(2),
+        );
+
+        // 1. Wrap them under a root And node: And(Atom(?x), Atom(?y))
+        let root = builder.and(&[atom_x, atom_y]);
+
+        // 2. Setup bindings and an evaluator that forces BOTH to False
+        let mut bindings = Bindings::new();
+        bindings.insert(var_x, ObjectId::new(100));
+        bindings.insert(var_y, ObjectId::new(200));
+
+        let evaluator = MockEvaluatorAndDoubleFalse;
+        let mut scratchpad = BindingScratchpad::new();
+
+        // 3. Run the binding pipeline
+        let (new_root, culprit) = bind_with(
+            root,
+            &mut store,
+            &bindings,
+            Some(&evaluator),
+            &mut scratchpad,
+        )
+        .unwrap();
+
+        // 4. Assert that the entire root collapsed into False (empty_or)
+        assert_eq!(
+            new_root,
+            store.empty_or(),
+            "The And root should have collapsed into the canonical False constant."
+        );
+
+        // 5. CRITICAL: The engine must pick the first culprit (Variable(1)) and not overwrite it with Variable(2)
+        assert_eq!(
+            culprit,
+            Some(var_x),
+            "The engine should retain the first variable responsible for the conjunction's collapse."
+        );
+    }
+
+    /// ### Test: Bind And Successful Pruning Extinguishes Culprit
+    ///
+    /// **Objective:**
+    /// Verify that when a sub-branch containing a variable is statically pruned into `True`
+    /// (an empty `And`), it does *not* leak its variable ID as a culprit to the parent `And` node
+    /// if the parent successfully survives. A valid branch must never report a culprit.
+    #[test]
+    fn test_bind_and_successful_pruning_extinguishes_culprit() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let var_x = VariableId::new(1);
+        let v_node_x = builder.variable(var_x);
+
+        // 1. Create an atomic formula that will evaluate to True
+        let atom_x = builder.atomic_formula(
+            PredicateSymbolId::new(10),
+            &[v_node_x],
+            AtomSkeletonId::new(1),
+        );
+
+        // 2. Create a normal ground literal that stays True/Valid
+        let ground_num = builder.number(5.0);
+
+        // Root: And(Atom(?x), 5.0)
+        let root = builder.and(&[atom_x, ground_num]);
+
+        let mut bindings = Bindings::new();
+        bindings.insert(var_x, ObjectId::new(100));
+
+        let evaluator = MockEvaluatorAndTrue;
+        let mut scratchpad = BindingScratchpad::new();
+
+        // 3. Run the binding pipeline
+        let (new_root, culprit) = bind_with(
+            root,
+            &mut store,
+            &bindings,
+            Some(&evaluator),
+            &mut scratchpad,
+        )
+        .unwrap();
+
+        // 4. Ensure the root is successfully reconstructed (it didn't collapse to False)
+        assert_ne!(
+            new_root,
+            store.empty_or(),
+            "The And root must not collapse to False since its branches are true/valid."
+        );
+
+        // 5. CRITICAL: Culprit must be None because no failure or structural collapse to False occurred.
+        assert!(
+            culprit.is_none(),
+            "A successful evaluation to True must never leak a variable culprit to the parent context."
+        );
+    }
+
+    // --- Mocks Utilitaires pour les tests ---
+
+    struct MockEvaluatorAndDoubleFalse;
+    impl ExprEvaluator for MockEvaluatorAndDoubleFalse {
+        fn evaluate(
+            &self,
+            expr: Expr,
+        ) -> Result<Option<ExprConstant>, Box<dyn ExprEvaluatorError>> {
+            let expr_id = expr.root_id();
+            if let ExprKind::AtomicFormula(_) = expr.store()[expr_id].kind() {
+                Ok(Some(ExprConstant::Boolean(false)))
+            } else {
+                Ok(None)
+            }
+        }
+    }
+
+    struct MockEvaluatorAndTrue;
+    impl ExprEvaluator for MockEvaluatorAndTrue {
+        fn evaluate(
+            &self,
+            expr: Expr,
+        ) -> Result<Option<ExprConstant>, Box<dyn ExprEvaluatorError>> {
+            let expr_id = expr.root_id();
+            if let ExprKind::AtomicFormula(_) = expr.store()[expr_id].kind() {
+                Ok(Some(ExprConstant::Boolean(true)))
+            } else {
+                Ok(None)
+            }
         }
     }
 }
