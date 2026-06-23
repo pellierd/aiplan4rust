@@ -158,8 +158,7 @@ mod tests {
     use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprKind, ExprStore};
     use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFunctionSkeleton;
     use crate::aiplan4rust::support::lang::{
-        FunctionSkeletonId, FunctionSymbolId, ObjectId, Type, TypeId, TypedListId
-        ,
+        FunctionSkeletonId, FunctionSymbolId, ObjectId, Type, TypeId, TypedListId,
     };
 
     /// # Purpose
@@ -168,9 +167,24 @@ mod tests {
     /// the evaluator must yield `0.0` as a default value if the return type is numeric.
     ///
     /// # Input
-    /// - Function `f` marked as positive inert.
+    /// - Function `f` (at skeleton index 1) marked as positive inert.
     /// - Grounded call expression `f(99)`.
-    /// - The function skeleton's return type is explicitly set to a **Numeric** type.
+    /// - Function definitions initialized via mock helpers using `TypedListId::EMPTY`
+    ///   to bypass missing type list dependencies in the empty `ValueRegistry`.
+    /// - No registration in the initial state masks.
+    ///
+    /// # Expected Output
+    /// - `evaluate_function_internal` must return `Ok(Some(ExprConstant::Number(0.0)))`.
+    #[test]
+    /// # Purpose
+    /// Verifies the PDDL fallback rule for uninitialized grounded numeric functions.
+    /// When a function is fully grounded (`f(99)`) but has no entry in the initial state,
+    /// the evaluator must yield `0.0` as a default value if the return type is numeric.
+    ///
+    /// # Input
+    /// - Function `f` marked as positive inert with a **Numeric** return type.
+    /// - Grounded call expression `f(99)`.
+    /// - All functions use `TypedListId::EMPTY` to avoid registry lookup panics.
     /// - No registration in the initial state masks.
     ///
     /// # Expected Output
@@ -182,26 +196,27 @@ mod tests {
 
         let skel_id_val = 1;
         let skel_id = FunctionSkeletonId::from(skel_id_val);
-        let type_id = TypeId::from(0);
         let obj_99 = ObjectId::from(99);
 
         let mut i_table = InertiaTable::empty();
         i_table.insert_function(skel_id, Inertia::positive());
 
+        // We force the return type to be numeric so the 0.0 fallback rule triggers,
+        // but we keep TypedListId::EMPTY to prevent the TypedListNotFound panic.
         let numeric_type = Type::<TypeId>::number();
-
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedListId::EMPTY, // Corrigé : Liste vide globale
-                Type::from(type_id),
+                TypedListId::EMPTY,
+                Default::default(),
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(skel_id_val),
-                TypedListId::new(1), // Corrigé : Un ID factice pour la liste avec paramètre (ou TypedListId::from(1))
+                TypedListId::EMPTY, // Fix: Use EMPTY here too!
                 numeric_type,
             ),
         ];
+
         let p_defs = vec![];
         let v_reg = ValueRegistry::empty();
 

@@ -149,8 +149,9 @@ impl ValueRegistry {
 
     /// Retrieves the value domain for a specific [`Type`].
     ///
-    /// This is a convenience wrapper around [`get_primitive_type_domain`]. It assumes
-    /// the type has been normalized to a single primitive member.
+    /// This function handles primitive types, multi-member unions (`either`),
+    /// and the universal/top type `[]` (empty members) which represents the
+    /// absolute root above `object`.
     ///
     /// # Arguments
     ///
@@ -159,14 +160,22 @@ impl ValueRegistry {
     /// # Returns
     ///
     /// * `Ok(&[ObjectId])` - A contiguous slice of all objects belonging to this type.
-    /// * `Err(RegistryError::NotPrimitiveType)` - If the provided type is a union (either)
-    ///   and cannot be mapped to a single contiguous range.
-    /// * `Err(RegistryError::RootType)` - If the type has no members.
+    /// * `Err(RegistryError::NotPrimitiveType)` - If the provided type is a multi-member
+    ///   union (`either`) and cannot be mapped to a single contiguous range.
+    /// * `Err(RegistryError::TypeIdOutOfBounds)` - If the type ID mapped from the root
+    ///   or primitive is out of bounds.
     pub fn get_type_domain(&self, ty: &Type<TypeId>) -> Result<&[ObjectId], ValueRegistryError> {
         let members = ty.members();
         match members.len() {
+            // Primitive atomic type: directly look up its contiguous slice.
             1 => self.get_primitive_type_domain(members[0]),
-            0 => Err(ValueRegistryError::root_type(TypeId::from(0))),
+
+            // Universal / Top type `[]`: it sits above `object`.
+            // We map it to the technical root domain (Index 0) which encompasses all objects.
+            0 => self.get_primitive_type_domain(TypeId::from(0)),
+
+            // Multi-member `either` type: cannot be mapped to a single contiguous slice
+            // without runtime expansion/flattening.
             n => Err(ValueRegistryError::not_primitive(members[0], n)),
         }
     }
@@ -349,10 +358,11 @@ impl ValueRegistry {
         Ok(adj)
     }
 
-    /// Maps each object to its primary atomic type.
+    /// Maps each object to its primary atomic type(s) or the universal root.
     ///
     /// This function acts as the initial distribution phase, placing each object into
     /// its specific type container before any inheritance or flattening logic is applied.
+    /// It gracefully handles the universal type `[]` by routing it to the default root.
     ///
     /// # Arguments
     ///
@@ -365,17 +375,12 @@ impl ValueRegistry {
     ///
     /// * `Ok(Vec<Vec<ObjectId>>)` - A vector of size `num_types`, where each sub-vector
     ///   contains the objects directly associated with that type index.
-    /// * `Err(RegistryError)` - If an object is malformed or its type is not primitive.
+    /// * `Err(RegistryError)` - If an object refers to an out-of-bounds type index.
     ///
     /// # Errors
     ///
     /// * [`ValueRegistryError::TypeIdOutOfBounds`]: Occurs if an object refers to a type index
-    ///   larger than `num_types`.
-    /// * [`ValueRegistryError::NotPrimitiveType`]: Occurs if an object is associated with
-    ///   a union type (more than one member). After normalization, every object must
-    ///   belong to exactly one atomic type.
-    /// * [`ValueRegistryError::RootType`]: Occurs if an object has no members in its type
-    ///   definition, making it impossible to assign to a domain.
+    ///   larger than or equal to `num_types`.
     fn map_objects_to_types(
         num_types: usize,
         object_defs: &[TypedSymbol<ObjectId, TypeId>],
@@ -387,6 +392,7 @@ impl ValueRegistry {
             let members = obj_def.ty().members();
 
             match members.len() {
+                // Primitive atomic type: map the object directly to its single type slot.
                 1 => {
                     let t_id = members[0];
                     let idx = t_id.as_usize();
@@ -395,13 +401,29 @@ impl ValueRegistry {
                     }
                     direct_objects[idx].push(obj_id);
                 }
+
+                // Universal / Top type `[]`: sits above `object`.
+                // We map these untyped objects to the technical root slot (Index 0) so they are included.
                 0 => {
-                    // Object has no defined type
-                    return Err(ValueRegistryError::root_type(TypeId::from(0)));
+                    if num_types == 0 {
+                        return Err(ValueRegistryError::type_out_of_bounds(
+                            TypeId::from(0),
+                            num_types,
+                        ));
+                    }
+                    direct_objects[0].push(obj_id);
                 }
-                n => {
-                    // Object has an "either" type, which is forbidden after normalization
-                    return Err(ValueRegistryError::not_primitive(members[0], n));
+
+                // Standard multi-member `either` type: scatter and distribute the object
+                // across every atomic type member it belongs to.
+                _n => {
+                    for &t_id in members {
+                        let idx = t_id.as_usize();
+                        if idx >= num_types {
+                            return Err(ValueRegistryError::type_out_of_bounds(t_id, num_types));
+                        }
+                        direct_objects[idx].push(obj_id);
+                    }
                 }
             }
         }
