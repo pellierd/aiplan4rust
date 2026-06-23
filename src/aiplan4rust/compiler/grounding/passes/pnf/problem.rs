@@ -6,39 +6,58 @@ use crate::aiplan4rust::compiler::grounding::passes::pnf::{
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
-/// Fully applies the Positive Normal Form (PNF) transformation across the entire planning problem.
+/// Fully applies the Prenex Normal Form (PNF) transformation across the entire planning problem.
 ///
-/// Convenience wrapper around [`to_pnf_with_scratchpad`] that allocates the temporary
-/// scratchpad locally on the fly.
+/// Convenient entry point wrapper around [`to_pnf_with_scratchpad`] that automatically
+/// allocates a temporary, local [`PnfScratchpad`] on the fly.
+///
+/// # Layout and Optimizations
+///
+/// While this function is ideal for one-off conversions or isolated test cases,
+/// batch-processing pipelines handling massive sets of problems should favor
+/// calling [`to_pnf_with_scratchpad`] directly with a single, retained scratchpad
+/// to maximize performance and guarantee zero heap allocations.
 pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, GroundingError> {
+    // Allocate a localized buffer stack and memoization cache for this single pass
     let mut scratchpad = PnfScratchpad::new();
     to_pnf_with_scratchpad(problem, &mut scratchpad)
 }
 
-/// Fully applies the Positive Normal Form (PNF) transformation across the entire planning problem.
+/// Fully applies the Prenex Normal Form (PNF) transformation across the entire planning problem.
 ///
-/// Extrait temporairement le store d'expressions du problème pour lever les contraintes d'emprunt (ownership)
-/// et réutilise un unique `PfnScratchpad` pour garantir zéro allocation sur l'ensemble du processus.
+/// This master function processes every expression sub-tree within the problem instance
+/// (domain constraints, actions, HTN methods, derived predicates, goals, metrics, and task networks),
+/// rewriting them into their canonical PNF representation.
+///
+/// # Layout and Optimizations
+///
+/// * **Ownership Demultiplexing**: Temporarily takes ownership of the underlying [`ExprStore`] via
+///   `problem.take_store()`. This bypasses Rust's aliasing rules (Borrow Checker constraints),
+///   allowing fluid, simultaneous mutation of both the definition structures and the shared store.
+/// * **Zero-Allocation Pipeline**: Reuses a single, pre-allocated [`PnfScratchpad`] throughout
+///   the entire sequence to guarantee completely zero dynamic reallocations.
+/// * **Global Canonical Tracking**: Accumulates all absorbed negated atoms into a single, comprehensive
+///   vector returned upon successful completion.
 pub fn to_pnf_with_scratchpad(
     problem: &mut LiftedProblem,
     scratchpad: &mut PnfScratchpad,
 ) -> Result<Vec<AtomSkeletonId>, GroundingError> {
     let mut negated_atoms = Vec::new();
 
-    // --- 1. EXTRACTION DU STORE (Take Ownership) ---
-    // Libère `problem` de ses emprunts liés au store pour nous permettre de muter
-    // les actions, méthodes et prédicats dérivés de manière fluide.
+    // --- 1. STORE EXTRACTION (Take Ownership) ---
+    // Detaches the expression store from the problem container to allow mutable access
+    // across definitions without violating single-ownership constraints.
     let mut store = problem.take_store();
 
-    // --- 2. Global Constraints (Contraintes du Domaine & Problème) ---
-    // Agissent comme des préconditions globales (is_effect = false)
+    // --- 2. GLOBAL CONSTRAINTS ---
+    // Domain and problem constraints act as global preconditions (`is_effect = false`)
     let old_domain_constraints = problem.domain_constraints();
     let new_domain_constraints = expr::to_pnf_with_scratchpad(
         old_domain_constraints,
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // is_effect
+        false, // is_effect = false
     )?;
     problem.set_domain_constraints(new_domain_constraints);
 
@@ -48,11 +67,11 @@ pub fn to_pnf_with_scratchpad(
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // is_effect
+        false, // is_effect = false
     )?;
     problem.set_problem_constraints(new_problem_constraints);
 
-    // --- 3. Lifted Definitions (Prédicats Dérivés) ---
+    // --- 3. LIFTED DEFINITIONS (Derived Predicates) ---
     for derived in problem.derived_predicate_defs_mut() {
         derived_predicate::to_pnf_with_scratchpad(
             derived,
@@ -62,24 +81,24 @@ pub fn to_pnf_with_scratchpad(
         )?;
     }
 
-    // --- 4. Lifted Definitions (Actions) ---
+    // --- 4. LIFTED DEFINITIONS (Actions) ---
     for action_def in problem.action_defs_mut() {
         action::to_pnf_with_scratchpad(action_def, &mut store, &mut negated_atoms, scratchpad)?;
     }
 
-    // --- 5. Lifted Definitions (Méthodes HTN) ---
+    // --- 5. LIFTED DEFINITIONS (HTN Methods) ---
     for method_def in problem.method_defs_mut() {
         method::to_pnf_with_scratchpad(method_def, &mut store, &mut negated_atoms, scratchpad)?;
     }
 
-    // --- 6. Problem Instance Specifics (But & Métriques) ---
+    // --- 6. PROBLEM INSTANCE SPECIFICS (Goal & Metrics) ---
     let old_goal = problem.goal();
     let new_goal = expr::to_pnf_with_scratchpad(
         old_goal,
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // Le but est une condition
+        false, // Goals act as conditions
     )?;
     problem.set_goal(new_goal);
 
@@ -89,11 +108,11 @@ pub fn to_pnf_with_scratchpad(
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // Les métriques ne sont pas des effets
+        false, // Metric calculations do not evaluate to side effects
     )?;
     problem.set_metric_spec(new_metric);
 
-    // --- 7. HTN Initial Task Network (Contraintes du réseau initial) ---
+    // --- 7. HTN INITIAL TASK NETWORK ---
     let current_htn_constraints = problem
         .initial_task_network()
         .task_network()
@@ -103,15 +122,16 @@ pub fn to_pnf_with_scratchpad(
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // Contraintes initiales = conditions
+        false, // Initial constraints evaluate as conditions
     )?;
     problem
         .initial_task_network_mut()
         .task_network_mut()
         .set_logical_constraints(new_htn_constraints);
 
-    // --- 8. RÉINJECTION DU STORE (Restore Ownership) ---
-    // Le store, enrichi et réécrit sans négations structurelles, est restitué au problème.
+    // --- 8. STORE RE-INJECTION (Restore Ownership) ---
+    // The store, now populated with rewritten and optimized hash-consed expression paths,
+    // is safely returned to the problem structure.
     problem.set_store(store);
 
     Ok(negated_atoms)

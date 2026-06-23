@@ -1,36 +1,55 @@
 use crate::aiplan4rust::compiler::grounding::error::GroundingError;
+use crate::aiplan4rust::compiler::grounding::passes::pnf::expr;
 use crate::aiplan4rust::compiler::grounding::passes::pnf::scratchpad::PnfScratchpad;
 use crate::aiplan4rust::compiler::lir::expr::ExprStore;
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
-use super::expr;
-
-/// Applies the Positive Normal Form (PNF) transformation to an action.
+/// Applies the Prenex Normal Form (PNF) transformation to an action definition.
 ///
-/// Convenience wrapper around [`to_pnf_with_scratchpad`] that allocates the temporary
-/// scratchpad locally on the fly.
+/// Convenient entry point wrapper around [`to_pnf_with_scratchpad`] that automatically
+/// allocates a temporary, local [`PnfScratchpad`] on the fly.
+///
+/// # Layout and Optimizations
+///
+/// While this function is ideal for one-off conversions or isolated test cases,
+/// batch-processing pipelines handling massive sets of actions should favor
+/// calling [`to_pnf_with_scratchpad`] directly with a single, retained scratchpad
+/// to maximize performance and guarantee zero heap allocations.
 pub fn to_pnf(
     action: &mut ActionDef,
     store: &mut ExprStore,
     negated_atoms: &mut Vec<AtomSkeletonId>,
 ) -> Result<(), GroundingError> {
+    // Allocate a localized buffer stack and memoization cache for this single pass
     let mut scratchpad = PnfScratchpad::new();
     to_pnf_with_scratchpad(action, store, negated_atoms, &mut scratchpad)
 }
 
-/// Applies the Positive Normal Form (PNF) transformation to an action.
+/// Applies the Prenex Normal Form (PNF) transformation to an action definition.
 ///
-/// Accepts a pre-allocated `PfnScratchpad` to ensure zero allocations on the hot path
-/// while processing massive batches of actions.
+/// This method processes an action's preconditions, effects, and optional durations,
+/// rewriting their underlying expression trees into their canonical PNF representation.
+///
+/// # Layout and Optimizations
+///
+/// Accepts a reusable, pre-allocated [`PnfScratchpad`] to ensure completely zero
+/// heap allocations on the hot path while batch-processing massive numbers of actions.
+///
+/// * **Context Isolation**: Automatically toggles the evaluation context (`is_effect`)
+///   to ensure logical negations are correctly absorbed within preconditions/durations,
+///   while preserving structural negations representing delete effects within effect blocks.
+/// * **Accumulative Logging**: The `scratchpad` cache is cleared transparently between
+///   sub-tree passes, while the global `negated_atoms` vector continuously accumulates
+///   every single absorbed atom across the entire action definition.
 pub fn to_pnf_with_scratchpad(
     action: &mut ActionDef,
     store: &mut ExprStore,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     scratchpad: &mut PnfScratchpad,
 ) -> Result<(), GroundingError> {
-    // 1. Collecte et transformation dans les préconditions
-    // On passe `is_effect = false` (donc in_condition = true à l'amorçage)
+    // 1. Process and lower the action preconditions
+    // We pass `is_effect = false` (initializing context as an evaluation condition)
     let old_precondition_id = action.precondition();
     let new_precondition_id = expr::to_pnf_with_scratchpad(
         old_precondition_id,
@@ -41,10 +60,8 @@ pub fn to_pnf_with_scratchpad(
     )?;
     action.set_precondition(new_precondition_id);
 
-    // 2. Collecte et transformation dans les effets
-    // On passe `is_effect = true` (donc in_condition = false à l'amorçage)
-    // Note : Le scratchpad est nettoyé automatiquement au début de `expr::to_pnf_with_scratchpad`,
-    // mais le vecteur global `negated_atoms` accumule continuellement.
+    // 2. Process and lower the action effects
+    // We pass `is_effect = true` (initializing context as a structural mutation/delete effect)
     let old_effect_id = action.effect();
     let new_effect_id = expr::to_pnf_with_scratchpad(
         old_effect_id,
@@ -55,14 +72,14 @@ pub fn to_pnf_with_scratchpad(
     )?;
     action.set_effect(new_effect_id);
 
-    // 3. Transformation de la durée si elle existe
+    // 3. Process and lower the action duration constraints if they exist
     if let Some(duration_id) = action.duration() {
         let new_duration_id = expr::to_pnf_with_scratchpad(
             duration_id,
             store,
             negated_atoms,
             scratchpad,
-            false, // Une durée se comporte généralement comme une précondition (hors effet)
+            false, // Action durations structurally behave like evaluation conditions
         )?;
         action.set_duration(new_duration_id);
     }
