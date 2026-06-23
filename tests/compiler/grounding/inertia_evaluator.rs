@@ -146,16 +146,21 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
         let mut current_ok = true;
         let mut local_store = ExprStore::new();
 
+        let pb_store = pb.store();
+
         for (idx, skel) in pb.predicate_defs().iter().enumerate() {
             let skel_id = AtomSkeletonId::from(idx);
             let inertia = table.get_predicate(skel_id).unwrap();
-            let arity = skel.arity();
+            let parameters = pb_store
+                .fetch_typed_list(skel.parameters())
+                .expect("Parameters fetch failed");
+            let arity = parameters.len();
 
             for i in 0..10 {
                 let mut args_opts = Vec::with_capacity(arity);
 
                 for arg_idx in 0..arity {
-                    let param_type = &skel.parameters()[arg_idx].ty();
+                    let param_type = &parameters[arg_idx].ty();
                     let val = pick_obj_by_index(&registry, param_type, i, arg_idx);
                     args_opts.push(val);
                 }

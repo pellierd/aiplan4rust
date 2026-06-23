@@ -16,12 +16,15 @@ pub fn render(
     // On utilise resolve_predicate pour le nom du symbole de la formule
     write!(f, "({}", ctx.resolve_predicate(formula.symbol()))?;
 
-    // 2. Rendu des paramètres via la slice
-    let parameters = formula.parameters();
-    if !parameters.is_empty() {
-        write!(f, " ")?;
-        // Délégation au renderer de liste de variables (qui gère le ? et le " - type")
-        typed_list::render_typed_variable_list(f, parameters.as_slice(), ctx)?;
+    // 2. Paramètres : Récupération via le store de l'arène
+    if let Some(params_list) = ctx.store().get_typed_list(formula.parameters()) {
+        if !params_list.is_empty() {
+            write!(f, " ")?;
+            // Délégation au renderer de liste de variables (qui gère le ? et le " - type")
+            typed_list::render_typed_variable_list(f, params_list.as_slice(), ctx)?;
+        }
+    } else {
+        write!(f, " <error: parameters not found>")?;
     }
 
     // 3. Fermeture de la signature

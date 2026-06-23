@@ -10,8 +10,8 @@ use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
     LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
 };
-use crate::aiplan4rust::support::lang::TypedList;
-use crate::aiplan4rust::support::lang::{ActionSymbolId, TypeId, VariableId};
+use crate::aiplan4rust::support::lang::{ActionSymbolId, VariableId};
+use crate::aiplan4rust::support::lang::TypedListId;
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +68,7 @@ impl Action {
     /// Crée une nouvelle action instantanée.
     pub fn new_snap(
         name: ActionSymbolId,
-        parameters: TypedList<VariableId, TypeId>,
+        parameters: TypedListId,
         precondition: ExprId,
         effect: ExprId,
     ) -> Self {
@@ -85,7 +85,7 @@ impl Action {
     /// Crée une nouvelle action durative.
     pub fn new_durative(
         name: ActionSymbolId,
-        parameters: TypedList<VariableId, TypeId>,
+        parameters: TypedListId,
         duration: ExprId,
         condition: ExprId,
         effect: ExprId,
@@ -123,15 +123,18 @@ impl Action {
         self.header.set_symbol(name);
     }
 
-    pub fn parameters(&self) -> &TypedList<VariableId, TypeId> {
+    /// Returns the ID of the parameters (signature) stored in the arena.
+    ///
+    /// Note: Returns by value since `TypedListId` is a small, lightweight `Copy` type.
+    pub fn parameters(&self) -> TypedListId {
         self.header.parameters()
     }
 
-    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableId, TypeId> {
-        self.header.parameters_mut()
-    }
-
-    pub fn set_parameters(&mut self, parameters: TypedList<VariableId, TypeId>) {
+    /// Sets the parameters ID (signature) of the action.
+    ///
+    /// # Parameters
+    /// - `parameters`: The new `TypedListId` referencing the interned list.
+    pub fn set_parameters(&mut self, parameters: TypedListId) {
         self.header.set_parameters(parameters);
     }
 

@@ -14,11 +14,16 @@ pub fn render(
     let symbol_id = formula.symbol();
     write!(f, "({} [{}]", ctx.resolve_predicate(symbol_id), symbol_id)?;
 
-    // 2. Paramètres : on délègue tout à la fonction spécialisée
-    if !formula.parameters().is_empty() {
-        write!(f, " ")?;
-        // Utilise la TypedList directement
-        typed_list::render_variable_typed_list(f, formula.parameters().as_slice(), ctx)?;
+    // 2. Paramètres : Récupération sécurisée via le store
+    if let Some(params_list) = ctx.store().get_typed_list(formula.parameters()) {
+        if !params_list.is_empty() {
+            write!(f, " ")?;
+            // On passe la slice des paramètres réels à la fonction de rendu
+            typed_list::render_variable_typed_list(f, params_list.as_slice(), ctx)?;
+        }
+    } else {
+        // Optionnel : un indicateur visuel discret si la liste est introuvable
+        write!(f, " <error: params not found>")?;
     }
 
     // 3. Fermeture

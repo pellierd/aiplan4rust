@@ -41,20 +41,18 @@ use crate::aiplan4rust::support::lang::{Type, TypeId};
 /// * `Ok(())` if the type was successfully normalized.
 /// * `Err(LirError)` if an error occurs during type resolution.
 pub fn normalize(
-    ty: &mut Type<TypeId>,
+    ty: &Type<TypeId>,
     registry: &mut TypeRegistry,
-) -> Result<(), NormalizationError> {
+) -> Result<Type<TypeId>, NormalizationError> {
     if ty.is_either() {
-        // ADL Case: Multiple types combined.
-        // Resolve the signature to a unique atomic TypeId via the registry.
+        // ADL Case: On résout l'union en un TypeId unique et atomique
         let target_id = registry.resolve(ty.members());
-        *ty = Type::primitive(target_id);
+        Ok(Type::primitive(target_id))
     } else if ty.is_root() {
-        // STRIPS Case: No types defined.
-        // Map explicitly to the global ROOT_TYPE_ID (0).
-        *ty = Type::primitive(ROOT_TYPE_ID);
+        // STRIPS Case: Pas de type, on force vers ROOT_TYPE_ID
+        Ok(Type::primitive(ROOT_TYPE_ID))
+    } else {
+        // Primitive Case: Déjà propre, on clone/renvoie tel quel
+        Ok(ty.clone())
     }
-    // Primitive Case: Already has exactly one type, no action needed.
-
-    Ok(())
 }

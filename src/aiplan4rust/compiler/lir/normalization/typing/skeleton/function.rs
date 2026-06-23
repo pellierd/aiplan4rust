@@ -18,6 +18,7 @@
 //! return type is already simplified, allowing for direct value comparison and
 //! grounding.
 
+use crate::aiplan4rust::compiler::lir::expr::ExprStore;
 use crate::aiplan4rust::compiler::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::compiler::lir::normalization::typing::{ty, typed_list, TypeRegistry};
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFunctionSkeleton;
@@ -44,17 +45,22 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFunctionSkeleton
 /// within an expression tree or an effect while adhering to a strict **$\mathcal{O}(1)$ dynamic allocation profile**.
 pub fn normalize(
     atomic_function: &mut AtomicFunctionSkeleton,
+    store: &mut ExprStore,
     registry: &mut TypeRegistry,
 ) -> Result<(), NormalizationError> {
-    // 1. Normalize the input parameters (the signature).
-    // This ensures that function applications in expressions match the normalized
-    // domain types.
-    typed_list::normalize_typed_variable_list(atomic_function.parameters_mut(), registry)?;
+    // 1. On récupère l'ID actuel des paramètres d'entrée
+    let current_param_id = atomic_function.parameters();
 
-    // 2. Normalize the return type.
-    // In many planning domains, functions may return values of composite types.
-    // We collapse these into a single unified atomic TypeId in-place.
-    ty::normalize(atomic_function.ty_mut(), registry)?;
+    // 2. On délègue au normalisateur de liste avec le store pour le Hash-Consing
+    let normalized_param_id =
+        typed_list::normalize_typed_variable_list(current_param_id, store, registry)?;
+
+    // 3. On met à jour l'ID des paramètres dans le skeleton de la fonction
+    atomic_function.set_parameters(normalized_param_id);
+
+    // 4. Normalisation du type de retour (modèle non-mutable)
+    let normalized_type = ty::normalize(atomic_function.ty(), registry)?;
+    atomic_function.set_type(normalized_type);
 
     Ok(())
 }

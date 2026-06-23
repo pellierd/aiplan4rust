@@ -6,6 +6,7 @@
 use crate::aiplan4rust::compiler::lir::encoding::{
     atomic_skeleton, EncodingError, EncodingRegistry,
 };
+use crate::aiplan4rust::compiler::lir::expr::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::compiler::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::compiler::syntax::ast::tree::SyntaxSubtree;
@@ -22,6 +23,7 @@ pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
+    builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     let tree = subtree.tree();
 
@@ -39,7 +41,8 @@ pub fn encode(
         // 3. SIGNATURE : On encode la liste des types des paramètres
         // atomic_formula_skeleton::encode va parcourir les paramètres (ex: ?r - robot)
         let atom_subtree = SyntaxSubtree::new(atom_node, atom_node_id, tree);
-        let atom_skeleton = atomic_skeleton::encode(&atom_subtree, registry, predicate_id)?;
+        let atom_skeleton =
+            atomic_skeleton::encode(&atom_subtree, registry, builder, predicate_id)?;
 
         // 4. STOCKAGE : On ajoute la définition complète au LIR
         // Cela retourne un AtomSkeletonId qui représente cette signature précise.

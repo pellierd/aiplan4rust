@@ -12,6 +12,7 @@
 
 use crate::aiplan4rust::compiler::lir::encoding::EncodingRegistry;
 use crate::aiplan4rust::compiler::lir::encoding::{typed_list, EncodingError};
+use crate::aiplan4rust::compiler::lir::expr::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::problem::skeleton::task::Task;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::compiler::syntax::ast::arena::ArenaNode;
@@ -43,6 +44,7 @@ pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
+    builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     let node = subtree.node();
     let tree = subtree.tree();
@@ -68,6 +70,7 @@ pub fn encode(
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(parameters_node, parameters_id, tree),
         registry,
+        builder.store(),
     )?;
 
     // 3. CONSTRUCTION : On utilise task_symbol_id au lieu de name_str_id

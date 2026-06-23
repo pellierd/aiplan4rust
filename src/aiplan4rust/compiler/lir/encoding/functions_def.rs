@@ -6,6 +6,7 @@
 use crate::aiplan4rust::compiler::lir::encoding::{
     function_skeleton, ty, EncodingError, EncodingRegistry,
 };
+use crate::aiplan4rust::compiler::lir::expr::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::compiler::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::compiler::syntax::ast::tree::SyntaxSubtree;
@@ -20,6 +21,7 @@ pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
+    builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     let tree = subtree.tree();
 
@@ -62,6 +64,7 @@ pub fn encode(
         let function_skeleton = function_skeleton::encode(
             &function_skeleton_subtree,
             registry,
+            builder,
             functor_id,
             return_type,
         )?;

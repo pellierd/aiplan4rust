@@ -13,7 +13,7 @@ use crate::aiplan4rust::compiler::lir::encoding::{
     action, constants_def, constraints, derived_predicate, functions_def, method, predicates_def,
     preference, task, types_def, EncodingError, EncodingRegistry,
 };
-use crate::aiplan4rust::compiler::lir::expr::ExprBuilder;
+use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprStore};
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::compiler::syntax::ast::tree::{Node, NodeId, SyntaxSubtree, Tree};
@@ -56,10 +56,10 @@ pub(crate) fn encode(
     // 1. Collection Phase: Populate IR skeletons and mapping tables.
     // This is separated to avoid simultaneous mutable borrows of the IR
     // while traversing the symbol tables.
-    collect_definitions(syntax_tree, registry, ir)?;
+    collect_definitions(syntax_tree, registry, ir, builder)?;
 
     // 2. Built-in Phase: Ensure support PDDL functions are registered.
-    encode_builtin_functions(registry, ir)?;
+    encode_builtin_functions(registry, ir, builder.store())?;
 
     // 3. Logic Encoding Phase:
     // At this stage, the symbol registry is populated, allowing 'encode_logic'
@@ -95,6 +95,7 @@ fn collect_definitions(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
+    builder: &mut ExprBuilder,
 ) -> Result<(), EncodingError> {
     for (node_id, node) in syntax_tree.preorder().ids() {
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
@@ -103,11 +104,11 @@ fn collect_definitions(
             AstKind::DomainName => ir.set_domain_name(node.try_ident()?)?,
             AstKind::TypesDef => types_def::encode(&subtree, registry, ir)?,
             AstKind::ConstantsDef => constants_def::encode(&subtree, registry, ir)?,
-            AstKind::PredicatesDef => predicates_def::encode(&subtree, registry, ir)?,
-            AstKind::FunctionsDef => functions_def::encode(&subtree, registry, ir)?,
-            AstKind::TaskDef => task::encode(&subtree, registry, ir)?,
-            AstKind::ActionDef => task::encode(&subtree, registry, ir)?,
-            AstKind::DurativeActionDef => task::encode(&subtree, registry, ir)?,
+            AstKind::PredicatesDef => predicates_def::encode(&subtree, registry, ir, builder)?,
+            AstKind::FunctionsDef => functions_def::encode(&subtree, registry, ir, builder)?,
+            AstKind::TaskDef => task::encode(&subtree, registry, ir, builder)?,
+            AstKind::ActionDef => task::encode(&subtree, registry, ir, builder)?,
+            AstKind::DurativeActionDef => task::encode(&subtree, registry, ir, builder)?,
             AstKind::Preference => preference::encode(&subtree, registry, ir)?,
 
             _ => {}
@@ -203,6 +204,7 @@ fn encode_logic(
 pub fn encode_builtin_functions(
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
+    store: &mut ExprStore,
 ) -> Result<(), EncodingError> {
     let reqs = ir.requirements();
 
@@ -216,6 +218,7 @@ pub fn encode_builtin_functions(
         register_builtin_function(
             registry,
             ir,
+            store,
             SymbolInterner::TOTAL_COST_SYMBOL_ID,
             EncodingRegistry::TOTAL_COST_NODE_ID,
             TypeId::NUMBER_TYPE_ID,
@@ -228,6 +231,7 @@ pub fn encode_builtin_functions(
         register_builtin_function(
             registry,
             ir,
+            store,
             SymbolInterner::TOTAL_TIME_SYMBOL_ID,
             EncodingRegistry::TOTAL_TIME_NODE_ID,
             TypeId::NUMBER_TYPE_ID,
@@ -262,6 +266,7 @@ pub fn encode_builtin_functions(
 fn register_builtin_function(
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
+    store: &mut ExprStore,
     symbol_id: SymbolId,
     virtual_node_id: NodeId,
     return_type: TypeId,
@@ -272,8 +277,9 @@ fn register_builtin_function(
 
     // 2. Define and register the function skeleton (signature)
     // System functions like total-time/total-cost always have an empty parameter list.
-    let skeleton =
-        AtomicFunctionSkeleton::new(sym, TypedList::empty(), Type::primitive(return_type));
+    let empty_params_id = store.intern_typed_list(TypedList::empty());
+
+    let skeleton = AtomicFunctionSkeleton::new(sym, empty_params_id, Type::primitive(return_type));
 
     let def_id = ir.add_function_def(skeleton);
     registry.register_function_skeleton(virtual_node_id, def_id);

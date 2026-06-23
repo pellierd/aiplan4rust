@@ -33,12 +33,13 @@ pub fn encode(
             typed_list::encode_variable_list(
                 &SyntaxSubtree::new(param_node, param_node_id, ast),
                 registry,
+                builder.store(),
             )?
         } else {
-            TypedList::empty()
+            builder.store().intern_typed_list(TypedList::empty())
         }
     } else {
-        TypedList::empty()
+        builder.store().intern_typed_list(TypedList::empty())
     };
 
     // 2. Encodage du corps (subtasks, ordering, etc.)

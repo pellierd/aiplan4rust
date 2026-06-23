@@ -535,7 +535,7 @@ impl<'a> DatalogEngine<'a> {
         );*/
 
         // A. Générer l'atome de nom (Pivot : action(?p1, ?p2...))
-        let action_atom = self.compile_action_name_as_rules(action, action_sk_id);
+        let action_atom = self.compile_action_name_as_rules(action, action_sk_id)?;
 
         // B. Générer la règle de déclenchement (Preconditions -> Action)
         self.compile_action_body_as_rules(action, action_atom.clone())?;
@@ -559,9 +559,14 @@ impl<'a> DatalogEngine<'a> {
 
         // --- LE BOOTSTRAP EST ICI ---
         // On vérifie la règle de déclenchement qu'on vient de pousser
+        // 1. On extrait le TypedListId de l'action
+        let param_list_id = action.parameters();
+        // 2. On interroge le store du problème pour récupérer la liste typée concrète
+        let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
+
         if let Some(trigger_rule) = self.rules.last() {
             // Si le corps est vide et l'action n'a pas de paramètres (?x)
-            if trigger_rule.body().is_empty() && action.parameters().is_empty() {
+            if trigger_rule.body().is_empty() && parameters.is_empty() {
                 // On l'injecte comme un fait car elle est "toujours vraie"
                 self.db.insert_delta_fact(action_sk_id, &[]);
             }
@@ -573,7 +578,7 @@ impl<'a> DatalogEngine<'a> {
             effect,
             &action_atom,
             &mut self.rules,
-            action.parameters(),
+            parameters,
             action_index,
         )?;
 
@@ -585,14 +590,19 @@ impl<'a> DatalogEngine<'a> {
         &self,
         action: &ActionDef,
         action_sk_id: AtomSkeletonId,
-    ) -> Atom {
-        let head_terms: Vec<Term> = action
-            .parameters()
+    ) -> Result<Atom, DatalogError> {
+        // 1. On récupère l'ID de la liste de paramètres
+        let param_list_id = action.parameters();
+
+        // 2. On extrait la liste concrète depuis le store du problème
+        let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
+
+        let head_terms: Vec<Term> = parameters
             .iter()
             .map(|param| Term::Variable(param.symbol()))
             .collect();
 
-        Atom::new(action_sk_id, head_terms)
+        Ok(Atom::new(action_sk_id, head_terms))
     }
 
     pub fn compile_action_body_as_rules(
@@ -600,13 +610,16 @@ impl<'a> DatalogEngine<'a> {
         action: &ActionDef,
         head: Atom,
     ) -> Result<(), DatalogError> {
-        // 1. On aplatit les préconditions
-        let precondition = Expr::new(action.precondition(), self.problem.store());
-        let precond_opt = self.encoder.encode_preconditions(
-            precondition,
-            &mut self.rules,
-            action.parameters(),
-        )?;
+        // 1. On récupère l'ID de la liste de paramètres
+        let param_list_id = action.parameters();
+        // 2. On extrait la liste concrète depuis le store du problème
+        let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
+
+        let precondition = self.problem.store().fetch_expr(action.precondition())?;
+
+        let precond_opt =
+            self.encoder
+                .encode_preconditions(precondition, &mut self.rules, parameters)?;
 
         // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
         let mut final_action_body = Vec::new();
@@ -666,7 +679,7 @@ impl<'a> DatalogEngine<'a> {
         // ==========================================================
         // ICI : TON BLOC DE SÉCURITÉ (TYPE GUARD)
         // ==========================================================
-        for (i, param) in action.parameters().iter().enumerate() {
+        for (i, param) in parameters.iter().enumerate() {
             let var_id = VariableId::from(i);
             if !covered_vars.contains(&var_id) {
                 let var_term = Term::Variable(var_id);
@@ -685,9 +698,9 @@ impl<'a> DatalogEngine<'a> {
         // 4. Génération de l'Ancre et de la règle finale
         if !anchor_elements.is_empty() {
             // On crée l'atome de tête de l'ancre (ex: anchor_move(?r, ?l))
-            let anchor_head =
-                self.encoder
-                    .generate_anchor_atom(action.name(), action.parameters(), &head);
+            let anchor_head = self
+                .encoder
+                .generate_anchor_atom(action.name(), parameters, &head);
 
             // Règle : anchor_move(...) :- at-rob(?r, ?l), is-robot(?r)...
             self.push_rule(Rule::new(anchor_head.clone(), anchor_elements));
@@ -926,7 +939,7 @@ impl<'a> DatalogEngine<'a> {
         }*/
     }
 
-    fn materialize_negations(&mut self) {
+    fn materialize_negations(&mut self) -> Result<(), DatalogError> {
         let offset = self.fluence_threshold;
 
         // 1. On itère par référence sur le vecteur pointé par la référence
@@ -934,16 +947,18 @@ impl<'a> DatalogEngine<'a> {
         for neg_id in self.negated_predicates.iter() {
             let pos_id = AtomSkeletonId::from(neg_id.strip_negation().as_usize());
             let pred_def = &self.problem.predicate_defs()[pos_id.as_usize()];
-            let params = pred_def.parameters();
+
+            let param_list_id = pred_def.parameters();
+            let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
 
             // 2. On crée l'itérateur de combinaisons
-            let mut iter = BindingsIterator::new(params, self.value_registry).unwrap();
+            let mut iter = BindingsIterator::new(parameters, self.value_registry).unwrap();
 
             while let Some(bindings) = iter.next() {
                 self.head_buffer.clear();
 
                 // Pour chaque paramètre du prédicat (ex: ?p puis ?a)
-                for param in params {
+                for param in parameters {
                     // On demande au dictionnaire : "C'est quoi l'ID de l'objet pour ?p ?"
                     if let Some(obj_id) = bindings.get(&param.symbol()) {
                         // On l'ajoute au buffer : [10, 50]
@@ -960,6 +975,7 @@ impl<'a> DatalogEngine<'a> {
                 }
             }
         }
+        Ok(())
     }
 
     pub fn debug_recursive_rule(&self, target_id: AtomSkeletonId, depth: usize) {

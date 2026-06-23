@@ -3,7 +3,7 @@ use crate::aiplan4rust::compiler::lir::expr::iter::postorder::PostorderIter;
 use crate::aiplan4rust::compiler::lir::expr::iter::preorder::PreorderIter;
 use crate::aiplan4rust::compiler::lir::expr::iter::tree_preorder::TreePreorderIter;
 use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprEntry, ExprId, ExprKind, ExprNode};
-use crate::aiplan4rust::support::lang::VariableId;
+use crate::aiplan4rust::support::lang::{TypeId, TypedList, TypedListId, VariableId};
 use fxhash::FxBuildHasher;
 use hashbrown::HashMap;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -45,6 +45,14 @@ pub struct ExprStore {
     // --- Cache des constantes fréquentes ---
     const_true: ExprId,  // Représente ExprEntryKind::And avec 0 enfants
     const_false: ExprId, // Représente ExprEntryKind::Or avec 0 enfants
+
+    /// L'arène unique pour stocker à plat toutes les listes de variables (TypedList)
+    quantifier_lists: Vec<TypedList<VariableId, TypeId>>,
+
+    /// Index de déduplication pour le Hash-Consing local des listes de variables.
+    /// Ignoré par Serde car entièrement reconstruit au chargement.
+    #[serde(skip)]
+    list_lookup: HashMap<TypedList<VariableId, TypeId>, usize, FxBuildHasher>,
 }
 
 impl Default for ExprStore {
@@ -59,7 +67,24 @@ impl Default for ExprStore {
             // Initialisés temporairement, seront fixés par intern_initial_constants
             const_true: ExprId::default(),
             const_false: ExprId::default(),
+
+            // --- NOUVEAU : Allocation initiale de l'arène de listes ---
+            // 64 est une bonne capacité de départ pour éviter les premières réallocations
+            quantifier_lists: Vec::with_capacity(64),
+
+            // --- NOUVEAU : Allocation de l'index de déduplication (Hash-Consing) ---
+            list_lookup: hashbrown::HashMap::with_capacity_and_hasher(
+                64,
+                core::hash::BuildHasherDefault::<fxhash::FxHasher>::default(),
+            ),
         };
+
+        // --- NOUVEAU : Garantir l'index 0 pour la liste vide ---
+        let empty_list = TypedList::new();
+        store
+            .list_lookup
+            .insert(empty_list.clone(), TypedListId::EMPTY.as_usize());
+        store.quantifier_lists.push(empty_list);
 
         // On interne immédiatement les constantes pour fixer leurs IDs (souvent 0 et 1)
         store.const_true = store.intern(ExprKind::And, &[]);
@@ -118,6 +143,12 @@ impl ExprStore {
     #[inline]
     pub fn empty_or(&self) -> ExprId {
         self.const_false
+    }
+
+    /// Retourne l'identifiant fort de la liste typée vide garantie globale (Index 0).
+    #[inline]
+    pub fn empty_typed_list(&self) -> TypedListId {
+        TypedListId::EMPTY // Renvoie l'ID qui encapsule la valeur 0
     }
 
     /// Accès direct au masque (utile pour les unions dans intern)
@@ -226,9 +257,68 @@ impl ExprStore {
         self.entries.capacity()
     }
 
+    // =========================================================================
+    //  API TYPED_LIST (Stockage brut et résolution)
+    // =========================================================================
+
+    /// Interne une liste brute dans l'arène globale et retourne son ID fort (`TypedListId`).
+    /// Garanti sans doublon (Hash-Consing). Idéal pour les Tasks, Actions et l'Encoder.
+    pub fn intern_typed_list(&mut self, list: TypedList<VariableId, TypeId>) -> TypedListId {
+        if let Some(&idx) = self.list_lookup.get(&list) {
+            TypedListId::new(idx) // Utilise ton impl_id_type!(TypedListId)
+        } else {
+            let idx = self.quantifier_lists.len();
+            self.list_lookup.insert(list.clone(), idx);
+            self.quantifier_lists.push(list);
+            TypedListId::new(idx) // Utilise ton impl_id_type!(TypedListId)
+        }
+    }
+
+    /// Récupère une référence sur une liste via son `TypedListId`.
+    #[inline]
+    pub fn get_typed_list(&self, id: TypedListId) -> Option<&TypedList<VariableId, TypeId>> {
+        self.quantifier_lists.get(id.as_usize())
+    }
+
+    /// Récupère une liste de manière stricte ou renvoie une erreur.
+    pub fn fetch_typed_list(
+        &self,
+        id: TypedListId,
+    ) -> Result<&TypedList<VariableId, TypeId>, StorerError> {
+        self.get_typed_list(id)
+            .ok_or_else(|| StorerError::typed_list_not_found(id))
+    }
+
+    /// Retourne le nombre d'éléments (paramètres) d'une liste typée à partir de son identifiant unique.
+    ///
+    /// Propage une `StorerError` si le `TypedListId` fourni n'existe pas dans l'arène.
+    #[inline]
+    pub fn typed_list_len(&self, id: TypedListId) -> Result<usize, StorerError> {
+        let list = self.fetch_typed_list(id)?;
+        Ok(list.len())
+    }
+
+    /// Vérifie si une liste typée spécifique ne contient aucun paramètre.
+    ///
+    /// Propage une `StorerError` si le `TypedListId` fourni n'existe pas dans l'arène.
+    #[inline]
+    pub fn is_typed_list_empty(&self, id: TypedListId) -> Result<bool, StorerError> {
+        let list = self.fetch_typed_list(id)?;
+        Ok(list.is_empty())
+    }
+
     pub fn clear(&mut self) {
         self.entries.clear();
         self.lookup.clear();
+        // --- À AJOUTER : Vider l'arène des listes ---
+        self.quantifier_lists.clear();
+        self.list_lookup.clear();
+
+        let empty_list = TypedList::new();
+        self.list_lookup
+            .insert(empty_list.clone(), TypedListId::EMPTY.as_usize());
+        self.quantifier_lists.push(empty_list);
+
         self.const_true = self.intern(ExprKind::And, &[]);
         self.const_false = self.intern(ExprKind::Or, &[]);
     }
@@ -244,9 +334,25 @@ impl ExprStore {
         self.free_vars.clear();
         self.free_vars.reserve(count);
 
+        // --- À AJOUTER : Reconstruire l'index de déduplication des listes ---
+        if self.quantifier_lists.is_empty() {
+            let empty_list = TypedList::new();
+            self.quantifier_lists.push(empty_list);
+        }
+
+        self.list_lookup.clear();
+        self.list_lookup.reserve(self.quantifier_lists.len());
+        for (idx, list) in self.quantifier_lists.iter().enumerate() {
+            if idx == TypedListId::EMPTY.as_usize() {
+                assert!(
+                    list.is_empty(),
+                    "L'index 0 de l'arène doit impérativement être la liste vide !"
+                );
+            }
+            self.list_lookup.insert(list.clone(), idx);
+        }
+
         // 3. On reconstruit tout linéairement
-        // L'ordre 0..count est vital car les variables libres d'un parent
-        // dépendent de celles de ses enfants (déjà traitées car ID_enfant < ID_parent).
         for i in 0..count {
             let entry = &self.entries[i];
             let id = ExprId::new(i);
@@ -270,20 +376,25 @@ impl ExprStore {
                 fv.insert(*v_id);
             }
 
-            // CAS B : Le filtre (Quantificateurs)
-            ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
+            // --- CORRIGÉ : CAS B2 propre avec le TypedListId extrait du variant ---
+            ExprKind::ForallNew(list_id) | ExprKind::ExistsNew(list_id) => {
+                // Dans ce nouveau modèle, le corps (body) est le premier enfant direct
                 if let Some(&body_id) = entry.children().first() {
+                    // 1. On récupère les variables libres du corps
                     fv = *self.get_free_vars(body_id);
-                    for v in vars {
-                        fv.remove(v.symbol());
+
+                    // 2. On résout la liste via ton store/registre (ici visiblement `quantifier_lists`)
+                    // Si quantifier_lists attend un usize, on utilise .as_usize(),
+                    // mais si get_typed_list fonctionne, préfère-le.
+                    if let Some(vars) = self.quantifier_lists.get(list_id.as_usize()) {
+                        for v in vars {
+                            fv.remove(v.symbol());
+                        }
                     }
                 }
             }
 
-            // CAS C : Tout le reste (Atomes, And, Or, Not, Opérateurs temporels...)
-            // On fait l'union de TOUS les enfants.
-            // Si un enfant est un PredicateSymbol, son bitset est vide -> Union neutre.
-            // Si un enfant est une Variable, on récupère son bit -> Union utile.
+            // CAS C : Tout le reste
             _ => {
                 for &child_id in entry.children() {
                     fv.union_with(self.get_free_vars(child_id));
@@ -307,25 +418,35 @@ impl<'de> Deserialize<'de> for ExprStore {
     where
         D: Deserializer<'de>,
     {
+        // 1. Définition de la structure de transport intermédiaire
         #[derive(Deserialize)]
         struct ExprStoreData {
             entries: Vec<ExprEntry>,
+            // Le helper #[serde(default)] permet de ne pas crasher si tu lis un ancien
+            // fichier JSON/Bincode qui n'avait pas encore l'arène des listes.
+            #[serde(default)]
+            quantifier_lists: Vec<TypedList<VariableId, TypeId>>,
         }
 
         let data = ExprStoreData::deserialize(deserializer)?;
         let count = data.entries.len();
+        let lists_count = data.quantifier_lists.len();
 
+        // 2. Reconstruction de l'instance avec ses structures à plat
         let mut store = Self {
             entries: data.entries,
-            // On initialise le cache avec la même capacité que les entrées
             free_vars: Vec::with_capacity(count),
             lookup: HashMap::with_capacity_and_hasher(count, FxBuildHasher::default()),
             const_true: ExprId::default(),
             const_false: ExprId::default(),
+
+            // --- NOUVEAU : Restauration de l'arène des listes ---
+            quantifier_lists: data.quantifier_lists,
+            // L'index de hachage associé est initialisé vide, prêt à être rebâti
+            list_lookup: HashMap::with_capacity_and_hasher(lists_count, FxBuildHasher::default()),
         };
 
-        // Important : Reconstruire à la fois le Hash-Consing (lookup)
-        // ET le cache des variables libres (free_vars)
+        // 3. IMPORTANT : Reconstruit TOUS les index à chaud (lookup, free_vars ET list_lookup !)
         store.rebuild_caches();
 
         Ok(store)

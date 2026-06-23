@@ -385,7 +385,8 @@ mod tests {
     use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprEvaluator;
     use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprBuilder};
     use crate::aiplan4rust::support::lang::{
-        FunctionSymbolId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
+        FunctionSymbolId, PredicateSymbolId, Type, TypeId, TypedList, TypedListId, TypedSymbol,
+        VariableId,
     };
     use crate::analysis::inertia::evaluator::evaluator::tests::{
         mock_function_defs, mock_predicate_defs,
@@ -567,7 +568,6 @@ mod tests {
     fn test_returns_none_on_variable_argument() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let pred_id_raw = 1;
         let skel_id_raw = 1;
@@ -583,25 +583,32 @@ mod tests {
         ]);
 
         // 3. Setup mock definitions to associate the predicate's argument with our type
+        let var_list = TypedList::from_iter(vec![TypedSymbol::new(
+            VariableId::from(0),
+            Type::from(type_id),
+        )]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let p_defs = vec![
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedListId::EMPTY),
             AtomicFormulaSkeleton::new(
                 PredicateSymbolId::from(pred_id_raw),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(type_id),
-                )]),
+                var_list_id, // Corrigé : Utilisation de l'ID fort généré par le store
             ),
         ];
         let f_defs = vec![];
 
         // 4. Construct the ungrounded expression: P(?x)
-        let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
-        let atom_node_id = builder.atomic_formula(
-            PredicateSymbolId::from(pred_id_raw),
-            &[var_node],
-            AtomSkeletonId::from(skel_id_raw),
-        );
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store`
+        let atom_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+            builder.atomic_formula(
+                PredicateSymbolId::from(pred_id_raw),
+                &[var_node],
+                AtomSkeletonId::from(skel_id_raw),
+            )
+        };
 
         let atom_node = store
             .get(atom_node_id)
@@ -652,7 +659,6 @@ mod tests {
     fn test_negative_inertia_n_equals_max_with_variable() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let pred_id_raw = 1;
         let skel_id_raw = 1;
@@ -668,25 +674,30 @@ mod tests {
         ]);
 
         // 3. Setup mock definitions (Typed skeleton to compute MAX internally)
+        // 3. Setup mock definitions (Typed skeleton to compute MAX internally)
+        let var_list = TypedList::from_iter(vec![TypedSymbol::new(
+            VariableId::from(0),
+            Type::from(type_id),
+        )]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let p_defs = vec![
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()),
-            AtomicFormulaSkeleton::new(
-                PredicateSymbolId::from(pred_id_raw),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(type_id),
-                )]),
-            ),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedListId::EMPTY),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(pred_id_raw), var_list_id),
         ];
         let f_defs = vec![];
 
         // 4. Construct the ungrounded expression: P(?x)
-        let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
-        let atom_node_id = builder.atomic_formula(
-            PredicateSymbolId::from(pred_id_raw),
-            &[var_node],
-            AtomSkeletonId::from(skel_id_raw),
-        );
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store`
+        let atom_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+            builder.atomic_formula(
+                PredicateSymbolId::from(pred_id_raw),
+                &[var_node],
+                AtomSkeletonId::from(skel_id_raw),
+            )
+        };
 
         let atom_node = store
             .get(atom_node_id)
@@ -738,7 +749,6 @@ mod tests {
     fn test_fix_projection_beyond_first_argument() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let pred_id_raw = 1;
         let skel_id_raw = 1;
@@ -753,15 +763,15 @@ mod tests {
         ]);
 
         // 3. Setup predicate definitions: P(?x, ?y)
+        let var_list = TypedList::from_iter(vec![
+            TypedSymbol::new(VariableId::from(0), Type::from(type_id)),
+            TypedSymbol::new(VariableId::from(1), Type::from(type_id)),
+        ]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let p_defs = vec![
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()), // Dummy
-            AtomicFormulaSkeleton::new(
-                PredicateSymbolId::from(pred_id_raw),
-                TypedList::from_iter(vec![
-                    TypedSymbol::new(VariableId::from(0), Type::from(type_id)),
-                    TypedSymbol::new(VariableId::from(1), Type::from(type_id)),
-                ]),
-            ),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedListId::EMPTY), // Dummy
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(pred_id_raw), var_list_id),
         ];
         let f_defs = vec![];
 
@@ -777,14 +787,18 @@ mod tests {
         registry.generate_predicate_masks(AtomSkeletonId::from(skel_id_raw), 2, &[obj10, obj51]);
 
         // 7. Construct the expression: P(?var0, 51)
-        let arg_var = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
-        let arg_const = builder.intern(ExprKind::Object(obj51), &[]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store`
+        let atom_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let arg_var = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+            let arg_const = builder.intern(ExprKind::Object(obj51), &[]);
 
-        let atom_node_id = builder.atomic_formula(
-            PredicateSymbolId::from(pred_id_raw),
-            &[arg_var, arg_const],
-            AtomSkeletonId::from(skel_id_raw),
-        );
+            builder.atomic_formula(
+                PredicateSymbolId::from(pred_id_raw),
+                &[arg_var, arg_const],
+                AtomSkeletonId::from(skel_id_raw),
+            )
+        };
 
         let atom_node = store
             .get(atom_node_id)
@@ -821,7 +835,6 @@ mod tests {
     fn test_projection_full_simplification_to_true() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let pred_id_raw = 1;
         let skel_id_raw = 1;
@@ -840,15 +853,15 @@ mod tests {
         ]);
 
         // 3. Setup predicate definitions: P(?x:robot, ?y:room)
+        let var_list = TypedList::from_iter(vec![
+            TypedSymbol::new(VariableId::from(0), Type::from(type_robot)),
+            TypedSymbol::new(VariableId::from(1), Type::from(type_room)),
+        ]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let p_defs = vec![
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()), // Dummy
-            AtomicFormulaSkeleton::new(
-                PredicateSymbolId::from(pred_id_raw),
-                TypedList::from_iter(vec![
-                    TypedSymbol::new(VariableId::from(0), Type::from(type_robot)),
-                    TypedSymbol::new(VariableId::from(1), Type::from(type_room)),
-                ]),
-            ),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedListId::EMPTY), // Dummy
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(pred_id_raw), var_list_id),
         ];
         let f_defs = vec![];
 
@@ -864,14 +877,18 @@ mod tests {
         registry.generate_predicate_masks(AtomSkeletonId::from(skel_id_raw), 2, &[obj10, obj51]);
 
         // 7. Construct the expression: P(?var0, 51)
-        let arg_var = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
-        let arg_const = builder.intern(ExprKind::Object(obj51), &[]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store`
+        let atom_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let arg_var = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+            let arg_const = builder.intern(ExprKind::Object(obj51), &[]);
 
-        let atom_node_id = builder.atomic_formula(
-            PredicateSymbolId::from(pred_id_raw),
-            &[arg_var, arg_const],
-            AtomSkeletonId::from(skel_id_raw),
-        );
+            builder.atomic_formula(
+                PredicateSymbolId::from(pred_id_raw),
+                &[arg_var, arg_const],
+                AtomSkeletonId::from(skel_id_raw),
+            )
+        };
 
         let atom_node = store
             .get(atom_node_id)
@@ -913,7 +930,6 @@ mod tests {
     fn test_mask_differentiation_same_object_different_positions() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let pred_id_raw = 1;
         let skel_id_raw = 1;
@@ -923,15 +939,15 @@ mod tests {
         let obj99 = ObjectId::from(99);
 
         // 2. Setup predicate definitions: P(?x:type0, ?y:type0)
+        let var_list = TypedList::from_iter(vec![
+            TypedSymbol::new(VariableId::from(0), Type::from(type_id)),
+            TypedSymbol::new(VariableId::from(1), Type::from(type_id)),
+        ]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let p_defs = vec![
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()), // Dummy
-            AtomicFormulaSkeleton::new(
-                PredicateSymbolId::from(pred_id_raw),
-                TypedList::from_iter(vec![
-                    TypedSymbol::new(VariableId::from(0), Type::from(type_id)),
-                    TypedSymbol::new(VariableId::from(1), Type::from(type_id)),
-                ]),
-            ),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedListId::EMPTY), // Dummy
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(pred_id_raw), var_list_id),
         ];
         let f_defs = vec![];
 
@@ -951,14 +967,18 @@ mod tests {
         registry.generate_predicate_masks(skel_id, 2, &[obj10, obj99]);
 
         // 6. Construct the expression to evaluate: P(?var0, 10)
-        let arg_var = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
-        let arg_const = builder.intern(ExprKind::Object(obj10), &[]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store`
+        let atom_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let arg_var = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+            let arg_const = builder.intern(ExprKind::Object(obj10), &[]);
 
-        let atom_node_id = builder.atomic_formula(
-            PredicateSymbolId::from(pred_id_raw),
-            &[arg_var, arg_const],
-            skel_id,
-        );
+            builder.atomic_formula(
+                PredicateSymbolId::from(pred_id_raw),
+                &[arg_var, arg_const],
+                skel_id,
+            )
+        };
 
         let atom_node = store
             .get(atom_node_id)
@@ -1016,7 +1036,6 @@ mod tests {
     fn test_arity_zero_flag_behavior() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let p1 = 1;
         let s1_val = 1;
@@ -1028,9 +1047,9 @@ mod tests {
 
         // 2. Setup predicate definitions: Arity-0 skeletons
         let p_defs = vec![
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()), // Dummy
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(p1), TypedList::new()),
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(p2), TypedList::new()),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedListId::EMPTY), // Dummy
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(p1), TypedListId::EMPTY),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(p2), TypedListId::EMPTY),
         ];
         let f_defs = vec![];
 
@@ -1048,8 +1067,13 @@ mod tests {
         registry.generate_predicate_masks(skel1, 0, &[]);
 
         // 5. Construct LIR atoms (Arity 0, empty arguments array)
-        let atom_node_id1 = builder.atomic_formula(PredicateSymbolId::from(p1), &[], skel1);
-        let atom_node_id2 = builder.atomic_formula(PredicateSymbolId::from(p2), &[], skel2);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store`
+        let (atom_node_id1, atom_node_id2) = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let id1 = builder.atomic_formula(PredicateSymbolId::from(p1), &[], skel1);
+            let id2 = builder.atomic_formula(PredicateSymbolId::from(p2), &[], skel2);
+            (id1, id2)
+        };
 
         let node1 = store
             .get(atom_node_id1)
@@ -1102,21 +1126,25 @@ mod tests {
     fn test_static_function_evaluation() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let func_id_raw = 5;
         let skel_id_raw = 5;
         let obj_id = 100;
 
-        // Create the constant object argument
-        let arg = builder.intern(ExprKind::Object(ObjectId::from(obj_id)), &[]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store` dès que le nœud est construit
+        let term_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
 
-        // 2. Construct the function node with the symbol as the first child: [Sym, Arg1]
-        let term_node_id = builder.function_term(
-            FunctionSymbolId::from(func_id_raw),
-            &[arg],
-            FunctionSkeletonId::from(skel_id_raw),
-        );
+            // Create the constant object argument
+            let arg = builder.intern(ExprKind::Object(ObjectId::from(obj_id)), &[]);
+
+            // 2. Construct the function node with the symbol as the first child: [Sym, Arg1]
+            builder.function_term(
+                FunctionSymbolId::from(func_id_raw),
+                &[arg],
+                FunctionSkeletonId::from(skel_id_raw),
+            )
+        };
 
         let term_node = store
             .get(term_node_id)
@@ -1174,7 +1202,6 @@ mod tests {
     fn test_evaluate_function_static_numeric() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let func_id_val = 1;
         let skel_id_val = 1;
@@ -1188,18 +1215,21 @@ mod tests {
 
         // 3. Setup function definitions: f(?x) returning a number
         // Note: mapping types inside the skeleton signature
+        let var_list = TypedList::from_iter(vec![TypedSymbol::new(
+            VariableId::from(0),
+            Type::from(TypeId::from(0)),
+        )]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedList::new(),
+                TypedListId::EMPTY,
                 Type::from(TypeId::from(0)), // Dummy symbol definition
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(func_id_val),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(TypeId::from(0)),
-                )]),
+                var_list_id,
                 Type::from(TypeId::from(0)), // Returns a number / numerical domain
             ),
         ];
@@ -1209,7 +1239,7 @@ mod tests {
         let value_registry = ValueRegistry::empty();
         let mut registry = InertiaEvaluator::mock(&p_defs, &f_defs, &value_registry, &i_table);
 
-        // Inject initial state value: f(obj_10) = 42.5 🔢
+        // Inject initial state value: f(obj_10) = 42.5
         registry.generate_function_masks(
             skel_id,
             1,
@@ -1219,13 +1249,17 @@ mod tests {
 
         // 5. Construct the grounded LIR expression: f(10)
         // In accordance with LIR guidelines: index 0 is reserved for the metadata symbol node
-        let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
-        let arg = builder.intern(ExprKind::Object(obj_a), &[]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store` dès que les nœuds sont créés
+        let func_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
+            let arg = builder.intern(ExprKind::Object(obj_a), &[]);
 
-        let func_node_id = builder.intern(
-            ExprKind::Function(skel_id),
-            &[symbol_node, arg], // Layout: [Symbol, Argument_0]
-        );
+            builder.intern(
+                ExprKind::Function(skel_id),
+                &[symbol_node, arg], // Layout: [Symbol, Argument_0]
+            )
+        };
 
         let func_node = store
             .get(func_node_id)
@@ -1262,7 +1296,6 @@ mod tests {
     fn test_evaluate_function_non_grounded_diverging_values() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let skel_id_val = 1;
         let skel_id = FunctionSkeletonId::from(skel_id_val);
@@ -1274,18 +1307,21 @@ mod tests {
         i_table.insert_function(skel_id, Inertia::positive());
 
         // 3. Setup function definitions: f(?x)
+        let var_list = TypedList::from_iter(vec![TypedSymbol::new(
+            VariableId::from(0),
+            Type::from(TypeId::from(0)),
+        )]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedList::new(),
+                TypedListId::EMPTY,          // Corrigé : Liste vide globale
                 Type::from(TypeId::from(0)), // Dummy
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(skel_id_val),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(TypeId::from(0)),
-                )]),
+                var_list_id, // Corrigé : ID fort généré par l'arène du store
                 Type::from(TypeId::from(0)),
             ),
         ];
@@ -1310,9 +1346,13 @@ mod tests {
         );
 
         // 5. Construct the ungrounded expression: f(?var0)
-        let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store` dès que les nœuds sont créés
+        let func_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
 
-        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[var_node]);
+            builder.intern(ExprKind::Function(skel_id), &[var_node])
+        };
 
         let func_node = store
             .get(func_node_id)
@@ -1346,7 +1386,6 @@ mod tests {
     #[test]
     fn test_evaluate_function_non_grounded_with_unanimous_consensus() {
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let skel_id_val = 1;
         let skel_id = FunctionSkeletonId::from(skel_id_val);
@@ -1357,18 +1396,22 @@ mod tests {
         let mut i_table = InertiaTable::empty();
         i_table.insert_function(skel_id, Inertia::positive());
 
+        // 3. Setup mock function definitions
+        let var_list = TypedList::from_iter(vec![TypedSymbol::new(
+            VariableId::from(0),
+            Type::from(type_id),
+        )]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedList::new(),
+                TypedListId::EMPTY,
                 Type::from(type_id),
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(skel_id_val),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(type_id),
-                )]),
+                var_list_id,
                 Type::from(type_id),
             ),
         ];
@@ -1399,10 +1442,15 @@ mod tests {
         // --- FIXED LIR LAYOUT ---
         // According to LIR rules, index 0 is reserved for the metadata/symbol node.
         // The variable argument must follow at index 1.
-        let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
-        let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store` dès que les nœuds sont créés
+        let func_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
+            let var_node = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
 
-        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[symbol_node, var_node]);
+            builder.intern(ExprKind::Function(skel_id), &[symbol_node, var_node])
+        };
+
         let func_node = store.get(func_node_id).unwrap();
 
         let mut buffer = ArgumentBuffer::new();
@@ -1422,7 +1470,6 @@ mod tests {
     #[test]
     fn test_evaluate_function_mixed_arguments_divergence() {
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let skel_id_val = 1;
         let skel_id = FunctionSkeletonId::from(skel_id_val);
@@ -1434,18 +1481,22 @@ mod tests {
         let mut i_table = InertiaTable::empty();
         i_table.insert_function(skel_id, Inertia::positive());
 
+        // 3. Setup mock function definitions
+        let var_list = TypedList::from_iter(vec![
+            TypedSymbol::new(VariableId::from(0), Type::from(type_id)),
+            TypedSymbol::new(VariableId::from(1), Type::from(type_id)),
+        ]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedList::new(),
+                TypedListId::EMPTY,
                 Type::from(type_id),
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(skel_id_val),
-                TypedList::from_iter(vec![
-                    TypedSymbol::new(VariableId::from(0), Type::from(type_id)),
-                    TypedSymbol::new(VariableId::from(1), Type::from(type_id)),
-                ]),
+                var_list_id,
                 Type::from(type_id),
             ),
         ];
@@ -1470,9 +1521,14 @@ mod tests {
         );
 
         // Construction du nœud : f(10, ?var1)
-        let arg_const = builder.intern(ExprKind::Object(obj_10), &[]);
-        let arg_var = builder.intern(ExprKind::Variable(VariableId::from(1)), &[]);
-        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[arg_const, arg_var]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store` dès que les nœuds sont créés
+        let func_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let arg_const = builder.intern(ExprKind::Object(obj_10), &[]);
+            let arg_var = builder.intern(ExprKind::Variable(VariableId::from(1)), &[]);
+            builder.intern(ExprKind::Function(skel_id), &[arg_const, arg_var])
+        };
+
         let func_node = store.get(func_node_id).unwrap();
 
         let mut buffer = ArgumentBuffer::new();
@@ -1483,6 +1539,7 @@ mod tests {
             "Doit retourner None car pour l'argument fixe 10, les valeurs divergent sur le reste du domaine"
         );
     }
+
     /// # Purpose
     /// Verifies the PDDL fallback rule for uninitialized grounded numeric functions.
     /// When a function is fully grounded (`f(99)`) but has no entry in the initial state,
@@ -1499,7 +1556,6 @@ mod tests {
     #[test]
     fn test_evaluate_function_grounded_missing_returns_pddl_default_zero() {
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let skel_id_val = 1;
         let skel_id = FunctionSkeletonId::from(skel_id_val);
@@ -1512,18 +1568,22 @@ mod tests {
         // Ensure the return type is explicitly numeric
         let numeric_type = Type::<TypeId>::number();
 
+        // 3. Setup mock function definitions
+        let var_list = TypedList::from_iter(vec![TypedSymbol::new(
+            VariableId::from(0),
+            Type::from(type_id),
+        )]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedList::new(),
+                TypedListId::EMPTY,
                 Type::from(type_id),
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(skel_id_val),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(type_id),
-                )]),
+                var_list_id,
                 numeric_type,
             ),
         ];
@@ -1534,9 +1594,14 @@ mod tests {
         let registry = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
 
         // Build the LIR expression layout: index 0 is reserved for function symbol metadata
-        let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
-        let const_node = builder.intern(ExprKind::Object(obj_99), &[]);
-        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[symbol_node, const_node]);
+        // On isole le builder dans un scope pour détruire son emprunt mutable sur `store` dès que les nœuds sont créés
+        let func_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let symbol_node = builder.intern(ExprKind::Object(ObjectId::from(0)), &[]);
+            let const_node = builder.intern(ExprKind::Object(obj_99), &[]);
+            builder.intern(ExprKind::Function(skel_id), &[symbol_node, const_node])
+        };
+
         let func_node = store.get(func_node_id).unwrap();
 
         // --- BUFFER INITIALIZATION ---
@@ -1569,7 +1634,6 @@ mod tests {
     #[test]
     fn test_evaluate_function_arity_three_interleaved_constant() {
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let skel_id = FunctionSkeletonId::from(1);
         let type_id = TypeId::from(0);
@@ -1580,19 +1644,23 @@ mod tests {
         let mut i_table = InertiaTable::empty();
         i_table.insert_function(skel_id, Inertia::positive());
 
+        // 3. Setup mock function definitions
+        let var_list = TypedList::from_iter(vec![
+            TypedSymbol::new(VariableId::from(0), Type::from(type_id)),
+            TypedSymbol::new(VariableId::from(1), Type::from(type_id)),
+            TypedSymbol::new(VariableId::from(2), Type::from(type_id)),
+        ]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedList::new(),
+                TypedListId::EMPTY,
                 Type::from(type_id),
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(1),
-                TypedList::from_iter(vec![
-                    TypedSymbol::new(VariableId::from(0), Type::from(type_id)),
-                    TypedSymbol::new(VariableId::from(1), Type::from(type_id)),
-                    TypedSymbol::new(VariableId::from(2), Type::from(type_id)),
-                ]),
+                var_list_id,
                 Type::<TypeId>::number(),
             ),
         ];
@@ -1612,15 +1680,19 @@ mod tests {
         );
 
         // Construction du nœud conformément aux règles du LIR (index 0 = symbole factice)
-        let dummy_symbol = builder.intern(ExprKind::Object(ObjectId::from(999)), &[]);
-        let var_0 = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
-        let const_param = builder.intern(ExprKind::Object(obj_99), &[]);
-        let var_1 = builder.intern(ExprKind::Variable(VariableId::from(1)), &[]);
+        let func_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let dummy_symbol = builder.intern(ExprKind::Object(ObjectId::from(999)), &[]);
+            let var_0 = builder.intern(ExprKind::Variable(VariableId::from(0)), &[]);
+            let const_param = builder.intern(ExprKind::Object(obj_99), &[]);
+            let var_1 = builder.intern(ExprKind::Variable(VariableId::from(1)), &[]);
 
-        let func_node_id = builder.intern(
-            ExprKind::Function(skel_id),
-            &[dummy_symbol, var_0, const_param, var_1],
-        );
+            builder.intern(
+                ExprKind::Function(skel_id),
+                &[dummy_symbol, var_0, const_param, var_1],
+            )
+        };
+
         let func_node = store.get(func_node_id).unwrap();
 
         let mut buffer = ArgumentBuffer::new();
@@ -1646,7 +1718,6 @@ mod tests {
     #[test]
     fn test_evaluate_function_inertia_retrieval() {
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let skel_id = FunctionSkeletonId::from(1);
         let type_id = TypeId::from(0);
@@ -1655,18 +1726,22 @@ mod tests {
         let mut i_table = InertiaTable::empty();
         i_table.insert_function(skel_id, Inertia::positive());
 
+        // 3. Setup mock function definitions
+        let var_list = TypedList::from_iter(vec![TypedSymbol::new(
+            VariableId::from(0),
+            Type::from(type_id),
+        )]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedList::new(),
+                TypedListId::EMPTY,
                 Type::from(type_id),
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(1),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(type_id),
-                )]),
+                var_list_id,
                 Type::<TypeId>::number(),
             ),
         ];
@@ -1682,11 +1757,16 @@ mod tests {
             ExprConstant::Number(OrderedFloat(42.0)),
         );
 
-        // Construct the ungrounded structural function node: f(10)
-        // Conforming to LIR standards: children[0] = Symbol, children[1..] = Arguments
-        let dummy_symbol = builder.intern(ExprKind::Object(ObjectId::from(999)), &[]);
-        let const_arg = builder.intern(ExprKind::Object(obj_10), &[]);
-        let func_node_id = builder.intern(ExprKind::Function(skel_id), &[dummy_symbol, const_arg]);
+        // Isolate the builder in a scope to drop its mutable borrow on `store` before evaluation
+        let func_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+
+            // Construct the ungrounded structural function node: f(10)
+            // Conforming to LIR standards: children[0] = Symbol, children[1..] = Arguments
+            let dummy_symbol = builder.intern(ExprKind::Object(ObjectId::from(999)), &[]);
+            let const_arg = builder.intern(ExprKind::Object(obj_10), &[]);
+            builder.intern(ExprKind::Function(skel_id), &[dummy_symbol, const_arg])
+        };
 
         // Wrap the node reference in an external `Expr` proxy container as expected by the trait
         let expr_func = Expr::new(func_node_id, &store);

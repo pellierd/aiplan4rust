@@ -10,7 +10,9 @@ use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
     LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
 };
-use crate::aiplan4rust::support::lang::{TaskLabelSymbolId, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::{
+    TaskLabelSymbolId, TypedListId, VariableId,
+};
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +23,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct InitialTaskNetwork {
     /// The typed parameters of the initial task network.
-    parameters: TypedList<VariableId, TypeId>,
+    parameters: TypedListId,
 
     /// The lifted task network describing the initial tasks.
     task_network: TaskNetwork,
@@ -39,7 +41,7 @@ impl InitialTaskNetwork {
     ///
     /// # Returns
     /// A new instance of `InitialTaskNetwork`.
-    pub fn new(parameters: TypedList<VariableId, TypeId>, task_network: TaskNetwork) -> Self {
+    pub fn new(parameters: TypedListId, task_network: TaskNetwork) -> Self {
         Self {
             parameters,
             task_network,
@@ -64,18 +66,18 @@ impl InitialTaskNetwork {
         self.task_network.is_empty()
     }
 
-    /// Returns an immutable reference to the parameters.
-    pub fn parameters(&self) -> &TypedList<VariableId, TypeId> {
-        &self.parameters
+    /// Returns the ID of the parameters (signature) stored in the arena.
+    ///
+    /// Note: Returns by value since `TypedListId` is a lightweight `Copy` type.
+    pub fn parameters(&self) -> TypedListId {
+        self.parameters
     }
 
-    /// Returns a mutable reference to the parameters.
-    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableId, TypeId> {
-        &mut self.parameters
-    }
-
-    /// Sets the parameters to a new `TypedList`.
-    pub fn set_parameters(&mut self, parameters: TypedList<VariableId, TypeId>) {
+    /// Sets the parameters ID (signature) to a new interned list ID.
+    ///
+    /// # Parameters
+    /// - `parameters`: The new `TypedListId` referencing the interned list.
+    pub fn set_parameters(&mut self, parameters: TypedListId) {
         self.parameters = parameters;
     }
 

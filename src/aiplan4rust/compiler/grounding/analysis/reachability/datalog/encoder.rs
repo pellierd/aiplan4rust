@@ -3,7 +3,7 @@ use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::er
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
-use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind, ExprNode};
+use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind, ExprNode, ExprStore};
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
 use crate::aiplan4rust::compiler::syntax::ast::tree::SyntaxContent;
@@ -67,6 +67,7 @@ pub struct DatalogEncoder {
 
     negation_offset: usize,
     type_to_skeleton: Vec<AtomSkeletonId>,
+    expr_store: ExprStore,
 }
 
 impl DatalogEncoder {
@@ -121,6 +122,7 @@ impl DatalogEncoder {
             action_anchor: None,
             negation_offset,
             type_to_skeleton,
+            expr_store: ExprStore::new(),
         }
     }
 
@@ -183,7 +185,7 @@ impl DatalogEncoder {
         let sk_id = AtomSkeletonId::from(id);
         let predicate_id = PredicateSymbolId::from(id);
 
-        let final_parameters = match types {
+        let raw_parameters = match types {
             // Cas 1 : On a déjà les types (ex: une Action)
             Some(p) => p,
             // Cas 2 : On doit générer des types root (ex: une Union ou un AND)
@@ -197,8 +199,9 @@ impl DatalogEncoder {
         };
 
         // Enregistrement unique
+        let list_id = self.expr_store.intern_typed_list(raw_parameters);
         self.aux_defs
-            .push(AtomicFormulaSkeleton::new(predicate_id, final_parameters));
+            .push(AtomicFormulaSkeleton::new(predicate_id, list_id));
 
         sk_id
     }
@@ -234,9 +237,20 @@ impl DatalogEncoder {
     /// - **Complexity**: $O(P)$ where $P$ is the number of parameters (cloning overhead).
     /// - **Arithmetic**: Enables $O(1)$ decoding of reachable actions without hash lookups.
     #[inline]
-    pub fn encode_action_as_predicate(&mut self, action: &ActionDef) -> AtomSkeletonId {
-        let params = action.parameters().clone();
-        self.encode_auxiliary_predicate(params.len(), Some(params))
+    pub fn encode_action_as_predicate(
+        &mut self,
+        action: &ActionDef,
+    ) -> Result<AtomSkeletonId, DatalogError> {
+        // 1. On récupère l'ID fort de la liste de paramètres de l'action
+        let list_id = action.parameters();
+
+        // 2. On récupère sa longueur proprement depuis le store (propage l'erreur si l'ID est invalide)
+        let arity = self.expr_store.typed_list_len(list_id)?;
+
+        // 3. On récupère la liste brute pour l'envoyer à ton encodeur auxiliaire
+        let params = self.expr_store.fetch_typed_list(list_id)?.clone();
+
+        Ok(self.encode_auxiliary_predicate(arity, Some(params)))
     }
 
     /// Encodes action effects into Datalog rules by propagating causality from the action to its consequences.
@@ -429,7 +443,7 @@ impl DatalogEncoder {
 
                 // --- FEATURES (VALIDE PDDL MAIS NÉCESSITE PREPROCESSING) ---
                 // Si l'un de ceux-là arrive ici, c'est l'Expander/PNF qui est en cause.
-                ExprKind::Forall(_) | ExprKind::Exists(_) | ExprKind::Imply => {
+                ExprKind::ForallNew(_) | ExprKind::ExistsNew(_) | ExprKind::Imply => {
                     return Err(DatalogError::feature_not_supported(
                         format!("ADL construct {:?} in effects", kind),
                         node_id,
@@ -932,24 +946,27 @@ impl DatalogEncoder {
         Ok((head, secured_body)) // <--- On renvoie les deux !
     }
 
-    /// Creates a new auxiliary atom and registers its skeleton locally.
+    // Creates a new auxiliary atom and registers its skeleton locally.
     ///
     /// This method is a support part of the **Skolemization** process during flattening.
     /// It generates a unique predicate ID for a sub-formula and maps the provided
     /// variables to their respective types based on the action's parameter list.
     ///
     /// # Arguments
-    /// * `vars` - The subset of variables that will become the terms of this auxiliary atom.
+    /// * `skeleton_vars` - The subset of variables that will become the terms of this auxiliary atom.
+    /// * `resolved_terms` - The final evaluated terms to pack into the resulting atom.
     /// * `parameters` - The master list of typed variables from the current action/context
-    ///   used to resolve the types of `vars`.
+    ///   used to resolve the types of `skeleton_vars`.
+    /// * `store` - The global unique expressions arena used to intern the newly created signature.
     ///
     /// # Returns
     /// A new [`Atom`] configured with an auxiliary [`AtomSkeletonId`] and variable terms.
     ///
     /// # Performance
     /// - **ID Management**: Increments an internal counter in $O(1)$.
-    /// - **Type Resolution**: Direct $O(1)$ lookup per variable using the `parameters` list.
-    /// - **Allocation**: Performs one allocation for the `aux_defs` storage and one for the `Atom` terms.
+    /// - **Type Resolution**: Direct $O(1)` lookup per variable using the `parameters` list.
+    /// - **Hash-Consing Allocation**: Interns `aux_params` into the `ExprStore`. If the signature
+    ///   already exists, it reuse it without any additional heap overhead.
     fn create_aux_atom(
         &mut self,
         skeleton_vars: Vec<VariableId>,
@@ -965,10 +982,15 @@ impl DatalogEncoder {
             aux_params.push(TypedSymbol::new(v_id, ty.clone()));
         }
 
+        // --- CORRIGÉ : On interne la liste brute dans l'arène globale ---
+        let list_id = self.expr_store.intern_typed_list(aux_params);
+
+        // Enregistrement avec le TypedListId conforme au nouveau modèle
         self.aux_defs.push(AtomicFormulaSkeleton::new(
             PredicateSymbolId::from(id),
-            aux_params,
+            list_id,
         ));
+
         Atom::new(AtomSkeletonId::from(id), resolved_terms)
     }
 

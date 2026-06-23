@@ -33,8 +33,9 @@ use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
     LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
 };
-use crate::aiplan4rust::support::lang::typed_list::TypedList;
-use crate::aiplan4rust::support::lang::{MethodSymbolId, TaskLabelSymbolId, TypeId, VariableId};
+use crate::aiplan4rust::support::lang::{
+    MethodSymbolId, TaskLabelSymbolId, TypedListId, VariableId,
+};
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +73,7 @@ impl Method {
     /// A new `Method` instance.
     pub fn new(
         name: MethodSymbolId,
-        parameters: TypedList<VariableId, TypeId>,
+        parameters: TypedListId,
         task: ExprId,
         precondition: ExprId,
         task_network: TaskNetwork,
@@ -109,24 +110,18 @@ impl Method {
         self.header.set_symbol(name);
     }
 
-    /// Returns a reference to the action's typed parameters.
+    /// Returns the ID of the method's typed parameters stored in the arena.
     ///
-    /// These represent the variables and their types used by the action,
-    /// encapsulated in a `TypedList`.
-    pub fn parameters(&self) -> &TypedList<VariableId, TypeId> {
+    /// Note: Returns by value since `TypedListId` is a lightweight `Copy` type.
+    pub fn parameters(&self) -> TypedListId {
         self.header.parameters()
     }
 
-    /// Returns a mutable reference to the action's typed parameters.
+    /// Sets the method's parameters ID.
     ///
-    /// This allows for in-place modification of the parameters (such as typing flattening)
-    /// while maintaining the integrity of the `TypedList` structure.
-    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableId, TypeId> {
-        self.header.parameters_mut()
-    }
-
-    /// Sets the method's parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<VariableId, TypeId>) {
+    /// # Parameters
+    /// - `parameters`: The new `TypedListId` referencing the interned list.
+    pub fn set_parameters(&mut self, parameters: TypedListId) {
         self.header.set_parameters(parameters);
     }
 

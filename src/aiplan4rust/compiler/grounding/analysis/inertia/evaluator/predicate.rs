@@ -98,7 +98,7 @@ impl<'a> InertiaEvaluator<'a> {
 
         // Récupération de la définition du prédicat pour obtenir l'arité
         let def = &self.predicate_defs[pred_id.as_usize()];
-        let arity = def.parameters().len();
+        let arity = store.typed_list_len(def.parameters())?;
 
         // --- ENCAPSULATION REUSSIE : Applique la projection et calcule le statut grounded ---
         let grounded = match self.validate_projection_and_grounding(mask, arity) {
@@ -134,7 +134,7 @@ impl<'a> InertiaEvaluator<'a> {
                 return Ok(Some(false));
             }
 
-            let max_val = self.calculate_max_instances(pred_id, mask)?;
+            let max_val = self.calculate_max_instances(pred_id, mask, store)?;
             if n_val == max_val {
                 return Ok(Some(true));
             }
@@ -196,6 +196,7 @@ impl<'a> InertiaEvaluator<'a> {
         &self,
         pred_id: AtomSkeletonId,
         mask: u16,
+        store: &ExprStore,
     ) -> Result<usize, InertiaEvaluatorError> {
         // 1. Safe boundary check: if the predicate is unknown, fallback gracefully to a factor of 1
         let def = match self.predicate_defs.get(pred_id.as_usize()) {
@@ -204,7 +205,7 @@ impl<'a> InertiaEvaluator<'a> {
         };
 
         let arg_types = def.parameters();
-        let arity = arg_types.len();
+        let arity = store.typed_list_len(arg_types)?;
         if arity == 0 {
             return Ok(1);
         }
@@ -212,7 +213,8 @@ impl<'a> InertiaEvaluator<'a> {
         let mut max_val: usize = 1;
 
         // 2. Compute the Cartesian product of unbound variable domains using Big-Endian bit shifting
-        for (i, param) in arg_types.iter().enumerate() {
+        let parameters = store.fetch_typed_list(arg_types)?;
+        for (i, param) in parameters.iter().enumerate() {
             let shift = arity - 1 - i;
             let is_variable = ((mask >> shift) & 1) == 0;
 
@@ -298,8 +300,8 @@ mod tests {
     use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprStore};
     use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
     use crate::aiplan4rust::support::lang::{
-        AtomSkeletonId, ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol,
-        VariableId,
+        AtomSkeletonId, ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedListId,
+        TypedSymbol, VariableId,
     };
     use crate::analysis::inertia::evaluator::evaluator::tests::mock_predicate_defs;
     use crate::analysis::inertia::evaluator::evaluator::ArgumentBuffer;
@@ -517,22 +519,21 @@ mod tests {
     fn test_perfect_constant_missing_is_always_false() {
         // 1. Initialize the Hash-Consing arena (ExprStore + Builder)
         let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
 
         let pred_id_raw = 1;
         let skel_id_raw = 1;
         let type_id = TypeId::from(0);
 
         // 2. Setup predicate definitions: P(?x)
+        let var_list = TypedList::from_iter(vec![TypedSymbol::new(
+            VariableId::from(0),
+            Type::from(type_id),
+        )]);
+        let var_list_id = store.intern_typed_list(var_list);
+
         let p_defs = vec![
-            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedList::new()), // Dummy
-            AtomicFormulaSkeleton::new(
-                PredicateSymbolId::from(pred_id_raw),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(type_id),
-                )]),
-            ),
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(0), TypedListId::EMPTY), // Dummy
+            AtomicFormulaSkeleton::new(PredicateSymbolId::from(pred_id_raw), var_list_id),
         ];
         let f_defs = vec![];
 
@@ -550,13 +551,16 @@ mod tests {
         let evaluator = InertiaEvaluator::mock(&p_defs, &f_defs, &v_reg, &i_table);
 
         // 6. Construct the ungrounded expression: P(?var0)
-        let arg_var = builder.variable(0);
+        let atom_node_id = {
+            let mut builder = ExprBuilder::new(&mut store);
+            let arg_var = builder.variable(0);
 
-        let atom_node_id = builder.atomic_formula(
-            PredicateSymbolId::from(pred_id_raw),
-            &[arg_var],
-            AtomSkeletonId::from(skel_id_raw),
-        );
+            builder.atomic_formula(
+                PredicateSymbolId::from(pred_id_raw),
+                &[arg_var],
+                AtomSkeletonId::from(skel_id_raw),
+            )
+        };
 
         let atom_node = store
             .get(atom_node_id)

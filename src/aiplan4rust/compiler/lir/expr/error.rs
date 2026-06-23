@@ -3,7 +3,7 @@ use crate::aiplan4rust::compiler::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::compiler::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::compiler::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::support::lang::{ArithmeticOp, LangError};
+use crate::aiplan4rust::support::lang::{ArithmeticOp, LangError, TypedListId};
 use ordered_float::OrderedFloat;
 use thiserror::Error;
 
@@ -154,6 +154,13 @@ pub enum StorerError {
         /// The Hash-Consed ID of the expression node.
         expr_id: ExprId,
     },
+
+    /// Indicates that a typed list ID does not exist in the arena store.
+    #[error("Typed list with ID {id} was not found in the store")]
+    TypedListNotFound {
+        /// The strongly-typed ID that failed to be retrieved.
+        id: TypedListId,
+    },
 }
 
 impl StorerError {
@@ -287,6 +294,12 @@ impl StorerError {
     #[track_caller]
     pub fn invalid_node(expr_id: ExprId) -> Self {
         StorerError::InvalidNode { expr_id }.trace()
+    }
+
+    /// Creates a `TypedListNotFound` error and captures the call site.
+    #[track_caller]
+    pub fn typed_list_not_found(id: TypedListId) -> Self {
+        StorerError::TypedListNotFound { id }.trace()
     }
 }
 

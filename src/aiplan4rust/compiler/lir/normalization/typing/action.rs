@@ -55,15 +55,21 @@ pub fn normalize(
     registry: &mut TypeRegistry,
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
-    // 1. Normalize the action's parameters (the signature) in-place.
-    // This reduces compound types (e.g., 'either') into primitive, atomic type identifiers.
-    typed_list::normalize_typed_variable_list(action.parameters_mut(), registry)?;
+    // 1. On récupère l'ID actuel des paramètres (immuable)
+    let current_param_id = action.parameters();
 
-    // 2. Normalize the precondition expression tree.
+    // 2. On passe cet ID au normalisateur de liste, avec le store pour le Hash-Consing
+    let normalized_param_id =
+        typed_list::normalize_typed_variable_list(current_param_id, store, registry)?;
+
+    // 3. On met à jour l'action avec le nouvel ID fort calculé
+    action.set_parameters(normalized_param_id);
+
+    // 4. Normalisation de l'arbre d'expression des préconditions (inchangé)
     let normalized_precondition = expr::normalize(action.precondition(), store, registry, scratch)?;
     action.set_precondition(normalized_precondition);
 
-    // 3. Normalize the effect expression tree.
+    // 5. Normalisation de l'arbre d'expression des effets (inchangé)
     let normalized_effect = expr::normalize(action.effect(), store, registry, scratch)?;
     action.set_effect(normalized_effect);
 

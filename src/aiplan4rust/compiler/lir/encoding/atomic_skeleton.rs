@@ -4,6 +4,7 @@
 //! Il transforme une déclaration syntaxique en un `AtomicFormulaSkeleton`.
 
 use crate::aiplan4rust::compiler::lir::encoding::{typed_list, EncodingError, EncodingRegistry};
+use crate::aiplan4rust::compiler::lir::expr::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::compiler::syntax::ast::tree::SyntaxSubtree;
@@ -23,6 +24,7 @@ use crate::aiplan4rust::support::lang::PredicateSymbolId;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
+    builder: &mut ExprBuilder,
     predicate_id: PredicateSymbolId,
 ) -> Result<AtomicFormulaSkeleton, EncodingError> {
     // On nettoie les variables pour ce nouveau scope (la signature du prédicat)
@@ -40,6 +42,7 @@ pub fn encode(
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(params_node, params_node_id, ast),
         registry,
+        builder.store(),
     )?;
 
     // 2. Récupération des symboles de variables pour le debug/affichage

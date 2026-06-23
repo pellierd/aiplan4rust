@@ -26,9 +26,13 @@ pub fn render(
         ctx.resolve_action_symbol(action.name())
     )?;
 
-    // 2. Paramètres
+    // 2. Paramètres : Récupération via le store de l'arène
     write!(f, "    :parameters (")?;
-    typed_list::render_typed_variable_list(f, action.parameters().as_slice(), ctx)?;
+    if let Some(params_list) = ctx.store().get_typed_list(action.parameters()) {
+        typed_list::render_typed_variable_list(f, params_list.as_slice(), ctx)?;
+    } else {
+        write!(f, "<error: parameters not found>")?;
+    }
     writeln!(f, ")")?;
 
     // 3. Durée (Spécifique aux actions duratives)

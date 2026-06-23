@@ -279,11 +279,11 @@ pub fn normalize_problem(
     // Update the parameter signatures for all predicates and functions grouped under the skeleton module.
     // This ensures that any subsequent logic referencing these symbols is consistent.
     for atomic_formula in problem.predicate_defs_mut() {
-        skeleton::formula::normalize(atomic_formula, registry)?;
+        skeleton::formula::normalize(atomic_formula, store, registry)?;
     }
 
     for atomic_function in problem.function_defs_mut() {
-        skeleton::function::normalize(atomic_function, registry)?;
+        skeleton::function::normalize(atomic_function, store, registry)?;
     }
 
     // --- 3. Constraints & Global Logic ---
@@ -302,7 +302,10 @@ pub fn normalize_problem(
     // --- 4. HTN Abstract Tasks ---
     // Normalize the parameter interfaces of all abstract tasks in-place.
     for task in problem.task_defs_mut() {
-        typed_list::normalize_typed_variable_list(task.parameters_mut(), registry)?;
+        let current_param_id = task.parameters();
+        let normalized_param_id =
+            typed_list::normalize_typed_variable_list(current_param_id, store, registry)?;
+        task.set_parameters(normalized_param_id);
     }
 
     // --- 5. Derived Predicates (Axioms) ---
@@ -332,10 +335,12 @@ pub fn normalize_problem(
 
     // --- 9. Initial Task Network ---
     // Ensure the HTN entry point is consistent with the unified type registry.
-    typed_list::normalize_typed_variable_list(
-        problem.initial_task_network_mut().parameters_mut(),
-        registry,
-    )?;
+    let current_param_id = problem.initial_task_network().parameters();
+    let normalized_param_id =
+        typed_list::normalize_typed_variable_list(current_param_id, store, registry)?;
+    problem
+        .initial_task_network_mut()
+        .set_parameters(normalized_param_id);
 
     Ok(())
 }
@@ -348,10 +353,10 @@ mod tests {
     use crate::aiplan4rust::support::lang::{AtomSkeletonId, PredicateSymbolId, VariableId};
     use std::collections::HashSet;
 
-    #[test]
     /// ### Objective
     /// Verify that the flattening process correctly identifies and transforms ad-hoc
     /// `Either` types located inside quantified expressions (Exists/Forall).
+    #[test]
     fn test_flatten_quantified_expression_types() -> Result<(), Box<dyn std::error::Error>> {
         let interner = SymbolInterner::new();
 
@@ -402,13 +407,27 @@ mod tests {
         // --- 5. VERIFICATIONS ---
         let final_expr = problem.problem_constraints();
 
-        // Extract the root node to verify the in-place variable type mutation
-        let node = store.get(final_expr).expect("Expression should exist");
+        // --- BORROW CHECKER DECONFLICTION ---
+        // Extract the internal `TypedListId` into an isolated, copyable local variable.
+        // This allows the immutable borrow on `store` (via `store.get`) to strictly die
+        // before we query the store or problem structures downstream.
+        let target_vars_id = if let Some(node) = store.get(final_expr) {
+            if let ExprKind::ExistsNew(vars_id) = node.kind() {
+                Some(*vars_id)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
-        // Extract and validate the quantifier's bound variables
-        if let ExprKind::Exists(vars) = node.kind() {
-            assert_eq!(vars.len(), 1, "Should have exactly 1 variable");
-            let var_type = vars[0].ty();
+        // Extract and validate the quantifier's bound variables using the isolated ID
+        if let Some(vars_id) = target_vars_id {
+            // Now that `store` is unborrowed, fetch the actual flattened list from it
+            let actual_vars = store.fetch_typed_list(vars_id).unwrap();
+
+            assert_eq!(actual_vars.len(), 1, "Should have exactly 1 variable");
+            let var_type = actual_vars[0].ty();
 
             // Verification 1: The ad-hoc typing [a, b] must be replaced by a single unique ID (length 1)
             assert_eq!(
@@ -439,7 +458,7 @@ mod tests {
             assert!(final_name.contains("a"));
             assert!(final_name.contains("b"));
         } else {
-            panic!("Resulting expression root is not an Exists node !");
+            panic!("Resulting expression root is not an Exists node or could not be found !");
         }
 
         Ok(())

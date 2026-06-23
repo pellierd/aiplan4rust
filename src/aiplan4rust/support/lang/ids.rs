@@ -210,6 +210,7 @@ impl_id_type!(DerivedPredicateDefId);
 impl_id_type!(FunctionSkeletonId);
 impl_id_type!(TaskSkeletonId);
 impl_id_type!(AtomSkeletonId);
+impl_id_type!(TypedListId);
 
 // --- EXTENSIONS SPÉCIFIQUES À ATOM_SKELETON_ID ---
 
@@ -281,6 +282,7 @@ impl_display_prefix!(FluentId, "fl");
 impl_display_prefix!(NumericFluentId, "nf");
 impl_display_prefix!(FunctionSkeletonId, "FS");
 impl_display_prefix!(TaskSkeletonId, "TS");
+impl_display_prefix!(TypedListId, "tl");
 
 impl fmt::Display for AtomSkeletonId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -318,6 +320,25 @@ impl TypeId {
     #[inline]
     pub fn is_number(&self) -> bool {
         self.as_usize() == Self::NUMBER_TYPE_ID.as_usize()
+    }
+}
+
+// --- DETAILS DU TYPEDLISTID ---
+
+impl TypedListId {
+    /// Constante globale représentant une liste typée vide (Index 0).
+    pub const EMPTY: Self = Self::new(0);
+
+    /// Retourne l'identifiant d'une liste vide.
+    #[inline(always)]
+    pub const fn empty() -> Self {
+        Self::EMPTY
+    }
+
+    /// Indique si la liste référencée est la liste vide par défaut.
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.as_usize() == 0
     }
 }
 

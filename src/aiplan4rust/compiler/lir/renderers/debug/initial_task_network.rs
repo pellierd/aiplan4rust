@@ -12,8 +12,12 @@ pub fn render(
 ) -> fmt::Result {
     writeln_centered(f, " [ INITIAL TASK NETWORK ] ", 60, '=')?;
 
-    // On passe directement l'objet TypedList sans transformation
-    render_labeled_variable_typed_list(f, "PARAMETERS", itn.parameters(), ctx)?;
+    // --- CORRECTION : Récupération de la liste dans le store ---
+    if let Some(params_list) = ctx.store().get_typed_list(itn.parameters()) {
+        render_labeled_variable_typed_list(f, "PARAMETERS", params_list, ctx)?;
+    } else {
+        writeln!(f, "  PARAMETERS   : <error: list not found>")?;
+    }
 
     // Le réseau de tâches
     debug::task_network::render(f, itn.task_network(), ctx)?;

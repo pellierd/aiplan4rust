@@ -15,7 +15,12 @@ pub fn render(f: &mut fmt::Formatter<'_>, method: &MethodDef, ctx: &RenderContex
         '-',
     )?;
 
-    render_labeled_variable_typed_list(f, "PARAMETERS", method.parameters(), ctx)?;
+    // --- CORRECTION : Récupération de la liste dans le store ---
+    if let Some(params_list) = ctx.store().get_typed_list(method.parameters()) {
+        render_labeled_variable_typed_list(f, "PARAMETERS", params_list, ctx)?;
+    } else {
+        writeln!(f, "  PARAMETERS   : <error: list not found>")?;
+    }
 
     // 3. Tâche raffinée (Abstract Task)
     render_labeled_expr(f, "TASK", method.task(), ctx)?;

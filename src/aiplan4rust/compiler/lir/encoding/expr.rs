@@ -138,7 +138,11 @@ pub fn encode(
                             tl_id,
                             subtree.tree(),
                         );
-                        let vars = typed_list::encode_variable_list(&tl_subtree, registry)?;
+                        let vars = typed_list::encode_variable_list(
+                            &tl_subtree,
+                            registry,
+                            builder.store(),
+                        )?;
                         let body = *children_ids
                             .last()
                             .ok_or_else(|| EncodingError::unsupported_ast_node_kind(kind))?;

@@ -75,8 +75,16 @@ fn render_hybrid_content(
         ExprKind::Metric(op) => write!(f, "{}", op),
 
         // --- Quantificateurs ---
-        ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
-            write!(f, "len: {}", vars.len())
+        ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
+            // On récupère le store depuis le contexte de rendu
+            let store = ctx.store(); // ou `&ctx.store` selon ton API
+
+            // On fetch la liste réelle depuis le store
+            if let Ok(list_ref) = store.fetch_typed_list(*vars) {
+                write!(f, "len: {}", list_ref.len())
+            } else {
+                write!(f, "len: <err_fetch_list>")
+            }
         }
 
         // --- Tout le reste (And, Or, Not, AtStart, etc.) ---

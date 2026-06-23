@@ -95,8 +95,8 @@ pub fn to_pnf_with_scratchpad(
                 }
                 ExprKind::And
                 | ExprKind::Or
-                | ExprKind::Forall(_)
-                | ExprKind::Exists(_)
+                | ExprKind::ForallNew(_)
+                | ExprKind::ExistsNew(_)
                 | ExprKind::Always
                 | ExprKind::Sometime
                 | ExprKind::Within

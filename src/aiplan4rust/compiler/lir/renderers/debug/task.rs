@@ -13,12 +13,15 @@ pub fn render(f: &mut Formatter<'_>, task: &Task, ctx: &RenderContext) -> fmt::R
     // 2. Début du bloc avec le nom et l'ID technique [t#ID] (t pour task)
     write!(f, "({} [t#{}]", name, symbol_id.as_usize())?;
 
-    // 3. Paramètres : on délègue au renderer de liste typée
-    let parameters = task.parameters();
-    if !parameters.is_empty() {
-        write!(f, " ")?;
-        // Ce renderer affiche "?nom [v#ID] - type [t#ID]"
-        typed_list::render_variable_typed_list(f, parameters.as_slice(), ctx)?;
+    // 3. Paramètres : Récupération sécurisée via le store
+    if let Some(params_list) = ctx.store().get_typed_list(task.parameters()) {
+        if !params_list.is_empty() {
+            write!(f, " ")?;
+            // Ce renderer affiche "?nom [v#ID] - type [t#ID]"
+            typed_list::render_variable_typed_list(f, params_list.as_slice(), ctx)?;
+        }
+    } else {
+        write!(f, " <error: params not found>")?;
     }
 
     // 4. Fermeture de la signature

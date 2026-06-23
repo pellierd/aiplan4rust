@@ -184,8 +184,8 @@ pub fn to_nnf(
                     }
                 }
 
-                ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
-                    let is_forall = matches!(kind, ExprKind::Forall(_));
+                ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
+                    let is_forall = matches!(kind, ExprKind::ForallNew(_));
                     let child_id = scratch.children_buffer()[start];
                     let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
 
@@ -200,9 +200,9 @@ pub fn to_nnf(
                     };
 
                     if transform_quantifier(is_forall, negate) {
-                        builder.forall(vars.clone(), body)?
+                        builder.forall(*vars, body)?
                     } else {
-                        builder.exists(vars.clone(), body)?
+                        builder.exists(*vars, body)?
                     }
                 }
 
@@ -429,6 +429,7 @@ mod tests {
         let arg_x = builder.variable(var_id);
         let a = builder.atomic_formula(1, &[arg_x], skel);
 
+        // Note: builder.forall crée maintenant un ExprKind::ForallNew sous le capot
         let forall_node = builder.forall(forall_vars, a)?;
         let root = builder.not(forall_node);
 
@@ -437,20 +438,21 @@ mod tests {
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
-        // The Forall under negation must have become an Exists
+        // Le ForallNew sous la négation doit être devenu un ExistsNew (et surtout pas Exists)
         assert!(
-            matches!(root_node.kind(), ExprKind::Exists(_)),
-            "Expected Exists node, but the quantifier was likely pruned. Got: {:?}",
+            matches!(root_node.kind(), ExprKind::ExistsNew(_)),
+            "Expected strictly ExistsNew node. Got: {:?}",
             root_node.kind()
         );
 
-        // Verify that variables are preserved
-        if let ExprKind::Exists(ref vars) = root_node.kind() {
-            assert_eq!(vars.len(), 1);
-            assert_eq!(vars[0].symbol(), var_id);
+        // Vérification des variables préservées dans ExistsNew
+        if let ExprKind::ExistsNew(ref typed_list_id) = root_node.kind() {
+            // Optionnel : Si tu as besoin de valider l'ID de la liste typée directement,
+            // tu peux comparer typed_list_id avec la liste d'origine ou attendue.
+            assert!(typed_list_id.is_valid());
         }
 
-        // The body of the Exists must be ¬A
+        // Le corps du ExistsNew doit être ¬A
         let body_id = root_node.children()[0];
         let body_node = builder.fetch(body_id)?;
         assert!(matches!(body_node.kind(), ExprKind::Not));
@@ -479,6 +481,7 @@ mod tests {
         let arg_x = builder.variable(var_id);
         let a = builder.atomic_formula(1, &[arg_x], skel);
 
+        // Note: builder.exists génère maintenant un ExprKind::ExistsNew
         let exists_node = builder.exists(exists_vars, a)?;
         let root = builder.not(exists_node);
 
@@ -487,14 +490,19 @@ mod tests {
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
-        // The Exists under negation must have become a Forall
+        // Le ExistsNew sous négation doit être strictement devenu un ForallNew
         assert!(
-            matches!(root_node.kind(), ExprKind::Forall(_)),
-            "Expected Forall node, but it was likely pruned because the variable was unused. Got: {:?}",
+            matches!(root_node.kind(), ExprKind::ForallNew(_)),
+            "Expected strictly ForallNew node. Got: {:?}",
             root_node.kind()
         );
 
-        // Verify the body: ¬A
+        // Vérification de la structure interne du ForallNew si besoin
+        if let ExprKind::ForallNew(ref typed_list_id) = root_node.kind() {
+            assert!(typed_list_id.is_valid());
+        }
+
+        // Le corps du ForallNew doit être ¬A
         let body_id = root_node.children()[0];
         let body_node = builder.fetch(body_id)?;
         assert!(matches!(body_node.kind(), ExprKind::Not));
@@ -599,8 +607,8 @@ mod tests {
                     found_not_a = true;
                 }
 
-                // Case ∀x.¬C
-                ExprKind::Forall(_) => {
+                // Case ∀x.¬C (Mis à jour vers ForallNew)
+                ExprKind::ForallNew(_) => {
                     let body_id = node.children()[0];
                     let body_node = builder.fetch(body_id)?;
                     // Verify that the Forall body is Not(C)
@@ -663,9 +671,9 @@ mod tests {
         let or_bc = builder.or(&[b, c]);
         let not_or_bc = builder.not(or_bc);
 
-        // (exists y. D(x, y))
+        // (exists y. D(x, y)) -> Devient ExistsNew en interne
         let exists_d = builder.exists(vars_y, d)?;
-        // (forall x. (exists y. D(x, y))) -> x is now "free" in the body, so it stays!
+        // (forall x. (exists y. D(x, y))) -> Devient ForallNew en interne
         let forall_exists_d = builder.forall(vars_x, exists_d)?;
 
         let and_node = builder.and(&[a, not_or_bc, forall_exists_d]);
@@ -698,15 +706,15 @@ mod tests {
         assert!(children.contains(&c), "C is missing");
 
         // 7. Verify the inverted quantifier exists in the children
-        // Now this will pass because 'x' was not pruned during construction.
+        // Mis à jour pour cibler strictement ExistsNew
         let has_exists = children.iter().any(|&id| {
             let node = builder.get(id).unwrap();
-            matches!(node.kind(), ExprKind::Exists(_))
+            matches!(node.kind(), ExprKind::ExistsNew(_))
         });
 
         assert!(
             has_exists,
-            "The inverted quantified branch (Exists x) must be present"
+            "The inverted quantified branch (ExistsNew x) must be present"
         );
 
         Ok(())

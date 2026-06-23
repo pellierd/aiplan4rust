@@ -5,7 +5,7 @@ use crate::aiplan4rust::compiler::grounding::error::GroundingError;
 use crate::aiplan4rust::compiler::grounding::passes::qnf::ExpansionScratchpad;
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
-use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::TypedListId;
 
 /// Point d'entrée standard autonome pour l'expansion des quantificateurs.
 /// Consomme l'ancien ID et retourne le nouvel ID expansé.
@@ -73,10 +73,10 @@ pub fn expand_with(
                 (entry.kind().clone(), entry.children().first().copied())
             };
 
-            let is_forall = matches!(entry_kind, ExprKind::Forall(_));
+            let is_forall = matches!(entry_kind, ExprKind::ForallNew(_));
 
             let current_id = match entry_kind {
-                ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
+                ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
                     let body_id = body_id.expect("Quantifier must have a body node");
                     // On récupère la valeur expansée définitive depuis le cache
                     let expanded_body_id =
@@ -84,10 +84,11 @@ pub fn expand_with(
 
                     expand_quantified_node(
                         expanded_body_id,
-                        &vars,
+                        vars,
                         is_forall,
                         store,
                         binding_scratchpad,
+                        expansion_scratchpad,
                         value_registry,
                         evaluator,
                     )?
@@ -131,14 +132,26 @@ pub fn expand_with(
 /// d'un nœud Forall ou Exists grâce au tracking de la variable coupable.
 fn expand_quantified_node(
     body_id: ExprId,
-    variables: &TypedList<VariableId, TypeId>,
+    variables: TypedListId,
     is_forall: bool,
     store: &mut ExprStore,
     binding_scratchpad: &mut BindingScratchpad,
+    expansion_scratchpad: &mut ExpansionScratchpad,
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn ExprEvaluator>,
 ) -> Result<ExprId, GroundingError> {
+    expansion_scratchpad.variables.clear();
+    let vars_ref = store.fetch_typed_list(variables)?;
+    expansion_scratchpad
+        .variables
+        .extend_from_slice(vars_ref.as_slice());
+
+    // 2. L'itérateur pointe sur le buffer du scratchpad (qui est sur la pile / réutilisé)
+    let variables = &expansion_scratchpad.variables;
     let mut iterator = BindingsIterator::new(variables, value_registry)?;
+
+    let const_true = store.empty_and();
+    let const_false = store.empty_or();
 
     if !iterator.has_next() && !variables.is_empty() {
         return Ok(if is_forall {
@@ -159,19 +172,19 @@ fn expand_quantified_node(
 
         // 2. CONSTANTES DOMINATRICES : Court-circuit absolu de la quantification
         // Forall + False => L'ensemble s'effondre immédiatement à False
-        if is_forall && result_id == store.empty_or() {
-            return Ok(store.empty_or());
+        if is_forall && result_id == const_false {
+            return Ok(const_false);
         }
         // Exists + True => L'ensemble s'effondre immédiatement à True
-        if !is_forall && result_id == store.empty_and() {
-            return Ok(store.empty_and());
+        if !is_forall && result_id == const_true {
+            return Ok(const_true);
         }
 
         // 3. ÉLÉMENTS NEUTRES : Déclencheur du skip_at (Élagage combinatoire)
         // Forall + True  => N'apporte rien à l'intersection.
         // Exists + False => N'apporte rien à l'union.
-        let is_neutral = (is_forall && result_id == store.empty_and())
-            || (!is_forall && result_id == store.empty_or());
+        let is_neutral =
+            (is_forall && result_id == const_true) || (!is_forall && result_id == const_false);
 
         if is_neutral {
             if let Some(var_id) = culprit {

@@ -1,8 +1,9 @@
 use crate::aiplan4rust::compiler::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::compiler::lir::encoding::{typed_symbol, EncodingError};
+use crate::aiplan4rust::compiler::lir::expr::ExprStore;
 use crate::aiplan4rust::compiler::syntax::ast::tree::SyntaxSubtree;
 use crate::aiplan4rust::compiler::syntax::ast::AstNode;
-use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedList, TypedListId};
 
 /// Encodes a syntax subtree representing a list of variables into a strongly-typed LIR list.
 ///
@@ -29,7 +30,8 @@ use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedList, VariableId}
 pub fn encode_variable_list(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<TypedList<VariableId, TypeId>, EncodingError> {
+    store: &mut ExprStore,
+) -> Result<TypedListId, EncodingError> {
     let node = subtree.node();
     let ast = subtree.tree();
     let mut typed_list = TypedList::new();
@@ -42,8 +44,9 @@ pub fn encode_variable_list(
         let symbol = typed_symbol::encode_typed_variable(&child_subtree, registry)?;
         typed_list.push(symbol);
     }
+    let list_id = store.intern_typed_list(typed_list);
 
-    Ok(typed_list)
+    Ok(list_id)
 }
 
 /// Encodes a syntax subtree representing a list of domain objects or constants into a strongly-typed LIR list.

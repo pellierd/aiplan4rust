@@ -56,14 +56,17 @@ pub fn normalize(
     registry: &mut TypeRegistry,
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
-    // 1. Process the primary source of types: the method's parameter list.
-    // Since the parameter list is a flat, local structure outside the hash-consed old,
-    // we mutate it directly in-place without any structural replication.
-    typed_list::normalize_typed_variable_list(method.parameters_mut(), registry)?;
+    // 1. On récupère l'ID actuel des paramètres (immuable)
+    let current_param_id = method.parameters();
 
-    // 2. Process the precondition expression tree.
-    // We copy the root ExprId out of the getter to release any potential borrow on `method`,
-    // invoke the iterative normalizer, and update the method with the new hash-consed root.
+    // 2. On passe cet ID au normalisateur de liste, avec le store pour le Hash-Consing
+    let normalized_param_id =
+        typed_list::normalize_typed_variable_list(current_param_id, store, registry)?;
+
+    // 3. On met à jour la méthode avec le nouvel ID fort calculé
+    method.set_parameters(normalized_param_id);
+
+    // 4. Normalisation de l'arbre d'expression des préconditions (inchangé)
     let normalized_precondition = expr::normalize(method.precondition(), store, registry, scratch)?;
     method.set_precondition(normalized_precondition);
 

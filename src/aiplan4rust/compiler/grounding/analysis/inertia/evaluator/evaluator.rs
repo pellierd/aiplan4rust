@@ -188,8 +188,8 @@ impl<'a> InertiaEvaluator<'a> {
             max_proj,
         };
 
-        // 2. Short-circuit early if structural limits are exceeded
-        evaluator.check_invariants()?;
+        // 2. Check structural invariants
+        evaluator.check_invariants(init.store())?;
 
         // 3. Drive the initial state parsing phase
         let mut it = init.store().tree_preorder(init.root_id());
@@ -271,6 +271,7 @@ impl<'a> InertiaEvaluator<'a> {
     ///     arguments than the evaluator can index.
     ///   * `InertiaEvaluatorError::FunctionArityTooHigh`: When a functional term's signature
     ///     exceeds the max arity threshold.
+    ///   * `InertiaEvaluatorError::StoreError`: If a `TypedListId` resolution fails inside the `ExprStore`.
     ///
     /// # Invariant Guarantees
     ///
@@ -291,7 +292,7 @@ impl<'a> InertiaEvaluator<'a> {
     /// This function returns a `Result` and uses the `?` operator implicitly in the constructor to short-circuit
     /// the initialization process. If a problem domain is too large or misconfigured, it fails immediately
     /// during the `build` phase rather than panicking with an out-of-bounds index later during hot-path execution.
-    fn check_invariants(&self) -> Result<(), InertiaEvaluatorError> {
+    fn check_invariants(&self, store: &ExprStore) -> Result<(), InertiaEvaluatorError> {
         // 1. Absolute Type Safety: Disallow configurations exceeding the u16 bitmask capacity
         if self.max_arity > 16 {
             return Err(InertiaEvaluatorError::invalid_limits(16, self.max_proj));
@@ -307,20 +308,25 @@ impl<'a> InertiaEvaluator<'a> {
 
         // 3. Validate predicate arity limits
         for (i, p) in self.predicate_defs.iter().enumerate() {
-            if p.arity() > self.max_arity {
+            // Résolution de l'arité via le store avec propagation de l'erreur potentielle
+            let p_arity = store.typed_list_len(p.parameters())?;
+
+            if p_arity > self.max_arity {
                 return Err(InertiaEvaluatorError::predicate_arity_too_high(
                     AtomSkeletonId::from(i),
-                    p.arity(),
+                    p_arity,
                 ));
             }
         }
 
         // 4. Validate function arity limits
         for (i, f) in self.function_defs.iter().enumerate() {
-            if f.arity() > self.max_arity {
+            // Résolution de l'arité via le store avec propagation de l'erreur potentielle
+            let f_arity = store.typed_list_len(f.parameters())?;
+            if f_arity > self.max_arity {
                 return Err(InertiaEvaluatorError::function_arity_too_high(
                     FunctionSkeletonId::from(i),
-                    f.arity(),
+                    f_arity,
                 ));
             }
         }
@@ -533,7 +539,7 @@ impl<'a> ExprEvaluator for InertiaEvaluator<'a> {
 pub(crate) mod tests {
     use super::*;
     use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
-    use crate::aiplan4rust::support::lang::{FunctionSymbolId, PredicateSymbolId, TypedList};
+    use crate::aiplan4rust::support::lang::{FunctionSymbolId, PredicateSymbolId, TypedListId};
 
     // Local test extension to provide the missing `mock` constructor for InertiaEvaluator
     impl<'a> InertiaEvaluator<'a> {
@@ -586,7 +592,12 @@ pub(crate) mod tests {
     /// and empty parameter lists.
     pub(crate) fn mock_predicate_defs(count: usize) -> Vec<AtomicFormulaSkeleton> {
         (0..count)
-            .map(|i| AtomicFormulaSkeleton::new(PredicateSymbolId::from(i), TypedList::new()))
+            .map(|i| {
+                AtomicFormulaSkeleton::new(
+                    PredicateSymbolId::from(i),
+                    TypedListId::EMPTY, // Utilisation de la constante dédiée
+                )
+            })
             .collect()
     }
 
@@ -594,13 +605,16 @@ pub(crate) mod tests {
     ///
     /// Creates a vector of `AtomicFunctionSkeleton` instances with sequential `FunctionSymbolId`s,
     /// empty parameter lists, and default return types.
+    /// Helper function to generate mock function definitions for testing purposes.
+    ///
+    /// Creates a vector of `AtomicFunctionSkeleton` instances with sequential `FunctionSymbolId`s,
+    /// a default empty parameter list ID, and default return types.
     pub(crate) fn mock_function_defs(count: usize) -> Vec<AtomicFunctionSkeleton> {
         (0..count)
             .map(|i| {
-                // Adjust here if your AtomicFunctionSkeleton::new requires a different return type structure
                 AtomicFunctionSkeleton::new(
                     FunctionSymbolId::from(i),
-                    TypedList::new(),
+                    TypedListId::EMPTY, // Utilisation de la constante dédiée
                     Default::default(),
                 )
             })

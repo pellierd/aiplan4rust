@@ -15,11 +15,14 @@ pub fn render(
     // On utilise resolve_functor pour obtenir le nom correct (ex: "distance")
     write!(f, "({}", ctx.resolve_functor(function.functor()))?;
 
-    // 2. Rendu des paramètres via la slice
-    let parameters = function.parameters();
-    if !parameters.is_empty() {
-        write!(f, " ")?;
-        typed_list::render_typed_variable_list(f, parameters.as_slice(), ctx)?;
+    // 2. Paramètres : Récupération via le store de l'arène
+    if let Some(params_list) = ctx.store().get_typed_list(function.parameters()) {
+        if !params_list.is_empty() {
+            write!(f, " ")?;
+            typed_list::render_typed_variable_list(f, params_list.as_slice(), ctx)?;
+        }
+    } else {
+        write!(f, " <error: parameters not found>")?;
     }
 
     // Fermeture de la parenthèse de signature : (name ?args)

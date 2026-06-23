@@ -37,6 +37,7 @@ pub fn encode(
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(vars_node, vars_node_id, ast),
         registry,
+        builder.store(),
     )?;
 
     // --- ÉTAPE 3 : Encodage du Corps (Task, Precondition, Network) ---

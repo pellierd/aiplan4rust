@@ -14,6 +14,7 @@
 //! standardized set of objects and constants without managing complex type unions
 //! at runtime.
 
+use crate::aiplan4rust::compiler::lir::expr::ExprStore;
 use crate::aiplan4rust::compiler::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::compiler::lir::normalization::typing::{typed_list, TypeRegistry};
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
@@ -40,9 +41,18 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 /// grounding engine while maintaining a strict **$\mathcal{O}(1)$ dynamic allocation profile**.
 pub fn normalize(
     atomic_formula: &mut AtomicFormulaSkeleton,
+    store: &mut ExprStore,
     registry: &mut TypeRegistry,
 ) -> Result<(), NormalizationError> {
-    // Delegate the normalization of the parameter list.
-    // This transforms composite types or root types into atomic identifiers in-place.
-    typed_list::normalize_typed_variable_list(atomic_formula.parameters_mut(), registry)
+    // 1. On prend l'ID actuel des paramètres de la formule
+    let current_param_id = atomic_formula.parameters();
+
+    // 2. On délègue au normalisateur de liste qui travaille avec le store
+    let normalized_param_id =
+        typed_list::normalize_typed_variable_list(current_param_id, store, registry)?;
+
+    // 3. On met à jour l'ID des paramètres dans la formule skeleton
+    atomic_formula.set_parameters(normalized_param_id);
+
+    Ok(())
 }

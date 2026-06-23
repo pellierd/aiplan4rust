@@ -19,7 +19,7 @@
 //! println!("Predicate name: {}", pred.name());
 //! ```
 
-use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::TypedListId;
 use serde::{Deserialize, Serialize};
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
@@ -33,28 +33,25 @@ use serde::{Deserialize, Serialize};
 /// let pred = Skeleton::new(Ident::new("at"), Signature::new(vec![Type::Object]));
 /// println!("Name: {}", pred.name());
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct NamedTypedList<ID> {
     /// L'identifiant typé (ActionSymbolID, PredicateID, etc.)
     symbol: ID,
     /// La liste des paramètres (Variables et leurs Types)
-    parameters: TypedList<VariableId, TypeId>,
+    parameters: TypedListId,
 }
 
 impl<ID: Copy> NamedTypedList<ID> {
-    /// Creates a new `NamedTypedList` with the given name and parameters.
+    /// Creates a new `NamedTypedList` with the given name, parameters.
     ///
     /// # Parameters
     ///
-    /// - `name`: The identifier representing the name of the predicate or function.
-    /// - `parameters`: The list of typed parameters (signature).
-    ///
-    /// # Returns
-    ///
-    /// A new instance of `NamedTypedList`.
-    pub fn new(symbol: ID, parameters: TypedList<VariableId, TypeId>) -> Self {
+    /// - `symbol`: The identifier representing the name/symbol.
+    /// - `parameters`: The list of typed parameters (signature ID).
+    pub fn new(symbol: ID, parameters: TypedListId) -> Self {
         Self { symbol, parameters }
     }
+
     /// Returns the name of the predicate or function.
     ///
     /// # Returns
@@ -78,31 +75,12 @@ impl<ID: Copy> NamedTypedList<ID> {
     /// # Returns
     ///
     /// A reference to the `TypedList` representing the parameters.
-    pub fn parameters(&self) -> &TypedList<VariableId, TypeId> {
-        &self.parameters
+    pub fn parameters(&self) -> TypedListId {
+        self.parameters
     }
 
-    /// Returns a mutable reference to the parameters.
-    ///
-    /// This allows modifying the parameter list directly.
-    ///
-    /// # Returns
-    ///
-    /// A mutable reference to the `TypedList`.
-    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableId, TypeId> {
-        &mut self.parameters
-    }
-
-    /// Sets the parameters (signature) of the predicate or function.
-    ///
-    /// # Parameters
-    ///
-    /// - `parameters`: The new `TypedList` to set as the parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<VariableId, TypeId>) {
+    #[inline]
+    pub fn set_parameters(&mut self, parameters: TypedListId) {
         self.parameters = parameters;
-    }
-
-    pub fn arity(&self) -> usize {
-        self.parameters.len()
     }
 }

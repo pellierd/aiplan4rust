@@ -8,11 +8,15 @@ use std::fmt;
 pub fn render(f: &mut Formatter<'_>, itn: &InitialTaskNetwork, ctx: &RenderContext) -> fmt::Result {
     write!(f, "(:htn")?;
 
-    // 1. Parameters (Optional in HTN)
-    if !itn.parameters().is_empty() {
-        write!(f, "\n    :parameters (")?;
-        typed_list::render_typed_variable_list(f, itn.parameters().as_slice(), ctx)?;
-        write!(f, ")")?;
+    // 1. Parameters (Optional in HTN) : Récupération sécurisée via le store
+    if let Some(params_list) = ctx.store().get_typed_list(itn.parameters()) {
+        if !params_list.is_empty() {
+            write!(f, "\n    :parameters (")?;
+            typed_list::render_typed_variable_list(f, params_list.as_slice(), ctx)?;
+            write!(f, ")")?;
+        }
+    } else {
+        write!(f, "\n    :parameters (<error: parameters not found>)")?;
     }
 
     // 2. The support network

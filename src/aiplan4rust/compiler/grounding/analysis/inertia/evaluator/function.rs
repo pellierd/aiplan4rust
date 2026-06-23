@@ -108,7 +108,7 @@ impl<'a> InertiaEvaluator<'a> {
         let mask = self.extract_mask_dynamic(node, store, buffer) as u16;
 
         let def = &self.function_defs[func_id.as_usize()];
-        let arity = def.parameters().len();
+        let arity = store.typed_list_len(def.parameters())?;
 
         // --- STEP B: Validate projection bounds and extract grounding status ---
         let grounded = match self.validate_projection_and_grounding(mask, arity) {
@@ -158,8 +158,8 @@ mod tests {
     use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprKind, ExprStore};
     use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFunctionSkeleton;
     use crate::aiplan4rust::support::lang::{
-        FunctionSkeletonId, FunctionSymbolId, ObjectId, Type, TypeId, TypedList, TypedSymbol,
-        VariableId,
+        FunctionSkeletonId, FunctionSymbolId, ObjectId, Type, TypeId, TypedListId
+        ,
     };
 
     /// # Purpose
@@ -193,15 +193,12 @@ mod tests {
         let f_defs = vec![
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(0),
-                TypedList::new(),
+                TypedListId::EMPTY, // Corrigé : Liste vide globale
                 Type::from(type_id),
             ),
             AtomicFunctionSkeleton::new(
                 FunctionSymbolId::from(skel_id_val),
-                TypedList::from_iter(vec![TypedSymbol::new(
-                    VariableId::from(0),
-                    Type::from(type_id),
-                )]),
+                TypedListId::new(1), // Corrigé : Un ID factice pour la liste avec paramètre (ou TypedListId::from(1))
                 numeric_type,
             ),
         ];

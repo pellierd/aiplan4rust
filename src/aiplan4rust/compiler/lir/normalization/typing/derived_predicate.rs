@@ -58,14 +58,11 @@ pub fn normalize(
     registry: &mut TypeRegistry,
     pad: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
-    // 1. Normalize the signature (the "head").
-    // Derived predicate heads are structurally identical to standard predicates,
-    // allowing us to reuse the atomic formula resolution logic and mutate parameters in-place.
-    formula::normalize(derived_predicate.head_mut(), registry)?;
+    // 1. Normalize the signature (the "head") en passant le store.
+    // Cela va mettre à jour le TypedListId interne de `derived_predicate.head`.
+    formula::normalize(derived_predicate.head_mut(), store, registry)?;
 
     // 2. Normalize the logical definition (the "body").
-    // We copy the body's ExprId out of the getter, execute the iterative normalizer
-    // using the pre-allocated scratchpad arena, and re-inject the newly built hash-consed root.
     let normalized_body = expr::normalize(derived_predicate.body(), store, registry, pad)?;
     derived_predicate.set_body(normalized_body);
 

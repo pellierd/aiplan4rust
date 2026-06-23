@@ -17,10 +17,14 @@ pub fn render(
     // 1. Nom de la fonction avec son ID [f#ID]
     write!(f, "({} [{}]", name, functor_id)?;
 
-    // 2. Paramètres d'entrée (utilise render_typed_variable_list pour le mode hybride)
-    if !function.parameters().is_empty() {
-        write!(f, " ")?;
-        typed_list::render_variable_typed_list(f, function.parameters().as_slice(), ctx)?;
+    // 2. Paramètres d'entrée : Récupération sécurisée via le store
+    if let Some(params_list) = ctx.store().get_typed_list(function.parameters()) {
+        if !params_list.is_empty() {
+            write!(f, " ")?;
+            typed_list::render_variable_typed_list(f, params_list.as_slice(), ctx)?;
+        }
+    } else {
+        write!(f, " <error: params not found>")?;
     }
 
     // Fermeture de la parenthèse du foncteur

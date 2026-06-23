@@ -12,9 +12,10 @@
 //! This step is crucial for the grounder, as it ensures that the domains of all
 //! parameters are clearly defined by atomic type identifiers.
 
+use crate::aiplan4rust::compiler::lir::expr::ExprStore;
 use crate::aiplan4rust::compiler::lir::normalization::error::NormalizationError;
 use crate::aiplan4rust::compiler::lir::normalization::typing::{typed_symbol, TypeRegistry};
-use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::{TypedList, TypedListId};
 
 /// Normalizes all variables within a typed list in-place.
 ///
@@ -36,16 +37,32 @@ use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
 /// each individual [`TypedSymbol`] to the specialized variable normalization module.
 /// This ensures that the entire "signature" of a lifted operator is grounder-ready.
 pub fn normalize_typed_variable_list(
-    typed_list: &mut TypedList<VariableId, TypeId>,
+    list_id: TypedListId,
+    store: &mut ExprStore,
     registry: &mut TypeRegistry,
-) -> Result<(), NormalizationError> {
-    // Iterate over each TypedSymbol in the list mutably.
-    // Since TypedList is a standard collection and not hash-consed,
-    // in-place mutation remains perfectly valid and optimal.
-    for ts in typed_list.iter_mut() {
-        // Delegate to the specialized variable normalization function
-        typed_symbol::normalize_typed_variable(ts, registry)?;
+) -> Result<TypedListId, NormalizationError> {
+    // Si la liste est invalide/absente (NONE) ou vide (EMPTY), on la retourne directement
+    if list_id.is_none() {
+        return Ok(TypedListId::NONE);
+    }
+    if list_id.is_empty() {
+        return Ok(TypedListId::EMPTY);
     }
 
-    Ok(())
+    // 1. Extraction de la liste immuable depuis l'arène du store
+    let original_list = store.fetch_typed_list(list_id)?;
+
+    // 2. Création d'une nouvelle liste de travail locale
+    let mut normalized_list = TypedList::with_capacity(original_list.len());
+
+    // 3. Normalisation de chaque symbole de variable
+    for ts in original_list.iter() {
+        let norm_ts = typed_symbol::normalize_typed_variable(ts, registry)?;
+        normalized_list.push(norm_ts);
+    }
+
+    // 4. L'étape cruciale du Hash-Consing
+    let new_list_id = store.intern_typed_list(normalized_list);
+
+    Ok(new_list_id)
 }

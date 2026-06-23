@@ -33,15 +33,12 @@ use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedSymbol, VariableI
 /// * `Ok(())` upon successful type resolution.
 /// * `Err(LirError)` if the type transformation violates LIR structural constraints.
 pub fn normalize_typed_object(
-    symbol: &mut TypedSymbol<ObjectId, TypeId>,
+    symbol: &TypedSymbol<ObjectId, TypeId>,
     registry: &mut TypeRegistry,
-) -> Result<(), NormalizationError> {
-    // 1. Gain mutable access to the object's type
-    let ty = symbol.ty_mut();
-
-    // 2. Delegate the transformation.
-    // Unions are resolved and STRIPS-style missing types are rooted to ROOT_TYPE_ID.
-    ty::normalize(ty, registry)
+) -> Result<TypedSymbol<ObjectId, TypeId>, NormalizationError> {
+    let norm_ty = ty::normalize(symbol.ty(), registry)?;
+    // On reconstruit le symbole avec son symbole original et le nouveau type normalisé
+    Ok(TypedSymbol::new(symbol.symbol(), norm_ty))
 }
 
 /// Normalizes the type of a variable in-place.
@@ -58,13 +55,9 @@ pub fn normalize_typed_object(
 /// * `Ok(())` if the variable's type was successfully normalized.
 /// * `Err(LirError)` if the variable type cannot be resolved within the registry.
 pub fn normalize_typed_variable(
-    symbol: &mut TypedSymbol<VariableId, TypeId>,
+    symbol: &TypedSymbol<VariableId, TypeId>,
     registry: &mut TypeRegistry,
-) -> Result<(), NormalizationError> {
-    // 1. Gain mutable access to the variable's type
-    let ty = symbol.ty_mut();
-
-    // 2. Delegate the transformation to the type module.
-    // If 'ty' represents a composite type, it is transformed into an atomic TypeId in-place.
-    ty::normalize(ty, registry)
+) -> Result<TypedSymbol<VariableId, TypeId>, NormalizationError> {
+    let norm_ty = ty::normalize(symbol.ty(), registry)?;
+    Ok(TypedSymbol::new(symbol.symbol(), norm_ty))
 }

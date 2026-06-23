@@ -3,7 +3,7 @@
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
 use crate::aiplan4rust::compiler::lir::renderers::syntax::typed_list;
 use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
-use crate::aiplan4rust::support::lang::{TypeId, TypedSymbol, VariableId};
+use crate::aiplan4rust::support::lang::TypedListId;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -14,7 +14,7 @@ enum RenderOp {
     WriteDynamic(String),
     WriteContent(ExprId),
     /// On transporte un vecteur de symboles typés correspondants à la signature attendue
-    WriteVariables(Vec<TypedSymbol<VariableId, TypeId>>),
+    WriteVariables(TypedListId),
     Indent(usize),
     Newline,
 }
@@ -48,7 +48,11 @@ pub fn render_with_indent(
             }
             RenderOp::Newline => writeln!(f)?,
             RenderOp::WriteVariables(vars) => {
-                typed_list::render_typed_variable_list(f, vars.as_slice(), context)?;
+                if let Ok(list_ref) = context.store().fetch_typed_list(vars) {
+                    typed_list::render_typed_variable_list(f, list_ref.as_slice(), context)?;
+                } else {
+                    write!(f, "<err_vars>")?;
+                }
             }
 
             RenderOp::Process(id, indent) => {
@@ -115,8 +119,8 @@ pub fn render_with_indent(
                                 k,
                                 ExprKind::And
                                     | ExprKind::Or
-                                    | ExprKind::Forall(_)
-                                    | ExprKind::Exists(_)
+                                    | ExprKind::ForallNew(_)
+                                    | ExprKind::ExistsNew(_)
                                     | ExprKind::When
                             )
                         });
@@ -138,7 +142,7 @@ pub fn render_with_indent(
                     }
 
                     // --- QUANTIFICATEURS (forall / exists) ---
-                    ExprKind::Forall(typed_list) | ExprKind::Exists(typed_list) => {
+                    ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
                         stack.push(RenderOp::Write(")"));
 
                         if let Some(&body_id) = children.first() {
@@ -148,7 +152,8 @@ pub fn render_with_indent(
                         }
 
                         stack.push(RenderOp::Write(")"));
-                        stack.push(RenderOp::WriteVariables(typed_list.as_slice().to_vec()));
+                        // CORRECTION : On passe l'identifiant par copie direct sans faire de .to_vec() !
+                        stack.push(RenderOp::WriteVariables(*vars));
                         stack.push(RenderOp::Write("("));
 
                         stack.push(RenderOp::Write(" "));

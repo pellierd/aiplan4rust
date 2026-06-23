@@ -3,13 +3,13 @@ use crate::aiplan4rust::cli::io::serialization::serialize_ordered_float;
 use crate::aiplan4rust::support::lang::{
     ArithmeticOp, AssignOp, AtomSkeletonId, CompareOp, FunctionSkeletonId, FunctionSymbolId,
     ObjectId, OptimizationOp, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId,
-    TaskSkeletonId, TaskSymbolId, TypeId, TypedList, VariableId,
+    TaskSkeletonId, TaskSymbolId, TypedListId, VariableId,
 };
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
 pub enum ExprKind {
     Object(ObjectId),
     Variable(VariableId),
@@ -29,8 +29,8 @@ pub enum ExprKind {
     Or,
     Not,
     Imply,
-    Forall(TypedList<VariableId, TypeId>),
-    Exists(TypedList<VariableId, TypeId>),
+    ForallNew(TypedListId),
+    ExistsNew(TypedListId),
     Preference,
     When,
     Comparison(CompareOp),
@@ -60,6 +60,7 @@ pub enum ExprKind {
     TaskLabel(TaskLabelSymbolId),
     LabeledTask,                       // check
     TaskOrderingConstraint(CompareOp), // check
+    TypedList(TypedListId),
 }
 
 impl ExprKind {
@@ -77,6 +78,7 @@ impl ExprKind {
             | ExprKind::AtomicFormula(_)
             | ExprKind::Task(_)
             | ExprKind::TaskLabel(_)
+            | ExprKind::TypedList(_)
             | ExprKind::LabeledTask => "",
 
             // Logical Connectives
@@ -84,8 +86,8 @@ impl ExprKind {
             ExprKind::Or => "or",
             ExprKind::Not => "not",
             ExprKind::Imply => "imply",
-            ExprKind::Forall(_) => "forall",
-            ExprKind::Exists(_) => "exists",
+            ExprKind::ForallNew(_) => "forall",
+            ExprKind::ExistsNew(_) => "exists",
             ExprKind::When => "when",
 
             // Quantifiers and Preferences
@@ -135,6 +137,7 @@ impl fmt::Display for ExprKind {
             ExprKind::Object(id) => write!(f, "Object({})", id),
             ExprKind::Variable(id) => write!(f, "Variable({})", id),
             ExprKind::Number(n) => write!(f, "Number({})", n),
+            ExprKind::TypedList(id) => write!(f, "TypedList(ArenaIdx: {})", id),
 
             // --- Symboles et Squelettes ---
             ExprKind::PredicateSymbol(id) => write!(f, "Predicate({})", id),
@@ -153,8 +156,8 @@ impl fmt::Display for ExprKind {
             ExprKind::Arithmetic(op) => write!(f, "Op({})", op),
 
             // --- Quantificateurs (Affiche le nombre de variables) ---
-            ExprKind::Forall(vars) => write!(f, "Forall({})", vars.len()),
-            ExprKind::Exists(vars) => write!(f, "Exists({})", vars.len()),
+            ExprKind::ForallNew(id) => write!(f, "Forall({})", id),
+            ExprKind::ExistsNew(id) => write!(f, "Exists({})", id),
 
             // --- Connecteurs simples (Juste le nom) ---
             ExprKind::And => write!(f, "And"),

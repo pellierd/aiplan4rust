@@ -128,8 +128,8 @@ pub fn to_tnf(
                 ExprKind::And
                 | ExprKind::Or
                 | ExprKind::Not
-                | ExprKind::Forall(_)
-                | ExprKind::Exists(_) => {
+                | ExprKind::ForallNew(_)
+                | ExprKind::ExistsNew(_) => {
                     scratch.clear_time_specifier_buffers();
 
                     for &c in &children_ids {
@@ -299,8 +299,8 @@ pub fn is_fully_temporal(
             ExprKind::And
             | ExprKind::Or
             | ExprKind::Not
-            | ExprKind::Forall(_)
-            | ExprKind::Exists(_) => {
+            | ExprKind::ForallNew(_)
+            | ExprKind::ExistsNew(_) => {
                 let flag = if is_under_temporal { 1 } else { 0 };
                 for &child in entry.children() {
                     let next_packed = (child.as_usize() << 1) | flag;
@@ -706,7 +706,7 @@ mod tests {
         let s_node = builder.fetch(s)?;
 
         assert!(
-            matches!(s_node.kind(), ExprKind::Forall(_)),
+            matches!(s_node.kind(), ExprKind::ForallNew(_)),
             "Forall node must be present"
         );
         assert_eq!(
@@ -754,9 +754,23 @@ mod tests {
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
         let s_node = builder.fetch(s)?;
 
-        if let ExprKind::Forall(vars) = s_node.kind() {
+        // --- BORROW CHECKER DECONFLICTION ---
+        // Extract the internal `TypedListId` into an isolated, copyable local variable.
+        // This allows the immutable borrow on `builder`/`s_node` to strictly die
+        // before we query the underlying store for the materialized variables.
+        let target_vars_id = if let ExprKind::ForallNew(vars_id) = s_node.kind() {
+            Some(*vars_id)
+        } else {
+            None
+        };
+
+        // --- ASSERTION & VALIDATION ---
+        if let Some(vars_id) = target_vars_id {
+            // Now that the builder/node references are dropped, fetch the flattened list from the store
+            let actual_vars = builder.store().fetch_typed_list(vars_id).unwrap();
+
             assert_eq!(
-                vars.len(),
+                actual_vars.len(),
                 2,
                 "Quantifiers should remain flattened (v1 and v2) in the TNF output"
             );
@@ -1071,7 +1085,7 @@ mod tests {
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
 
         let s_node = builder.fetch(s)?;
-        assert!(matches!(s_node.kind(), ExprKind::Forall(_)));
+        assert!(matches!(s_node.kind(), ExprKind::ForallNew(_)));
         assert_eq!(s_node.children()[0], p_x);
 
         Ok(())

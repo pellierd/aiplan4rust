@@ -21,7 +21,7 @@
 use crate::aiplan4rust::compiler::lir::expr::iter::Scratchpad;
 use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprId, ExprKind, ExprStore};
 use crate::aiplan4rust::compiler::lir::normalization::error::NormalizationError;
-use crate::aiplan4rust::compiler::lir::normalization::typing::{typed_symbol, TypeRegistry};
+use crate::aiplan4rust::compiler::lir::normalization::typing::{typed_list, TypeRegistry};
 
 /// Normalizes type signatures within quantifier scopes throughout an expression tree.
 ///
@@ -121,19 +121,131 @@ pub fn normalize(
                 }
                 let end = scratch.children_buffer_mut().len();
 
+                // ÉTAPE 1 : On extrait le kind original
+                let current_kind = node_ref.kind().clone();
+                (current_kind, start, end)
+            }; // <- L'emprunt immuable sur `builder` via `node_ref` est TOTALEMENT relâché ici !
+
+            // ÉTAPE 2 : Maintenant que le store est libre, on peut appliquer la mutation
+            let target_kind = match target_kind {
+                ExprKind::ForallNew(old_vars_id) => {
+                    // builder.store_mut() redonne accès au &mut ExprStore de manière propre
+                    let new_vars_id = typed_list::normalize_typed_variable_list(
+                        old_vars_id,
+                        builder.store(),
+                        registry,
+                    )?;
+                    ExprKind::ForallNew(new_vars_id)
+                }
+                ExprKind::ExistsNew(old_vars_id) => {
+                    let new_vars_id = typed_list::normalize_typed_variable_list(
+                        old_vars_id,
+                        builder.store(),
+                        registry,
+                    )?;
+                    ExprKind::ExistsNew(new_vars_id)
+                }
+                other_kind => other_kind,
+            };
+
+            // Extract the newly mapped children slice and reconstruct the node
+            let new_children_slice = &scratch.children_buffer()[start_idx..end_idx];
+            let new_id = builder.reconstruct(target_kind, new_children_slice)?;
+
+            // Clean up the temporary segment in the scratchpad and cache the result
+            scratch.children_buffer_mut().truncate(start_idx);
+            scratch.insert(current_id, new_id);
+        } else {
+            // --- DESCENT PHASE (Discovery Downward Pass) ---
+            if scratch.is_visited(current_id) {
+                continue;
+            }
+            scratch.mark_visited(current_id);
+
+            // 1. Re-push the current node as 'processed = true' for the upcoming upward pass
+            scratch.push(current_id, true);
+
+            // 2. Extract child IDs into the scratchpad's contiguous buffer
+            let (start_idx, end_idx) = {
+                let node_ref = builder.fetch(current_id)?;
+                let children = node_ref.children();
+
+                let start = scratch.children_buffer_mut().len();
+                scratch.children_buffer_mut().extend_from_slice(children);
+                let end = scratch.children_buffer_mut().len();
+
+                (start, end)
+            };
+
+            // 3. Push children to the stack in reverse order to preserve evaluation sequence
+            for i in (start_idx..end_idx).rev() {
+                let child_id = scratch.children_buffer()[i];
+                scratch.push(child_id, false);
+            }
+
+            // Clear the temporary child segment from the scratchpad
+            scratch.children_buffer_mut().truncate(start_idx);
+        }
+    }
+
+    // Safely retrieve the final normalized root ID from the cache
+    let new_root = scratch
+        .get(root)
+        .ok_or_else(|| NormalizationError::missing_cache(root))?;
+
+    Ok(new_root)
+}
+/*pub fn normalize(
+    root: ExprId,
+    store: &mut ExprStore,
+    registry: &mut TypeRegistry,
+    scratch: &mut Scratchpad,
+) -> Result<ExprId, NormalizationError> {
+    let mut builder = ExprBuilder::new(store);
+
+    // Initialize the scratchpad for a new traversal pass
+    scratch.init(root);
+
+    // Non-recursive DFS Post-order traversal loop
+    while let Some((current_id, processed)) = scratch.pop() {
+        if processed {
+            // --- RECONSTRUCTION PHASE (Bottom-up Upward Pass) ---
+            let (target_kind, start_idx, end_idx) = {
+                let node_ref = builder.fetch(current_id)?;
+                let children = node_ref.children();
+
+                // Reserve space in the scratchpad buffer to avoid reallocations
+                let start = scratch.children_buffer_mut().len();
+                scratch.children_buffer_mut().reserve(children.len());
+
+                // Fetch the already-normalized child IDs from the scratchpad cache
+                for &old_child_id in children {
+                    let new_child_id = scratch
+                        .get(old_child_id)
+                        .ok_or_else(|| NormalizationError::missing_cache(old_child_id))?;
+                    scratch.children_buffer_mut().push(new_child_id);
+                }
+                let end = scratch.children_buffer_mut().len();
+
                 // Unify and normalize type signatures within quantifier scopes
                 let kind = match node_ref.kind().clone() {
-                    ExprKind::Forall(mut vars) => {
-                        for var in vars.iter_mut() {
-                            typed_symbol::normalize_typed_variable(var, registry)?;
-                        }
-                        ExprKind::Forall(vars)
+                    ExprKind::ForallNew(old_vars_id) => {
+                        // On passe l'identifiant et le store mutable extrait du builder
+                        let new_vars_id = typed_list::normalize_typed_variable_list(
+                            old_vars_id,
+                            store,
+                            registry,
+                        )?;
+                        ExprKind::ForallNew(new_vars_id)
                     }
-                    ExprKind::Exists(mut vars) => {
-                        for var in vars.iter_mut() {
-                            typed_symbol::normalize_typed_variable(var, registry)?;
-                        }
-                        ExprKind::Exists(vars)
+                    ExprKind::ExistsNew(old_vars_id) => {
+                        // Même logique pour le quantificateur existentiel
+                        let new_vars_id = typed_list::normalize_typed_variable_list(
+                            old_vars_id,
+                            store,
+                            registry,
+                        )?;
+                        ExprKind::ExistsNew(new_vars_id)
                     }
                     other_kind => other_kind,
                 };
@@ -189,3 +301,4 @@ pub fn normalize(
 
     Ok(new_root)
 }
+*/

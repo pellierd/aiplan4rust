@@ -20,7 +20,7 @@ use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
     LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
 };
-use crate::aiplan4rust::support::lang::{TaskSymbolId, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::{TaskSymbolId, TypedListId, VariableId};
 use core::fmt::{Debug, Formatter};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -66,7 +66,7 @@ impl Task {
     ///
     /// - `name`: The identifier for this task.
     /// - `parameters`: A typed list describing the task's parameters.
-    pub fn new(task_symbol: TaskSymbolId, parameters: TypedList<VariableId, TypeId>) -> Self {
+    pub fn new(task_symbol: TaskSymbolId, parameters: TypedListId) -> Self {
         let header = NamedTypedList::new(task_symbol, parameters);
         Self {
             header,
@@ -94,6 +94,10 @@ impl Task {
     /// Accès mutable à la table des noms des variables.
     pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> {
         &mut self.variable_symbols
+    }
+    #[inline]
+    pub fn set_parameters(&mut self, parameters: TypedListId) {
+        self.header.set_parameters(parameters);
     }
 }
 

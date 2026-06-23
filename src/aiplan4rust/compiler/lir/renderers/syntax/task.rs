@@ -18,12 +18,15 @@ pub fn render(
     let task_name = ctx.resolve_task_symbol(task.task_symbol());
     write!(f, "(:task {}", task_name)?;
 
-    // 2. Bloc des paramètres (indenté pour la lisibilité HDDL)
+    // 2. Bloc des paramètres (indenté pour la lisibilité HDDL) : Récupération via le store
     write!(f, "\n    :parameters (")?;
-    let parameters = task.parameters();
-    if !parameters.is_empty() {
-        // On réutilise notre renderer de liste de variables (?x - type)
-        typed_list::render_typed_variable_list(f, parameters.as_slice(), ctx)?;
+    if let Some(params_list) = ctx.store().get_typed_list(task.parameters()) {
+        if !params_list.is_empty() {
+            // On réutilise notre renderer de liste de variables (?x - type)
+            typed_list::render_typed_variable_list(f, params_list.as_slice(), ctx)?;
+        }
+    } else {
+        write!(f, "<error: parameters not found>")?;
     }
     write!(f, ")")?;
 

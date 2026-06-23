@@ -23,7 +23,11 @@ pub fn render(f: &mut fmt::Formatter<'_>, action: &ActionDef, ctx: &RenderContex
     writeln_centered(f, &title, 80, border_char)?;
 
     // 2. Paramètres (Utilise notre version hybride labellisée)
-    render_labeled_variable_typed_list(f, "PARAMETERS", action.parameters(), ctx)?;
+    if let Some(params_list) = ctx.store().get_typed_list(action.parameters()) {
+        render_labeled_variable_typed_list(f, "PARAMETERS", params_list, ctx)?;
+    } else {
+        writeln!(f, "  PARAMETERS   : <error: list not found>")?;
+    }
 
     // 3. Durée (Si applicable)
     if is_durative {

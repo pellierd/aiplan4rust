@@ -4,6 +4,7 @@
 //! Il transforme une déclaration syntaxique en un `AtomicFunctionSkeleton`.
 
 use crate::aiplan4rust::compiler::lir::encoding::{typed_list, EncodingError, EncodingRegistry};
+use crate::aiplan4rust::compiler::lir::expr::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::compiler::syntax::ast::arena::ArenaNode;
 use crate::aiplan4rust::compiler::syntax::ast::tree::SyntaxSubtree;
@@ -24,6 +25,7 @@ use crate::aiplan4rust::support::lang::{FunctionSymbolId, Type, TypeId};
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
+    builder: &mut ExprBuilder,
     functor_id: FunctionSymbolId,
     return_type: Type<TypeId>,
 ) -> Result<AtomicFunctionSkeleton, EncodingError> {
@@ -47,6 +49,7 @@ pub fn encode(
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(params_node, params_node_id, ast),
         registry,
+        builder.store(),
     )?;
 
     // 2. Récupération des noms de variables pour le debug

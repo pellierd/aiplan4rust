@@ -25,7 +25,7 @@ use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
     LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
 };
-use crate::aiplan4rust::support::lang::{PredicateSymbolId, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::{PredicateSymbolId, TypedListId, VariableId};
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
 ///
@@ -77,7 +77,7 @@ impl Formula {
     /// # Returns
     ///
     /// A `Formula` instance whose return type_checker is always `None`.
-    pub fn new(predicate: PredicateSymbolId, parameters: TypedList<VariableId, TypeId>) -> Self {
+    pub fn new(predicate: PredicateSymbolId, parameters: TypedListId) -> Self {
         let header = NamedTypedList::new(predicate, parameters);
         Self {
             header,
@@ -105,6 +105,10 @@ impl Formula {
     /// Accès mutable à la table des noms des variables.
     pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> {
         &mut self.variable_symbols
+    }
+    #[inline]
+    pub fn set_parameters(&mut self, parameters: TypedListId) {
+        self.header.set_parameters(parameters);
     }
 }
 

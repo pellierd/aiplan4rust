@@ -24,7 +24,7 @@ use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
     LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
 };
-use crate::aiplan4rust::support::lang::{FunctionSymbolId, Type, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::support::lang::{FunctionSymbolId, Type, TypeId, TypedListId, VariableId};
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -88,11 +88,7 @@ impl Function {
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `types`: The return type_checker of the function.
-    pub fn new(
-        functor: FunctionSymbolId,
-        parameters: TypedList<VariableId, TypeId>,
-        ty: Type<TypeId>,
-    ) -> Self {
+    pub fn new(functor: FunctionSymbolId, parameters: TypedListId, ty: Type<TypeId>) -> Self {
         let header = NamedTypedList::new(functor, parameters);
         Self {
             header,
@@ -113,9 +109,9 @@ impl Function {
         &self.ty
     }
 
-    /// Returns a mutable reference to the return typing.
-    pub fn ty_mut(&mut self) -> &mut Type<TypeId> {
-        &mut self.ty
+    #[inline]
+    pub fn set_type(&mut self, ty: Type<TypeId>) {
+        self.ty = ty;
     }
 
     pub fn functor(&self) -> FunctionSymbolId {
@@ -131,6 +127,11 @@ impl Function {
     /// Accès mutable à la table des noms des variables.
     pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> {
         &mut self.variable_symbols
+    }
+
+    #[inline]
+    pub fn set_parameters(&mut self, parameters: TypedListId) {
+        self.header.set_parameters(parameters);
     }
 }
 

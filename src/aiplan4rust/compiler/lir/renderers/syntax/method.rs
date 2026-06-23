@@ -10,9 +10,13 @@ pub fn render(f: &mut fmt::Formatter<'_>, method: &MethodDef, ctx: &RenderContex
     // 1. En-tête et nom de la méthode
     writeln!(f, "(:method {}", ctx.resolve_method_symbol(method.name()))?;
 
-    // 2. Paramètres : (?x - type)
+    // 2. Paramètres : Récupération sécurisée via le store
     write!(f, "  :parameters (")?;
-    typed_list::render_typed_variable_list(f, method.parameters().as_slice(), ctx)?;
+    if let Some(params_list) = ctx.store().get_typed_list(method.parameters()) {
+        typed_list::render_typed_variable_list(f, params_list.as_slice(), ctx)?;
+    } else {
+        write!(f, "<error: parameters not found>")?;
+    }
     writeln!(f, ")")?;
 
     // 3. La tâche abstraite décomposée par cette méthode
@@ -21,7 +25,7 @@ pub fn render(f: &mut fmt::Formatter<'_>, method: &MethodDef, ctx: &RenderContex
     writeln!(f)?;
 
     // 4. Précondition (Souvent un bloc 'and')
-    if !method.precondition().is_some() {
+    if method.precondition().is_some() {
         write!(f, "  :precondition ")?;
         expr::render(f, method.precondition(), ctx)?;
         writeln!(f)?;

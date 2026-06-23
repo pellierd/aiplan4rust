@@ -63,14 +63,19 @@ fn render_table(
                     .and_then(|&s| interner.resolve_symbol(s))
                     == Some(&label)
             }) {
-                for param in pred_def.parameters() {
-                    let type_name = ctx
-                        .problem
-                        .type_symbols()
-                        .get_ident(param.ty().members()[0])
-                        .and_then(|&s| interner.resolve_symbol(s))
-                        .unwrap_or("any");
-                    column_names.push(type_name.to_uppercase());
+                // --- CORRECTION : On passe par le store de manière safe ---
+                if let Some(params) = ctx.problem.store().get_typed_list(pred_def.parameters()) {
+                    for param in params.iter() {
+                        let type_name = ctx
+                            .problem
+                            .type_symbols()
+                            .get_ident(param.ty().members().get(0).copied().unwrap_or_default())
+                            .and_then(|&s| interner.resolve_symbol(s))
+                            .unwrap_or("any");
+                        column_names.push(type_name.to_uppercase());
+                    }
+                } else {
+                    column_names.push("UNKNOWN".to_string());
                 }
             }
         }
@@ -82,14 +87,19 @@ fn render_table(
                     .and_then(|&s| interner.resolve_symbol(s))
                     == Some(&label)
             }) {
-                for param in act_def.parameters() {
-                    let type_name = ctx
-                        .problem
-                        .type_symbols()
-                        .get_ident(param.ty().members()[0])
-                        .and_then(|&s| interner.resolve_symbol(s))
-                        .unwrap_or("any");
-                    column_names.push(type_name.to_uppercase());
+                // --- CORRECTION : Idem ici pour les actions ---
+                if let Some(params) = ctx.problem.store().get_typed_list(act_def.parameters()) {
+                    for param in params.iter() {
+                        let type_name = ctx
+                            .problem
+                            .type_symbols()
+                            .get_ident(param.ty().members().get(0).copied().unwrap_or_default())
+                            .and_then(|&s| interner.resolve_symbol(s))
+                            .unwrap_or("any");
+                        column_names.push(type_name.to_uppercase());
+                    }
+                } else {
+                    column_names.push("UNKNOWN".to_string());
                 }
             }
         }
