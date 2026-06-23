@@ -123,13 +123,15 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
             }
         };
 
+        // --- CORRECTIF : Au lieu de consommer le problème et d'isoler son store,
+        // on extrait le problème MAIS on utilise le store de lir_result qui contient
+        // toutes les TypedList enregistrées au préalable ! ---
         let pb = lir_result.take_lifted_problem().expect("No lifted problem");
 
         let table = analyze_inertia(&pb).expect("Inertia analysis failed");
         let registry = ValueRegistry::build(pb.type_defs().as_slice(), pb.object_defs().as_slice())
             .expect("Registry build failed");
 
-        // Fixed: The initial state expression proxy matches `fn new(root, store)`
         let init_expr = Expr::new(pb.init(), pb.store());
 
         let evaluator = InertiaEvaluator::build(
@@ -144,14 +146,19 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
         .expect("InertiaEvaluator build failed");
 
         let mut current_ok = true;
-        let mut local_store = ExprStore::new();
 
-        let pb_store = pb.store();
+        // MODIFICATION : Au lieu d'un `local_store` vide, on récupère le store complet
+        // du problème, qui contient l'armoire des TypedList (id: 1, 8, etc.)
+        // Si build_test_atom requiert un `&mut ExprStore`, on extrait le store mutable de lir_result
+        // ou on clone le store original si take_lifted_problem l'a rendu immuable.
+        // Option la plus robuste : Cloner le store du problème pour y ajouter nos atomes de test.
+        let mut test_store = pb.store().clone();
 
         for (idx, skel) in pb.predicate_defs().iter().enumerate() {
             let skel_id = AtomSkeletonId::from(idx);
             let inertia = table.get_predicate(skel_id).unwrap();
-            let parameters = pb_store
+            let parameters = pb
+                .store()
                 .fetch_typed_list(skel.parameters())
                 .expect("Parameters fetch failed");
             let arity = parameters.len();
@@ -165,17 +172,17 @@ pub fn test_evaluator_robustness(domain_dir: &Path) -> bool {
                     args_opts.push(val);
                 }
 
-                // 1. Construct the structural test atom inside a dedicated local store
+                // 1. CORRECTIF : On construit l'atome dans le store cloné qui possède l'historique des types
                 let (atom_id, _) =
-                    build_test_atom(&mut local_store, skel.predicate_id(), &args_opts, skel_id);
+                    build_test_atom(&mut test_store, skel.predicate_id(), &args_opts, skel_id);
 
-                // 2. Fixed: Wrap it using the correct `(id, store)` sequence matching your implementation
-                let test_expr = Expr::new(atom_id, &local_store);
+                // 2. CORRECTIF : L'expression pointe vers le store valide
+                let test_expr = Expr::new(atom_id, &test_store);
                 let res = evaluator
                     .evaluate(test_expr)
                     .expect("Evaluation failed when it should have succeeded");
 
-                // 3. Fixed: Oracle extraction directly inspecting the original problem's initial state
+                // 3. Oracle extraction (reste inchangé sur le store d'origine)
                 let atom_exists = is_fact_in_init(
                     pb.init(),
                     pb.store(),
