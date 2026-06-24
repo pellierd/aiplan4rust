@@ -158,6 +158,13 @@ macro_rules! impl_id_type_core {
             }
         }
 
+        impl From<&$id> for $id {
+            #[inline(always)]
+            fn from(id: &$id) -> Self {
+                *id
+            }
+        }
+
         impl From<$id> for usize {
             #[inline(always)]
             fn from(id: $id) -> Self {

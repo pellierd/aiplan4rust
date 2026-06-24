@@ -139,7 +139,7 @@ pub fn bind_with(
 
             let mut current_id = match entry_kind {
                 ExprKind::Variable(var_id) => {
-                    if let Some(obj_id) = sub.get(&var_id) {
+                    if let Some(obj_id) = sub.get(var_id) {
                         builder.object(obj_id)
                     } else {
                         old_id

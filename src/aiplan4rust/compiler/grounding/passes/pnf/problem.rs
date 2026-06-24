@@ -52,7 +52,7 @@ pub fn to_pnf_with_scratchpad(
     // --- 2. GLOBAL CONSTRAINTS ---
     // Domain and problem constraints act as global preconditions (`is_effect = false`)
     let old_domain_constraints = problem.domain_constraints();
-    let new_domain_constraints = expr::to_pnf_with_scratchpad(
+    let new_domain_constraints = expr::to_pnf_with(
         old_domain_constraints,
         &mut store,
         &mut negated_atoms,
@@ -62,7 +62,7 @@ pub fn to_pnf_with_scratchpad(
     problem.set_domain_constraints(new_domain_constraints);
 
     let old_problem_constraints = problem.problem_constraints();
-    let new_problem_constraints = expr::to_pnf_with_scratchpad(
+    let new_problem_constraints = expr::to_pnf_with(
         old_problem_constraints,
         &mut store,
         &mut negated_atoms,
@@ -93,7 +93,7 @@ pub fn to_pnf_with_scratchpad(
 
     // --- 6. PROBLEM INSTANCE SPECIFICS (Goal & Metrics) ---
     let old_goal = problem.goal();
-    let new_goal = expr::to_pnf_with_scratchpad(
+    let new_goal = expr::to_pnf_with(
         old_goal,
         &mut store,
         &mut negated_atoms,
@@ -103,7 +103,7 @@ pub fn to_pnf_with_scratchpad(
     problem.set_goal(new_goal);
 
     let old_metric = problem.metric_spec();
-    let new_metric = expr::to_pnf_with_scratchpad(
+    let new_metric = expr::to_pnf_with(
         old_metric,
         &mut store,
         &mut negated_atoms,
@@ -117,7 +117,7 @@ pub fn to_pnf_with_scratchpad(
         .initial_task_network()
         .task_network()
         .logical_constraints();
-    let new_htn_constraints = expr::to_pnf_with_scratchpad(
+    let new_htn_constraints = expr::to_pnf_with(
         current_htn_constraints,
         &mut store,
         &mut negated_atoms,

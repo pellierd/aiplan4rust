@@ -21,6 +21,7 @@ impl Bindings {
     ///
     /// # Returns
     /// A default initialized `Bindings` instance.
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
@@ -35,6 +36,7 @@ impl Bindings {
     ///
     /// # Returns
     /// A pre-allocated `Bindings` instance.
+    #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             mapping: HashMap::with_capacity(capacity),
@@ -49,6 +51,7 @@ impl Bindings {
     /// # Arguments
     /// * `var` - The target variable identifier ([`VariableId`]) to bind.
     /// * `obj` - The concrete domain object identifier ([`ObjectId`]) to map it to.
+    #[inline]
     pub fn insert(&mut self, var: VariableId, obj: ObjectId) {
         self.mapping.insert(var, obj);
     }
@@ -56,19 +59,21 @@ impl Bindings {
     /// Retrieves the concrete object bound to the given variable, if it exists.
     ///
     /// # Arguments
-    /// * `var` - A reference to the variable identifier being queried.
+    /// * `var` - The variable identifier being queried.
     ///
     /// # Returns
     /// * `Some(ObjectId)` - The copied object identifier if a mapping exists.
     /// * `None` - If the variable is currently unbound within this context.
-    pub fn get(&self, var: &VariableId) -> Option<ObjectId> {
-        self.mapping.get(var).copied()
+    #[inline]
+    pub fn get(&self, var: VariableId) -> Option<ObjectId> {
+        self.mapping.get(&var).copied()
     }
 
     /// Returns the total number of active variable bindings currently tracked.
     ///
     /// # Returns
     /// The size of the underlying mapping table.
+    #[inline]
     pub fn len(&self) -> usize {
         self.mapping.len()
     }
@@ -77,6 +82,7 @@ impl Bindings {
     ///
     /// # Returns
     /// A boolean flag signaling whether the internal map is empty.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.mapping.is_empty()
     }
@@ -85,6 +91,7 @@ impl Bindings {
     ///
     /// This method strips the mapping entries in-place while retaining the internal
     /// heap capacity allocations to minimize subsequent allocation pressure.
+    #[inline]
     pub fn clear(&mut self) {
         self.mapping.clear();
     }
@@ -92,12 +99,21 @@ impl Bindings {
     /// Returns `true` if the specified variable has an active mapping in this context.
     ///
     /// # Arguments
-    /// * `var` - A reference to the target variable identifier to check.
+    /// * `var` -The target variable identifier to check.
     ///
     /// # Returns
     /// A boolean flag indicating whether the key exists in the internal lookup table.
-    pub fn is_bound(&self, var: &VariableId) -> bool {
-        self.mapping.contains_key(var)
+    #[inline]
+    pub fn is_bound(&self, var: VariableId) -> bool {
+        self.contains(var)
+    }
+
+    /// Returns `true` if the specified variable has an active mapping in this context.
+    ///
+    /// This is the standard, idiomatic Rust lookup method.
+    #[inline]
+    pub fn contains(&self, var: VariableId) -> bool {
+        self.mapping.contains_key(&var)
     }
 }
 

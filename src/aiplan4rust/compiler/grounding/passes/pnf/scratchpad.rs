@@ -1,7 +1,7 @@
 use crate::aiplan4rust::compiler::lir::expr::ExprId;
 use fxhash::FxHashMap;
 
-/// A reusable, allocation-free scratchpad for PNF (Prenex Normal Form) transformations.
+/// A reusable, allocation-free scratchpad for PNF (Positive Normal Form) transformations.
 ///
 /// `PnfScratchpad` serves as a memory buffer to perform iterative, bottom-up tree walks and
 /// hash-consed reconstructions of expression trees. By retaining its allocated capacities
@@ -19,14 +19,23 @@ use fxhash::FxHashMap;
 #[derive(Default)]
 pub struct PnfScratchpad {
     /// Explicit execution stack tracking tuples of `(old_expr_id, in_condition, children_pushed)`.
-    pub(in crate::aiplan4rust) stack: Vec<(ExprId, bool, bool)>,
+    pub(crate) stack: Vec<(ExprId, bool, bool)>,
     /// Memoization cache mapping original expression IDs to their restructured PNF expression IDs.
-    pub(in crate::aiplan4rust) cache: FxHashMap<ExprId, ExprId>,
+    pub(crate) cache: FxHashMap<ExprId, ExprId>,
     /// Flattened reusable buffer for assembling and modifying child node pointers before interning.
-    pub(in crate::aiplan4rust) children_buffer: Vec<ExprId>,
+    pub(crate) children_buffer: Vec<ExprId>,
 }
 
 impl PnfScratchpad {
+    /// Initial capacity for the explicit non-recursive DFS traversal stack.
+    const STACK_CAPACITY: usize = 32;
+
+    /// Initial capacity for the expression PNF restructuring memoization cache.
+    const CACHE_CAPACITY: usize = 64;
+
+    /// Initial capacity for the child expression accumulation buffer.
+    const CHILDREN_BUFFER_CAPACITY: usize = 8;
+
     /// Creates a new `PnfScratchpad` initialized with conservative default capacities
     /// to minimize initial reallocations.
     ///
@@ -38,9 +47,9 @@ impl PnfScratchpad {
     /// ```
     pub fn new() -> Self {
         Self {
-            stack: Vec::with_capacity(32),
-            cache: FxHashMap::with_capacity_and_hasher(64, Default::default()),
-            children_buffer: Vec::with_capacity(8),
+            stack: Vec::with_capacity(Self::STACK_CAPACITY),
+            cache: FxHashMap::with_capacity_and_hasher(Self::CACHE_CAPACITY, Default::default()),
+            children_buffer: Vec::with_capacity(Self::CHILDREN_BUFFER_CAPACITY),
         }
     }
 

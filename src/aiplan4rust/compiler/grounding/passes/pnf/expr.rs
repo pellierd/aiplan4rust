@@ -27,7 +27,7 @@ pub fn to_pnf(
 ) -> Result<ExprId, GroundingError> {
     // Local scratchpad allocation for one-off conversions
     let mut scratchpad = PnfScratchpad::new();
-    to_pnf_with_scratchpad(expr_id, store, negated_atoms, &mut scratchpad, is_effect)
+    to_pnf_with(expr_id, store, negated_atoms, &mut scratchpad, is_effect)
 }
 
 /// Final lowering of an expression tree into its encoded PNF (Prenex Normal Form).
@@ -54,7 +54,7 @@ pub fn to_pnf(
 ///    fail-fast validation of NNF invariants.
 /// 2. **Upwards Phase**: Reconstructs the tree using the `ExprStore` hash-consing mechanism
 ///    to guarantee aggressive node deduplication without dynamic heap allocations.
-pub fn to_pnf_with_scratchpad(
+pub fn to_pnf_with(
     expr_id: ExprId,
     store: &mut ExprStore,
     negated_atoms: &mut Vec<AtomSkeletonId>,
@@ -212,7 +212,7 @@ pub fn to_pnf_with_scratchpad(
 #[cfg(test)]
 mod tests {
     use crate::aiplan4rust::compiler::grounding::error::GroundingError;
-    use crate::aiplan4rust::compiler::grounding::passes::pnf::expr::to_pnf_with_scratchpad;
+    use crate::aiplan4rust::compiler::grounding::passes::pnf::expr::to_pnf_with;
     use crate::aiplan4rust::compiler::grounding::passes::pnf::scratchpad::PnfScratchpad;
     use crate::aiplan4rust::compiler::lir::expr::{ExprKind, ExprStore};
     use crate::aiplan4rust::support::lang::{AtomSkeletonId, CompareOp};
@@ -244,7 +244,7 @@ mod tests {
         let not_id = store.intern(ExprKind::Not, &[atom_id]);
 
         // 2. Execution: Run the PNF transformation in logical/condition mode (is_effect = false)
-        let new_root_id = to_pnf_with_scratchpad(
+        let new_root_id = to_pnf_with(
             not_id,
             &mut store,
             &mut negated_atoms,
@@ -301,7 +301,7 @@ mod tests {
         let not_id = store.intern(ExprKind::Not, &[atom_id]);
 
         // 2. Execution: Run the PNF transformation in effect mode (is_effect = true)
-        let new_root_id = to_pnf_with_scratchpad(
+        let new_root_id = to_pnf_with(
             not_id,
             &mut store,
             &mut negated_atoms,
@@ -347,7 +347,7 @@ mod tests {
         let not_id = store.intern(ExprKind::Not, &[comp_id]);
 
         // 2. Execution: Run the PNF transformation
-        let new_root_id = to_pnf_with_scratchpad(
+        let new_root_id = to_pnf_with(
             not_id,
             &mut store,
             &mut negated_atoms,
@@ -401,7 +401,7 @@ mod tests {
         let not_id = store.intern(ExprKind::Not, &[imply_id]);
 
         // 2. Execution & Validation: The engine must reject unsupported nodes under a Not
-        let result = to_pnf_with_scratchpad(
+        let result = to_pnf_with(
             not_id,
             &mut store,
             &mut negated_atoms,
@@ -440,7 +440,7 @@ mod tests {
         let outer_not = store.intern(ExprKind::Not, &[inner_not]);
 
         // 2. Execution & Validation: The engine must reject direct (NOT NOT) structures
-        let result = to_pnf_with_scratchpad(
+        let result = to_pnf_with(
             outer_not,
             &mut store,
             &mut negated_atoms,
@@ -487,7 +487,7 @@ mod tests {
         let and_id = store.intern(ExprKind::And, &[not_atom_id, not_comp_id]);
 
         // 2. Execution: Run the PNF transformation
-        let new_root_id = to_pnf_with_scratchpad(
+        let new_root_id = to_pnf_with(
             and_id,
             &mut store,
             &mut negated_atoms,
@@ -549,7 +549,7 @@ mod tests {
         let not_id = store.intern(ExprKind::Not, &[atom_id]);
 
         // 2. Execution: Run the PNF transformation
-        let result = to_pnf_with_scratchpad(
+        let result = to_pnf_with(
             not_id,
             &mut store,
             &mut negated_atoms,
@@ -594,7 +594,7 @@ mod tests {
         }
 
         // 3. Execution: Convert the deep structure using the scratchpad
-        let new_root_id = to_pnf_with_scratchpad(
+        let new_root_id = to_pnf_with(
             current_id,
             &mut store,
             &mut negated_atoms,

@@ -61,37 +61,42 @@ impl<ID: Id> Type<ID> {
         Self::new()
     }
 
-    /// Creates an atomic (primitive) `Type` from a single identifier.
+    /// Creates an atomic (primitive) `Type` from a single identifier or raw index.
     ///
     /// # Parameters
-    /// - `id`: The unique identifier for the atomic type.
+    /// - `id`: Anything that can be converted into a unique identifier (e.g., `ID`, `usize`).
     ///
     /// # Returns
     /// A `Type` instance stored inline on the stack.
     #[inline]
-    pub fn primitive(id: ID) -> Self {
+    pub fn primitive<T: Into<ID>>(id: T) -> Self {
         Self {
-            members: smallvec::smallvec![id],
+            members: smallvec::smallvec![id.into()],
         }
     }
 
     /// Creates a compound `Type` representing a union of types (PDDL `either`).
     ///
     /// # Parameters
-    /// - `ids`: A slice of identifiers to be included in the union.
+    /// - `ids`: Any collection or iterator of elements that can convert into `ID`.
     ///
     /// # Returns
-    /// A `Type` instance. If `ids.len() <= OPTIMAL_TYPE_CAPACITY`, storage remains
+    /// A `Type` instance. If the count <= `OPTIMAL_TYPE_CAPACITY`, storage remains
     /// on the stack. Otherwise, it transparently spills to the heap.
     ///
     /// # Panics
-    /// Panics if the `ids` slice is empty, as PDDL unions must contain at least one member.
-    pub fn either(ids: &[ID]) -> Self {
-        assert!(!ids.is_empty(), "A PDDL 'either' type cannot be empty.");
+    /// Panics if the input is empty, as PDDL unions must contain at least one member.
+    pub fn either<T, I>(ids: I) -> Self
+    where
+        T: Into<ID>,
+        I: IntoIterator<Item = T>,
+    {
+        let members: SmallVec<[ID; OPTIMAL_TYPE_CAPACITY]> =
+            ids.into_iter().map(|id| id.into()).collect();
 
-        Self {
-            members: SmallVec::from_slice(ids),
-        }
+        assert!(!members.is_empty(), "A PDDL 'either' type cannot be empty.");
+
+        Self { members }
     }
 
     /// Appends a new atomic type to the current typing.

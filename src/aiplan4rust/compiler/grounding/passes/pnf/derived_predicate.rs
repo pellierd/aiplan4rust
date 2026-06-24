@@ -52,7 +52,7 @@ pub fn to_pnf_with_scratchpad(
     // We execute the pass with `is_effect = false` (initializing context as an evaluation condition).
     let old_body_id = predicate.body();
 
-    let new_body_id = expr::to_pnf_with_scratchpad(
+    let new_body_id = expr::to_pnf_with(
         old_body_id,
         store,
         negated_atoms,

@@ -2,7 +2,7 @@ use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprEvaluator;
 use crate::aiplan4rust::compiler::grounding::binding::BindingScratchpad;
 use crate::aiplan4rust::compiler::grounding::error::GroundingError;
 use crate::aiplan4rust::compiler::grounding::passes::qnf::{
-    action, derived_predicate, expr, method, ExpansionScratchpad,
+    action, derived_predicate, expr, method, QnfScratchpad,
 };
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
@@ -10,6 +10,14 @@ use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 /// Fully expands all logical quantifiers across the entire planning problem.
 ///
 /// This convenience wrapper calls [`expand_with`] without a static evaluator.
+///
+/// # Arguments
+/// * `problem` - A mutable reference to the `LiftedProblem` to be expanded.
+/// * `value_registry` - A reference to the `ValueRegistry` containing domain objects.
+///
+/// # Returns
+/// * `Ok(())` on success.
+/// * `Err(GroundingError)` if any part of the problem expansion fails.
 pub fn expand(
     problem: &mut LiftedProblem,
     value_registry: &ValueRegistry,
@@ -18,17 +26,26 @@ pub fn expand(
 }
 
 /// Fully expands logical quantifiers across the entire problem with optional simplification.
+///
+/// # Arguments
+/// * `problem` - A mutable reference to the `LiftedProblem` to be processed.
+/// * `value_registry` - A reference to the `ValueRegistry` listing available domain objects per type.
+/// * `evaluator` - An optional reference to an `ExprEvaluator` implementation for partial compile-time evaluation.
+///
+/// # Returns
+/// * `Ok(())` if the problem constraints, definitions, and goals were expanded successfully.
+/// * `Err(GroundingError)` if an error is encountered during the grounding of any expression or definition.
 pub fn expand_with(
     problem: &mut LiftedProblem,
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn ExprEvaluator>,
 ) -> Result<(), GroundingError> {
-    // --- ALLOCATION UNIQUE DES SCRATCHPADS POUR TOUT LE PROBLÈME ---
+    // --- SINGLE ALLOCATION OF SCRATCHPADS FOR THE ENTIRE PROBLEM ---
     let mut binding_scratchpad = BindingScratchpad::new();
-    let mut expansion_scratchpad = ExpansionScratchpad::new();
+    let mut expansion_scratchpad = QnfScratchpad::new();
 
-    // 1. Extraction complète de la propriété du store (Take ownership)
-    // `problem` est libéré de tout emprunt lié au store pour la suite.
+    // 1. Fully extract ownership of the expression store.
+    // This frees the `problem` reference from any borrow conflicts related to the store.
     let mut store = problem.take_store();
 
     // --- 2. Global Constraints ---
@@ -127,7 +144,7 @@ pub fn expand_with(
         .task_network_mut()
         .set_logical_constraints(new_htn_constraints);
 
-    // 8. Réinjection finale du store mis à jour dans le problème (Restore)
+    // 8. Re-inject the updated expression store back into the problem (Restore)
     problem.set_store(store);
 
     Ok(())

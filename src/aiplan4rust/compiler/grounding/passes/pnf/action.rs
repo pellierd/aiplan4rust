@@ -51,7 +51,7 @@ pub fn to_pnf_with_scratchpad(
     // 1. Process and lower the action preconditions
     // We pass `is_effect = false` (initializing context as an evaluation condition)
     let old_precondition_id = action.precondition();
-    let new_precondition_id = expr::to_pnf_with_scratchpad(
+    let new_precondition_id = expr::to_pnf_with(
         old_precondition_id,
         store,
         negated_atoms,
@@ -63,7 +63,7 @@ pub fn to_pnf_with_scratchpad(
     // 2. Process and lower the action effects
     // We pass `is_effect = true` (initializing context as a structural mutation/delete effect)
     let old_effect_id = action.effect();
-    let new_effect_id = expr::to_pnf_with_scratchpad(
+    let new_effect_id = expr::to_pnf_with(
         old_effect_id,
         store,
         negated_atoms,
@@ -74,7 +74,7 @@ pub fn to_pnf_with_scratchpad(
 
     // 3. Process and lower the action duration constraints if they exist
     if let Some(duration_id) = action.duration() {
-        let new_duration_id = expr::to_pnf_with_scratchpad(
+        let new_duration_id = expr::to_pnf_with(
             duration_id,
             store,
             negated_atoms,

@@ -960,7 +960,7 @@ impl<'a> DatalogEngine<'a> {
                 // Pour chaque paramètre du prédicat (ex: ?p puis ?a)
                 for param in parameters {
                     // On demande au dictionnaire : "C'est quoi l'ID de l'objet pour ?p ?"
-                    if let Some(obj_id) = bindings.get(&param.symbol()) {
+                    if let Some(obj_id) = bindings.get(param.symbol()) {
                         // On l'ajoute au buffer : [10, 50]
                         self.head_buffer.push(obj_id);
                     }

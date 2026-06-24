@@ -66,8 +66,8 @@ fn test_iterator_basic_product_with_registry() {
         assert_eq!(bindings.len(), 2);
 
         // Ensure both variables are correctly bound in the resulting Bindings object
-        assert!(bindings.is_bound(&VariableId::from(0)));
-        assert!(bindings.is_bound(&VariableId::from(1)));
+        assert!(bindings.is_bound(VariableId::from(0)));
+        assert!(bindings.is_bound(VariableId::from(1)));
     }
 
     // Verify that all 4 expected combinations were visited
@@ -108,10 +108,10 @@ fn test_iterator_direct_constants() {
 
     // 4. Validate the specific sequence of generated bindings
     // First iteration: expected ObjectId(0)
-    assert_eq!(it.next().unwrap().get(&var0), Some(ObjectId::from(0)));
+    assert_eq!(it.next().unwrap().get(var0), Some(ObjectId::from(0)));
 
     // Second iteration: expected ObjectId(1)
-    assert_eq!(it.next().unwrap().get(&var0), Some(ObjectId::from(1)));
+    assert_eq!(it.next().unwrap().get(var0), Some(ObjectId::from(1)));
 
     // End of domain reached
     assert!(it.next().is_none());
@@ -162,8 +162,8 @@ fn test_skip_at_logic() {
     let res = it.next().expect("Should have element after skip");
 
     // Check that Var0 was incremented and Var1 was reset
-    assert_eq!(res.get(&var0), Some(ObjectId::from(1)));
-    assert_eq!(res.get(&var1), Some(ObjectId::from(0)));
+    assert_eq!(res.get(var0), Some(ObjectId::from(1)));
+    assert_eq!(res.get(var1), Some(ObjectId::from(0)));
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn test_reset_and_consistency() {
 
     // The iterator must start over from the beginning of the domain
     let res = it.next().unwrap();
-    assert_eq!(res.get(&VariableId::from(0)), Some(ObjectId::from(0)));
+    assert_eq!(res.get(VariableId::from(0)), Some(ObjectId::from(0)));
 }
 
 #[test]
