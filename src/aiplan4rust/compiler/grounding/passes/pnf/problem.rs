@@ -6,24 +6,24 @@ use crate::aiplan4rust::compiler::grounding::passes::pnf::{
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
-/// Fully applies the Prenex Normal Form (PNF) transformation across the entire planning problem.
+/// Fully applies the Positive Normal Form (PNF) transformation across the entire planning problem.
 ///
-/// Convenient entry point wrapper around [`to_pnf_with_scratchpad`] that automatically
+/// Convenient entry point wrapper around [`to_pnf_with`] that automatically
 /// allocates a temporary, local [`PnfScratchpad`] on the fly.
 ///
 /// # Layout and Optimizations
 ///
 /// While this function is ideal for one-off conversions or isolated test cases,
 /// batch-processing pipelines handling massive sets of problems should favor
-/// calling [`to_pnf_with_scratchpad`] directly with a single, retained scratchpad
+/// calling [`to_pnf_with`] directly with a single, retained scratchpad
 /// to maximize performance and guarantee zero heap allocations.
 pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, GroundingError> {
     // Allocate a localized buffer stack and memoization cache for this single pass
     let mut scratchpad = PnfScratchpad::new();
-    to_pnf_with_scratchpad(problem, &mut scratchpad)
+    to_pnf_with(problem, &mut scratchpad)
 }
 
-/// Fully applies the Prenex Normal Form (PNF) transformation across the entire planning problem.
+/// Fully applies the Positive Normal Form (PNF) transformation across the entire planning problem.
 ///
 /// This master function processes every expression sub-tree within the problem instance
 /// (domain constraints, actions, HTN methods, derived predicates, goals, metrics, and task networks),
@@ -36,9 +36,11 @@ pub fn to_pnf(problem: &mut LiftedProblem) -> Result<Vec<AtomSkeletonId>, Ground
 ///   allowing fluid, simultaneous mutation of both the definition structures and the shared store.
 /// * **Zero-Allocation Pipeline**: Reuses a single, pre-allocated [`PnfScratchpad`] throughout
 ///   the entire sequence to guarantee completely zero dynamic reallocations.
+/// * **SIMD-Driven Cache Reset**: The scratchpad's dual array tables are automatically synchronized
+///   and swept sequentially using ultra-fast compiler memsets inside the sub-tree passes.
 /// * **Global Canonical Tracking**: Accumulates all absorbed negated atoms into a single, comprehensive
 ///   vector returned upon successful completion.
-pub fn to_pnf_with_scratchpad(
+pub fn to_pnf_with(
     problem: &mut LiftedProblem,
     scratchpad: &mut PnfScratchpad,
 ) -> Result<Vec<AtomSkeletonId>, GroundingError> {
@@ -57,7 +59,7 @@ pub fn to_pnf_with_scratchpad(
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // is_effect = false
+        false, // is_effect = false -> evaluation condition
     )?;
     problem.set_domain_constraints(new_domain_constraints);
 
@@ -67,28 +69,23 @@ pub fn to_pnf_with_scratchpad(
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // is_effect = false
+        false, // is_effect = false -> evaluation condition
     )?;
     problem.set_problem_constraints(new_problem_constraints);
 
     // --- 3. LIFTED DEFINITIONS (Derived Predicates) ---
     for derived in problem.derived_predicate_defs_mut() {
-        derived_predicate::to_pnf_with_scratchpad(
-            derived,
-            &mut store,
-            &mut negated_atoms,
-            scratchpad,
-        )?;
+        derived_predicate::to_pnf_with(derived, &mut store, &mut negated_atoms, scratchpad)?;
     }
 
     // --- 4. LIFTED DEFINITIONS (Actions) ---
     for action_def in problem.action_defs_mut() {
-        action::to_pnf_with_scratchpad(action_def, &mut store, &mut negated_atoms, scratchpad)?;
+        action::to_pnf_with(action_def, &mut store, &mut negated_atoms, scratchpad)?;
     }
 
     // --- 5. LIFTED DEFINITIONS (HTN Methods) ---
     for method_def in problem.method_defs_mut() {
-        method::to_pnf_with_scratchpad(method_def, &mut store, &mut negated_atoms, scratchpad)?;
+        method::to_pnf_with(method_def, &mut store, &mut negated_atoms, scratchpad)?;
     }
 
     // --- 6. PROBLEM INSTANCE SPECIFICS (Goal & Metrics) ---

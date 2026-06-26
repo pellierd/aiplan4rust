@@ -1,27 +1,27 @@
 use crate::aiplan4rust::compiler::lir::expr::ExprId;
-use fxhash::FxHashMap;
 
-/// A reusable, allocation-free scratchpad for PNF (Positive Normal Form) transformations.
+/// A reusable, allocation-free scratchpad for PNF/NNF transformations using dual flat lookup tables.
 ///
 /// `PnfScratchpad` serves as a memory buffer to perform iterative, bottom-up tree walks and
-/// hash-consed reconstructions of expression trees. By retaining its allocated capacities
-/// across multiple compiler passes via the [`clear`](Self::clear) method, it completely
-/// eliminates dynamic heap allocations on the critical path.
+/// hash-consed reconstructions of expression trees. By mirroring the linear layout of the
+/// `ExprStore` via dual flat `Vec` arenas, it eliminates both dynamic heap allocations and
+/// hashing overhead on the critical path.
 ///
 /// # Layout and Optimizations
 ///
 /// * **Stack-driven traversal**: Replaces recursive execution with an explicit data stack to guarantee
 ///   immunity against stack overflows on deeply nested syntax trees.
-/// * **Fast Integer Hashing**: Employs `FxHashMap` (a non-cryptographic, high-performance hasher)
-///   optimized specifically for primitive integer-like keys such as [`ExprId`].
+/// * **Flat O(1) Array Indexing**: Replaces `FxHashMap` lookup with direct array indexing (`cache[id]`),
+///   leveraging the fact that `ExprId` matches sequential arena indices to achieve maximum CPU cache locality.
 /// * **Lazy buffer caching**: Contains pre-allocated vector fields designed for scratch operations,
 ///   such as structural node tracking and child slice updates.
-#[derive(Default)]
 pub struct PnfScratchpad {
     /// Explicit execution stack tracking tuples of `(old_expr_id, in_condition, children_pushed)`.
     pub(crate) stack: Vec<(ExprId, bool, bool)>,
-    /// Memoization cache mapping original expression IDs to their restructured PNF expression IDs.
-    pub(crate) cache: FxHashMap<ExprId, ExprId>,
+    /// Memoization cache for downward conditional context (`in_condition = true`).
+    pub(crate) cache_true: Vec<ExprId>,
+    /// Memoization cache for downward effect context (`in_condition = false`).
+    pub(crate) cache_false: Vec<ExprId>,
     /// Flattened reusable buffer for assembling and modifying child node pointers before interning.
     pub(crate) children_buffer: Vec<ExprId>,
 }
@@ -29,9 +29,6 @@ pub struct PnfScratchpad {
 impl PnfScratchpad {
     /// Initial capacity for the explicit non-recursive DFS traversal stack.
     const STACK_CAPACITY: usize = 32;
-
-    /// Initial capacity for the expression PNF restructuring memoization cache.
-    const CACHE_CAPACITY: usize = 64;
 
     /// Initial capacity for the child expression accumulation buffer.
     const CHILDREN_BUFFER_CAPACITY: usize = 8;
@@ -48,19 +45,33 @@ impl PnfScratchpad {
     pub fn new() -> Self {
         Self {
             stack: Vec::with_capacity(Self::STACK_CAPACITY),
-            cache: FxHashMap::with_capacity_and_hasher(Self::CACHE_CAPACITY, Default::default()),
+            cache_true: Vec::new(),
+            cache_false: Vec::new(),
             children_buffer: Vec::with_capacity(Self::CHILDREN_BUFFER_CAPACITY),
         }
     }
 
-    /// Clears all internal buffers, resetting their logical lengths to zero while
-    /// completely retaining the underlying heap-allocated capacities.
+    /// Clears all internal buffers and resizes the dual cache maps to match the current `ExprStore` topology.
     ///
-    /// This method must be called at the entry point of every independent PNF lowering pass
-    /// to avoid state leakage and preserve optimal throughput.
-    pub fn clear(&mut self) {
+    /// The memory contents are zeroed/reset using highly-optimized SIMD-vectorized `.fill()` blocks,
+    /// ensuring zero dynamic allocations once the underlying capacities stabilize.
+    ///
+    /// # Parameters
+    ///
+    /// * `store_len` - The total number of unique registered expressions currently sitting in the `ExprStore`.
+    pub fn clear(&mut self, store_len: usize) {
         self.stack.clear();
-        self.cache.clear(); // Recycles allocated buckets without triggering drop/realloc overhead
         self.children_buffer.clear();
+
+        // ExprId::default() acts as our ExprId::NONE sentinel
+        let default_id = ExprId::default();
+
+        // Resize the dual vector arenas if the store has grown (rarely triggers reallocs after warmup)
+        self.cache_true.resize(store_len, default_id);
+        self.cache_false.resize(store_len, default_id);
+
+        // Blazing-fast sequential memory sweep (compiles down to an optimized memset/SIMD loop)
+        self.cache_true.fill(default_id);
+        self.cache_false.fill(default_id);
     }
 }

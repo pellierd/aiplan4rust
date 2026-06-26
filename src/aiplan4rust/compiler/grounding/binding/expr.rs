@@ -14,6 +14,9 @@ pub fn bind(
     store: &mut ExprStore,
     sub: &Bindings,
 ) -> Result<(ExprId, Option<VariableId>), BindingError> {
+    if expr_id.is_none() {
+        return Ok((expr_id, None));
+    }
     let mut scratchpad = BindingScratchpad::new();
     bind_with(expr_id, store, sub, None, &mut scratchpad)
 }

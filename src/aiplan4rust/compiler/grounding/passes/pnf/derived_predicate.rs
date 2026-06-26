@@ -5,16 +5,16 @@ use crate::aiplan4rust::compiler::lir::expr::ExprStore;
 use crate::aiplan4rust::compiler::lir::problem::DerivedPredicateDef;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
-/// Applies the Prenex Normal Form (PNF) transformation to a derived predicate definition.
+/// Applies the Positive Normal Form (PNF) transformation to a derived predicate definition.
 ///
-/// Convenient entry point wrapper around [`to_pnf_with_scratchpad`] that automatically
+/// Convenient entry point wrapper around [`to_pnf_with`] that automatically
 /// allocates a temporary, local [`PnfScratchpad`] on the fly.
 ///
 /// # Layout and Optimizations
 ///
 /// While this function is ideal for one-off conversions or isolated test cases,
 /// batch-processing pipelines handling massive sets of derived predicates should favor
-/// calling [`to_pnf_with_scratchpad`] directly with a single, retained scratchpad
+/// calling [`to_pnf_with`] directly with a single, retained scratchpad
 /// to maximize performance and guarantee zero heap allocations.
 pub fn to_pnf(
     predicate: &mut DerivedPredicateDef,
@@ -23,10 +23,10 @@ pub fn to_pnf(
 ) -> Result<(), GroundingError> {
     // Allocate a localized buffer stack and memoization cache for this single pass
     let mut scratchpad = PnfScratchpad::new();
-    to_pnf_with_scratchpad(predicate, store, negated_atoms, &mut scratchpad)
+    to_pnf_with(predicate, store, negated_atoms, &mut scratchpad)
 }
 
-/// Applies the Prenex Normal Form (PNF) transformation to a derived predicate definition.
+/// Applies the Positive Normal Form (PNF) transformation to a derived predicate definition.
 ///
 /// Derived predicates define a logical formula (the body) that implies the predicate head.
 /// This method processes the entire logical body to eliminate structural negation and rewrite
@@ -39,10 +39,11 @@ pub fn to_pnf(
 ///
 /// * **Context Isolation**: Since a derived predicate body defines a pure logical condition
 ///   rather than an execution effect, `is_effect` is strictly set to `false`.
-/// * **Accumulative Logging**: The `scratchpad` cache is cleared transparently between
-///   sub-tree passes, while the global `negated_atoms` vector continuously accumulates
+/// * **SIMD-Driven Cache Reset**: The `scratchpad` internal lookup arenas are zeroed out via fast
+///   sequential memory sweeps during the internal `expr::to_pnf_with` clear calls, ensuring zero fragmentation.
+/// * **Accumulative Logging**: The global `negated_atoms` vector continuously accumulates
 ///   every single absorbed atom across the entire derived predicate definition.
-pub fn to_pnf_with_scratchpad(
+pub fn to_pnf_with(
     predicate: &mut DerivedPredicateDef,
     store: &mut ExprStore,
     negated_atoms: &mut Vec<AtomSkeletonId>,
@@ -57,7 +58,7 @@ pub fn to_pnf_with_scratchpad(
         store,
         negated_atoms,
         scratchpad,
-        false, // is_effect = false
+        false, // is_effect = false -> context is a pure query condition
     )?;
 
     // Update the derived predicate body with the newly restructured and interned expression ID

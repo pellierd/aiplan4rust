@@ -4,56 +4,70 @@ use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
-/// Final lowering of an expression tree into its encoded PNF (Prenex Normal Form).
+/// Final lowering of an expression tree into its encoded NNF (Negation Normal Form) via Negation Absorption.
 ///
-/// Convenient entry point that allocates a temporary scratchpad on the fly.
+/// Convenient entry point that allocates a temporary, high-performance dual-cached scratchpad on the fly.
+/// For loops or intensive grounding paths, prefer using [`to_pnf_with`] directly with a shared scratchpad
+/// to eliminate dynamic allocations completely.
 ///
 /// # Preconditions
 ///
-/// This function assumes that the expression tree has already undergone the following normalization passes:
-/// 1. **NNF (Negation Normal Form)**: Negation operators (`Not`) must strictly and directly target
-///    terminal literals (atoms or comparisons). No negation is allowed to sit above a
-///    quantifier (`Forall`, `Exists`) or a logical connective (`And`, `Or`).
-/// 2. **QNF (Quantifier Normal Form / Variable Standardization)**: All variables bound by quantifiers
-///    must have been uniquely renamed to avoid any accidental variable capture or collision
-///    when pulling quantifiers towards the root level.
+/// This function assumes that the expression tree adheres to the following structural constraints:
 ///
-/// If these preconditions are violated, the function will immediately return a [`GroundingError`].
+/// 1. **Well-Formed Tree Structure**: Complex logical operators like `Imply` must be eliminated prior to this pass.
+/// 2. **Negation Constraints**: Negations (`Not`) must strictly target literal leaves (atoms or comparisons) within
+///    condition contexts. Nested structures like `Not(And(...))` or double negations will result in a [`GroundingError`].
+///
+/// If these structural invariants are violated, the function will immediately return a [`GroundingError`].
 pub fn to_pnf(
     expr_id: ExprId,
     store: &mut ExprStore,
     negated_atoms: &mut Vec<AtomSkeletonId>,
     is_effect: bool,
 ) -> Result<ExprId, GroundingError> {
+    // SAFETY: If the starting ID is invalid or marked as "None"
+    if expr_id.is_none() {
+        return Ok(expr_id);
+    }
     // Local scratchpad allocation for one-off conversions
     let mut scratchpad = PnfScratchpad::new();
     to_pnf_with(expr_id, store, negated_atoms, &mut scratchpad, is_effect)
 }
 
-/// Final lowering of an expression tree into its encoded PNF (Prenex Normal Form).
+/// Final lowering of an expression tree into its encoded NNF (Negation Normal Form) via Negation Absorption.
 ///
 /// Reconstructs the tree bottom-up using hash-consing and returns the new [`ExprId`].
 ///
 /// # Preconditions
 ///
-/// The PNF conversion algorithm relies on strict structural invariants of the source tree:
+/// The NNF conversion and absorption algorithm relies on strict structural invariants:
 ///
-/// * **NNF (Negation Normal Form)**: Complex negations (e.g., double negations `Not(Not(...))` or
-///   negated logical blocks `Not(And(...))`) are forbidden. The algorithm processes negations
-///   by direct absorption into the atom's bit-mask. Encountering a non-positive structure
-///   will immediately return a `StorerError::invalid_node` error.
-/// * **QNF (Quantifier Normal Form / Variable Standardization)**: Each quantifier must possess
-///   a unique variable identifier across the entire expression. Otherwise, pulling quantifiers
-///   to the root level will destroy the original semantics via accidental variable capture.
+/// * **QNF / Quantifier Normal Form (Optional/Flexible)**: If quantifiers (`ForallNew`, `ExistsNew`)
+///   are present, they are safely traversed, and their child scopes inherit the correct logical context.
+///   However, complex logical connectives like `Imply` must be entirely eliminated prior to this pass.
+/// * **Well-Formed NNF Structure**: Complex nested negations directly targeting non-literal blocks
+///   (e.g., `Not(And(...))` or double negations `Not(Not(...))`) within a condition context are forbidden
+///   and will immediately return a `StorerError::invalid_node` error.
+///
+/// # Layout & Performance Optimizations
+///
+/// * **Dual Flat Lookup Tables**: Replaces traditional `HashMap` caches with dual pre-allocated `Vec` fields
+///   (`cache_true` and `cache_false`) within the scratchpad. Since `ExprId` matches sequential arena indices,
+///   cache lookups and mutations achieve a raw temporal complexity of **O(1)** with maximum hardware prefetching locality.
+/// * **Zero-Allocation Critical Path**: The scratchpad caches are resized and reset sequentially using SIMD-vectorized
+///   `.fill()` operations synchronized with the current `ExprStore::len()`, avoiding heap fragmentation during grounding loops.
+/// * **Lazy Copying**: Avoids writing to the scratchpad's child accumulation buffers until a structural change
+///   (negation absorption) is explicitly detected, allowing unchanged sub-trees to be mirrored in $O(1)$.
 ///
 /// # Algorithm
 ///
-/// The process is strictly iterative (backed by an explicit stack) to prevent stack overflows
-/// on deeply nested expression trees. It operates in a two-phase sequence:
-/// 1. **Downwards Phase**: Propagates the logical context (`in_condition`) and performs
-///    fail-fast validation of NNF invariants.
-/// 2. **Upwards Phase**: Reconstructs the tree using the `ExprStore` hash-consing mechanism
-///    to guarantee aggressive node deduplication without dynamic heap allocations.
+/// The process is strictly iterative (backed by an explicit stack) to prevent stack overflows on deeply nested
+/// PDDL/HDDL syntax trees. It operates in a two-phase sequence:
+///
+/// 1. **Downwards Phase**: Propagates the logical evaluation context (`in_condition`, distinguishing between
+///    preconditions and effects/delete-effects) and performs fail-fast cache hits.
+/// 2. **Upwards Phase**: Absorbs valid negations directly into the atom's bit-mask (`set_negated(true)`)
+///    and reconstructs the updated tree nodes via `ExprStore` interning.
 pub fn to_pnf_with(
     expr_id: ExprId,
     store: &mut ExprStore,
@@ -61,18 +75,39 @@ pub fn to_pnf_with(
     scratchpad: &mut PnfScratchpad,
     is_effect: bool,
 ) -> Result<ExprId, GroundingError> {
-    scratchpad.clear();
+    // SAFETY: If the starting ID is invalid or marked as "None"
+    if expr_id.is_none() {
+        return Ok(expr_id);
+    }
+
+    // Cache resize optimization: Resize the scratchpad caches to match the current ExprStore length
+    scratchpad.clear(store.len());
+
+    // Sentinel de détection (équivalent à ExprId::NONE ou ton ExprId par défaut)
+    let default_id = ExprId::default();
 
     // Bootstrap the stack: (ExprId, InCondition, ChildrenPushed)
     scratchpad.stack.push((expr_id, !is_effect, false));
 
     while let Some((old_id, in_condition, children_pushed)) = scratchpad.stack.pop() {
+        let old_idx = old_id.as_usize();
+
         if !children_pushed {
             // --- 1. DOWNWARDS PHASE (CONTEXT PROPAGATION & VALIDATION) ---
+
+            // Extraction directe O(1) de la bonne table de cache selon le contexte descendant
+            let cache = if in_condition {
+                &scratchpad.cache_true
+            } else {
+                &scratchpad.cache_false
+            };
+            if cache[old_idx] != default_id {
+                continue;
+            }
+
             // Re-push current node with children_pushed=true to process it during the upwards phase
             scratchpad.stack.push((old_id, in_condition, true));
 
-            // Copy-by-dereference since ExprKind is Copy (Zero-Allocation / DOD optimization)
             let entry_kind = *store[old_id].kind();
             match entry_kind {
                 ExprKind::Not => {
@@ -118,20 +153,37 @@ pub fn to_pnf_with(
                     }
                 }
                 ExprKind::Imply => {
-                    // Imply nodes must be eliminated prior to PNF conversion
                     return Err(StorerError::invalid_node(old_id).into());
                 }
                 _ => {} // Terminal/leaf nodes require no children expansion
             }
         } else {
             // --- 2. UPWARDS PHASE (HASH-CONSED RECONSTRUCTION) ---
+
+            let cache = if in_condition {
+                &scratchpad.cache_true
+            } else {
+                &scratchpad.cache_false
+            };
+            if cache[old_idx] != default_id {
+                continue;
+            }
+
             let entry_kind = *store[old_id].kind();
 
             let new_id = match entry_kind {
                 ExprKind::Not => {
                     if in_condition {
                         let child_id = *store[old_id].children().first().unwrap();
-                        let new_child_id = *scratchpad.cache.get(&child_id).unwrap_or(&child_id);
+
+                        // Lecture O(1) de la version transformée du fils
+                        let cached_child = scratchpad.cache_true[child_id.as_usize()];
+                        let new_child_id = if cached_child != default_id {
+                            cached_child
+                        } else {
+                            child_id
+                        };
+
                         let child_kind = *store[new_child_id].kind();
 
                         match child_kind {
@@ -149,16 +201,19 @@ pub fn to_pnf_with(
                                 // Intern the newly modified negated atom
                                 store.intern(ExprKind::AtomicFormula(atom_id), &[])
                             }
-                            ExprKind::Comparison(_) => {
-                                // Comparisons cannot absorb negation directly; fallback to standard interning
-                                store.intern(ExprKind::Not, &[new_child_id])
-                            }
+                            ExprKind::Comparison(_) => store.intern(ExprKind::Not, &[new_child_id]),
                             _ => return Err(StorerError::invalid_node(new_child_id).into()),
                         }
                     } else {
-                        // Outside a condition (e.g., Delete Effect), preserve standard Not structure
+                        // Outside a condition (Delete Effect), preserve standard Not structure
                         let child_id = *store[old_id].children().first().unwrap();
-                        let new_child_id = *scratchpad.cache.get(&child_id).unwrap_or(&child_id);
+                        let cached_child = scratchpad.cache_false[child_id.as_usize()];
+                        let new_child_id = if cached_child != default_id {
+                            cached_child
+                        } else {
+                            child_id
+                        };
+
                         store.intern(ExprKind::Not, &[new_child_id])
                     }
                 }
@@ -170,16 +225,25 @@ pub fn to_pnf_with(
                         let mut has_changed = false;
                         scratchpad.children_buffer.clear();
 
-                        // Lazy Copying Optimization: Avoid writing to scratchpad buffer until a structural change is detected
+                        // Lazy Copying Optimization via flat lookup table mapping
+                        let active_cache = if in_condition {
+                            &scratchpad.cache_true
+                        } else {
+                            &scratchpad.cache_false
+                        };
+
                         for (idx, &child_id) in old_children.iter().enumerate() {
-                            let new_child_id =
-                                *scratchpad.cache.get(&child_id).unwrap_or(&child_id);
+                            let cached_child = active_cache[child_id.as_usize()];
+                            let new_child_id = if cached_child != default_id {
+                                cached_child
+                            } else {
+                                child_id
+                            };
 
                             if has_changed {
                                 scratchpad.children_buffer.push(new_child_id);
                             } else if new_child_id != child_id {
                                 has_changed = true;
-                                // Catch up by copying all preceding unchanged children at once
                                 scratchpad
                                     .children_buffer
                                     .extend_from_slice(&old_children[..idx]);
@@ -188,7 +252,6 @@ pub fn to_pnf_with(
                         }
 
                         if has_changed {
-                            // Intern the node with its updated children IDs
                             store.intern(entry_kind, &scratchpad.children_buffer)
                         } else {
                             old_id
@@ -197,8 +260,13 @@ pub fn to_pnf_with(
                 }
             };
 
-            // Memoize the mapping from the old expression ID to the new PNF expression ID
-            scratchpad.cache.insert(old_id, new_id);
+            // Écriture directe O(1) dans la table mutable appropriée
+            let cache_mut = if in_condition {
+                &mut scratchpad.cache_true
+            } else {
+                &mut scratchpad.cache_false
+            };
+            cache_mut[old_idx] = new_id;
         }
     }
 
@@ -206,7 +274,19 @@ pub fn to_pnf_with(
     negated_atoms.sort_unstable();
     negated_atoms.dedup();
 
-    Ok(*scratchpad.cache.get(&expr_id).unwrap_or(&expr_id))
+    // Résolution finale de la racine
+    let final_cache = if !is_effect {
+        &scratchpad.cache_true
+    } else {
+        &scratchpad.cache_false
+    };
+    let final_root = final_cache[expr_id.as_usize()];
+
+    Ok(if final_root != default_id {
+        final_root
+    } else {
+        expr_id
+    })
 }
 
 #[cfg(test)]

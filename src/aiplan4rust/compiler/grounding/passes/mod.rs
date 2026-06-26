@@ -38,4 +38,4 @@ pub use qnf::problem::expand_with;
 
 
 pub use pnf::problem::to_pnf;
-pub use pnf::problem::to_pnf_with_scratchpad;
+pub use pnf::problem::to_pnf_with;
