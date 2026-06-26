@@ -34,20 +34,37 @@ pub fn bind_with(
     evaluator: Option<&dyn ExprEvaluator>,
     scratchpad: &mut BindingScratchpad,
 ) -> Result<(ExprId, Option<VariableId>), BindingError> {
+    // 🛡️ SÉCURITÉ : Si l'ID de départ est invalide ou marqué comme "None"
+    if expr_id.is_none() {
+        return Ok((expr_id, None));
+    }
     scratchpad.clear();
 
-    // On initialise notre builder unique pour l'interning
     let mut builder = ExprBuilder::new(store);
-
-    // Amorçage du parcours itératif avec la racine
     scratchpad.stack.push((expr_id, false));
 
     while let Some((old_id, children_pushed)) = scratchpad.stack.pop() {
         if !children_pushed {
             // --- PREMIER PASSAGE : Descente ---
-
-            // Sécurité DAG
             if scratchpad.substitution_map.contains_key(&old_id) {
+                continue;
+            }
+
+            // 🎯 OPTIMISATION MAÎTRESSE : Court-circuit par Variables Libres (O(1))
+            let free_vars = builder.store.get_free_vars(old_id);
+            let mut holds_target_vars = false;
+
+            // CORRECTION : On extrait var_id en copiant la valeur référencée par l'itérateur
+            for &var_id in sub.keys() {
+                if free_vars.contains(var_id) {
+                    holds_target_vars = true;
+                    break;
+                }
+            }
+
+            if !holds_target_vars && evaluator.is_none() {
+                // Évite d'explorer les enfants, le sous-arbre est figé
+                scratchpad.substitution_map.insert(old_id, (old_id, None));
                 continue;
             }
 
@@ -61,24 +78,19 @@ pub fn bind_with(
             }
         } else {
             // --- SECOND PASSAGE : Remontée ---
-
-            // Sécurité DAG
             if scratchpad.substitution_map.contains_key(&old_id) {
                 continue;
             }
 
-            // Isolation de l'emprunt immuable
-            let (entry_kind, has_children) = {
-                let entry = &builder.store[old_id];
-                (entry.kind().clone(), !entry.children().is_empty())
-            };
+            // Évite le clone de l'enum complet, on travaille par référence sur le Kind
+            let entry_kind = builder.store[old_id].kind();
+            let has_children = !builder.store[old_id].children().is_empty();
 
             let mut has_changed = false;
             let mut inherited_culprit = None;
-            let mut multiple_or_culprits = false; // Flag de sécurité pour la disjonction
+            let mut multiple_or_culprits = false;
             scratchpad.children_buffer.clear();
 
-            // Si le nœud a des enfants, on collecte leurs correspondances mises à jour
             if has_children {
                 let entry = &builder.store[old_id];
                 for &child_id in entry.children() {
@@ -95,12 +107,9 @@ pub fn bind_with(
                             }
                         }
 
-                        // Analyse et propagation fine du coupable selon l'opérateur courant
                         if let Some(var_id) = child_culprit {
                             match entry_kind {
                                 ExprKind::And => {
-                                    // CORRECTION : On ne capture le coupable d'effondrement que si
-                                    // aucun coupable n'a encore été enregistré pour ce AND.
                                     if builder.store[new_child_id].kind() == &ExprKind::Or
                                         && builder.store[new_child_id].children().is_empty()
                                     {
@@ -131,15 +140,14 @@ pub fn bind_with(
                 }
             }
 
-            // Évaluation et reconstruction du nœud courant
             let local_variable = match entry_kind {
-                ExprKind::Variable(var_id) => Some(var_id),
+                ExprKind::Variable(var_id) => Some(*var_id),
                 _ => None,
             };
 
             let mut current_id = match entry_kind {
                 ExprKind::Variable(var_id) => {
-                    if let Some(obj_id) = sub.get(var_id) {
+                    if let Some(obj_id) = sub.get(*var_id) {
                         builder.object(obj_id)
                     } else {
                         old_id
@@ -147,6 +155,7 @@ pub fn bind_with(
                 }
                 _ => {
                     if has_changed {
+                        // On ne clone le Kind que si la reconstruction est inévitable
                         builder.reconstruct(entry_kind.clone(), &scratchpad.children_buffer)?
                     } else {
                         old_id
@@ -156,7 +165,6 @@ pub fn bind_with(
 
             let mut final_culprit = None;
 
-            // --- Élagage métier Köhler ---
             if let Some(eval) = evaluator {
                 let current_kind = builder.store[current_id].kind();
 
@@ -174,13 +182,11 @@ pub fn bind_with(
                             ExprConstant::Object(o) => builder.object(o),
                         };
 
-                        // Effondrement direct via l'évaluateur externe (ex: Prédicat Statique Faux)
                         final_culprit = local_variable.or(inherited_culprit);
                     }
                 }
             }
 
-            // Si le nœud s'est effondré structurellement par remontée d'enfants dominants
             if final_culprit.is_none() {
                 let current_kind = builder.store[current_id].kind();
                 let is_collapsed = matches!(current_kind, ExprKind::And | ExprKind::Or)
@@ -188,7 +194,6 @@ pub fn bind_with(
 
                 if is_collapsed {
                     if current_kind == &ExprKind::Or && multiple_or_culprits {
-                        // Sécurité critique : Un OR mort né de variables hétérogènes n'a pas de coupable unique.
                         final_culprit = None;
                     } else {
                         final_culprit = inherited_culprit;
@@ -196,14 +201,12 @@ pub fn bind_with(
                 }
             }
 
-            // On stocke le tuple définitif pour ce sous-arbre
             scratchpad
                 .substitution_map
                 .insert(old_id, (current_id, final_culprit));
         }
     }
 
-    // Extraction du résultat final pour la racine
     let final_res = scratchpad
         .substitution_map
         .get(&expr_id)

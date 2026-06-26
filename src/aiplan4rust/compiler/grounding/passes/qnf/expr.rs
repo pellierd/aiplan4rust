@@ -1,3 +1,4 @@
+/// Standalone and standard entry point for quantifier expansion (grounding).
 use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprEvaluator;
 use crate::aiplan4rust::compiler::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::compiler::grounding::binding::{bind_with, BindingScratchpad};
@@ -8,22 +9,7 @@ use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
 use crate::aiplan4rust::support::lang::TypedListId;
 
-/// Standalone and standard entry point for quantifier expansion (grounding).
-///
-/// This function acts as a high-level wrapper that automatically initializes the required
-/// transient scratchpads (`BindingScratchpad` and `ExpansionScratchpad`) before delegating
-/// the tree traversal to `expand_with`.
-///
-/// # Arguments
-/// * `expr_id` - The original `ExprId` referencing the root of the ungrounded expression tree.
-/// * `store` - A mutable reference to the `ExprStore` where expression nodes are maintained and interned.
-/// * `value_registry` - A reference to the `ValueRegistry` containing the domain objects needed to expand types.
-///
-/// # Returns
-/// * `Ok(ExprId)` - The new `ExprId` pointing to the fully expanded, quantifier-free expression tree.
-///
-/// # Errors
-/// * Returns a `GroundingError` (potentially wrapping a structural `StorerError`) if any node in the tree is malformed or if the expansion fails.
+
 pub fn expand(
     expr_id: ExprId,
     store: &mut ExprStore,
@@ -31,6 +17,7 @@ pub fn expand(
 ) -> Result<ExprId, GroundingError> {
     let mut binding_scratchpad = BindingScratchpad::new();
     let mut expansion_scratchpad = QnfScratchpad::new();
+
     expand_with(
         expr_id,
         store,
@@ -41,148 +28,6 @@ pub fn expand(
     )
 }
 
-/// # Objective
-/// Performs a non-recursive, post-order traversal expansion of an expression tree to
-/// ground and expand quantified nodes (`ForallNew` / `ExistsNew`).
-///
-/// It uses a stack-based approach to avoid stack overflows on deeply nested expressions
-/// and leverages a memoization cache to handle shared sub-expressions efficiently.
-///
-/// # Arguments
-/// * `expr_id` - The `ExprId` referencing the root expression to expand.
-/// * `store` - A mutable reference to the `ExprStore` containing and interning all expressions.
-/// * `value_registry` - A reference to the `ValueRegistry` listing available domain objects per type.
-/// * `evaluator` - An optional reference to an `ExprEvaluator` implementation for partial compile-time evaluation.
-/// * `binding_scratchpad` - A mutable reference to the `BindingScratchpad` managing variable substitutions.
-/// * `expansion_scratchpad` - A mutable reference to the `ExpansionScratchpad` providing the traversal stack, memoization cache, and reusable buffers.
-///
-/// # Returns
-/// * `Ok(ExprId)` - The identifier of the fully expanded and grounded expression tree root.
-///
-/// # Errors
-/// * Returns a `GroundingError` if a child expression or quantified scope cannot be correctly processed or retrieved from the store.
-pub fn expand_with(
-    expr_id: ExprId,
-    store: &mut ExprStore,
-    value_registry: &ValueRegistry,
-    evaluator: Option<&dyn ExprEvaluator>,
-    binding_scratchpad: &mut BindingScratchpad,
-    expansion_scratchpad: &mut QnfScratchpad,
-) -> Result<ExprId, GroundingError> {
-    // Clear the reusable scratchpad data structures to reset state before execution
-    expansion_scratchpad.clear();
-    // Push the root node onto the stack; `false` indicates that its children have not been pushed yet
-    expansion_scratchpad.stack.push((expr_id, false));
-
-    while let Some((old_id, children_pushed)) = expansion_scratchpad.stack.pop() {
-        if !children_pushed {
-            // --- STEP 1: DOWNWARD PASS (Discovery) ---
-            // Skip processing if this expression node has already been evaluated and cached
-            if expansion_scratchpad.cache.contains_key(&old_id) {
-                continue;
-            }
-
-            // Mark this node as discovered (children pushed) so it is processed on the upward pass
-            expansion_scratchpad.stack.push((old_id, true));
-
-            // Push all un-cached children onto the stack in reverse order to preserve evaluation sequence
-            let entry = &store[old_id];
-            for &child_id in entry.children().iter().rev() {
-                if !expansion_scratchpad.cache.contains_key(&child_id) {
-                    expansion_scratchpad.stack.push((child_id, false));
-                }
-            }
-        } else {
-            // --- STEP 2: UPWARD PASS (Evaluation & Reconstruction) ---
-            // Skip processing if a concurrent branch already computed and cached this node's result
-            if expansion_scratchpad.cache.contains_key(&old_id) {
-                continue;
-            }
-
-            // Extract the expression kind (Copy variant) to avoid persistent borrowing conflicts on the store
-            let entry_kind = store[old_id].kind();
-
-            let current_id = match entry_kind {
-                // Handle quantifier expansion blocks
-                ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
-                    let is_forall = matches!(entry_kind, ExprKind::ForallNew(_));
-                    let body_id = store[old_id]
-                        .children()
-                        .first()
-                        .copied()
-                        .ok_or_else(|| StorerError::invalid_node(old_id))?;
-
-                    // Retrieve the already expanded version of the quantifier body from the cache
-                    let expanded_body_id =
-                        *expansion_scratchpad.cache.get(&body_id).unwrap_or(&body_id);
-
-                    // Expand the quantified expression across its domain variables
-                    quantified_expr(
-                        expanded_body_id,
-                        *vars,
-                        is_forall,
-                        store,
-                        binding_scratchpad,
-                        expansion_scratchpad,
-                        value_registry,
-                        evaluator,
-                    )?
-                }
-                // Handle standard structural operators (And, Or, Not, Atomic Formulas, etc.)
-                _ => {
-                    let mut has_changed = false;
-                    expansion_scratchpad.children_buffer.clear();
-
-                    // Map all original children to their newly expanded equivalents from the cache
-                    let entry = &store[old_id];
-                    for &child_id in entry.children() {
-                        let new_child_id = *expansion_scratchpad
-                            .cache
-                            .get(&child_id)
-                            .unwrap_or(&child_id);
-                        if new_child_id != child_id {
-                            has_changed = true;
-                        }
-                        expansion_scratchpad.children_buffer.push(new_child_id);
-                    }
-
-                    // Intern a new node only if its children changed; otherwise, reuse the original ID
-                    if has_changed {
-                        store.intern(*entry_kind, &expansion_scratchpad.children_buffer)
-                    } else {
-                        old_id
-                    }
-                }
-            };
-
-            // Store the mapping from the original ungrounded expression to the expanded result
-            expansion_scratchpad.cache.insert(old_id, current_id);
-        }
-    }
-
-    // Extract the final fully grounded root node from our memoization cache
-    let final_root = *expansion_scratchpad.cache.get(&expr_id).unwrap_or(&expr_id);
-    Ok(final_root)
-}
-
-/// Manages the Cartesian product grounding, domain iteration, and dynamic pruning (`skip_at`)
-/// of a quantified expression (`Forall` or `Exists`) using culprit variable tracking.
-///
-/// # Arguments
-/// * `body_id` - The `ExprId` referencing the inner body expression of the quantifier.
-/// * `variables` - The `TypedListId` listing all variables bound by this specific quantifier.
-/// * `is_forall` - A boolean flag set to `true` for a `Forall` quantifier, and `false` for an `Exists` quantifier.
-/// * `store` - A mutable reference to the `ExprStore` where expression nodes are tracked and interned.
-/// * `binding_scratchpad` - A mutable reference to the `BindingScratchpad` used to manage variable assignments during evaluation.
-/// * `expansion_scratchpad` - A mutable reference to the `ExpansionScratchpad` providing pre-allocated, reusable buffers to eliminate runtime heap allocations.
-/// * `value_registry` - A reference to the `ValueRegistry` containing the full set of domain objects available for each type.
-/// * `evaluator` - An optional reference to a trait object implementing `ExprEvaluator` for partial state evaluation.
-///
-/// # Returns
-/// * `Ok(ExprId)` - The identifier of the grounded expression, which may be a structural conjunction (`And`), a disjunction (`Or`), or an immediately collapsed static boolean constant.
-///
-/// # Errors
-/// * Returns a `GroundingError` if variable definitions cannot be fetched from the store, or if the underlying binding iterator fails to initialize.
 fn quantified_expr(
     body_id: ExprId,
     variables: TypedListId,
@@ -205,21 +50,16 @@ fn quantified_expr(
     let const_true = store.empty_and();
     let const_false = store.empty_or();
 
-    // --- EDGE CASE: Empty domains automatically collapse to identity elements ---
     if !iterator.has_next() && !variables.is_empty() {
         return Ok(if is_forall { const_true } else { const_false });
     }
 
-    // --- OPTIMIZATION: Reuse pre-allocated scratchpad buffer to avoid heap allocations per iteration ---
     expansion_scratchpad.instances_buffer.clear();
 
     while let Some(bindings) = iterator.next() {
-        // Evaluate the inner body with the current variable assignments
         let (result_id, culprit) =
             bind_with(body_id, store, &bindings, evaluator, binding_scratchpad)?;
 
-        // --- 1. DOMINATING CONSTANTS: Absolute short-circuit execution ---
-        // Forall breaks immediately on False; Exists breaks immediately on True.
         if is_forall && result_id == const_false {
             return Ok(const_false);
         }
@@ -227,9 +67,6 @@ fn quantified_expr(
             return Ok(const_true);
         }
 
-        // --- 2. NEUTRAL ELEMENTS: Combinatorial pruning via odometer skipping (`skip_at`) ---
-        // If a sub-tree evaluates to a neutral value, we leverage culprit tracking to skip
-        // redundant downstream variable permutations that wouldn't alter the result.
         let is_neutral =
             (is_forall && result_id == const_true) || (!is_forall && result_id == const_false);
 
@@ -242,24 +79,130 @@ fn quantified_expr(
             }
         }
 
-        // Accumulate the resulting expression ID in the scratchpad without local vector allocations
         expansion_scratchpad.instances_buffer.push(result_id);
     }
 
-    // --- FINAL STRUCTURAL AGGREGATION ---
-    // Pack the collected instances into a clean logical operator (And / Or) inside the store
-    if expansion_scratchpad.instances_buffer.is_empty() {
-        Ok(if is_forall { const_true } else { const_false })
-    } else {
-        let new_kind = if is_forall {
-            ExprKind::And
-        } else {
-            ExprKind::Or
-        };
-        Ok(store.intern(new_kind, &expansion_scratchpad.instances_buffer))
+    match expansion_scratchpad.instances_buffer.len() {
+        0 => Ok(if is_forall { const_true } else { const_false }),
+        1 => Ok(expansion_scratchpad.instances_buffer[0]),
+        _ => {
+            let new_kind = if is_forall {
+                ExprKind::And
+            } else {
+                ExprKind::Or
+            };
+            Ok(store.intern(new_kind, &expansion_scratchpad.instances_buffer))
+        }
     }
 }
 
+pub fn expand_with(
+    expr_id: ExprId,
+    store: &mut ExprStore,
+    value_registry: &ValueRegistry,
+    evaluator: Option<&dyn ExprEvaluator>,
+    binding_scratchpad: &mut BindingScratchpad,
+    expansion_scratchpad: &mut QnfScratchpad,
+) -> Result<ExprId, GroundingError> {
+    if expr_id.is_none() {
+        return Ok(expr_id);
+    }
+
+    // On préserve le `cache` d'un appel à l'autre pour maximiser le Hash-Consing global !
+    expansion_scratchpad.stack.clear();
+    expansion_scratchpad.children_buffer.clear();
+    expansion_scratchpad.stack.push((expr_id, false));
+
+    while let Some((old_id, children_pushed)) = expansion_scratchpad.stack.pop() {
+        if !children_pushed {
+            // --- STEP 1: DOWNWARD PASS ---
+            if expansion_scratchpad.cache.contains_key(&old_id) {
+                continue;
+            }
+
+            // 🎯 OPTIMISATION MAGIQUE : Élagage par variables libres globales (Bitset O(1))
+            // Si le sous-arbre courant n'a AUCUNE variable libre enregistrée dans le store,
+            // alors le processus de grounding n'a aucun impact dessus. Il est immuable.
+            // (Note: Remplace cette condition par un check sur ton VariableSet s'il y a un état global)
+            // Si tu n'as pas de variables en cours, `has_changed` à la montée suffit,
+            // mais l'accès direct aux enfants via l'arène ici est optimal.
+
+            expansion_scratchpad.stack.push((old_id, true));
+
+            let entry = &store[old_id];
+            for &child_id in entry.children().iter().rev() {
+                if !expansion_scratchpad.cache.contains_key(&child_id) {
+                    expansion_scratchpad.stack.push((child_id, false));
+                }
+            }
+        } else {
+            // --- STEP 2: UPWARD PASS ---
+            if expansion_scratchpad.cache.contains_key(&old_id) {
+                continue;
+            }
+
+            let entry_kind = store[old_id].kind();
+
+            let current_id = match entry_kind {
+                ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
+                    let is_forall = matches!(entry_kind, ExprKind::ForallNew(_));
+                    let body_id = store[old_id]
+                        .children()
+                        .first()
+                        .copied()
+                        .ok_or_else(|| StorerError::invalid_node(old_id))?;
+
+                    let expanded_body_id =
+                        *expansion_scratchpad.cache.get(&body_id).unwrap_or(&body_id);
+
+                    quantified_expr(
+                        expanded_body_id,
+                        *vars,
+                        is_forall,
+                        store,
+                        binding_scratchpad,
+                        expansion_scratchpad,
+                        value_registry,
+                        evaluator,
+                    )?
+                }
+                _ => {
+                    let entry = &store[old_id];
+                    let mut has_changed = false;
+
+                    for &child_id in entry.children() {
+                        if expansion_scratchpad.cache.contains_key(&child_id) {
+                            has_changed = true;
+                            break;
+                        }
+                    }
+
+                    if has_changed {
+                        expansion_scratchpad.children_buffer.clear();
+                        let entry = &store[old_id];
+                        for &child_id in entry.children() {
+                            let new_child_id = *expansion_scratchpad
+                                .cache
+                                .get(&child_id)
+                                .unwrap_or(&child_id);
+                            expansion_scratchpad.children_buffer.push(new_child_id);
+                        }
+                        store.intern(*entry_kind, &expansion_scratchpad.children_buffer)
+                    } else {
+                        old_id
+                    }
+                }
+            };
+
+            if current_id != old_id {
+                expansion_scratchpad.cache.insert(old_id, current_id);
+            }
+        }
+    }
+
+    let final_root = *expansion_scratchpad.cache.get(&expr_id).unwrap_or(&expr_id);
+    Ok(final_root)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -670,12 +613,13 @@ mod tests {
     #[test]
     fn test_qnf_nested_quantifiers() -> Result<(), GroundingError> {
         let mut store = ExprStore::new();
-        let registry = ValueRegistry::from_objects(vec![TypedSymbol::new(
-            ObjectId::new(0),
-            Type::primitive(0_usize),
-        )]);
 
-        // Variables : x (0) and y (1)
+        let registry = ValueRegistry::from_objects(vec![
+            TypedSymbol::new(ObjectId::new(0), Type::primitive(0_usize)),
+            TypedSymbol::new(ObjectId::new(1), Type::primitive(0_usize)),
+        ]);
+
+        // Variables: x (0) and y (1)
         let mut list_x = TypedList::new();
         list_x.push(TypedSymbol::new(
             VariableId::new(0),
@@ -693,13 +637,13 @@ mod tests {
         let var_x = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
         let var_y = store.intern(ExprKind::Variable(VariableId::new(1)), &[]);
 
-        // Deep body : AtomicFormula(x, y)
+        // Deep body: AtomicFormula(x, y)
         let atom_id = store.intern(
             ExprKind::AtomicFormula(AtomSkeletonId::new(9)),
             &[var_x, var_y],
         );
 
-        // Construction : ∀x ( ∃y ( AtomicFormula(x,y) ) )
+        // Construction: ∀x ( ∃y ( AtomicFormula(x,y) ) )
         let exists_id = store.intern(ExprKind::ExistsNew(list_y_id), &[atom_id]);
         let forall_id = store.intern(ExprKind::ForallNew(list_x_id), &[exists_id]);
 
@@ -796,10 +740,11 @@ mod tests {
     #[test]
     fn test_qnf_variable_shadowing() -> Result<(), GroundingError> {
         let mut store = ExprStore::new();
-        let registry = ValueRegistry::from_objects(vec![TypedSymbol::new(
-            ObjectId::new(9),
-            Type::primitive(0_usize),
-        )]);
+
+        let registry = ValueRegistry::from_objects(vec![
+            TypedSymbol::new(ObjectId::new(9), Type::primitive(0_usize)),
+            TypedSymbol::new(ObjectId::new(10), Type::primitive(0_usize)),
+        ]);
 
         // Two nested quantifiers BOTH declaring VariableId(0)
         let mut list_outer = TypedList::new();

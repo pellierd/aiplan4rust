@@ -61,7 +61,7 @@ pub fn expand_with(
     binding_scratchpad: &mut BindingScratchpad,
     expansion_scratchpad: &mut QnfScratchpad,
 ) -> Result<(), GroundingError> {
-    // 1. Extract the current body ID by copy (primitive type, no borrowing conflicts)
+    // 1. Extract the current body ID by copy
     let body = predicate.body();
 
     // 2. Delegate the expansion task to the core expression-level algorithm

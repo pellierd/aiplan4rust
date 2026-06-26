@@ -45,7 +45,6 @@ pub fn expand_with(
     let mut expansion_scratchpad = QnfScratchpad::new();
 
     // 1. Fully extract ownership of the expression store.
-    // This frees the `problem` reference from any borrow conflicts related to the store.
     let mut store = problem.take_store();
 
     // --- 2. Global Constraints ---
@@ -131,6 +130,7 @@ pub fn expand_with(
         .initial_task_network()
         .task_network()
         .logical_constraints();
+
     let new_htn_constraints = expr::expand_with(
         current_htn_constraints,
         &mut store,

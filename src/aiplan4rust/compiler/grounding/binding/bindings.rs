@@ -69,6 +69,12 @@ impl Bindings {
         self.mapping.get(&var).copied()
     }
 
+    /// Returns an iterator over the variables that have active mappings.
+    #[inline]
+    pub fn keys(&self) -> impl Iterator<Item = &VariableId> {
+        self.mapping.keys()
+    }
+
     /// Returns the total number of active variable bindings currently tracked.
     ///
     /// # Returns

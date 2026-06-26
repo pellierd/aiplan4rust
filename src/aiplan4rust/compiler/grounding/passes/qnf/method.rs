@@ -62,7 +62,6 @@ pub fn expand_with(
     expansion_scratchpad: &mut QnfScratchpad,
 ) -> Result<(), GroundingError> {
     // 1. Expand Preconditions
-    // Note: If `.precondition()` returns an `Expr` wrapper object, replace with `method.precondition().root_id()`
     let current_precondition_id = method.precondition();
     let new_precondition_id = expr::expand_with(
         current_precondition_id,
@@ -75,7 +74,6 @@ pub fn expand_with(
     method.set_precondition(new_precondition_id);
 
     // 2. Expand Task Network Constraints
-    // Note: If `.logical_constraints()` returns an `Expr` wrapper object, replace with `.logical_constraints().root_id()`
     let current_constraints_id = method.task_network().logical_constraints();
     let new_constraints_id = expr::expand_with(
         current_constraints_id,

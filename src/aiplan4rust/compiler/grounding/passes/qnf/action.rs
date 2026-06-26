@@ -71,7 +71,6 @@ pub fn expand_with(
         binding_scratchpad,
         expansion_scratchpad,
     )?;
-    // Updates the root expression with the newly computed ID
     action.set_precondition(new_precondition_id);
 
     // 2. Expand Effects
