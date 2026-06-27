@@ -30,6 +30,7 @@
 //! * **Inlined Logic**: Boolean dualities (De Morgan) are computed via branchless
 //!   bitwise operations where possible.
 
+use crate::aiplan4rust::compiler::lir::expr;
 use crate::aiplan4rust::compiler::lir::expr::ops::error::ExprOpError;
 
 use crate::aiplan4rust::compiler::lir::expr::builder::ExprBuilder;
@@ -80,6 +81,272 @@ use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
 ///   if a structural cache miss occurs ([`ExprOpError::CacheMiss`]), or if the root node
 ///   fails to reconstruct ([`ExprOpError::NnfLogicError`]).
 pub fn to_nnf(
+    id: ExprId,
+    builder: &mut ExprBuilder,
+    scratch: &mut Scratchpad,
+) -> Result<ExprId, ExprOpError> {
+    if id.is_none() {
+        return Ok(id);
+    }
+
+    scratch.clear();
+    let root_encoded = ExprId::new(encode(id.as_usize(), false));
+    let mut final_id = None;
+
+    scratch.push(root_encoded, false);
+
+    while let Some((packed_id, processed)) = scratch.pop() {
+        let (curr_id, negate) = decode(packed_id.value);
+
+        if !curr_id.is_valid() {
+            continue;
+        }
+
+        if !processed {
+            if scratch.get(packed_id).is_some() {
+                continue;
+            }
+
+            // --- PHASE 1: DESCENT (Top-Down) ---
+            let (is_not, kind, start, end) = {
+                let entry = builder.fetch(curr_id)?;
+                let (s, e) = scratch.prepare_children_segment(entry.children());
+                (
+                    matches!(entry.kind(), ExprKind::Not),
+                    entry.kind().clone(),
+                    s,
+                    e,
+                )
+            };
+
+            scratch.push(packed_id, true);
+
+            if is_not {
+                let child_id = scratch.children_buffer()[start];
+                if child_id.is_valid() {
+                    let child_packed = ExprId::new(encode(child_id.as_usize(), !negate));
+                    scratch.push(child_packed, false);
+                }
+            } else if matches!(kind, ExprKind::Preference) && (end - start >= 2) {
+                // SÉCURITÉ PDDL3 : On force le nom et le corps de la préférence à false
+                let nom_id = scratch.children_buffer()[start];
+                let body_id = scratch.children_buffer()[start + 1];
+
+                if body_id.is_valid() {
+                    scratch.push(ExprId::new(encode(body_id.as_usize(), false)), false);
+                }
+                if nom_id.is_valid() {
+                    scratch.push(ExprId::new(encode(nom_id.as_usize(), false)), false);
+                }
+            } else if matches!(
+                kind,
+                ExprKind::Always
+                    | ExprKind::Sometime
+                    | ExprKind::AtMostOnce
+                    | ExprKind::SometimeBefore
+                    | ExprKind::Within
+                    | ExprKind::AlwaysWithin
+            ) {
+                // SÉCURITÉ PDDL3 : On force les enfants des contraintes temporelles à false
+                for i in (start..end).rev() {
+                    let child_id = scratch.children_buffer()[i];
+                    if child_id.is_valid() {
+                        scratch.push(ExprId::new(encode(child_id.as_usize(), false)), false);
+                    }
+                }
+            } else {
+                // Cas logiques standards
+                for i in (start..end).rev() {
+                    let child_id = scratch.children_buffer()[i];
+                    if child_id.is_valid() {
+                        let child_packed = ExprId::new(encode(child_id.as_usize(), negate));
+                        scratch.push(child_packed, false);
+                    }
+                }
+            }
+        } else {
+            // --- PHASE 2: RECONSTRUCTION (Bottom-Up) ---
+            let (kind, entry_child_count) = {
+                let entry = builder.fetch(curr_id)?;
+                (entry.kind().clone(), entry.children().len())
+            };
+
+            let (start, end) = scratch.last_segment_indices(entry_child_count);
+
+            let new_id = match &kind {
+                ExprKind::Not => {
+                    let child_id = scratch.children_buffer()[start];
+                    let target_packed = ExprId::new(encode(child_id.as_usize(), !negate));
+
+                    let res = match scratch.get(target_packed) {
+                        Some(res) => res,
+                        None => {
+                            let fallback_packed = ExprId::new(encode(child_id.as_usize(), negate));
+                            scratch
+                                .get(fallback_packed)
+                                .ok_or_else(|| ExprOpError::cache_miss())?
+                        }
+                    };
+
+                    // Si on reconstruit un Not, on s'assure qu'il ne coiffe qu'un atome ou une comparaison
+                    let res_kind = builder.fetch(res)?.kind().clone();
+                    if matches!(
+                        res_kind,
+                        ExprKind::AtomicFormula(_) | ExprKind::Comparison(_)
+                    ) {
+                        builder.not(res)
+                    } else {
+                        res
+                    }
+                }
+
+                ExprKind::And | ExprKind::Or => {
+                    let is_and = matches!(kind, ExprKind::And);
+
+                    scratch.build_buffer_mut().clear();
+                    for i in start..end {
+                        let child_id = scratch.children_buffer()[i];
+                        let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
+
+                        let transformed = match scratch.get(target_packed) {
+                            Some(res) => res,
+                            None => {
+                                let fallback_packed =
+                                    ExprId::new(encode(child_id.as_usize(), !negate));
+
+                                scratch
+                                    .get(fallback_packed)
+                                    .ok_or_else(|| ExprOpError::cache_miss())?
+                            }
+                        };
+                        scratch.build_buffer_mut().push(transformed);
+                    }
+
+                    if apply_de_morgan(is_and, negate) {
+                        builder.and(scratch.build_buffer())
+                    } else {
+                        builder.or(scratch.build_buffer())
+                    }
+                }
+
+                ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
+                    let is_forall = matches!(kind, ExprKind::ForallNew(_));
+                    let child_id = scratch.children_buffer()[start];
+                    let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
+
+                    let body = match scratch.get(target_packed) {
+                        Some(res) => res,
+                        None => {
+                            let fallback_packed = ExprId::new(encode(child_id.as_usize(), !negate));
+                            scratch
+                                .get(fallback_packed)
+                                .ok_or_else(|| ExprOpError::cache_miss())?
+                        }
+                    };
+
+                    if transform_quantifier(is_forall, negate) {
+                        builder.forall(*vars, body)?
+                    } else {
+                        builder.exists(*vars, body)?
+                    }
+                }
+
+                ExprKind::Preference if (end - start >= 2) => {
+                    scratch.build_buffer_mut().clear();
+
+                    let nom_id = scratch.children_buffer()[start];
+                    let nom_packed = ExprId::new(encode(nom_id.as_usize(), false));
+                    let transformed_nom = scratch
+                        .get(nom_packed)
+                        .ok_or_else(|| ExprOpError::cache_miss())?;
+                    scratch.build_buffer_mut().push(transformed_nom);
+
+                    let body_id = scratch.children_buffer()[start + 1];
+                    let body_packed = ExprId::new(encode(body_id.as_usize(), false));
+                    let transformed_body = scratch
+                        .get(body_packed)
+                        .ok_or_else(|| ExprOpError::cache_miss())?;
+                    scratch.build_buffer_mut().push(transformed_body);
+
+                    let final_pref = builder.intern(kind.clone(), scratch.build_buffer());
+                    scratch.insert(ExprId::new(encode(curr_id.as_usize(), false)), final_pref);
+                    final_pref
+                }
+
+                ExprKind::Always
+                | ExprKind::Sometime
+                | ExprKind::AtMostOnce
+                | ExprKind::SometimeBefore
+                | ExprKind::Within
+                | ExprKind::AlwaysWithin => {
+                    scratch.build_buffer_mut().clear();
+                    for i in start..end {
+                        let child_id = scratch.children_buffer()[i];
+                        let child_packed = ExprId::new(encode(child_id.as_usize(), false));
+                        let transformed = scratch
+                            .get(child_packed)
+                            .ok_or_else(|| ExprOpError::cache_miss())?;
+                        scratch.build_buffer_mut().push(transformed);
+                    }
+                    builder.intern(kind.clone(), scratch.build_buffer())
+                }
+
+                _ => {
+                    let base = builder.intern(kind.clone(), &scratch.children_buffer()[start..end]);
+                    if negate
+                        && matches!(kind, ExprKind::AtomicFormula(_) | ExprKind::Comparison(_))
+                    {
+                        builder.not(base)
+                    } else {
+                        base
+                    }
+                }
+            };
+
+            scratch.children_buffer_mut().truncate(start);
+            scratch.insert(packed_id, new_id);
+
+            if packed_id == root_encoded {
+                final_id = Some(new_id);
+            }
+        }
+    }
+
+    let final_res = final_id.ok_or_else(|| ExprOpError::nnf_logic_error())?;
+
+    // On délègue la vérification de l'invariant
+    check_post_conditions(builder.store(), final_res);
+
+    Ok(final_res)
+}
+
+#[inline(always)]
+fn check_post_conditions(store: &expr::ExprStore, final_res: ExprId) {
+    if cfg!(debug_assertions) {
+        if !expr::is_nnf(store, final_res) {
+            println!("\n=== [DEBUG] CRASH DETECTED IN TO_NNF ===");
+            println!("Root ExprId: {:?}", final_res);
+
+            fn dump_tree_debug(store: &expr::ExprStore, id: ExprId, depth: usize) {
+                if let Some(node) = store.get(id) {
+                    let indent = "  ".repeat(depth);
+                    println!("{}{:?} (Kind: {:?})", indent, id, node.kind());
+                    for &child in node.children() {
+                        dump_tree_debug(store, child, depth + 1);
+                    }
+                }
+            }
+            dump_tree_debug(store, final_res, 0);
+            println!("========================================\n");
+        }
+    }
+
+    debug_assert!(
+        expr::is_nnf(store, final_res),
+        "LOGICAL VIOLATION: The transformation generated an invalid tree! A 'Not' operator was placed on top of a complex node instead of a literal."
+    );
+}
+/*pub fn to_nnf(
     id: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
@@ -225,8 +492,16 @@ pub fn to_nnf(
         }
     }
 
-    final_id.ok_or_else(|| ExprOpError::nnf_logic_error())
-}
+    let final_res = final_id.ok_or_else(|| ExprOpError::nnf_logic_error())?;
+
+    // CRASH TEST
+    debug_assert!(
+        expr::is_nnf(builder.store(), final_res),
+        "LOGICAL VIOLATION: The transformation generated an invalid tree! A 'Not' operator was placed on top of a complex node instead of a literal."
+    );
+
+    Ok(final_res)
+}*/
 
 /// Determines the effective boolean operator (AND or OR) after applying a negation polarity.
 ///

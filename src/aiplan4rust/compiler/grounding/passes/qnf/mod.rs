@@ -13,4 +13,4 @@ mod method;
 pub mod problem;
 mod scratchpad;
 
-pub use scratchpad::QnfScratchpad;
+pub(crate) use scratchpad::QnfScratchpad;

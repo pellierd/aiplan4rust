@@ -138,6 +138,9 @@ pub fn to_pnf_with(
                 | ExprKind::Or
                 | ExprKind::ForallNew(_)
                 | ExprKind::ExistsNew(_)
+                | ExprKind::AtStart
+                | ExprKind::AtEnd
+                | ExprKind::Overall
                 | ExprKind::Always
                 | ExprKind::Sometime
                 | ExprKind::Within
@@ -146,7 +149,8 @@ pub fn to_pnf_with(
                 | ExprKind::SometimeBefore
                 | ExprKind::AlwaysWithin
                 | ExprKind::HoldDuring
-                | ExprKind::HoldAfter => {
+                | ExprKind::HoldAfter
+                | ExprKind::Preference => {
                     // Push children in reverse order to preserve original evaluation sequence
                     for &child_id in store[old_id].children().iter().rev() {
                         scratchpad.stack.push((child_id, in_condition, false));
@@ -202,7 +206,15 @@ pub fn to_pnf_with(
                                 store.intern(ExprKind::AtomicFormula(atom_id), &[])
                             }
                             ExprKind::Comparison(_) => store.intern(ExprKind::Not, &[new_child_id]),
-                            _ => return Err(StorerError::invalid_node(new_child_id).into()),
+                            _ => {
+                                // 🎯 On print le type de nœud inattendu pour le démasquer dans la console
+                                println!(
+                                    "💥 PNF ERROR: Unexpected child_kind `{:?}` inside Not (id: {})",
+                                    child_kind,
+                                    new_child_id.as_usize()
+                                );
+                                return Err(StorerError::invalid_node(new_child_id).into());
+                            }
                         }
                     } else {
                         // Outside a condition (Delete Effect), preserve standard Not structure
@@ -215,6 +227,33 @@ pub fn to_pnf_with(
                         };
 
                         store.intern(ExprKind::Not, &[new_child_id])
+                    }
+                }
+                ExprKind::When => {
+                    let old_children = store[old_id].children();
+                    let cond_child = old_children[0];
+                    let eff_child = old_children[1];
+
+                    // La condition doit TOUJOURS lire cache_true
+                    let cached_cond = scratchpad.cache_true[cond_child.as_usize()];
+                    let new_cond_id = if cached_cond != default_id {
+                        cached_cond
+                    } else {
+                        cond_child
+                    };
+
+                    // L'effet doit TOUJOURS lire cache_false
+                    let cached_eff = scratchpad.cache_false[eff_child.as_usize()];
+                    let new_eff_id = if cached_eff != default_id {
+                        cached_eff
+                    } else {
+                        eff_child
+                    };
+
+                    if new_cond_id != cond_child || new_eff_id != eff_child {
+                        store.intern(ExprKind::When, &[new_cond_id, new_eff_id])
+                    } else {
+                        old_id
                     }
                 }
                 _ => {
