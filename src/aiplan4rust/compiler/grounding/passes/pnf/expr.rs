@@ -136,8 +136,8 @@ pub fn to_pnf_with(
                 }
                 ExprKind::And
                 | ExprKind::Or
-                | ExprKind::ForallNew(_)
-                | ExprKind::ExistsNew(_)
+                | ExprKind::Forall(_)
+                | ExprKind::Exists(_)
                 | ExprKind::AtStart
                 | ExprKind::AtEnd
                 | ExprKind::Overall

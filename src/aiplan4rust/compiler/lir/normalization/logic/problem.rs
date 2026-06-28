@@ -30,18 +30,18 @@ pub fn normalize(
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
     // 1. Global Problem-level expressions (non-durative semantics context)
-    let normalized_goal = expr::normalize(problem.goal(), store, scratch, false)?;
+    let normalized_goal = expr::normalize(problem.goal(), store, scratch, false, false)?;
     problem.set_goal(normalized_goal);
 
     let normalized_dom_constraints =
-        expr::normalize(problem.domain_constraints(), store, scratch, false)?;
+        expr::normalize(problem.domain_constraints(), store, scratch, false, false)?;
     problem.set_domain_constraints(normalized_dom_constraints);
 
     let normalized_prob_constraints =
-        expr::normalize(problem.problem_constraints(), store, scratch, false)?;
+        expr::normalize(problem.problem_constraints(), store, scratch, false, false)?;
     problem.set_problem_constraints(normalized_prob_constraints);
 
-    let normalized_metric = expr::normalize(problem.metric_spec(), store, scratch, false)?;
+    let normalized_metric = expr::normalize(problem.metric_spec(), store, scratch, false, false)?;
     problem.set_metric_spec(normalized_metric);
 
     // 2. Normalize all derived predicates

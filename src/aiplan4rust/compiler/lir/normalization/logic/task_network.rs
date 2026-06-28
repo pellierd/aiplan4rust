@@ -26,8 +26,9 @@ pub fn normalize(
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
     // Task network constraints dictate HTN state ordering and bounds, which are non-durative.
+    // They act as logical conditions, so is_effect = false.
     let normalized_constraints =
-        expr::normalize(network.logical_constraints(), store, scratch, false)?;
+        expr::normalize(network.logical_constraints(), store, scratch, false, false)?;
 
     network.set_logical_constraints(normalized_constraints);
 

@@ -1,34 +1,77 @@
 use crate::aiplan4rust::compiler::lir::expr::iter::Scratchpad;
 use crate::aiplan4rust::compiler::lir::expr::ops::{fnf, nnf, tnf};
-use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprId, ExprStore};
+use crate::aiplan4rust::compiler::lir::expr::{is_fnf, is_nnf, ExprBuilder, ExprId, ExprStore};
 use crate::aiplan4rust::compiler::lir::normalization::error::NormalizationError;
 
-/// Fonction de normalisation indépendante.
+/// Independent normalization pipeline.
 ///
-/// Elle prend une racine et un old, et orchestre les transformations
-/// sans être liée à une instance de `Expr` ou de `LiftedProblem`.
+/// Takes a root expression ID and orchestrates sequential transformations
+/// (NNF, TNF, FNF) without being bound to a specific `Expr` or `LiftedProblem` instance.
+///
+/// # Parameters
+///
+/// * `root` - The unique identifier of the root expression node in the expression store.
+/// * `store` - A mutable reference to the central storage containing all expression nodes.
+/// * `scratch` - A mutable reference to a reusable allocation buffer to optimize tree traversals.
+/// * `is_durative` - A flag indicating whether the expression belongs to a durative (temporal) context.
+/// * `is_effect` - A flag specifying whether the expression is processed as an action effect (`true`) or a condition (`false`).
+///
+/// # Returns
+///
+/// * `Ok(ExprId)` - The `ExprId` of the newly generated, fully optimized root node.
+/// * `Err(NormalizationError)` - An error variant reflecting a failure during pipeline phases.
 pub fn normalize(
     root: ExprId,
     store: &mut ExprStore,
     scratch: &mut Scratchpad,
-    is_durative: bool, // Ajout du flag
+    is_durative: bool,
+    is_effect: bool,
 ) -> Result<ExprId, NormalizationError> {
     let mut builder = ExprBuilder::new(store);
 
-    // 1. Mise en forme logique (NNF)
+    // 1. Negation Normal Form (NNF)
+    // Pushes negations inwards down to the literal level.
     let root = nnf::to_nnf(root, &mut builder, scratch)?;
 
-    // 2. Mise en forme temporelle (TNF) uniquement si nécessaire
+    // 2. Temporal Normal Form (TNF)
+    // Decomposes temporal structures into synchronized streams (start, end, overall).
     let root = if is_durative {
-        tnf::to_tnf(root, &mut builder, scratch)?
+        tnf::to_tnf(root, &mut builder, scratch, is_effect)?
     } else {
         root
     };
 
-    // 3. Aplatissement et Factorisation (FNF)
-    let root = fnf::to_fnf(root, &mut builder, scratch, true)?;
+    // 3. Flattening and Factorization Normal Form (FNF)
+    // Flattens associative operators (AND/OR) and eliminates structural redundancies.
+    let final_root = fnf::to_fnf(root, &mut builder, scratch, true)?;
 
-    Ok(root)
+    // Global pipeline validation
+    check_post_conditions(builder.store(), root, final_root);
+
+    Ok(final_root)
+}
+
+/// Validates global pipeline invariants and cross-phase post-conditions in Debug mode.
+/// Has zero runtime overhead in Release profiles.
+///
+/// # Parameters
+///
+/// * `store` - A reference to the central expression storage.
+/// * `pre_fnf_root` - The `ExprId` of the tree right before entering the FNF phase.
+/// * `final_root` - The final processed `ExprId` after all normalization steps.
+#[inline]
+fn check_post_conditions(store: &ExprStore, pre_fnf_root: ExprId, final_root: ExprId) {
+    // 1. Ensure downstream phases (TNF/FNF) did not corrupt the Negation Normal Form contract.
+    debug_assert!(
+        is_nnf(store, final_root),
+        "CRITICAL REGRESSION: TNF or FNF corrupted the Negation Normal Form (NNF)!"
+    );
+
+    // 2. Ensure the structural integrity and flattening invariants of the final tree are met.
+    debug_assert!(
+        is_fnf(store, pre_fnf_root, final_root),
+        "CRITICAL REGRESSION: Final tree violates Flat Normal Form (FNF)!"
+    );
 }
 
 #[cfg(test)]
@@ -60,9 +103,9 @@ mod tests {
         let inner3 = builder.and(&[inner1, d]);
         let root = builder.and(&[inner1, inner2, inner3]);
 
-        // 3. Normalize (is_durative = false)
+        // 3. Normalize (is_durative = false, is_effect = false)
         // Non-durative mode ensures the TNF doesn't wrap literals in temporal triplets.
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -112,8 +155,8 @@ mod tests {
         // 3. Construct root: (and A (and B C) (and B C))
         let root = builder.and(&[a, inner1, inner2]);
 
-        // 4. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 4. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -172,8 +215,8 @@ mod tests {
         // 3. Initial structure: (or A (or B C) (or B C))
         let root = builder.or(&[a, inner1, inner2]);
 
-        // 4. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 4. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -233,8 +276,8 @@ mod tests {
         // 3. Root structure: (or (or A B) (or B A) C)
         let root = builder.or(&[inner1, inner2, c]);
 
-        // 4. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 4. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -285,8 +328,8 @@ mod tests {
         let inner = builder.and(&[a]);
         let root = builder.and(&[inner]);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -334,8 +377,8 @@ mod tests {
         // 1. Create an empty AND node: (and)
         let root = builder.and(&[]);
 
-        // 2. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 2. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -369,8 +412,8 @@ mod tests {
         // 1. Create an empty OR node: (or)
         let root = builder.or(&[]);
 
-        // 2. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 2. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -409,21 +452,21 @@ mod tests {
         let inner_not = builder.not(a);
         let root = builder.not(inner_not);
 
-        // 3. Normalize (is_durative = false)
-        // La NNF (Negation Normal Form) interne va éliminer la double négation.
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        // The internal NNF (Negation Normal Form) pass will eliminate the double negation.
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
 
-        // Le nœud racine ne doit plus être un NOT, mais directement l'AtomicFormula
+        // The root node should no longer be a NOT, but directly the AtomicFormula
         assert!(
             matches!(entry.kind(), ExprKind::AtomicFormula(_)),
             "Double negation should be eliminated, leaving only the atom, found: {:?}",
             entry.kind()
         );
 
-        // On récupère l'ID du premier enfant (le symbole du prédicat)
+        // Retrieve the ID of the first child (the predicate symbol)
         let pred_leaf_id = entry
             .children()
             .get(0)
@@ -432,7 +475,7 @@ mod tests {
 
         let pred_leaf = store.fetch(pred_leaf_id)?;
 
-        // On vérifie que c'est bien notre PredicateSymbol avec la valeur 1
+        // Verify that it matches our PredicateSymbol with value 1
         if let ExprKind::PredicateSymbol(pid) = pred_leaf.kind() {
             assert_eq!(pid.as_usize(), 1, "The predicate ID must be 1");
         } else {
@@ -461,8 +504,8 @@ mod tests {
         // 2. Create NOT over empty AND: (not (and))
         let root = builder.not(empty_and);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -504,8 +547,8 @@ mod tests {
         let inner_not = builder.not(and_ab);
         let root = builder.not(inner_not);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -555,11 +598,11 @@ mod tests {
         let inner_imply = builder.imply(b, c);
         let outer_imply = builder.imply(a, inner_imply);
 
-        // 3. Normalize (is_durative = false)
+        // 3. Normalize (is_durative = false, is_effect = false)
         // Convert outer: (or (not A) (imply B C))
         // Convert inner: (or (not A) (or (not B) C))
         // Flatten ORs:   (or (not A) (not B) C)
-        let root_after = normalize(outer_imply, &mut store, &mut scratch, false)?;
+        let root_after = normalize(outer_imply, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -618,8 +661,8 @@ mod tests {
         let inner_imply = builder.imply(a, b);
         let outer_imply = builder.imply(inner_imply, c);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(outer_imply, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(outer_imply, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -638,7 +681,7 @@ mod tests {
             "The outer OR should have exactly two children (the consequent and the transformed antecedent)"
         );
 
-        // Compte les types de nœuds présents sous le OR racine pour valider la structure
+        // Count node kinds under the root OR to validate the structure
         let mut has_and = false;
         let mut has_atom = false;
 
@@ -647,7 +690,7 @@ mod tests {
             match child.kind() {
                 ExprKind::And => has_and = true,
                 ExprKind::AtomicFormula(_) => has_atom = true,
-                // Au cas où ta NNF ne pousse pas De Morgan et garde le NOT en surface :
+                // In case NNF does not push De Morgan down and keeps NOT on the surface:
                 ExprKind::Not => has_and = true,
                 _ => {}
             }
@@ -685,10 +728,10 @@ mod tests {
         let mul = builder.mul(&[two, three]);
         let root = builder.add(&[one, mul, four]);
 
-        // 3. Normalize (is_durative = false)
+        // 3. Normalize (is_durative = false, is_effect = false)
         // 1. Evaluate (* 2 3) -> 6.0
         // 2. Evaluate (+ 1 6 4) -> 11.0
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -702,7 +745,7 @@ mod tests {
 
         // Verify the value is exactly 11.0
         if let ExprKind::Number(val) = entry.kind() {
-            // Note: Adapte '.into_inner()' ou '.as_f64()' selon la méthode de ton type Float/OrderedFloat
+            // Note: Adapt '.into_inner()' or '.as_f64()' depending on your Float/OrderedFloat type methods
             assert_eq!(
                 val.into_inner(),
                 11.0,
@@ -734,10 +777,10 @@ mod tests {
         let div = builder.div(&[twenty, two]);
         let root = builder.sub(&[div, three]);
 
-        // 3. Normalize (is_durative = false)
+        // 3. Normalize (is_durative = false, is_effect = false)
         // 1. Evaluate (/ 20 2) -> 10.0
         // 2. Evaluate (- 10 3) -> 7.0
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -791,8 +834,8 @@ mod tests {
         // Root: (+ 6 6 4) = 16
         let root = builder.add(&[mul, sub, div]);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -839,8 +882,8 @@ mod tests {
         let mul = builder.mul(&[a, three]);
         let root = builder.add(&[two, mul]);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(root, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(root, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -856,7 +899,7 @@ mod tests {
         let children = entry.children();
         assert_eq!(children.len(), 2, "Addition should still have 2 children");
 
-        // Find the multiplication child inside the old
+        // Find the multiplication child inside the root addition node
         let mut mul_child_entry = None;
         for &child_id in children {
             let child = store.fetch(child_id)?;
@@ -917,8 +960,8 @@ mod tests {
         // 2. Creating the implication: (imply A B)
         let imply = builder.imply(a, b);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(imply, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(imply, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -977,13 +1020,13 @@ mod tests {
         // 2. Construction: (imply (not (not A)) B)
         let imply = builder.imply(double_not_a, b);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(imply, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(imply, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
 
-        // Vérification de la racine OR
+        // Verify the root OR node
         assert!(
             matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node, found: {:?}",
@@ -995,7 +1038,7 @@ mod tests {
             "The resulting OR node should have 2 children"
         );
 
-        // Vérification que le résultat est bien (or (not A) B)
+        // Verify that the result is strictly (or (not A) B)
         let mut has_not_a = false;
         let mut has_b = false;
 
@@ -1003,7 +1046,7 @@ mod tests {
             let child = store.fetch(child_id)?;
             match child.kind() {
                 ExprKind::Not => {
-                    // Le fils du NOT doit être l'atome A
+                    // The child of the NOT node should be the atom A
                     let grand_child_id = child
                         .children()
                         .get(0)
@@ -1047,18 +1090,18 @@ mod tests {
         let b = builder.atomic_formula(PredicateSymbolId::from(2), &[], skel);
         let c = builder.atomic_formula(PredicateSymbolId::from(3), &[], skel);
 
-        // (and B C)
+        // Construct the complex consequent: (and B C)
         let and_bc = builder.and(&[b, c]);
-        // (imply A (and B C))
+        // Construct the initial implication: (imply A (and B C))
         let imply = builder.imply(a, and_bc);
 
-        // 3. Normalize (is_durative = false)
-        let root_after = normalize(imply, &mut store, &mut scratch, false)?;
+        // 3. Normalize (is_durative = false, is_effect = false)
+        let root_after = normalize(imply, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
 
-        // 1. Verify root is OR
+        // 1. Verify root is an OR node
         assert!(
             matches!(entry.kind(), ExprKind::Or),
             "Root should be an OR node, found: {:?}",
@@ -1131,8 +1174,8 @@ mod tests {
         // 4. Build implication: (imply (forall...) (exists...))
         let imply = builder.imply(forall_node, exists_node);
 
-        // 5. Normalization
-        let root_after = normalize(imply, &mut store, &mut scratch, false)?;
+        // 5. Normalization (is_durative = false, is_effect = false)
+        let root_after = normalize(imply, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -1211,10 +1254,10 @@ mod tests {
         // 4. Build the WHEN node
         let when_node = builder.when(condition, effect);
 
-        // 5. Normalization (is_durative = false)
+        // 5. Normalization (is_durative = false, is_effect = false)
         // The normalizer should detect that the condition is always true
         // and replace the WHEN node directly with its effect.
-        let root_after = normalize(when_node, &mut store, &mut scratch, false)?;
+        let root_after = normalize(when_node, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -1272,10 +1315,10 @@ mod tests {
         // 4. Build the WHEN node
         let when_node = builder.when(condition, effect);
 
-        // 5. Normalization (is_durative = false)
+        // 5. Normalization (is_durative = false, is_effect = false)
         // Since (or) is False, the conditional effect can never trigger.
         // It must be replaced by an empty effect (and).
-        let root_after = normalize(when_node, &mut store, &mut scratch, false)?;
+        let root_after = normalize(when_node, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -1326,9 +1369,9 @@ mod tests {
         // 4. Build the WHEN node
         let when_node = builder.when(condition, effect);
 
-        // 5. Normalization (is_durative = false)
+        // 5. Normalization (is_durative = false, is_effect = false)
         // The effect (and A B) is already satisfied if the condition (and A B) is true.
-        let root_after = normalize(when_node, &mut store, &mut scratch, false)?;
+        let root_after = normalize(when_node, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;
@@ -1372,10 +1415,10 @@ mod tests {
         // 3. Build the WHEN node: (when (and A B) (and))
         let when_node = builder.when(condition, empty_and);
 
-        // 4. Normalization (is_durative = false)
+        // 4. Normalization (is_durative = false, is_effect = false)
         // Since the effect is empty, the condition no longer needs to be evaluated.
         // The WHEN node should be simplified into a simple empty (and).
-        let root_after = normalize(when_node, &mut store, &mut scratch, false)?;
+        let root_after = normalize(when_node, &mut store, &mut scratch, false, false)?;
 
         // --- VALIDATION ---
         let entry = store.fetch(root_after)?;

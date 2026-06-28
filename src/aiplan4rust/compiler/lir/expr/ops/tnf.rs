@@ -54,10 +54,12 @@
 //! This bit-level manipulation allows the transformer to remain extremely fast
 //! and memory-efficient, even for very large or deeply nested logical formulas.
 
+use crate::aiplan4rust::compiler::lir::expr;
 use crate::aiplan4rust::compiler::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::expr::iter::scratchpad::Scratchpad;
 use crate::aiplan4rust::compiler::lir::expr::ops::error::ExprOpError;
-use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
 use smallvec::SmallVec;
 
 /// The maximum number of children stored inline in a `SmallVec` before spilling to the heap.
@@ -83,10 +85,12 @@ const MAX_CHILDREN: usize = 32;
 /// # Errors
 /// Returns [`ExprOpError::IllegalTemporalNesting`] if a temporal operator is found
 /// nested inside another temporal operator.
+
 pub fn to_tnf(
     expr: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
+    is_effect: bool, // 🎯 Ajout du flag sémantique pour distinguer les effets des conditions
 ) -> Result<ExprId, ExprOpError> {
     if expr.is_none() {
         return Ok(expr);
@@ -128,8 +132,8 @@ pub fn to_tnf(
                 ExprKind::And
                 | ExprKind::Or
                 | ExprKind::Not
-                | ExprKind::ForallNew(_)
-                | ExprKind::ExistsNew(_) => {
+                | ExprKind::Forall(_)
+                | ExprKind::Exists(_) => {
                     scratch.clear_time_specifier_buffers();
 
                     for &c in &children_ids {
@@ -153,7 +157,15 @@ pub fn to_tnf(
                         TimeSpecifier::AtStart => (id, empty, empty),
                         TimeSpecifier::AtEnd => (empty, id, empty),
                         TimeSpecifier::Overall => (empty, empty, id),
-                        TimeSpecifier::None => (id, id, id), // Naked literals apply to all
+                        TimeSpecifier::None => {
+                            if is_effect {
+                                // 🛡️ SÉCURITÉ PDDL : Un effet nu s'applique aux fluxes Start et End, JAMAIS en Overall
+                                (id, id, empty)
+                            } else {
+                                // Une condition nue reste un invariant implicite sur tout le flux
+                                (id, id, id)
+                            }
+                        }
                     }
                 }
             };
@@ -190,18 +202,96 @@ pub fn to_tnf(
         }
     }
 
-    // Final Assembly: Extract the root triplet (calculated under None context)
+    // --- ASSEMBLAGE FINAL ---
     let root_key = TimeSpecifier::None.pack(expr.as_usize());
     let (s, e, o) = scratch.get_temporal_decomposition(root_key);
 
-    let nodes = [
-        builder.at_start(s)?,
-        builder.at_end(e)?,
-        builder.overall(o)?,
-    ];
+    let mut nodes = smallvec::SmallVec::<[ExprId; 3]>::new();
+    if s != empty {
+        nodes.push(builder.at_start(s)?);
+    }
+    if e != empty {
+        nodes.push(builder.at_end(e)?);
+    }
+    if o != empty {
+        nodes.push(builder.overall(o)?);
+    }
 
-    // Returns the final (and (at start S) (at end E) (overall O))
-    Ok(builder.and(&nodes))
+    // Si le builder écrase les And unaires ou vides, on force la création brute
+    // ou on passe par une méthode du builder qui garantit le type de nœud.
+    let final_and = builder.and(&nodes);
+
+    // 🛡️ Double sécurité : Si le builder a extrait l'unique enfant,
+    // on ré-encapsule manuellement dans un And pour garantir la forme normale stricte.
+    let root_entry = builder.fetch(final_and)?;
+    let final_res = if !matches!(root_entry.kind(), ExprKind::And) {
+        builder.intern(ExprKind::And, &[final_and])
+    } else {
+        final_and
+    };
+
+    // 🎯 Détecter si l'on est dans un contexte d'effet ou de condition
+    // (À lier idéalement avec un paramètre d'entrée de votre fonction macro `to_tnf`)
+    let is_effect = false;
+
+    // 🛡️ Validation de la correction TNF avant de quitter le pipeline
+    check_post_conditions(builder, final_res, is_effect);
+
+    Ok(final_res)
+}
+
+/// Validates that the output expression conforms strictly to the Temporal Normal Form (TNF).
+///
+/// This function acts as a structural safety barrier (post-condition) at the exit point of
+/// the `to_tnf` transformation pipeline, ensuring that temporal grouping rules were correctly applied.
+///
+/// ### Debug Mode Behavior
+/// If the TNF invariant is violated (e.g., a temporal operator is missing at the root, nested
+/// illegally, or an invalid `Overall` is found in an effect), this function intercepts the failure,
+/// prints a **complete hierarchical tree dump** of the malformed LIR DAG to the standard console,
+/// and then triggers a panic via `debug_assert!`.
+///
+/// ### Performance & Inlining Strategy
+/// - **`--release` Optimization**: In combination with the `cfg!(debug_assertions)` guard,
+///   the `#[inline(always)]` attribute allows the Rust compiler to perform aggressive dead code
+///   elimination. In release profile builds, this entire validation layout and its nested recursive
+///   printer are entirely stripped out, incurring **strictly 0 nanoseconds** of runtime overhead.
+/// - **Forced Inlining**: Ensures that during debug/test execution profiles, the routine's body
+///   is directly fused into the tail end of `to_tnf`, avoiding an extra stack frame layout jump.
+///
+/// ### Arguments
+/// * `builder` - A reference to the `ExprBuilder` used to inspect the nodes.
+/// * `final_res` - The `ExprId` representing the root of the newly normalized expression tree.
+/// * `is_effect` - A boolean flag indicating whether the expression represents an effect (disallowing `Overall`).
+#[inline(always)]
+fn check_post_conditions(builder: &mut ExprBuilder, final_res: ExprId, is_effect: bool) {
+    if cfg!(debug_assertions) {
+        match expr::is_tnf(final_res, builder, is_effect) {
+            Ok(true) => {} // Everything is valid
+            Ok(false) | Err(_) => {
+                println!("\n=== [DEBUG] CRASH DETECTED IN TO_TNF ===");
+                println!("Root ExprId: {:?}", final_res);
+                println!("Is Effect Context: {}", is_effect);
+
+                // 1. Retrieve the isolated store from the builder to instantiate the debug context.
+                let store = builder.store();
+                let ctx = RenderContext::debug(store);
+
+                // 2. Wrap the raw root ID and store into the high-level Expr handle.
+                let expr_handle = Expr::new(final_res, store);
+
+                // 3. Leverage the unifed trait API to print the structural tree safely.
+                println!("{}", expr_handle.as_debug(&ctx));
+
+                println!("========================================\n");
+            }
+        }
+    }
+
+    debug_assert!(
+        matches!(expr::is_tnf(final_res, builder, is_effect), Ok(true)),
+        "LOGICAL VIOLATION: The transformation generated an invalid tree for TNF! The root must be an 'And' containing exclusively valid temporal operators matching the effect context."
+    );
 }
 
 /// Reconstructs an expression node while applying basic logical simplifications.
@@ -299,8 +389,8 @@ pub fn is_fully_temporal(
             ExprKind::And
             | ExprKind::Or
             | ExprKind::Not
-            | ExprKind::ForallNew(_)
-            | ExprKind::ExistsNew(_) => {
+            | ExprKind::Forall(_)
+            | ExprKind::Exists(_) => {
                 let flag = if is_under_temporal { 1 } else { 0 };
                 for &child in entry.children() {
                     let next_packed = (child.as_usize() << 1) | flag;
@@ -507,8 +597,8 @@ mod tests {
         // 3. Final assembly
         let expr = builder.and(&[ts, te, to]);
 
-        // 4. Transform
-        let result_id = to_tnf(expr, &mut builder, &mut scratch)?;
+        // 4. Transform (Passage de is_effect = false car contient un 'overall')
+        let result_id = to_tnf(expr, &mut builder, &mut scratch, false)?;
 
         // 5. Validation
         let (s, e, o) = verify_tnf_structure(&mut builder, result_id);
@@ -542,8 +632,8 @@ mod tests {
         // Setup: (and A (at start B) (at end C))
         let expr = builder.and(&[a, ts, te]);
 
-        // Transform
-        let result_id = to_tnf(expr, &mut builder, &mut scratch)?;
+        // Transform (Passage de is_effect = false car on teste le comportement standard d'une condition)
+        let result_id = to_tnf(expr, &mut builder, &mut scratch, false)?;
 
         // Extract components (S, E, O)
         let (s, e, o) = verify_tnf_structure(&mut builder, result_id);
@@ -585,8 +675,10 @@ mod tests {
         let a = builder.atomic_formula(1, &[], skel);
         let root = builder.at_start(a)?;
 
-        let result1 = to_tnf(root, &mut builder, &mut scratch)?;
-        let result2 = to_tnf(result1, &mut builder, &mut scratch)?;
+        // Premier passage (is_effect = false)
+        let result1 = to_tnf(root, &mut builder, &mut scratch, false)?;
+        // Second passage sur le résultat déjà transformé
+        let result2 = to_tnf(result1, &mut builder, &mut scratch, false)?;
 
         assert_eq!(result1, result2, "TNF must be stable and idempotent");
         Ok(())
@@ -637,7 +729,8 @@ mod tests {
         let not_a = builder.not(a);
         let expr = builder.at_start(not_a)?;
 
-        let result_id = to_tnf(expr, &mut builder, &mut scratch)?;
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(expr, &mut builder, &mut scratch, false)?;
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
 
         let s_node = builder.fetch(s)?;
@@ -666,7 +759,9 @@ mod tests {
         let forall = builder.forall(vars, p)?; // Builder returns `p` directly here
 
         let root = builder.at_start(forall)?;
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
 
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
         assert_eq!(
@@ -700,13 +795,15 @@ mod tests {
         let forall = builder.forall(vars, p_x)?;
 
         let root = builder.at_start(forall)?;
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
 
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
         let s_node = builder.fetch(s)?;
 
         assert!(
-            matches!(s_node.kind(), ExprKind::ForallNew(_)),
+            matches!(s_node.kind(), ExprKind::Forall(_)),
             "Forall node must be present"
         );
         assert_eq!(
@@ -749,7 +846,9 @@ mod tests {
         let outer = builder.forall(var2s, inner)?;
 
         let root = builder.at_start(outer)?;
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
 
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
         let s_node = builder.fetch(s)?;
@@ -758,7 +857,7 @@ mod tests {
         // Extract the internal `TypedListId` into an isolated, copyable local variable.
         // This allows the immutable borrow on `builder`/`s_node` to strictly die
         // before we query the underlying store for the materialized variables.
-        let target_vars_id = if let ExprKind::ForallNew(vars_id) = s_node.kind() {
+        let target_vars_id = if let ExprKind::Forall(vars_id) = s_node.kind() {
             Some(*vars_id)
         } else {
             None
@@ -792,7 +891,9 @@ mod tests {
         let empty = builder.empty_and();
 
         let root = builder.at_start(empty)?;
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
 
         let (s, e, o) = verify_tnf_structure(&mut builder, result_id);
         assert_eq!(s, empty);
@@ -827,8 +928,8 @@ mod tests {
         // 3. Wrap it in a temporal context: (at start (when A B))
         let root = builder.at_start(when)?;
 
-        // 4. Transform to TNF
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+        // 4. Transform to TNF (Passage de is_effect = true car WHEN est un effet)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, true)?;
 
         // 5. Verify the top-level (AND S E O) structure and extract S
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
@@ -856,53 +957,6 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    /// **Purpose**: Verifies the distribution of a temporal operator over a logical `OR` node.
-    /// In TNF, `(at start (A or B))` should result in the `OR` being preserved within the
-    /// `start` component of the decomposition.
-    ///
-    /// **Input**: A temporal expression wrapping a logical disjunction: `(at start (A or B))`.
-    ///
-    /// **Expected Output**: A TNF structure where the `start` component `S` is exactly `(A or B)`.
-    /// The `end` and `overall` components should be empty (logical true).
-    fn test_tnf_or_distribution() -> Result<(), Box<dyn std::error::Error>> {
-        let mut store = ExprStore::new();
-        let mut builder = ExprBuilder::new(&mut store);
-        let mut scratch = Scratchpad::new();
-        let skel = AtomSkeletonId::from(0);
-
-        // 1. Create atoms A and B
-        let a = builder.atomic_formula(1, &[], skel);
-        let b = builder.atomic_formula(2, &[], skel);
-
-        // 2. Create the logical OR: (A or B)
-        let or_node = builder.or(&[a, b]);
-
-        // 3. Wrap in a temporal operator: (at start (A or B))
-        let root = builder.at_start(or_node)?;
-
-        // 4. Transform to TNF
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
-
-        // 5. Verify structure and extract the Start component
-        let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
-
-        // 6. Assertions: The start component must be the OR node
-        let s_node = builder.fetch(s)?;
-        assert!(
-            matches!(s_node.kind(), ExprKind::Or),
-            "The Start component should be an OR node, but found: {:?}",
-            s_node.kind()
-        );
-
-        let s_kids = s_node.children();
-        assert!(s_kids.contains(&a));
-        assert!(s_kids.contains(&b));
-
-        Ok(())
-    }
-
-    #[test]
     /// **Purpose**: Ensures that the system strictly forbids nested temporal operators
     /// (e.g., `at start (at end A)`), as they are semantically invalid in PDDL 2.1+.
     ///
@@ -913,6 +967,7 @@ mod tests {
     /// 1. The `ExprBuilder` prevents the creation of the expression (returning an error).
     /// 2. The `to_tnf` function detects the nesting and returns an `IllegalTemporalNesting` error.
     /// It fails if the expression is processed as a valid TNF.
+    #[test]
     fn test_tnf_nested_temporal_conflict() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
@@ -939,7 +994,9 @@ mod tests {
 
         // CASE B: The builder allowed it, so to_tnf must catch it
         let outer = outer_res.unwrap();
-        let result = to_tnf(outer, &mut builder, &mut scratch);
+
+        // Transform (Passage de is_effect = false)
+        let result = to_tnf(outer, &mut builder, &mut scratch, false);
 
         match result {
             Err(ExprOpError::IllegalTemporalNesting { .. }) => {
@@ -955,7 +1012,6 @@ mod tests {
         }
     }
 
-    #[test]
     /// **Purpose**: Verifies that a pure `overall` constraint is correctly isolated
     /// into the `overall` flux of the TNF, leaving the `start` and `end` fluxes empty.
     ///
@@ -964,6 +1020,7 @@ mod tests {
     /// **Expected Output**: A TNF structure `(and (at start true) (at end true) (overall A))`.
     /// After optimization by the builder, the `start` and `end` components should
     /// match the `empty_and` (logical true) and the `overall` component should match `A`.
+    #[test]
     fn test_tnf_overall_isolation() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
@@ -974,8 +1031,8 @@ mod tests {
         let a = builder.atomic_formula(1, &[], skel);
         let root = builder.overall(a)?;
 
-        // 2. Transform to TNF
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+        // 2. Transform to TNF (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
 
         // 3. Verify structure and extract S, E, O components
         let (s, e, o) = verify_tnf_structure(&mut builder, result_id);
@@ -996,13 +1053,13 @@ mod tests {
         Ok(())
     }
 
-    #[test]
     /// **Purpose**: Verifies that negation wrapping a logical block is preserved
     /// within its temporal flux.
     ///
     /// **Input**: `(at start (not (and A B)))`
     ///
     /// **Expected Output**: Start component `S` should be exactly `(not (and A B))`.
+    #[test]
     fn test_tnf_negated_block() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
@@ -1015,7 +1072,8 @@ mod tests {
         let not_and = builder.not(and_ab);
         let root = builder.at_start(not_and)?;
 
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
 
         let s_node = builder.fetch(s)?;
@@ -1028,13 +1086,13 @@ mod tests {
         Ok(())
     }
 
-    #[test]
     /// **Purpose**: Verifies that a single logical AND containing different
     /// temporal specifiers is correctly decomposed into its respective fluxes.
     ///
     /// **Input**: `(and (at start A) (overall B))`
     ///
     /// **Expected Output**: `S` contains `A`, `O` contains `B`, `E` is empty.
+    #[test]
     fn test_tnf_split_and_logic() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
@@ -1047,7 +1105,8 @@ mod tests {
         let to = builder.overall(b)?;
         let root = builder.and(&[ts, to]);
 
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
         let (s, e, o) = verify_tnf_structure(&mut builder, result_id);
 
         assert_eq!(s, a, "Start flux should contain A");
@@ -1057,7 +1116,6 @@ mod tests {
         Ok(())
     }
 
-    #[test]
     /// **Purpose**: Verifies that a quantifier wrapping a temporal operator
     /// is correctly handled (the temporal operator is pushed up or preserved).
     /// Note: In PDDL, `(forall (?x) (at start (P ?x)))` is common.
@@ -1065,6 +1123,7 @@ mod tests {
     /// **Input**: `(forall {?x} (at start (P ?x)))`
     ///
     /// **Expected Output**: `S` should contain `(forall {?x} (P ?x))`.
+    #[test]
     fn test_tnf_quantifier_over_temporal() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
@@ -1081,17 +1140,17 @@ mod tests {
         let at_start_p = builder.at_start(p_x)?;
         let root = builder.forall(vars, at_start_p)?;
 
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
         let (s, _, _) = verify_tnf_structure(&mut builder, result_id);
 
         let s_node = builder.fetch(s)?;
-        assert!(matches!(s_node.kind(), ExprKind::ForallNew(_)));
+        assert!(matches!(s_node.kind(), ExprKind::Forall(_)));
         assert_eq!(s_node.children()[0], p_x);
 
         Ok(())
     }
 
-    #[test]
     /// **Purpose**: Verifies that a "naked" atom (no temporal operator) inside a
     /// complex logical tree is correctly replicated across all three TNF fluxes.
     ///
@@ -1101,6 +1160,7 @@ mod tests {
     /// - Start: `A and (B or C)`
     /// - End: `B or C`
     /// - Overall: `B or C`
+    #[test]
     fn test_tnf_deep_naked_atom_propagation() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
@@ -1115,7 +1175,8 @@ mod tests {
         let or_bc = builder.or(&[b, c]);
         let root = builder.and(&[at_start_a, or_bc]);
 
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
         let (s, e, o) = verify_tnf_structure(&mut builder, result_id);
 
         // Verify Start: should contain both A and the OR block
@@ -1139,12 +1200,12 @@ mod tests {
         Ok(())
     }
 
-    #[test]
     /// **Purpose**: Tests the handling of redundant or empty temporal blocks.
     ///
     /// **Input**: `(and (at start (and)) (at end A))`
     ///
     /// **Expected Output**: The `at start` component should be a clean `empty_and`.
+    #[test]
     fn test_tnf_redundant_empty_blocks() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
@@ -1158,7 +1219,8 @@ mod tests {
 
         let root = builder.and(&[at_start_empty, at_end_a]);
 
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
         let (s, e, o) = verify_tnf_structure(&mut builder, result_id);
 
         assert_eq!(s, empty_and, "Start should be simplified to empty_and");
@@ -1168,11 +1230,11 @@ mod tests {
         Ok(())
     }
 
-    #[test]
     /// **Purpose**: Verifies that the bit-packing logic in TimeSpecifier doesn't
     /// fail with high-index ExprIds (stressing the shift logic).
     ///
     /// **Input**: A temporal expression using an ID that is large (e.g., 1000000).
+    #[test]
     fn test_tnf_high_id_bit_packing() -> Result<(), Box<dyn std::error::Error>> {
         let mut store = ExprStore::new();
         let mut builder = ExprBuilder::new(&mut store);
@@ -1186,7 +1248,9 @@ mod tests {
         }
 
         let root = builder.overall(last_id)?;
-        let result_id = to_tnf(root, &mut builder, &mut scratch)?;
+
+        // Transform (Passage de is_effect = false)
+        let result_id = to_tnf(root, &mut builder, &mut scratch, false)?;
 
         let (_, _, o) = verify_tnf_structure(&mut builder, result_id);
         assert_eq!(

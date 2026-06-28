@@ -35,7 +35,8 @@ use crate::aiplan4rust::compiler::lir::expr::ops::error::ExprOpError;
 
 use crate::aiplan4rust::compiler::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::expr::iter::scratchpad::Scratchpad;
-use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
 
 /// Converts a logical expression to Negation Normal Form (NNF).
 ///
@@ -67,6 +68,14 @@ use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
 /// 3. **Bottom-Up (Reconstruction)**: Once all dependent child structures are transformed,
 ///    the parent node is rebuilt using De Morgan's laws or quantifier dualities.
 ///
+/// # Post-Conditions & Invariants
+/// Prior to returning, the function executes `check_post_conditions` to validate the structural
+/// properties of the output tree via `expr::is_nnf`:
+/// - **Negation Invariant**: Assures that no `Not` operator remains layered over complex logical
+///   connectives (`And`, `Or`, `Imply`, etc.). All negations are strictly bounded to leaf-level literals.
+/// - **Zero Production Cost**: In release builds, this safety check is completely optimized away
+///   by the compiler via dead-code elimination, ensuring zero runtime overhead in production.
+///
 /// # Arguments
 ///
 /// * `id` - The structural [`ExprId`] representing the root node to transform.
@@ -77,7 +86,7 @@ use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
 /// # Returns
 ///
 /// * `Ok(ExprId)` - The identifier pointing to the newly generated NNF expression.
-/// * `Err(ExprOpErrorHC)` - An internal operational error if structural retrieval fails,
+/// * `Err(ExprOpError)` - An internal operational error if structural retrieval fails,
 ///   if a structural cache miss occurs ([`ExprOpError::CacheMiss`]), or if the root node
 ///   fails to reconstruct ([`ExprOpError::NnfLogicError`]).
 pub fn to_nnf(
@@ -90,9 +99,11 @@ pub fn to_nnf(
     }
 
     scratch.clear();
+    // Pack the root node with an initial false (positive) negation polarity
     let root_encoded = ExprId::new(encode(id.as_usize(), false));
     let mut final_id = None;
 
+    // Push root onto DFS stack; marked as unprocessed (false)
     scratch.push(root_encoded, false);
 
     while let Some((packed_id, processed)) = scratch.pop() {
@@ -103,6 +114,7 @@ pub fn to_nnf(
         }
 
         if !processed {
+            // Short-circuit if this specific node-polarity combination is already cached
             if scratch.get(packed_id).is_some() {
                 continue;
             }
@@ -119,16 +131,18 @@ pub fn to_nnf(
                 )
             };
 
+            // Re-push onto stack marked as processed (true) for the upcoming bottom-up phase
             scratch.push(packed_id, true);
 
             if is_not {
                 let child_id = scratch.children_buffer()[start];
                 if child_id.is_valid() {
+                    // De Morgan / Double Negation step: invert the inherited negation flag for the child
                     let child_packed = ExprId::new(encode(child_id.as_usize(), !negate));
                     scratch.push(child_packed, false);
                 }
             } else if matches!(kind, ExprKind::Preference) && (end - start >= 2) {
-                // SÉCURITÉ PDDL3 : On force le nom et le corps de la préférence à false
+                // PDDL3 Boundary Isolation: Force both preference metadata and body to false (negation absorption)
                 let nom_id = scratch.children_buffer()[start];
                 let body_id = scratch.children_buffer()[start + 1];
 
@@ -147,7 +161,7 @@ pub fn to_nnf(
                     | ExprKind::Within
                     | ExprKind::AlwaysWithin
             ) {
-                // SÉCURITÉ PDDL3 : On force les enfants des contraintes temporelles à false
+                // PDDL3 Temporal Isolation: Block negation propagation down into modal sub-formulas
                 for i in (start..end).rev() {
                     let child_id = scratch.children_buffer()[i];
                     if child_id.is_valid() {
@@ -155,7 +169,7 @@ pub fn to_nnf(
                     }
                 }
             } else {
-                // Cas logiques standards
+                // Standard Logic Connectives: Propagate the current structural negation flag to all children
                 for i in (start..end).rev() {
                     let child_id = scratch.children_buffer()[i];
                     if child_id.is_valid() {
@@ -188,15 +202,20 @@ pub fn to_nnf(
                         }
                     };
 
-                    // Si on reconstruit un Not, on s'assure qu'il ne coiffe qu'un atome ou une comparaison
-                    let res_kind = builder.fetch(res)?.kind().clone();
-                    if matches!(
-                        res_kind,
-                        ExprKind::AtomicFormula(_) | ExprKind::Comparison(_)
-                    ) {
-                        builder.not(res)
-                    } else {
+                    if negate {
+                        // Double Negation Elimination: ambient negation and node negation cancel out (¬¬res -> res)
                         res
+                    } else {
+                        // Standard Unary Negation: Only allow raw NOT nodes over terminal leaves (atoms/comparisons)
+                        let res_kind = builder.fetch(res)?.kind().clone();
+                        if matches!(
+                            res_kind,
+                            ExprKind::AtomicFormula(_) | ExprKind::Comparison(_)
+                        ) {
+                            builder.not(res)
+                        } else {
+                            res
+                        }
                     }
                 }
 
@@ -222,6 +241,7 @@ pub fn to_nnf(
                         scratch.build_buffer_mut().push(transformed);
                     }
 
+                    // Apply De Morgan dualities on-the-fly based on the accumulated negation state
                     if apply_de_morgan(is_and, negate) {
                         builder.and(scratch.build_buffer())
                     } else {
@@ -229,8 +249,8 @@ pub fn to_nnf(
                     }
                 }
 
-                ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
-                    let is_forall = matches!(kind, ExprKind::ForallNew(_));
+                ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
+                    let is_forall = matches!(kind, ExprKind::Forall(_));
                     let child_id = scratch.children_buffer()[start];
                     let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
 
@@ -244,6 +264,7 @@ pub fn to_nnf(
                         }
                     };
 
+                    // Apply Quantifier Duality rules (e.g., ¬∃x.P(x) ≡ ∀x.¬P(x))
                     if transform_quantifier(is_forall, negate) {
                         builder.forall(*vars, body)?
                     } else {
@@ -292,6 +313,7 @@ pub fn to_nnf(
                 }
 
                 _ => {
+                    // Terminal or unhandled operators: append raw NOT wrapping layer if negate is active
                     let base = builder.intern(kind.clone(), &scratch.children_buffer()[start..end]);
                     if negate
                         && matches!(kind, ExprKind::AtomicFormula(_) | ExprKind::Comparison(_))
@@ -314,29 +336,50 @@ pub fn to_nnf(
 
     let final_res = final_id.ok_or_else(|| ExprOpError::nnf_logic_error())?;
 
-    // On délègue la vérification de l'invariant
+    // Validate NNF correctness before exiting the pipeline
     check_post_conditions(builder.store(), final_res);
 
     Ok(final_res)
 }
 
-#[inline(always)]
+/// Validates that the output expression conforms strictly to the Negation Normal Form (NNF).
+///
+/// This function acts as a structural safety barrier (post-condition) at the exit point of
+/// the `to_nnf` transformation pipeline, ensuring that negation rules were correctly applied.
+///
+/// ### Debug Mode Behavior
+/// If the NNF invariant is violated (e.g., a `Not` operator is found wrapping a complex node
+/// like `And` or `Or` instead of a leaf literal), this function intercepts the failure,
+/// prints a **complete hierarchical tree dump** of the malformed LIR DAG to the standard console,
+/// and then triggers a panic via `debug_assert!`.
+///
+/// ### Performance & Inlining Strategy
+/// - **`--release` Optimization**: In combination with the `cfg!(debug_assertions)` guard,
+///   the `#[inline(always)]` attribute allows the Rust compiler to perform aggressive dead code
+///   elimination. In release profile builds, this entire validation layout and its nested recursive
+///   printer are entirely stripped out, incurring **strictly 0 nanoseconds** of runtime overhead.
+/// - **Forced Inlining**: Ensures that during debug/test execution profiles, the routine's body
+///   is directly fused into the tail end of `to_nnf`, avoiding an extra stack frame layout jump.
+///
+/// ### Arguments
+/// * `store` - A reference to the shared, hash-consed `ExprStore` containing the nodes.
+/// * `final_res` - The `ExprId` representing the root of the newly normalized expression tree.
+/// Target this import at the top of your file (nnf.rs) so `.as_debug()` can be resolved by the compiler.
 fn check_post_conditions(store: &expr::ExprStore, final_res: ExprId) {
     if cfg!(debug_assertions) {
         if !expr::is_nnf(store, final_res) {
             println!("\n=== [DEBUG] CRASH DETECTED IN TO_NNF ===");
             println!("Root ExprId: {:?}", final_res);
 
-            fn dump_tree_debug(store: &expr::ExprStore, id: ExprId, depth: usize) {
-                if let Some(node) = store.get(id) {
-                    let indent = "  ".repeat(depth);
-                    println!("{}{:?} (Kind: {:?})", indent, id, node.kind());
-                    for &child in node.children() {
-                        dump_tree_debug(store, child, depth + 1);
-                    }
-                }
-            }
-            dump_tree_debug(store, final_res, 0);
+            // 1. Instantiate the safe, symbol-free rendering context.
+            let ctx = RenderContext::debug(store);
+
+            // 2. Wrap the raw ExprId and store into the high-level Expr handle.
+            let expr_handle = Expr::new(final_res, store);
+
+            // 3. Leverage your custom trait API to format the tree directly.
+            println!("{}", expr_handle.as_debug(&ctx));
+
             println!("========================================\n");
         }
     }
@@ -346,162 +389,6 @@ fn check_post_conditions(store: &expr::ExprStore, final_res: ExprId) {
         "LOGICAL VIOLATION: The transformation generated an invalid tree! A 'Not' operator was placed on top of a complex node instead of a literal."
     );
 }
-/*pub fn to_nnf(
-    id: ExprId,
-    builder: &mut ExprBuilder,
-    scratch: &mut Scratchpad,
-) -> Result<ExprId, ExprOpError> {
-    if id.is_none() {
-        return Ok(id);
-    }
-
-    scratch.clear();
-    let root_encoded = ExprId::new(encode(id.as_usize(), false));
-    let mut final_id = None;
-
-    scratch.push(root_encoded, false);
-
-    while let Some((packed_id, processed)) = scratch.pop() {
-        let (curr_id, negate) = decode(packed_id.value);
-
-        if !curr_id.is_valid() {
-            continue;
-        }
-
-        if !processed {
-            if scratch.get(packed_id).is_some() {
-                continue;
-            }
-
-            // --- PHASE 1: DESCENT (Top-Down) ---
-            let (is_not, start, end) = {
-                let entry = builder.fetch(curr_id)?;
-                let (s, e) = scratch.prepare_children_segment(entry.children());
-                (matches!(entry.kind(), ExprKind::Not), s, e)
-            };
-
-            scratch.push(packed_id, true);
-
-            if is_not {
-                let child_id = scratch.children_buffer()[start];
-                if child_id.is_valid() {
-                    let child_packed = ExprId::new(encode(child_id.as_usize(), !negate));
-                    scratch.push(child_packed, false);
-                }
-            } else {
-                for i in (start..end).rev() {
-                    let child_id = scratch.children_buffer()[i];
-                    if child_id.is_valid() {
-                        let child_packed = ExprId::new(encode(child_id.as_usize(), negate));
-                        scratch.push(child_packed, false);
-                    }
-                }
-            }
-        } else {
-            // --- PHASE 2: RECONSTRUCTION (Bottom-Up) ---
-            let (kind, entry_child_count) = {
-                let entry = builder.fetch(curr_id)?;
-                (entry.kind().clone(), entry.children().len())
-            };
-
-            let (start, end) = scratch.last_segment_indices(entry_child_count);
-
-            let new_id = match &kind {
-                ExprKind::Not => {
-                    let child_id = scratch.children_buffer()[start];
-                    let target_packed = ExprId::new(encode(child_id.as_usize(), !negate));
-
-                    match scratch.get(target_packed) {
-                        Some(res) => res,
-                        None => {
-                            let fallback_packed = ExprId::new(encode(child_id.as_usize(), negate));
-                            scratch
-                                .get(fallback_packed)
-                                .ok_or_else(|| ExprOpError::cache_miss())?
-                        }
-                    }
-                }
-
-                ExprKind::And | ExprKind::Or => {
-                    let is_and = matches!(kind, ExprKind::And);
-
-                    scratch.build_buffer_mut().clear();
-                    for i in start..end {
-                        let child_id = scratch.children_buffer()[i];
-                        let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
-
-                        let transformed = match scratch.get(target_packed) {
-                            Some(res) => res,
-                            None => {
-                                let fallback_packed =
-                                    ExprId::new(encode(child_id.as_usize(), !negate));
-
-                                scratch
-                                    .get(fallback_packed)
-                                    .ok_or_else(|| ExprOpError::cache_miss())?
-                            }
-                        };
-                        scratch.build_buffer_mut().push(transformed);
-                    }
-
-                    if apply_de_morgan(is_and, negate) {
-                        builder.and(scratch.build_buffer())
-                    } else {
-                        builder.or(scratch.build_buffer())
-                    }
-                }
-
-                ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
-                    let is_forall = matches!(kind, ExprKind::ForallNew(_));
-                    let child_id = scratch.children_buffer()[start];
-                    let target_packed = ExprId::new(encode(child_id.as_usize(), negate));
-
-                    let body = match scratch.get(target_packed) {
-                        Some(res) => res,
-                        None => {
-                            let fallback_packed = ExprId::new(encode(child_id.as_usize(), !negate));
-                            scratch
-                                .get(fallback_packed)
-                                .ok_or_else(|| ExprOpError::cache_miss())?
-                        }
-                    };
-
-                    if transform_quantifier(is_forall, negate) {
-                        builder.forall(*vars, body)?
-                    } else {
-                        builder.exists(*vars, body)?
-                    }
-                }
-
-                _ => {
-                    let base = builder.intern(kind.clone(), &scratch.children_buffer()[start..end]);
-                    if negate {
-                        builder.not(base)
-                    } else {
-                        base
-                    }
-                }
-            };
-
-            scratch.children_buffer_mut().truncate(start);
-            scratch.insert(packed_id, new_id);
-
-            if packed_id == root_encoded {
-                final_id = Some(new_id);
-            }
-        }
-    }
-
-    let final_res = final_id.ok_or_else(|| ExprOpError::nnf_logic_error())?;
-
-    // CRASH TEST
-    debug_assert!(
-        expr::is_nnf(builder.store(), final_res),
-        "LOGICAL VIOLATION: The transformation generated an invalid tree! A 'Not' operator was placed on top of a complex node instead of a literal."
-    );
-
-    Ok(final_res)
-}*/
 
 /// Determines the effective boolean operator (AND or OR) after applying a negation polarity.
 ///
@@ -715,13 +602,13 @@ mod tests {
         // 3. Validation
         // Le ForallNew sous la négation doit être devenu un ExistsNew (et surtout pas Exists)
         assert!(
-            matches!(root_node.kind(), ExprKind::ExistsNew(_)),
+            matches!(root_node.kind(), ExprKind::Exists(_)),
             "Expected strictly ExistsNew node. Got: {:?}",
             root_node.kind()
         );
 
         // Vérification des variables préservées dans ExistsNew
-        if let ExprKind::ExistsNew(ref typed_list_id) = root_node.kind() {
+        if let ExprKind::Exists(ref typed_list_id) = root_node.kind() {
             // Optionnel : Si tu as besoin de valider l'ID de la liste typée directement,
             // tu peux comparer typed_list_id avec la liste d'origine ou attendue.
             assert!(typed_list_id.is_valid());
@@ -767,13 +654,13 @@ mod tests {
         // 3. Validation
         // Le ExistsNew sous négation doit être strictement devenu un ForallNew
         assert!(
-            matches!(root_node.kind(), ExprKind::ForallNew(_)),
+            matches!(root_node.kind(), ExprKind::Forall(_)),
             "Expected strictly ForallNew node. Got: {:?}",
             root_node.kind()
         );
 
         // Vérification de la structure interne du ForallNew si besoin
-        if let ExprKind::ForallNew(ref typed_list_id) = root_node.kind() {
+        if let ExprKind::Forall(ref typed_list_id) = root_node.kind() {
             assert!(typed_list_id.is_valid());
         }
 
@@ -883,7 +770,7 @@ mod tests {
                 }
 
                 // Case ∀x.¬C (Mis à jour vers ForallNew)
-                ExprKind::ForallNew(_) => {
+                ExprKind::Forall(_) => {
                     let body_id = node.children()[0];
                     let body_node = builder.fetch(body_id)?;
                     // Verify that the Forall body is Not(C)
@@ -984,7 +871,7 @@ mod tests {
         // Mis à jour pour cibler strictement ExistsNew
         let has_exists = children.iter().any(|&id| {
             let node = builder.get(id).unwrap();
-            matches!(node.kind(), ExprKind::ExistsNew(_))
+            matches!(node.kind(), ExprKind::Exists(_))
         });
 
         assert!(

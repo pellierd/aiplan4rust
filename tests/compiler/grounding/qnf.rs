@@ -122,7 +122,7 @@ pub fn test_qnf_quantifier_elimination_all_files(domain_dir: &Path) -> bool {
 
             for (real_id, _, entry) in store.preorder(root_id) {
                 match entry.kind() {
-                    ExprKind::ForallNew(_) | ExprKind::ExistsNew(_) => {
+                    ExprKind::Forall(_) | ExprKind::Exists(_) => {
                         println!(
                             "  - ORACLE ERROR [QNF]: Un quantificateur ACTIF '{:?}' a survécu à l'id {} dans {:?}",
                             entry.kind(),

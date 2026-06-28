@@ -5,6 +5,7 @@ use crate::aiplan4rust::support::lang::{
     ActionSymbolId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, SymbolId,
     TaskSymbolId, TypeId, VariableId,
 };
+use std::sync::LazyLock;
 
 pub struct RenderContext<'a> {
     interner: &'a SymbolInterner,
@@ -32,6 +33,68 @@ impl<'a> RenderContext<'a> {
             task_symbols: &problem.task_symbols(),
             action_symbols: &problem.action_symbols(),
             method_symbols: &problem.method_symbols(), // Aj
+            variable_symbols: None,
+        }
+    }
+
+    /// Creates a fallback, symbol-free rendering context for structural diagnostics.
+    ///
+    /// This constructor is specifically designed for isolation testing, internal pipeline
+    /// debugging, and post-condition validations (e.g., NNF/FNF passes) where a full
+    /// `LiftedProblem` instance is unavailable or unnecessary.
+    ///
+    /// All internal registries are backed by globally cached, empty static instances.
+    /// As a result, resolving any identifier through this context will safely fall back
+    /// to default placeholders (e.g., `<unknown_pred>`) without disrupting the structural
+    /// layout or layout geometry of the expression tree.
+    ///
+    /// # Performance
+    ///
+    /// Uses [`std::sync::LazyLock`] internally to lazily initialize empty static registries
+    /// on the first call. Subsequent allocations are zero-cost as references are coerced
+    /// from `'static` to the lifetime `'a` of the provided [`ExprStore`].
+    ///
+    /// # Examples
+    ///
+    /// ```text
+    /// use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+    /// use crate::aiplan4rust::compiler::lir::expr::ExprStore;
+    ///
+    /// fn validate_tree(store: &ExprStore, root: ExprId) {
+    ///     // Instantiate a minimal structural context
+    ///     let ctx = RenderContext::debug(store);
+    ///
+    ///     // Safe structural rendering without full problem dependencies
+    ///     println!("{}", root.as_debug(&ctx));
+    /// }
+    /// ```
+    pub fn debug(store: &'a ExprStore) -> Self {
+        static EMPTY_INTERNER: LazyLock<SymbolInterner> = LazyLock::new(SymbolInterner::default);
+        static EMPTY_REGISTRY_TYPE: LazyLock<SymbolRegistry<TypeId>> =
+            LazyLock::new(SymbolRegistry::default);
+        static EMPTY_REGISTRY_PRED: LazyLock<SymbolRegistry<PredicateSymbolId>> =
+            LazyLock::new(SymbolRegistry::default);
+        static EMPTY_REGISTRY_FUNC: LazyLock<SymbolRegistry<FunctionSymbolId>> =
+            LazyLock::new(SymbolRegistry::default);
+        static EMPTY_REGISTRY_OBJ: LazyLock<SymbolRegistry<ObjectId>> =
+            LazyLock::new(SymbolRegistry::default);
+        static EMPTY_REGISTRY_TASK: LazyLock<SymbolRegistry<TaskSymbolId>> =
+            LazyLock::new(SymbolRegistry::default);
+        static EMPTY_REGISTRY_ACT: LazyLock<SymbolRegistry<ActionSymbolId>> =
+            LazyLock::new(SymbolRegistry::default);
+        static EMPTY_REGISTRY_METH: LazyLock<SymbolRegistry<MethodSymbolId>> =
+            LazyLock::new(SymbolRegistry::default);
+
+        Self {
+            interner: &EMPTY_INTERNER,
+            store,
+            type_symbols: &EMPTY_REGISTRY_TYPE,
+            predicate_symbols: &EMPTY_REGISTRY_PRED,
+            functor_symbols: &EMPTY_REGISTRY_FUNC,
+            object_symbols: &EMPTY_REGISTRY_OBJ,
+            task_symbols: &EMPTY_REGISTRY_TASK,
+            action_symbols: &EMPTY_REGISTRY_ACT,
+            method_symbols: &EMPTY_REGISTRY_METH,
             variable_symbols: None,
         }
     }

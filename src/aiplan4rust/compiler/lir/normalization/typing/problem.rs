@@ -412,7 +412,7 @@ mod tests {
         // This allows the immutable borrow on `store` (via `store.get`) to strictly die
         // before we query the store or problem structures downstream.
         let target_vars_id = if let Some(node) = store.get(final_expr) {
-            if let ExprKind::ExistsNew(vars_id) = node.kind() {
+            if let ExprKind::Exists(vars_id) = node.kind() {
                 Some(*vars_id)
             } else {
                 None

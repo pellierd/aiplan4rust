@@ -143,8 +143,8 @@ pub fn expand_with(
 
             let current_id = match entry_kind {
                 // Intercept and ground first-order logic quantifiers
-                ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
-                    let is_forall = matches!(entry_kind, ExprKind::ForallNew(_));
+                ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
+                    let is_forall = matches!(entry_kind, ExprKind::Forall(_));
                     let body_id = store[old_id]
                         .children()
                         .first()
@@ -421,8 +421,8 @@ mod tests {
         let empty_list_id = store.empty_typed_list();
         let atom_id = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
 
-        let forall_id = store.intern(ExprKind::ForallNew(empty_list_id), &[atom_id]);
-        let exists_id = store.intern(ExprKind::ExistsNew(empty_list_id), &[atom_id]);
+        let forall_id = store.intern(ExprKind::Forall(empty_list_id), &[atom_id]);
+        let exists_id = store.intern(ExprKind::Exists(empty_list_id), &[atom_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -478,7 +478,7 @@ mod tests {
         // CORRECTION : On utilise une formule atomique (valide pour `is_evaluable`) au lieu d'une variable pure
         let var_node = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
         let body_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(1)), &[var_node]);
-        let forall_id = store.intern(ExprKind::ForallNew(list_id), &[body_id]);
+        let forall_id = store.intern(ExprKind::Forall(list_id), &[body_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -533,7 +533,7 @@ mod tests {
         // CORRECTION : Ici aussi, utilisation d'une formule atomique pour passer les filtres de bind_with
         let var_node = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
         let body_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(1)), &[var_node]);
-        let forall_id = store.intern(ExprKind::ForallNew(list_id), &[body_id]);
+        let forall_id = store.intern(ExprKind::Forall(list_id), &[body_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -654,7 +654,7 @@ mod tests {
         let list_id = store.intern_typed_list(mock_list_one_var());
         let var_node = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
         let body_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(1)), &[var_node]);
-        let forall_id = store.intern(ExprKind::ForallNew(list_id), &[body_id]);
+        let forall_id = store.intern(ExprKind::Forall(list_id), &[body_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -714,7 +714,7 @@ mod tests {
         let list_id = store.intern_typed_list(mock_list_one_var());
         let var_node = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
         let body_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(1)), &[var_node]);
-        let exists_id = store.intern(ExprKind::ExistsNew(list_id), &[body_id]);
+        let exists_id = store.intern(ExprKind::Exists(list_id), &[body_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -788,8 +788,8 @@ mod tests {
         );
 
         // Construction: ∀x ( ∃y ( AtomicFormula(x,y) ) )
-        let exists_id = store.intern(ExprKind::ExistsNew(list_y_id), &[atom_id]);
-        let forall_id = store.intern(ExprKind::ForallNew(list_x_id), &[exists_id]);
+        let exists_id = store.intern(ExprKind::Exists(list_y_id), &[atom_id]);
+        let forall_id = store.intern(ExprKind::Forall(list_x_id), &[exists_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -844,7 +844,7 @@ mod tests {
 
         // Corps : (AtomFormula(?x) Or AtomFormula(?y))
         let body_id = store.intern(ExprKind::Or, &[atom_x, atom_y]);
-        let forall_id = store.intern(ExprKind::ForallNew(list_id), &[body_id]);
+        let forall_id = store.intern(ExprKind::Forall(list_id), &[body_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -908,8 +908,8 @@ mod tests {
         let var_x = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
         let atom_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(1)), &[var_x]);
 
-        let inner_forall = store.intern(ExprKind::ForallNew(list_inner_id), &[atom_id]);
-        let outer_forall = store.intern(ExprKind::ForallNew(list_outer_id), &[inner_forall]);
+        let inner_forall = store.intern(ExprKind::Forall(list_inner_id), &[atom_id]);
+        let outer_forall = store.intern(ExprKind::Forall(list_outer_id), &[inner_forall]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -951,7 +951,7 @@ mod tests {
 
         let empty_list_id = store.empty_typed_list();
         let atom_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(123)), &[]);
-        let forall_id = store.intern(ExprKind::ForallNew(empty_list_id), &[atom_id]);
+        let forall_id = store.intern(ExprKind::Forall(empty_list_id), &[atom_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -995,7 +995,7 @@ mod tests {
         let list_id = store.intern_typed_list(mock_list_one_var());
         let var_node = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
         let body_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(1)), &[var_node]);
-        let forall_id = store.intern(ExprKind::ForallNew(list_id), &[body_id]);
+        let forall_id = store.intern(ExprKind::Forall(list_id), &[body_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();
@@ -1059,7 +1059,7 @@ mod tests {
 
         let var_x = store.intern(ExprKind::Variable(VariableId::new(0)), &[]);
         let body_id = store.intern(ExprKind::AtomicFormula(AtomSkeletonId::new(1)), &[var_x]);
-        let forall_id = store.intern(ExprKind::ForallNew(bad_list_id), &[body_id]);
+        let forall_id = store.intern(ExprKind::Forall(bad_list_id), &[body_id]);
 
         let mut b_scratch = BindingScratchpad::new();
         let mut e_scratch = QnfScratchpad::new();

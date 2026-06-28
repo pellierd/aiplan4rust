@@ -119,8 +119,8 @@ pub fn render_with_indent(
                                 k,
                                 ExprKind::And
                                     | ExprKind::Or
-                                    | ExprKind::ForallNew(_)
-                                    | ExprKind::ExistsNew(_)
+                                    | ExprKind::Forall(_)
+                                    | ExprKind::Exists(_)
                                     | ExprKind::When
                             )
                         });
@@ -142,7 +142,7 @@ pub fn render_with_indent(
                     }
 
                     // --- QUANTIFICATEURS (forall / exists) ---
-                    ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
+                    ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
                         stack.push(RenderOp::Write(")"));
 
                         if let Some(&body_id) = children.first() {

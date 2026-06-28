@@ -31,16 +31,20 @@ pub fn normalize(
     if is_durative {
         if let Some(duration) = action.duration() {
             // Inside this block, it is guaranteed to be a durative temporal context.
-            let normalized_duration = expr::normalize(duration, store, scratch, true)?;
+            // Duration is not an effect, so is_effect = false.
+            let normalized_duration = expr::normalize(duration, store, scratch, true, false)?;
             action.set_duration(normalized_duration);
         }
     }
 
     // 2. Preconditions and Effects (common to all action types)
+    // Precondition: is_effect = false
     let normalized_precondition =
-        expr::normalize(action.precondition(), store, scratch, is_durative)?;
+        expr::normalize(action.precondition(), store, scratch, is_durative, false)?;
     action.set_precondition(normalized_precondition);
-    let normalized_effect = expr::normalize(action.effect(), store, scratch, is_durative)?;
+
+    // Effect: is_effect = true
+    let normalized_effect = expr::normalize(action.effect(), store, scratch, is_durative, true)?;
     action.set_effect(normalized_effect);
 
     Ok(())

@@ -182,8 +182,8 @@ impl<'a> ExprBuilder<'a> {
             }
 
             // --- 4. Quantifiers (Variables + 1 child) ---
-            ExprKind::ForallNew(vars) => self.forall(vars, children[0])?,
-            ExprKind::ExistsNew(vars) => self.exists(vars, children[0])?,
+            ExprKind::Forall(vars) => self.forall(vars, children[0])?,
+            ExprKind::Exists(vars) => self.exists(vars, children[0])?,
 
             // --- 5. Nodes with Skeletons (AtomicFormula, Function, Task) ---
             // Note: children[0] is typically the symbol, children[1..] are the arguments.

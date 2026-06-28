@@ -29,7 +29,9 @@ pub fn normalize(
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
     // Methods represent HTN decomposition guards, they do not have durative semantics.
-    let normalized_precondition = expr::normalize(method.precondition(), store, scratch, false)?;
+    // They are logical preconditions, so is_effect = false.
+    let normalized_precondition =
+        expr::normalize(method.precondition(), store, scratch, false, false)?;
     method.set_precondition(normalized_precondition);
 
     // Forward the normalization pipeline to the network of sub-tasks

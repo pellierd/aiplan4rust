@@ -377,7 +377,7 @@ impl ExprStore {
             }
 
             // --- CORRIGÉ : CAS B2 propre avec le TypedListId extrait du variant ---
-            ExprKind::ForallNew(list_id) | ExprKind::ExistsNew(list_id) => {
+            ExprKind::Forall(list_id) | ExprKind::Exists(list_id) => {
                 // Dans ce nouveau modèle, le corps (body) est le premier enfant direct
                 if let Some(&body_id) = entry.children().first() {
                     // 1. On récupère les variables libres du corps

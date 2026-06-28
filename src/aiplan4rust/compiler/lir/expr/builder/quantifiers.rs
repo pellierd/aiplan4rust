@@ -150,9 +150,9 @@ impl<'a> ExprBuilder<'a> {
 
             // On inspecte les nouveaux variants légers de l'arène
             let can_flatten = if is_forall {
-                matches!(node_kind, ExprKind::ForallNew(_))
+                matches!(node_kind, ExprKind::Forall(_))
             } else {
-                matches!(node_kind, ExprKind::ExistsNew(_))
+                matches!(node_kind, ExprKind::Exists(_))
             };
 
             if can_flatten {
@@ -165,7 +165,7 @@ impl<'a> ExprBuilder<'a> {
                 }
 
                 // Extraction par déréférencement sécurisé via l'API publique du Store
-                if let ExprKind::ForallNew(list_id) | ExprKind::ExistsNew(list_id) = node_kind {
+                if let ExprKind::Forall(list_id) | ExprKind::Exists(list_id) = node_kind {
                     if let Some(inner_list) = self.store.get_typed_list(*list_id) {
                         self.vars_buffer.extend_from_slice(inner_list.as_slice());
                     }
@@ -191,9 +191,9 @@ impl<'a> ExprBuilder<'a> {
         let list_id = self.store.intern_typed_list(final_vars);
 
         let kind = if is_forall {
-            ExprKind::ForallNew(list_id)
+            ExprKind::Forall(list_id)
         } else {
-            ExprKind::ExistsNew(list_id)
+            ExprKind::Exists(list_id)
         };
 
         // Seul le corps reste dans le tableau des enfants
@@ -370,7 +370,7 @@ mod tests {
         let node = store.get(expr_flat).expect("Expression should exist");
 
         // CORRECTION : Extraction via ForallNew et récupération de la liste typée dans le store
-        if let ExprKind::ForallNew(vars_id) = node.kind() {
+        if let ExprKind::Forall(vars_id) = node.kind() {
             let vars = store
                 .get_typed_list(*vars_id)
                 .expect("Typed list must exist");
@@ -528,7 +528,7 @@ mod tests {
 
         // 1. La racine doit être un ForallNew (CORRECTION du variant)
         assert!(
-            matches!(node.kind(), ExprKind::ForallNew(_)),
+            matches!(node.kind(), ExprKind::Forall(_)),
             "Root should be ForallNew node, but got {:?}",
             node.kind()
         );
@@ -543,7 +543,7 @@ mod tests {
         // 3. Vérification que l'enfant est bien un ExistsNew (CORRECTION du variant)
         let child_node = store.get(child_id).expect("Child should exist");
         assert!(
-            matches!(child_node.kind(), ExprKind::ExistsNew(_)),
+            matches!(child_node.kind(), ExprKind::Exists(_)),
             "Child node should be ExistsNew"
         );
 
@@ -580,7 +580,7 @@ mod tests {
 
         // --- BORROW CHECKER DECONFLICTION ---
         let target_vars_id = if let Some(node) = builder.get(second) {
-            if let ExprKind::ForallNew(vars_id) = node.kind() {
+            if let ExprKind::Forall(vars_id) = node.kind() {
                 Some(*vars_id)
             } else {
                 None

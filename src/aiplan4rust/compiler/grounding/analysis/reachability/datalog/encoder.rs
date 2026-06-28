@@ -443,7 +443,7 @@ impl DatalogEncoder {
 
                 // --- FEATURES (VALIDE PDDL MAIS NÉCESSITE PREPROCESSING) ---
                 // Si l'un de ceux-là arrive ici, c'est l'Expander/PNF qui est en cause.
-                ExprKind::ForallNew(_) | ExprKind::ExistsNew(_) | ExprKind::Imply => {
+                ExprKind::Forall(_) | ExprKind::Exists(_) | ExprKind::Imply => {
                     return Err(DatalogError::feature_not_supported(
                         format!("ADL construct {:?} in effects", kind),
                         node_id,

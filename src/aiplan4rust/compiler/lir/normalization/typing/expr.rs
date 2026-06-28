@@ -128,22 +128,22 @@ pub fn normalize(
 
             // ÉTAPE 2 : Maintenant que le store est libre, on peut appliquer la mutation
             let target_kind = match target_kind {
-                ExprKind::ForallNew(old_vars_id) => {
+                ExprKind::Forall(old_vars_id) => {
                     // builder.store_mut() redonne accès au &mut ExprStore de manière propre
                     let new_vars_id = typed_list::normalize_typed_variable_list(
                         old_vars_id,
                         builder.store(),
                         registry,
                     )?;
-                    ExprKind::ForallNew(new_vars_id)
+                    ExprKind::Forall(new_vars_id)
                 }
-                ExprKind::ExistsNew(old_vars_id) => {
+                ExprKind::Exists(old_vars_id) => {
                     let new_vars_id = typed_list::normalize_typed_variable_list(
                         old_vars_id,
                         builder.store(),
                         registry,
                     )?;
-                    ExprKind::ExistsNew(new_vars_id)
+                    ExprKind::Exists(new_vars_id)
                 }
                 other_kind => other_kind,
             };

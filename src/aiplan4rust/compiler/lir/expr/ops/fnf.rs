@@ -67,7 +67,8 @@
 use crate::aiplan4rust::compiler::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::expr::iter::scratchpad::Scratchpad;
 use crate::aiplan4rust::compiler::lir::expr::ops::error::ExprOpError;
-use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
+use crate::aiplan4rust::compiler::lir::expr::{validation, Expr, ExprId, ExprKind, ExprStore};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
 use smallvec::SmallVec;
 
 /// The inline capacity threshold for stack-allocated child arrays.
@@ -117,6 +118,14 @@ const MAX_CHILDREN: usize = 32;
 ///   the function guarantees **$O(1)$ heap allocation overhead**, as the internal buffers reuse
 ///   pre-existing structural capacities across multiple transformation calls.
 ///
+/// ### Post-Conditions & Invariants
+/// At the tail of the execution, the function triggers `check_post_conditions` to assert structural
+/// integrity and semantic safety via `validation::is_fnf`:
+/// - **Symbol Preservation**: It guarantees that the set of atomic formulas and comparisons remains
+///   strictly identical before and after factorization (no literals are lost or hallucinated).
+/// - **Zero-Cost Over the Wire**: In release builds, this validation is aggressively stripped
+///   by the compiler, maintaining maximum raw performance with zero production overhead.
+///
 /// ### Arguments
 /// * `expr` - The root `ExprId` of the expression tree to transform into FNF.
 /// * `builder` - A mutable reference to the `ExprBuilder` responsible for interning and smart-reducing expressions.
@@ -125,7 +134,7 @@ const MAX_CHILDREN: usize = 32;
 ///
 /// ### Returns
 /// * `Ok(ExprId)` - The unique identifier of the fully factored, canonicalized, and interned expression tree.
-/// * `Err(ExprOpErrorHC)` - If a retrieval or node interning error occurs within the Hash-Consing storage layer.
+/// * `Err(ExprOpError)` - If a retrieval or node interning error occurs within the Hash-Consing storage layer.
 pub fn to_fnf(
     expr: ExprId,
     builder: &mut ExprBuilder,
@@ -148,8 +157,8 @@ pub fn to_fnf(
     };
 
     // --- C. COMBINE WITH ORIGINAL NAKED LITERALS ---
-    if naked_literals.is_empty() {
-        Ok(factored_branch)
+    let final_res = if naked_literals.is_empty() {
+        factored_branch
     } else {
         let mut final_args = naked_literals;
         let empty_or = builder.empty_or();
@@ -158,8 +167,71 @@ pub fn to_fnf(
             final_args.push(factored_branch);
         }
 
-        Ok(builder.or(&final_args))
+        builder.or(&final_args)
+    };
+
+    // Check if the final result is a valid FNF expression.
+    check_post_conditions(builder.store(), expr, final_res);
+
+    Ok(final_res)
+}
+
+/// Validates the correctness of the Factored Normal Form (FNF) transformation.
+///
+/// This function acts as a safety barrier (post-condition) to guarantee that the
+/// factorization algorithm has neither altered the logical semantics of the formula
+/// nor corrupted the underlying DAG structure.
+///
+/// ### Debug Mode Behavior
+/// If the FNF invariant is violated (i.e., the set of terminal atomic literals diverges
+/// between the original and factored trees), this function intercepts the failure,
+/// generates a **comprehensive text dump** of both expressions to the standard console,
+/// and then triggers a panic via `debug_assert!`.
+///
+/// ### Performance & Inlining Strategy
+/// - **`--release` Optimization**: By combining `#[inline(always)]` with the `cfg!(debug_assertions)`
+///   macro, the Rust compiler performs aggressive dead code elimination in release mode.
+///   The entire body of this function (including the recursive tree-dump routine) is completely
+///   stripped from the final binary. The execution overhead in production is **strictly 0 nanoseconds**.
+/// - **Forced Inlining**: The `#[inline(always)]` attribute ensures that even in debug mode, the function
+///   call is merged directly into the tail of `to_fnf`, eliminating the overhead of allocating an
+///   extra stack frame for the transition.
+///
+/// ### Arguments
+/// * `store` - A reference to the shared, hash-consed `ExprStore` used to inspect nodes.
+/// * `original` - The `ExprId` representing the root of the raw formula before applying distributivity.
+/// * `factored` - The `ExprId` representing the root of the final expression produced by the FNF algorithm.
+#[inline(always)]
+fn check_post_conditions(store: &ExprStore, original: ExprId, factored: ExprId) {
+    if cfg!(debug_assertions) {
+        if !validation::is_fnf(store, original, factored) {
+            println!("\n=== [DEBUG] CRASH DETECTED IN TO_FNF ===");
+            println!(
+                "Original Root: {:?}, Factored Root: {:?}",
+                original, factored
+            );
+
+            // 1. Instanciation du contexte de debug isolé et léger
+            let ctx = RenderContext::debug(store);
+
+            // 2. Affichage propre et unifié de l'arbre original
+            println!("--- ORIGINAL TREE ---");
+            let expr_original = Expr::new(original, store);
+            println!("{}", expr_original.as_debug(&ctx));
+
+            // 3. Affichage propre et unifié de l'arbre factorisé (qui a échoué)
+            println!("--- FACTORED TREE ---");
+            let expr_factored = Expr::new(factored, store);
+            println!("{}", expr_factored.as_debug(&ctx));
+
+            println!("========================================\n");
+        }
     }
+
+    debug_assert!(
+        validation::is_fnf(store, original, factored),
+        "LOGICAL VIOLATION: FNF factorization altered the formula! The set of atomic literals changed."
+    );
 }
 
 /// Prepares the input expression by extracting conjunctive groups and isolating naked literals.

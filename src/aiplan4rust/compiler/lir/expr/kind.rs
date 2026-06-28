@@ -29,8 +29,8 @@ pub enum ExprKind {
     Or,
     Not,
     Imply,
-    ForallNew(TypedListId),
-    ExistsNew(TypedListId),
+    Forall(TypedListId),
+    Exists(TypedListId),
     Preference,
     When,
     Comparison(CompareOp),
@@ -86,8 +86,8 @@ impl ExprKind {
             ExprKind::Or => "or",
             ExprKind::Not => "not",
             ExprKind::Imply => "imply",
-            ExprKind::ForallNew(_) => "forall",
-            ExprKind::ExistsNew(_) => "exists",
+            ExprKind::Forall(_) => "forall",
+            ExprKind::Exists(_) => "exists",
             ExprKind::When => "when",
 
             // Quantifiers and Preferences
@@ -156,8 +156,8 @@ impl fmt::Display for ExprKind {
             ExprKind::Arithmetic(op) => write!(f, "Op({})", op),
 
             // --- Quantificateurs (Affiche le nombre de variables) ---
-            ExprKind::ForallNew(id) => write!(f, "Forall({})", id),
-            ExprKind::ExistsNew(id) => write!(f, "Exists({})", id),
+            ExprKind::Forall(id) => write!(f, "Forall({})", id),
+            ExprKind::Exists(id) => write!(f, "Exists({})", id),
 
             // --- Connecteurs simples (Juste le nom) ---
             ExprKind::And => write!(f, "And"),

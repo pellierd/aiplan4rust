@@ -26,7 +26,8 @@ pub fn normalize(
     scratch: &mut Scratchpad,
 ) -> Result<(), NormalizationError> {
     // Derived predicates represent static logical rules, so durative logic is false.
-    let normalized_body = expr::normalize(derived_predicate.body(), store, scratch, false)?;
+    // They define conditions/preconditions, so is_effect = false.
+    let normalized_body = expr::normalize(derived_predicate.body(), store, scratch, false, false)?;
 
     derived_predicate.set_body(normalized_body);
 

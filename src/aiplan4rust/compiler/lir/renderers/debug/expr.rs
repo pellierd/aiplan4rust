@@ -75,7 +75,7 @@ fn render_hybrid_content(
         ExprKind::Metric(op) => write!(f, "{}", op),
 
         // --- Quantificateurs ---
-        ExprKind::ForallNew(vars) | ExprKind::ExistsNew(vars) => {
+        ExprKind::Forall(vars) | ExprKind::Exists(vars) => {
             // On récupère le store depuis le contexte de rendu
             let store = ctx.store(); // ou `&ctx.store` selon ton API
 
