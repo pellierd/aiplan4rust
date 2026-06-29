@@ -334,3 +334,81 @@ pub fn is_qnf(store: &ExprStore, root: ExprId) -> bool {
     }
     true
 }
+
+/// Checks whether a logical expression subtree strictly complies with the Precondition Normal Form (PNF).
+///
+/// Within a pure condition scope (`is_effect = false`):
+/// - The negation operator (`Not`) is strictly forbidden unless it wraps a `Comparison` variant.
+///
+/// Within an effect scope (`is_effect = true`):
+/// - The negation operator (`Not`) is allowed at the top level of literal assignments (negative effects).
+/// - If a conditional effect (`When`) is encountered, its condition sub-branch switches back
+///   temporarily to a pure condition context.
+pub fn is_pnf(store: &ExprStore, root: ExprId, is_effect: bool) -> bool {
+    if root.is_none() {
+        return true;
+    }
+
+    struct StackItem {
+        id: ExprId,
+        is_effect: bool,
+    }
+
+    let mut stack = vec![StackItem {
+        id: root,
+        is_effect,
+    }];
+
+    while let Some(item) = stack.pop() {
+        if item.id.is_none() {
+            continue;
+        }
+
+        let node = &store[item.id];
+        let kind = node.kind();
+
+        match kind {
+            ExprKind::When => {
+                let children = node.children();
+                if children.len() == 2 {
+                    // Second child (the effect body) inherits the active effect context
+                    stack.push(StackItem {
+                        id: children[1],
+                        is_effect: item.is_effect,
+                    });
+                    // First child (the condition) forces is_effect to FALSE
+                    stack.push(StackItem {
+                        id: children[0],
+                        is_effect: false,
+                    });
+                }
+                continue;
+            }
+            ExprKind::Not => {
+                // If we are in a pure condition context, 'Not' is illegal unless it's a comparison
+                if !item.is_effect {
+                    if let Some(&child_id) = node.children().first() {
+                        if !child_id.is_none()
+                            && matches!(store[child_id].kind(), ExprKind::Comparison(_))
+                        {
+                            // Allowed: Not(Comparison)
+                            continue;
+                        }
+                    }
+                    return false; // Violation: unabsorbed 'Not' in condition scope
+                }
+            }
+            _ => {}
+        }
+
+        // Push children normally inheriting the current context state
+        for &child_id in node.children().iter().rev() {
+            stack.push(StackItem {
+                id: child_id,
+                is_effect: item.is_effect,
+            });
+        }
+    }
+
+    true
+}

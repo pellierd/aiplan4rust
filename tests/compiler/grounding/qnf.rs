@@ -12,7 +12,7 @@ use aiplan4rust::aiplan4rust::compiler::grounding::analysis::inertia::table::bui
 use aiplan4rust::aiplan4rust::compiler::grounding::config;
 use aiplan4rust::aiplan4rust::compiler::grounding::passes::qnf::problem::expand_with;
 use aiplan4rust::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
-use aiplan4rust::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind};
+use aiplan4rust::aiplan4rust::compiler::lir::expr::{validation, Expr};
 // =========================================================================
 // EXÉCUTEUR DU TEST D'INTÉGRATION QNF
 // =========================================================================
@@ -72,7 +72,7 @@ pub fn test_qnf_quantifier_elimination_all_files(domain_dir: &Path) -> bool {
         )
         .expect("InertiaEvaluator build failed");
 
-        // 1. Exécution de la passe d'expansion QNF
+        // 1. Run the QNF expansion pass
         if let Err(e) = expand_with(&mut pb, &registry, Some(&evaluator)) {
             println!(
                 "  - QNF CRASH: Transformation failed on {:?}: {:?}",
@@ -81,63 +81,48 @@ pub fn test_qnf_quantifier_elimination_all_files(domain_dir: &Path) -> bool {
             success = false;
             continue;
         }
-        // 2. Oracle de vérification : Parcours de toutes les racines d'expressions vivantes après expansion
-        let store = pb.store(); // Assure-toi d'avoir un accesseur ou que le champ soit visible
-        let mut residual_quantifier_found = false;
 
-        // On centralise toutes les expressions directes (toutes sont des ExprId ici)
-        let mut active_roots: Vec<ExprId> = vec![
+        // 2. Centralized Oracle Validation
+        let store = pb.store();
+
+        // Gather all active expression roots within the problem definition
+        let mut active_roots = vec![
             pb.goal(),
             pb.metric_spec(),
             pb.domain_constraints(),
             pb.problem_constraints(),
-            // 🎯 HTN : Extraction des contraintes du réseau de tâches initial
             pb.initial_task_network()
                 .task_network()
                 .logical_constraints(),
         ];
 
-        // Collecte des préconditions et effets des actions
         for action in pb.action_defs() {
             active_roots.push(action.precondition());
             active_roots.push(action.effect());
         }
 
-        // Collecte des corps de prédicats dérivés
         for derived in pb.derived_predicate_defs() {
             active_roots.push(derived.body());
         }
 
-        // Collecte des préconditions des méthodes (HTN)
         for method in pb.method_defs() {
             active_roots.push(method.precondition());
         }
 
-        // On parcourt chaque racine valide
+        // Evaluate each active root against the central QNF invariant
         for root_id in active_roots {
-            // Optionnel : Éviter de parcourir les expressions vides ou "NONE"
-            if root_id == ExprId::NONE {
+            if root_id.is_none() {
                 continue;
             }
 
-            for (real_id, _, entry) in store.preorder(root_id) {
-                match entry.kind() {
-                    ExprKind::Forall(_) | ExprKind::Exists(_) => {
-                        println!(
-                            "  - ORACLE ERROR [QNF]: Un quantificateur ACTIF '{:?}' a survécu à l'id {} dans {:?}",
-                            entry.kind(),
-                            real_id.as_usize(),
-                            problem_path
-                        );
-                        residual_quantifier_found = true;
-                    }
-                    _ => {}
-                }
+            // Consume the stack-safe, unified validation routine
+            if !validation::is_qnf(store, root_id) {
+                println!(
+                    "  - ORACLE ERROR [QNF]: Residual quantifier found in file {:?}",
+                    problem_path
+                );
+                success = false;
             }
-        }
-
-        if residual_quantifier_found {
-            success = false;
         }
     }
 

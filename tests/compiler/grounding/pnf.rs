@@ -4,11 +4,10 @@ use crate::common::io::{
     find_associated_domain, get_test_files_for_mode,
 };
 use aiplan4rust::aiplan4rust::compiler::grounding::passes::to_pnf;
+use aiplan4rust::aiplan4rust::compiler::lir::expr::validation;
+use aiplan4rust::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use std::path::Path;
 use test_case::test_case;
-
-use aiplan4rust::aiplan4rust::compiler::lir::expr::{ExprEntry, ExprId, ExprKind, ExprStore};
-use aiplan4rust::aiplan4rust::compiler::lir::problem::LiftedProblem;
 
 // =========================================================================
 // EXÉCUTEUR DU TEST D'INTÉGRATION PNF (Positive Normal Form)
@@ -78,22 +77,8 @@ pub fn check_pnf_constraints(pb: &LiftedProblem, problem_path: &Path) -> bool {
     let store = pb.store();
     let mut violation_found = false;
 
-    // Helper closure to detect illegal 'Not' operators in conditional contexts
-    let is_illegal_not_in_condition = |entry: &ExprEntry, store: &ExprStore| -> bool {
-        if matches!(entry.kind(), ExprKind::Not) {
-            if let Some(&child_id) = entry.children().first() {
-                // If the 'Not' wraps a comparison, it is explicitly allowed
-                if matches!(store[child_id].kind(), ExprKind::Comparison(_)) {
-                    return false;
-                }
-            }
-            return true; // Illegal: any other 'Not' should have been absorbed
-        }
-        false
-    };
-
-    // A. PURE CONDITIONAL CONTEXTS
-    let mut pure_conditions: Vec<ExprId> = vec![
+    // A. PURE CONDITIONAL CONTEXTS (is_effect = false)
+    let mut pure_conditions = vec![
         pb.goal(),
         pb.metric_spec(),
         pb.domain_constraints(),
@@ -112,54 +97,37 @@ pub fn check_pnf_constraints(pb: &LiftedProblem, problem_path: &Path) -> bool {
     }
 
     for root_id in pure_conditions {
-        if root_id == ExprId::NONE {
-            continue;
-        }
-        for (real_id, _, entry) in store.preorder(root_id) {
-            if is_illegal_not_in_condition(entry, store) {
-                println!(
-                    "  - ORACLE ERROR [PNF-CONDITION]: An unabsorbed 'Not' operator survived at id {} in {:?}",
-                    real_id.as_usize(), problem_path
-                );
-                violation_found = true;
-            }
+        if !root_id.is_none() && !validation::is_pnf(store, root_id, false) {
+            println!(
+                "  - ORACLE ERROR [PNF-CONDITION]: Violation in condition context in {:?}",
+                problem_path
+            );
+            violation_found = true;
         }
     }
 
-    // B. ACTIONS: Preconditions vs Effects
+    // B. ACTIONS: Preconditions (is_effect = false) vs Effects (is_effect = true)
     for action in pb.action_defs() {
-        // 1. Precondition (Pure condition context)
-        if action.precondition() != ExprId::NONE {
-            for (real_id, _, entry) in store.preorder(action.precondition()) {
-                if is_illegal_not_in_condition(entry, store) {
-                    println!(
-                        "  - ORACLE ERROR [PNF-PRECONDITION]: An unabsorbed 'Not' operator survived in precondition of action '{}' at id {} in {:?}",
-                        action.name(), real_id.as_usize(), problem_path
-                    );
-                    violation_found = true;
-                }
-            }
+        // Validate pure action precondition scope
+        if !action.precondition().is_none()
+            && !validation::is_pnf(store, action.precondition(), false)
+        {
+            println!(
+                "  - ORACLE ERROR [PNF-PRECONDITION]: Violation in action '{}' precondition in {:?}",
+                action.name(), problem_path
+            );
+            violation_found = true;
         }
 
-        // 2. Effects & Conditions inside 'When' constructs
-        if action.effect() != ExprId::NONE {
-            for (_, _, entry) in store.preorder(action.effect()) {
-                if matches!(entry.kind(), ExprKind::When) {
-                    let children = entry.children();
-                    if !children.is_empty() {
-                        let cond_root = children[0]; // 'When' condition root
-                        for (c_id, _, c_entry) in store.preorder(cond_root) {
-                            if is_illegal_not_in_condition(c_entry, store) {
-                                println!(
-                                    "  - ORACLE ERROR [PNF-WHEN-CONDITION]: An unabsorbed 'Not' survived in the WHEN condition of action '{}' at id {} in {:?}",
-                                    action.name(), c_id.as_usize(), problem_path
-                                );
-                                violation_found = true;
-                            }
-                        }
-                    }
-                }
-            }
+        // Validate action effect scope. Internal conditional effects ('When')
+        // are automatically handled by the stack context switching inside `is_pnf`.
+        if !action.effect().is_none() && !validation::is_pnf(store, action.effect(), true) {
+            println!(
+                "  - ORACLE ERROR [PNF-EFFECT]: Violation in action '{}' effect branch in {:?}",
+                action.name(),
+                problem_path
+            );
+            violation_found = true;
         }
     }
 

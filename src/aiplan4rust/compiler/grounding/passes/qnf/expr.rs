@@ -5,7 +5,8 @@ use crate::aiplan4rust::compiler::grounding::error::GroundingError;
 use crate::aiplan4rust::compiler::grounding::passes::qnf::QnfScratchpad;
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
-use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
+use crate::aiplan4rust::compiler::lir::expr::{validation, Expr, ExprId, ExprKind, ExprStore};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
 use crate::aiplan4rust::support::lang::TypedListId;
 
 /// Fully expands and grounds all logical quantifiers (`ForallNew`, `ExistsNew`) within an expression tree.
@@ -227,9 +228,33 @@ pub fn expand_with(
         expr_id
     };
 
+    // One-liner localized post-condition check
+    check_qnf_post_condition(store, final_root);
+
     Ok(final_root)
 }
 
+#[inline(always)]
+fn check_qnf_post_condition(store: &ExprStore, root_id: ExprId) {
+    if cfg!(debug_assertions) {
+        if !validation::is_qnf(store, root_id) {
+            println!("\n=== [DEBUG] CRASH DETECTED IN QNF EXPANSION ===");
+            println!("Root ExprId: {:?}", root_id);
+
+            // Safe, unified structural tree rendering
+            let ctx = RenderContext::debug(store);
+            let expr_handle = Expr::new(root_id, store);
+            println!("{}", expr_handle.as_debug(&ctx));
+
+            println!("===============================================\n");
+        }
+    }
+
+    debug_assert!(
+        validation::is_qnf(store, root_id),
+        "LOGICAL VIOLATION: QNF expansion failed! Quantifier nodes (Forall/Exists) were detected in the final grounded tree."
+    );
+}
 /// Materializes and compresses quantified expressions by evaluating their Cartesian product bindings.
 ///
 /// This core function performs the actual grounding of first-order logic quantifiers (`forall` / `exists`).

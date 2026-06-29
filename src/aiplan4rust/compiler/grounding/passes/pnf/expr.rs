@@ -1,7 +1,8 @@
 use crate::aiplan4rust::compiler::grounding::error::GroundingError;
 use crate::aiplan4rust::compiler::grounding::passes::pnf::scratchpad::PnfScratchpad;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
-use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
+use crate::aiplan4rust::compiler::lir::expr::{validation, Expr, ExprId, ExprKind, ExprStore};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
 /// Final lowering of an expression tree into its encoded NNF (Negation Normal Form) via Negation Absorption.
@@ -321,11 +322,63 @@ pub fn to_pnf_with(
     };
     let final_root = final_cache[expr_id.as_usize()];
 
-    Ok(if final_root != default_id {
+    let final_root = if final_root != default_id {
         final_root
     } else {
         expr_id
-    })
+    };
+
+    // Localized post-condition safety check
+    check_post_condition(store, final_root, is_effect);
+
+    Ok(final_root)
+}
+
+/// Asserts and validates the structural post-conditions of the Precondition Normal Form (PNF) conversion.
+///
+/// This utility guarantees that the generated expression tree does not contain any logical violations
+/// post-transformation. If a violation is detected while `debug_assertions` are enabled, it safe-renders
+/// the structural tree to the standard output before panicking via a `debug_assert!`.
+///
+/// # Invariants Checked
+///
+/// * In a **pure condition context** (`is_effect = false`), all negations (`Not`) must be absorbed into
+///   literals, with the sole exception of negations directly wrapping a `Comparison` node.
+/// * In an **effect context** (`is_effect = true`), top-level literal negations are permitted, while any
+///   nested condition blocks (e.g., within conditional `When` effects) are audited under strict condition rules.
+///
+/// # Arguments
+///
+/// * `store` - A reference to the [`ExprStore`] hosting the expression nodes.
+/// * `root_id` - The [`ExprId`] representing the root of the newly transformed subtree.
+/// * `is_effect` - A boolean flag specifying whether the verification context is an action effect (`true`) or a condition block (`false`).
+///
+/// # Performance
+///
+/// This function is marked with `#[inline(always)]`. In production compilation builds (`--release` / without `debug_assertions`),
+/// the function body is completely optimized out by the compiler, incurring **zero runtime overhead**.
+#[inline(always)]
+fn check_post_condition(store: &ExprStore, root_id: ExprId, is_effect: bool) {
+    if cfg!(debug_assertions) {
+        // validation::is_pnf consumes the store, the root ID, and the contextual boolean
+        if !validation::is_pnf(store, root_id, is_effect) {
+            println!("\n=== [DEBUG] CRASH DETECTED IN PNF CONVERSION ===");
+            println!("Root ExprId: {:?}", root_id);
+            println!("Is Effect Context: {}", is_effect);
+
+            // Render the unified structural tree via the debug RenderContext
+            let ctx = RenderContext::debug(store);
+            let expr_handle = Expr::new(root_id, store);
+            println!("{}", expr_handle.as_debug(&ctx));
+
+            println!("================================================\n");
+        }
+    }
+
+    debug_assert!(
+        validation::is_pnf(store, root_id, is_effect),
+        "LOGICAL VIOLATION: PNF conversion failed! Unabsorbed 'Not' operators were found inside a pure condition context branch."
+    );
 }
 
 #[cfg(test)]
