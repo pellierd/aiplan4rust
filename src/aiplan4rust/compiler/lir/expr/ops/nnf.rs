@@ -141,6 +141,17 @@ pub fn to_nnf(
                     let child_packed = ExprId::new(encode(child_id.as_usize(), !negate));
                     scratch.push(child_packed, false);
                 }
+            } else if matches!(kind, ExprKind::When) && (end - start >= 2) {
+                // ADL Isolation: Force both condition and consequence body to false
+                let cond_id = scratch.children_buffer()[start];
+                let effect_id = scratch.children_buffer()[start + 1];
+
+                if effect_id.is_valid() {
+                    scratch.push(ExprId::new(encode(effect_id.as_usize(), false)), false);
+                }
+                if cond_id.is_valid() {
+                    scratch.push(ExprId::new(encode(cond_id.as_usize(), false)), false);
+                }
             } else if matches!(kind, ExprKind::Preference) && (end - start >= 2) {
                 // PDDL3 Boundary Isolation: Force both preference metadata and body to false (negation absorption)
                 let nom_id = scratch.children_buffer()[start];
@@ -270,6 +281,32 @@ pub fn to_nnf(
                     } else {
                         builder.exists(*vars, body)?
                     }
+                }
+
+                ExprKind::When if (end - start >= 2) => {
+                    scratch.build_buffer_mut().clear();
+
+                    // Retrieve condition evaluated under false context
+                    let cond_id = scratch.children_buffer()[start];
+                    let cond_packed = ExprId::new(encode(cond_id.as_usize(), false));
+                    let transformed_cond = scratch
+                        .get(cond_packed)
+                        .ok_or_else(|| ExprOpError::cache_miss())?;
+                    scratch.build_buffer_mut().push(transformed_cond);
+
+                    // Retrieve effect consequence evaluated under false context
+                    let effect_id = scratch.children_buffer()[start + 1];
+                    let effect_packed = ExprId::new(encode(effect_id.as_usize(), false));
+                    let transformed_effect = scratch
+                        .get(effect_packed)
+                        .ok_or_else(|| ExprOpError::cache_miss())?;
+                    scratch.build_buffer_mut().push(transformed_effect);
+
+                    let final_when = builder.intern(kind.clone(), scratch.build_buffer());
+
+                    // Explicitly bind the result to the cache for both polarities if inside an active negate frame
+                    scratch.insert(ExprId::new(encode(curr_id.as_usize(), false)), final_when);
+                    final_when
                 }
 
                 ExprKind::Preference if (end - start >= 2) => {
