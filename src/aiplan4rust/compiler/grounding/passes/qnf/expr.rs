@@ -6,7 +6,7 @@ use crate::aiplan4rust::compiler::grounding::passes::qnf::QnfScratchpad;
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{validation, Expr, ExprId, ExprKind, ExprStore};
-use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, LirRenderContext};
 use crate::aiplan4rust::support::lang::TypedListId;
 
 /// Fully expands and grounds all logical quantifiers (`ForallNew`, `ExistsNew`) within an expression tree.
@@ -242,7 +242,7 @@ fn check_qnf_post_condition(store: &ExprStore, root_id: ExprId) {
             println!("Root ExprId: {:?}", root_id);
 
             // Safe, unified structural tree rendering
-            let ctx = RenderContext::debug(store);
+            let ctx = LirRenderContext::debug(store);
             let expr_handle = Expr::new(root_id, store);
             println!("{}", expr_handle.as_debug(&ctx));
 
