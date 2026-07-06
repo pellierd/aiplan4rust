@@ -133,7 +133,7 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
         };
 
         // 1. Appel direct à DatalogEngine::load (plus besoin de let mut datalog = DatalogEngine::new(); avant)
-        let mut datalog = match DatalogEngine::load(
+        let mut datalog = match DatalogEngine::encode(
             &mut lifted_problem,
             &registry,
             &table,
