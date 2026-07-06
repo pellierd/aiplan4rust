@@ -132,23 +132,23 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             }
         };
 
-        // 1. Déclare datalog normalement
-        let mut datalog = DatalogEngine::new();
+        // 1. Appel direct à DatalogEngine::load (plus besoin de let mut datalog = DatalogEngine::new(); avant)
+        let mut datalog = match DatalogEngine::load(
+            &mut lifted_problem,
+            &registry,
+            &table,
+            &negated_predicates,
+        ) {
+            Ok(engine_configured) => engine_configured, // L'engine est créé ET configuré d'un coup
+            Err(e) => {
+                println!("\x1b[1;31mFAILED (Datalog Load)\x1b[0m");
+                eprintln!("    Error: {}", e);
+                success = false;
+                continue; // Passe à l'itération suivante de ta boucle
+            }
+        };
 
-        // 2. CHANGER : Réassigne le résultat de load_problem à datalog s'il réussit
-        datalog =
-            match datalog.load_problem(&mut lifted_problem, &registry, &table, &negated_predicates)
-            {
-                Ok(engine_configure) => engine_configure, // On récupère l'engine retourné
-                Err(e) => {
-                    println!("\x1b[1;31mFAILED (Datalog Load)\x1b[0m");
-                    eprintln!("    Error: {}", e);
-                    success = false;
-                    continue;
-                }
-            }; // Ne pas oublier le point-virgule ici
-
-        // 3. Maintenant datalog possède à nouveau la propriété de l'objet,
+        // 2. Maintenant datalog possède à nouveau la propriété de l'objet,
         // et tu peux appeler .run() sans erreur !
         datalog.run();
 

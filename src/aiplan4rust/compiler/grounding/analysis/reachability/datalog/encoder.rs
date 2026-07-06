@@ -1,17 +1,17 @@
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::atom::Atom;
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::error::DatalogError;
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::rule::Rule;
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind, ExprNode, ExprStore};
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
-use crate::aiplan4rust::compiler::syntax::ast::tree::SyntaxContent;
-use crate::aiplan4rust::support::lang::{ActionSymbolId, CompareOp, Id};
 use crate::aiplan4rust::support::lang::{
-    AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
+    ActionSymbolId, AtomSkeletonId, CompareOp, PredicateSymbolId, Type, TypeId, TypedList,
+    TypedListId, TypedSymbol, VariableId,
 };
+use crate::analysis::reachability::datalog::atom::Atom;
 use crate::analysis::reachability::datalog::cause::Cause;
+use crate::analysis::reachability::datalog::error::DatalogError;
+use crate::analysis::reachability::datalog::rule::Rule;
+use crate::analysis::reachability::datalog::term::Term;
+use crate::analysis::reachability::datalog::DatalogEngine;
 use std::collections::HashMap;
 ////// ATENTION JE NE GERE PAS les AXIOMS
 
@@ -42,7 +42,7 @@ use std::collections::HashMap;
 /// - **Schema Tracking**: Maintains a monotonic evaluator of generated signatures
 ///   ([`AtomicFormulaSkeleton`]), allowing the grounded results to be mapped back
 ///   to human-readable names after saturation.
-pub struct DatalogEncoder<'a> {
+/*pub struct DatalogEncoder<'a> {
     /// The starting offset for auxiliary predicate IDs.
     /// Typically set to the count of original predicates in the domain.
     base_aux_id: usize,
@@ -68,10 +68,10 @@ pub struct DatalogEncoder<'a> {
     negation_offset: usize,
     type_to_skeleton: Vec<AtomSkeletonId>,
     expr_store: &'a mut ExprStore,
-}
+}*/
 
-impl<'a> DatalogEncoder<'a> {
-    /// Initializes a new Datalog Encoder.
+impl<'a> DatalogEngine<'a> {
+    /*/// Initializes a new Datalog Encoder.
     ///
     /// # Arguments
     ///
@@ -125,23 +125,7 @@ impl<'a> DatalogEncoder<'a> {
             type_to_skeleton,
             expr_store,
         }
-    }
-
-    /// Extrait temporairement le store mutable de l'encodeur en le remplaçant
-    /// par un store par défaut "leaked" (immortel pour la durée 'a).
-    pub fn take_store(&mut self) -> &'a mut ExprStore {
-        let default_store = Box::leak(Box::new(ExprStore::default()));
-        std::mem::replace(&mut self.expr_store, default_store)
-    }
-
-    /// Réinjecte ou écrase le store de l'encodeur avec une nouvelle référence.
-    pub fn set_store(&mut self, store: &'a mut ExprStore) {
-        self.expr_store = store;
-    }
-
-    pub fn store(&self) -> &ExprStore {
-        self.expr_store
-    }
+    }*/
 
     /// Retourne la tranche (slice) d'effets pour l'index d'action donné.
     pub fn get_action_effects(&self, action_index: usize) -> &[(Atom, Cause)] {
@@ -216,14 +200,14 @@ impl<'a> DatalogEncoder<'a> {
         };
 
         // Enregistrement unique
-        let list_id = self.expr_store.intern_typed_list(raw_parameters);
+        let list_id = self.problem.store_mut().intern_typed_list(raw_parameters);
         self.aux_defs
             .push(AtomicFormulaSkeleton::new(predicate_id, list_id));
 
         sk_id
     }
 
-    /// Encodes a lifted action as a Datalog predicate using sequential allocation.
+    /*/// Encodes a lifted action as a Datalog predicate using sequential allocation.
     ///
     /// This allows the Datalog engine to represent action applicability as a relation.
     /// If the saturation process derives a fact for this predicate, the action is
@@ -257,20 +241,50 @@ impl<'a> DatalogEncoder<'a> {
     pub fn encode_action_as_predicate(
         &mut self,
         action: &ActionDef,
+        store: &mut ExprStore,
     ) -> Result<AtomSkeletonId, DatalogError> {
         // 1. On récupère l'ID fort de la liste de paramètres de l'action
         let list_id = action.parameters();
 
         // 2. On récupère sa longueur proprement depuis le store (propage l'erreur si l'ID est invalide)
-        let arity = self.expr_store.typed_list_len(list_id)?;
+        let arity = store.typed_list_len(list_id)?;
 
         // 3. On récupère la liste brute pour l'envoyer à ton encodeur auxiliaire
-        let params = self.expr_store.fetch_typed_list(list_id)?.clone();
+        let params = store.fetch_typed_list(list_id)?.clone();
 
         Ok(self.encode_auxiliary_predicate(arity, Some(params)))
+    }*/
+
+    #[inline]
+    pub fn local_encode_action_as_predicate(
+        action: &ActionDef,
+        store: &mut ExprStore,
+        next_aux_id: &mut usize, // 💡 Remplacent self.encode_auxiliary_predicate
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>, // 💡 Si besoin de stocker la def
+    ) -> Result<AtomSkeletonId, DatalogError> {
+        // 1. On récupère l'ID fort de la liste de paramètres de l'action
+        let list_id = action.parameters();
+
+        // 2. On récupère sa longueur proprement depuis le store
+        let arity = store.typed_list_len(list_id)?;
+
+        // 3. On récupère la liste brute sans AUCUN .clone() !
+        // Ça passe car on n'a plus besoin d'emprunter le store en mutable après cette ligne.
+        let params = store.fetch_typed_list(list_id)?;
+
+        // 4. Logique locale d'attribution de l'ID (équivalent à encode_auxiliary_predicate)
+        let anchor_id = *next_aux_id;
+        *next_aux_id += 1;
+
+        let sk_id = AtomSkeletonId::from(anchor_id);
+
+        // Si ton encodeur stocke la définition de l'action pour le debug :
+        // aux_defs.push(AtomicFormulaSkeleton::new(sk_id, arity, Some(params.to_vec())));
+
+        Ok(sk_id)
     }
 
-    /// Encodes action effects into Datalog rules by propagating causality from the action to its consequences.
+    /*/// Encodes action effects into Datalog rules by propagating causality from the action to its consequences.
     ///
     /// This function performs an iterative top-down traversal of the effect expression tree.
     /// It establishes a logical chain between the "cause" (the action atom) and the resulting
@@ -307,9 +321,9 @@ impl<'a> DatalogEncoder<'a> {
         &mut self,
         root_effect: Expr,
         action_atom: &Atom,
-        rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
         action_index: usize,
+        store: &mut ExprStore,
     ) -> Result<(), DatalogError> {
         let mut root_cause = action_atom.clone();
         for term in root_cause.terms_mut() {
@@ -354,7 +368,8 @@ impl<'a> DatalogEncoder<'a> {
                     };
                     self.action_effects[action_index].push((effect_atom.clone(), cause));
 
-                    rules_sink.push(Rule::new(effect_atom, vec![current_cause.clone()]));
+                    self.rules
+                        .push(Rule::new(effect_atom, vec![current_cause.clone()]));
                 }
 
                 ExprKind::And => {
@@ -369,24 +384,25 @@ impl<'a> DatalogEncoder<'a> {
                     let sub_effect_id = children[1];
 
                     if let Some(cond_atom) =
-                        self.encode_expr(root_effect, condition_id, rules_sink, parameters)?
+                        self.encode_expr(root_effect, condition_id, parameters, store)?
                     {
                         let mut combined_body = vec![current_cause.clone(), cond_atom.clone()];
                         combined_body.sort_by_key(|a| a.skeleton_id());
 
-                        let aux_when_atom =
-                            if let Some(existing_head) = self.cache.get(&combined_body) {
-                                existing_head.clone()
-                            } else {
-                                // 🌟 CORRECTION : La tête de règle doit représenter l'ensemble
-                                // du corps combiné (cause + condition) pour éviter les collisions de cache !
-                                let (head, secured_body) =
-                                    self.encode_new_aux_predicate(&combined_body, parameters)?;
+                        let aux_when_atom = if let Some(existing_head) =
+                            self.cache.get(&combined_body)
+                        {
+                            existing_head.clone()
+                        } else {
+                            // 🌟 CORRECTION : La tête de règle doit représenter l'ensemble
+                            // du corps combiné (cause + condition) pour éviter les collisions de cache !
+                            let (head, secured_body) =
+                                self.encode_new_aux_predicate(&combined_body, parameters, store)?;
 
-                                rules_sink.push(Rule::new(head.clone(), secured_body));
-                                self.cache.insert(combined_body, head.clone());
-                                head
-                            };
+                            self.rules.push(Rule::new(head.clone(), secured_body));
+                            self.cache.insert(combined_body, head.clone());
+                            head
+                        };
 
                         work_stack.push((sub_effect_id, aux_when_atom));
                     } else {
@@ -461,145 +477,148 @@ impl<'a> DatalogEncoder<'a> {
             }
         }
         Ok(())
-    }
-    /*pub fn encode_effects(
-        &mut self,
-        root_effect: Expr,
+    }*/
+
+    /// Version locale (associée) de encode_effects avec le strict minimum de modifications
+    pub fn local_encode_effects(
+        effect: ExprId,
         action_atom: &Atom,
-        rules_sink: &mut Vec<Rule>,
-        parameters: &TypedList<VariableId, TypeId>,
+        param_list_id: TypedListId, // 🌟 Strict minimum : on passe l'ID ici
         action_index: usize,
+        rules: &mut Vec<Rule>,
+        action_effects: &mut Vec<Vec<(Atom, Cause)>>,
+        cache: &mut HashMap<Vec<Atom>, Atom>,
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>,
+        type_to_skeleton: &[AtomSkeletonId],
+        next_aux_id: &mut usize,
+        negation_offset: usize,
+        store: &mut ExprStore,
     ) -> Result<(), DatalogError> {
-        // --- MODIFICATION : ALIASING SUR L'ACTION RACINE ---
-        // On doit appliquer resolve_var sur l'atome d'action initial pour que
-        // toutes les "causes" utilisent les représentants canoniques.
+        // ÉTAPE 1 : Extraction locale des alias en passant directement l'ID
+        let current_aliases = Self::local_extract_variable_aliases(effect, store)?;
+
         let mut root_cause = action_atom.clone();
         for term in root_cause.terms_mut() {
             if let Term::Variable(v) = *term {
-                *term = self.resolve_var(v);
+                *term = Self::local_resolve_var(v, &current_aliases);
             }
         }
 
-        // 2. ON SAUVEGARDE L'ID ICI (il est Copy, donc pas de souci)
         let root_cause_id = root_cause.skeleton_id();
+        // On utilise directement l'id de départ pour la pile
+        let mut work_stack = vec![(effect, root_cause)];
+        let mut visited = std::collections::HashSet::new();
 
-        // Work stack: (Node ID, Current Cause)
-        let mut work_stack = vec![(root_effect.root_id(), root_cause)];
+        while let Some((current_id, current_cause)) = work_stack.pop() {
+            if !visited.insert((current_id, current_cause.skeleton_id())) {
+                continue;
+            }
 
-        while let Some((node_id, current_cause)) = work_stack.pop() {
-            let node = root_effect.fetch_node(node_id)?;
+            // 🌟 Appel direct au store : l'emprunt sur `store` s'arrête dès que `node` ou `kind` sort du scope
+            let node = store.fetch(current_id)?;
             let kind = node.kind();
 
             match kind {
                 ExprKind::AtomicFormula(_) => {
-                    let mut effect_atom = self.extract_atom(root_effect, node)?;
+                    let mut effect_atom = Self::local_extract_atom(node, store)?;
 
-                    // 1. Canonisation (Aliasing)
                     for term in effect_atom.terms_mut() {
                         if let Term::Variable(v) = *term {
-                            *term = self.resolve_var(v);
+                            *term = Self::local_resolve_var(v, &current_aliases);
                         }
                     }
 
-                    // 2. Traçabilité (Causalité)
                     let cause = if current_cause.skeleton_id() == root_cause_id {
                         Cause::Action
                     } else {
                         Cause::Pivot(current_cause.clone())
                     };
-                    self.action_effects[action_index].push((effect_atom.clone(), cause));
-
-                    // 3. Règle Datalog : Effet :- Cause
-                    // Simple, efficace, et préserve les variables.
-                    rules_sink.push(Rule::new(effect_atom, vec![current_cause.clone()]));
+                    action_effects[action_index].push((effect_atom.clone(), cause));
+                    rules.push(Rule::new(effect_atom, vec![current_cause.clone()]));
                 }
 
-                // 2. Conjunction: Propagate the cause to all sub-effects
                 ExprKind::And => {
                     for &child_id in node.children().iter().rev() {
                         work_stack.push((child_id, current_cause.clone()));
                     }
                 }
 
-                // 3. Conditional Effect: Create a pivot between Action and Condition
                 ExprKind::When => {
                     let children = node.children();
                     let condition_id = children[0];
                     let sub_effect_id = children[1];
 
-                    // On encode la condition (peut renvoyer un atome auxiliaire ou un atome simple)
-                    if let Some(cond_atom) =
-                        self.encode_expr(root_effect, condition_id, rules_sink, parameters)?
-                    {
-                        // 1. Corps de la règle : on lie la cause actuelle ET la condition.
-                        // C'est ce qui assure que toutes les variables sont "bindées".
+                    // 🌟 On passe le param_list_id à local_encode_expr
+                    if let Some(cond_atom) = Self::local_encode_expr(
+                        condition_id,
+                        param_list_id, // 🌟 Alignement requis pour casser la lifetime
+                        rules,
+                        cache,
+                        aux_defs,
+                        type_to_skeleton,
+                        next_aux_id,
+                        store,
+                    )? {
                         let mut combined_body = vec![current_cause.clone(), cond_atom.clone()];
                         combined_body.sort_by_key(|a| a.skeleton_id());
 
-                        let aux_when_atom = if let Some(existing_head) =
-                            self.cache.get(&combined_body)
-                        {
+                        let aux_when_atom = if let Some(existing_head) = cache.get(&combined_body) {
                             existing_head.clone()
                         } else {
-                            // --- LA MAGIE EST ICI ---
-                            // 2. Tête de la règle : on ne projette QUE les variables de la condition.
-                            // Cela transforme l'arité 2 en 1 si seule ?v1 est utilisée dans la condition.
-                            let head = self.encode_new_aux_predicate(&[cond_atom], parameters)?;
+                            let (head, secured_body) = Self::local_encode_new_aux_predicate(
+                                &combined_body,
+                                param_list_id,
+                                next_aux_id,
+                                aux_defs,
+                                type_to_skeleton,
+                                &current_aliases,
+                                store,
+                            )?;
 
-                            /*println!(
-                                "  |_ Création pivot optimisé (arité réduite) : {:?}",
-                                head.0.skeleton_id()
-                            );*/
-
-                            // 3. On enregistre la règle avec la tête légère et le corps complet.
-                            rules_sink.push(Rule::new(head.0.clone(), combined_body.clone()));
-                            self.cache.insert(combined_body, head.0.clone());
-                            head.0
+                            rules.push(Rule::new(head.clone(), secured_body));
+                            cache.insert(combined_body, head.clone());
+                            head
                         };
 
-                        // On continue la propagation avec le nouveau pivot
                         work_stack.push((sub_effect_id, aux_when_atom));
                     } else {
-                        // Condition triviale : on passe directement la cause aux sous-effets
                         work_stack.push((sub_effect_id, current_cause));
                     }
                 }
 
-                // 4. Temporal Wrappers: Simply traverse through
                 ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                     if let Some(&child_id) = node.children().first() {
                         work_stack.push((child_id, current_cause));
                     }
                 }
 
-                // 5. Explicitly Ignored Nodes (Numerical / Metrics)
-                // --- MODIFICATION : AJOUT DE NOT ET COMPARISON ---
                 ExprKind::Assignment(_) | ExprKind::Arithmetic(_) => {
                     continue;
                 }
 
-                // --- MODIFICATION PRÉCISE : BRANCH NOT ---
-                // --- BRANCH NOT DANS encode_effects ---
                 ExprKind::Not => {
                     let children = node.children();
                     if let Some(&child_id) = children.first() {
-                        let child_node = root_effect.fetch_node(child_id)?;
+                        let child_node = store.fetch(child_id)?;
                         let child_kind = child_node.kind();
 
                         if let ExprKind::AtomicFormula(_) = child_kind {
-                            let mut del_atom = self.extract_atom(root_effect, child_node)?;
+                            let mut del_atom = Self::local_extract_atom(child_node, store)?;
 
                             for term in del_atom.terms_mut() {
                                 if let Term::Variable(v) = *term {
-                                    *term = self.resolve_var(v);
+                                    *term = Self::local_resolve_var(v, &current_aliases);
                                 }
                             }
 
                             del_atom.set_negated(true);
-                            let raw_id: usize = del_atom.skeleton_id().into();
-                            del_atom.set_skeleton_id(AtomSkeletonId::from(
-                                raw_id + self.negation_offset,
-                            ));
+
+                            let pure_id = del_atom.skeleton_id().as_usize();
+                            let target_idx = pure_id + negation_offset;
+
+                            let mut final_skeleton = AtomSkeletonId::from(target_idx);
+                            final_skeleton.set_negated(true);
+                            del_atom.set_skeleton_id(final_skeleton);
 
                             let cause = if current_cause.skeleton_id() == root_cause_id {
                                 Cause::Action
@@ -607,35 +626,28 @@ impl<'a> DatalogEncoder<'a> {
                                 Cause::Pivot(current_cause.clone())
                             };
 
-                            // ON GARDE ÇA : Utile pour ton Datalogologue/BitVector final
-                            self.action_effects[action_index].push((del_atom.clone(), cause));
-
-                            // ON SUPPRIME ÇA (ou on commente) :
-                            // C'est ça qui crée la règle en trop dans le rules_sink !
-                            //rules_sink.push(Rule::new(del_atom, vec![current_cause.clone()]));
+                            action_effects[action_index].push((del_atom.clone(), cause));
                         }
                     }
                 }
 
-                // --- FEATURES (VALIDE PDDL MAIS NÉCESSITE PREPROCESSING) ---
-                // Si l'un de ceux-là arrive ici, c'est l'Expander/PNF qui est en cause.
                 ExprKind::Forall(_) | ExprKind::Exists(_) | ExprKind::Imply => {
                     return Err(DatalogError::feature_not_supported(
                         format!("ADL construct {:?} in effects", kind),
-                        node_id,
+                        current_id, // 🌟 Correction du nom de variable invalide
                     ));
                 }
 
-                // 6. Safety: Any other node kind triggers an error (e.g., Forall, Exists)
                 _ => {
-                    return Err(DatalogError::incompatible_node(kind.clone(), node_id));
+                    return Err(DatalogError::incompatible_node(kind.clone(), current_id));
+                    // 🌟 Correction ici aussi
                 }
             }
         }
         Ok(())
-    }*/
+    }
 
-    /// Encodes the preconditions of an action into Datalog atoms and rules.
+    /* /// Encodes the preconditions of an action into Datalog atoms and rules.
     ///
     /// This function serves as the public entry point for flattening action preconditions.
     /// It delegates the iterative post-order traversal to `encode_expr`, starting from
@@ -658,8 +670,8 @@ impl<'a> DatalogEncoder<'a> {
     pub fn encode_preconditions(
         &mut self,
         expr: Expr,
-        rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
+        store: &mut ExprStore,
     ) -> Result<Option<Atom>, DatalogError> {
         // 1. Nettoyage et préparation des alias (pour gérer les ?x = ?y)
         self.current_aliases = self.extract_variable_aliases(expr)?;
@@ -667,7 +679,34 @@ impl<'a> DatalogEncoder<'a> {
         // 2. Encodage récursif/itératif de l'expression
         // On passe directement le root_id() puisqu'il est toujours disponible dans l'Expr
         let root_id = expr.root_id();
-        self.encode_expr(expr, root_id, rules_sink, parameters)
+        self.encode_expr(expr, root_id, parameters, store)
+    }*/
+
+    /// Version locale (associée) pour encoder les préconditions
+    pub fn local_encode_preconditions(
+        expr: ExprId,
+        param_list_id: TypedListId, // 🌟 Modifié : passage par ID pour éliminer la lifetime
+        rules: &mut Vec<Rule>,
+        cache: &mut HashMap<Vec<Atom>, Atom>,
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>,
+        type_to_skeleton: &[AtomSkeletonId],
+        next_aux_id: &mut usize,
+        store: &mut ExprStore,
+    ) -> Result<Option<Atom>, DatalogError> {
+        // 1. Nettoyage et préparation des alias (pour gérer les ?x = ?y)
+        let current_aliases = Self::local_extract_variable_aliases(expr, store)?;
+
+        // 🌟 On relaie le param_list_id directement à local_encode_expr
+        Self::local_encode_expr(
+            expr,
+            param_list_id,
+            rules,
+            cache,
+            aux_defs,
+            type_to_skeleton,
+            next_aux_id,
+            store,
+        )
     }
 
     /// Génère un atome d'ancre unique pour une action.
@@ -697,7 +736,28 @@ impl<'a> DatalogEncoder<'a> {
         Atom::new(sk_id, terms)
     }
 
-    /// Encodes a sub-expression starting from a specific node into Datalog atoms and rules.
+    /// Version locale (associée) pour générer un atome d'ancre unique pour une action
+    pub fn local_generate_anchor_atom(
+        _action_id: ActionSymbolId, // Utile pour le debug/nommage futur
+        _parameters: &TypedList<VariableId, TypeId>,
+        action_head: &Atom,
+        next_aux_id: &mut usize, // 💡 Remplace self.next_aux_id pour l'attribution de l'ID
+    ) -> Atom {
+        // 1. On alloue un nouvel ID auxiliaire via le compteur local
+        // L'arité de l'ancre est exactement celle de l'action
+        let anchor_id = *next_aux_id;
+        *next_aux_id += 1;
+
+        let sk_id = AtomSkeletonId::from(anchor_id);
+
+        // 2. On récupère les termes (variables) de l'atome de tête.
+        let terms = action_head.terms().to_vec();
+
+        // 3. On crée l'atome d'ancre
+        Atom::new(sk_id, terms)
+    }
+
+    /*/// Encodes a sub-expression starting from a specific node into Datalog atoms and rules.
     ///
     /// This is the internal engine used by both `encode_preconditions` and `encode_effects`.
     /// It performs an iterative post-order traversal starting at `node_id` to flatten
@@ -720,8 +780,8 @@ impl<'a> DatalogEncoder<'a> {
         &mut self,
         expr: Expr,
         node_id: ExprId, // Ajusté avec ton type d'identifiant d'expression
-        rules_sink: &mut Vec<Rule>,
         parameters: &TypedList<VariableId, TypeId>,
+        store: &mut ExprStore,
     ) -> Result<Option<Atom>, DatalogError> {
         // ÉTAPE 1 : On nettoie et on collecte les alias pour cet arbre précis
         self.current_aliases = self.extract_variable_aliases(expr)?;
@@ -892,10 +952,10 @@ impl<'a> DatalogEncoder<'a> {
                                 } else {
                                     // On récupère la tête ET le corps sécurisé (avec les Type Guards)
                                     let (head, secured_body) =
-                                        self.encode_new_aux_predicate(&atoms, parameters)?;
+                                        self.encode_new_aux_predicate(&atoms, parameters, store)?;
 
                                     // CRUCIAL : On pousse la version sécurisée dans le moteur Datalog
-                                    rules_sink.push(Rule::new(head.clone(), secured_body));
+                                    self.rules.push(Rule::new(head.clone(), secured_body));
 
                                     // On garde les 'atoms' originaux comme clé de cache
                                     self.cache.insert(atoms, head.clone());
@@ -923,7 +983,7 @@ impl<'a> DatalogEncoder<'a> {
                             } else {
                                 // 1. On récupère la tête
                                 let (head, _) =
-                                    self.encode_new_aux_predicate(&atoms, parameters)?;
+                                    self.encode_new_aux_predicate(&atoms, parameters, store)?;
 
                                 for atom in &atoms {
                                     // Chaque règle du OR est : Aux_Or(?x) :- Branche_N(?x)
@@ -961,7 +1021,7 @@ impl<'a> DatalogEncoder<'a> {
                                     }
 
                                     // On enregistre la règle de la branche sécurisée
-                                    rules_sink.push(Rule::new(head.clone(), branch_body));
+                                    self.rules.push(Rule::new(head.clone(), branch_body));
                                 }
 
                                 self.cache.insert(atoms, head.clone());
@@ -1015,7 +1075,299 @@ impl<'a> DatalogEncoder<'a> {
             }
         }
         Ok(results_stack.pop().flatten())
+    }*/
+
+    /// Version locale (associée) pour encoder une expression avec mémoïsation (Hash-Consing)
+    /// Version locale (associée) de encode_expr mise à jour avec le passage par ID
+    pub fn local_encode_expr(
+        node_id: ExprId,
+        param_list_id: TypedListId, // 🌟 Accepté par ID pour casser la dépendance de lifetime
+        rules: &mut Vec<Rule>,
+        cache: &mut HashMap<Vec<Atom>, Atom>,
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>,
+        type_to_skeleton: &[AtomSkeletonId],
+        next_aux_id: &mut usize,
+        store: &mut ExprStore,
+    ) -> Result<Option<Atom>, DatalogError> {
+        // ÉTAPE 1 : On nettoie et on collecte les alias pour cet arbre précis
+        let current_aliases = Self::local_extract_variable_aliases(node_id, store)?;
+
+        let mut work_stack = vec![(node_id, false)];
+        let mut results_stack: Vec<Option<Atom>> = Vec::with_capacity(32);
+
+        // =========================================================================
+        // TABLEAU DE MÉMOÏSATION INDEXÉ
+        // =========================================================================
+        let mut memo: Vec<Option<Option<Atom>>> = vec![None; store.len()];
+
+        while let Some((current_id, visited)) = work_stack.pop() {
+            let idx = current_id.as_usize();
+
+            if !visited {
+                if let Some(cached_result) = &memo[idx] {
+                    results_stack.push(cached_result.clone());
+                    continue;
+                }
+            }
+
+            // Interrogation directe du store
+            let node = store.fetch(current_id)?;
+            let kind = node.kind();
+
+            if !visited {
+                match kind {
+                    // FILTRAGE EN DESCENTE
+                    ExprKind::Not => {
+                        let children = node.children();
+
+                        if children.len() != 1 {
+                            return Err(StorerError::invalid_node(current_id).into());
+                        }
+
+                        let child_id = children[0];
+                        let child_node = store.fetch(child_id)?;
+                        let child_kind = child_node.kind();
+
+                        let is_valid_comparison = match child_kind {
+                            ExprKind::Comparison(op) => *op == CompareOp::Equal,
+                            _ => false,
+                        };
+
+                        if !is_valid_comparison {
+                            let feature_desc = format!("Negation of {:?}", child_kind);
+                            return Err(DatalogError::feature_not_supported(
+                                feature_desc,
+                                child_id,
+                            ));
+                        }
+
+                        work_stack.push((current_id, true));
+                        work_stack.push((child_id, false));
+                    }
+
+                    ExprKind::And
+                    | ExprKind::Or
+                    | ExprKind::AtStart
+                    | ExprKind::AtEnd
+                    | ExprKind::Overall => {
+                        work_stack.push((current_id, true));
+                        for &child_id in node.children().iter().rev() {
+                            work_stack.push((child_id, false));
+                        }
+                    }
+
+                    ExprKind::AtomicFormula(_) | ExprKind::Comparison(_) => {
+                        work_stack.push((current_id, true));
+                    }
+
+                    ExprKind::Arithmetic(_) => {
+                        results_stack.push(None);
+                    }
+
+                    _ => return Err(DatalogError::incompatible_node(kind.clone(), current_id)),
+                }
+            } else {
+                // --- PHASE 2 : Synthèse ---
+                let num_children = node.children().len();
+                let result = match kind {
+                    ExprKind::AtomicFormula(skeleton_id) => {
+                        let mut atom = Self::local_extract_atom(node, store)?;
+                        for term in atom.terms_mut() {
+                            if let Term::Variable(v) = *term {
+                                *term = Self::local_resolve_var(v, &current_aliases);
+                            }
+                        }
+                        if skeleton_id.is_negated() {
+                            let mut sk = atom.skeleton_id();
+                            sk.set_negated(true);
+                            atom.set_skeleton_id(sk);
+                        }
+                        Some(atom)
+                    }
+
+                    ExprKind::Not => match results_stack.pop().flatten() {
+                        Some(mut atom) => {
+                            let terms = atom.terms();
+                            if terms[0] == terms[1] {
+                                None
+                            } else {
+                                atom.set_negated(true);
+                                Some(atom)
+                            }
+                        }
+                        None => {
+                            let v = VariableId::from(0);
+                            Some(Atom::equality(Term::Variable(v), Term::Variable(v)))
+                        }
+                    },
+
+                    ExprKind::And => {
+                        let start_idx = results_stack.len() - num_children;
+                        let child_results: Vec<Option<Atom>> =
+                            results_stack.drain(start_idx..).collect();
+
+                        if child_results.iter().any(|r| r.is_none()) {
+                            None
+                        } else {
+                            let mut atoms: Vec<Atom> = Vec::new();
+                            for a in child_results.into_iter().flatten() {
+                                if a.is_equality() {
+                                    let terms = a.terms();
+                                    if a.is_negated() {
+                                        if terms[0] == terms[1] {
+                                            return Ok(None);
+                                        }
+                                        atoms.push(a);
+                                    } else {
+                                        if terms[0] != terms[1] {
+                                            atoms.push(a);
+                                        }
+                                    }
+                                } else {
+                                    atoms.push(a);
+                                }
+                            }
+
+                            if atoms.is_empty() {
+                                Some(Atom::equality(
+                                    Term::Variable(VariableId::from(0)),
+                                    Term::Variable(VariableId::from(0)),
+                                ))
+                            } else if atoms.len() == 1 {
+                                Some(atoms[0].clone())
+                            } else {
+                                atoms.sort_by_key(|a| a.skeleton_id());
+                                if let Some(existing_head) = cache.get(&atoms) {
+                                    Some(existing_head.clone())
+                                } else {
+                                    let (head, secured_body) =
+                                        Self::local_encode_new_aux_predicate(
+                                            &atoms,
+                                            param_list_id,
+                                            next_aux_id,
+                                            aux_defs,
+                                            type_to_skeleton,
+                                            &current_aliases,
+                                            store,
+                                        )?;
+
+                                    rules.push(Rule::new(head.clone(), secured_body));
+                                    cache.insert(atoms, head.clone());
+                                    Some(head)
+                                }
+                            }
+                        }
+                    }
+
+                    ExprKind::Or => {
+                        let start_idx = results_stack.len() - num_children;
+                        let mut atoms: Vec<Atom> =
+                            results_stack.drain(start_idx..).flatten().collect();
+
+                        if atoms.is_empty() {
+                            None
+                        } else if atoms.len() == 1 {
+                            Some(atoms[0].clone())
+                        } else {
+                            atoms.sort_by_key(|a| a.skeleton_id());
+                            atoms.dedup();
+
+                            if let Some(existing_head) = cache.get(&atoms) {
+                                Some(existing_head.clone())
+                            } else {
+                                let (head, _) = Self::local_encode_new_aux_predicate(
+                                    &atoms,
+                                    param_list_id,
+                                    next_aux_id,
+                                    aux_defs,
+                                    type_to_skeleton,
+                                    &current_aliases,
+                                    store,
+                                )?;
+
+                                for atom in &atoms {
+                                    let mut branch_body = vec![atom.clone()];
+                                    let mut covered_vars = std::collections::HashSet::new();
+                                    if !atom.is_negated() {
+                                        for term in atom.terms() {
+                                            if let Term::Variable(v) = term {
+                                                covered_vars.insert(*v);
+                                            }
+                                        }
+                                    }
+
+                                    for term in head.terms() {
+                                        if let Term::Variable(v) = term {
+                                            if !covered_vars.contains(v) {
+                                                let parameters =
+                                                    store.fetch_typed_list(param_list_id)?;
+                                                let type_id =
+                                                    parameters[v.as_usize()].ty().members()[0]
+                                                        .as_usize();
+                                                let type_sk = type_to_skeleton[type_id];
+
+                                                branch_body.push(Atom::new(
+                                                    type_sk,
+                                                    vec![Term::Variable(*v)],
+                                                ));
+                                                covered_vars.insert(*v);
+                                            }
+                                        }
+                                    }
+
+                                    rules.push(Rule::new(head.clone(), branch_body));
+                                }
+
+                                cache.insert(atoms, head.clone());
+                                Some(head)
+                            }
+                        }
+                    }
+
+                    ExprKind::Comparison(op) => {
+                        if *op == CompareOp::Equal {
+                            let mut atom = Self::local_extract_atom(node, store)?;
+
+                            for term in atom.terms_mut() {
+                                if let Term::Variable(v) = *term {
+                                    *term = Self::local_resolve_var(v, &current_aliases);
+                                }
+                            }
+
+                            let terms = atom.terms();
+                            if terms[0] == terms[1] {
+                                Some(atom)
+                            } else if let (Term::Constant(_), Term::Constant(_)) =
+                                (&terms[0], &terms[1])
+                            {
+                                None
+                            } else {
+                                Some(atom)
+                            }
+                        } else {
+                            None
+                        }
+                    }
+
+                    ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
+                        if num_children > 0 {
+                            results_stack.pop().flatten()
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+
+                memo[idx] = Some(result.clone());
+                results_stack.push(result);
+            }
+        }
+        Ok(results_stack.pop().flatten())
     }
+
+    // ... reste du code (pense aussi à mettre à jour les appels à local_resolve_var plus bas dans le match)
+
     /*pub fn encode_expr(
         &mut self,
         expr: Expr,
@@ -1296,7 +1648,7 @@ impl<'a> DatalogEncoder<'a> {
         Ok(results_stack.pop().flatten())
     }*/
 
-    /// Extracts a logical [`Atom`] from a specific expression node.
+    /*/// Extracts a logical [`Atom`] from a specific expression node.
     ///
     /// This function serves as the bridge between the high-level expression tree ([`Expr`][`ExprNode`][`Atom`]).
     /// It resolves the predicate identity and maps each child argument to its concrete Datalog representation.
@@ -1350,9 +1702,47 @@ impl<'a> DatalogEncoder<'a> {
         }
 
         Ok(Atom::new(skeleton_id, terms))
+    }*/
+
+    pub fn local_extract_atom(node: ExprNode<'_>, store: &ExprStore) -> Result<Atom, DatalogError> {
+        let kind = node.kind();
+        let children = node.children();
+
+        // 1. Fast determination of the Skeleton ID and the child skip offset.
+        let (skeleton_id, skip_count) = match kind {
+            ExprKind::Comparison(_) => (AtomSkeletonId::from(Atom::EQUALITY_ID), 0),
+            ExprKind::AtomicFormula(sk_id) => (*sk_id, 1),
+            _ => {
+                return Err(DatalogError::incompatible_node(
+                    kind.clone(),
+                    node.id(), // 🌟 Plus précis : donne l'ID du nœud fautif directement
+                ));
+            }
+        };
+
+        // 2. Exact allocation to prevent vector resizing during the loop.
+        let capacity = children.len().saturating_sub(skip_count);
+        let mut terms = Vec::with_capacity(capacity);
+
+        // 3. Optimized term collection.
+        for &arg_id in children.iter().skip(skip_count) {
+            // 🌟 Appel direct au store pour récupérer le nœud de l'argument
+            let arg_node = store.fetch(arg_id)?;
+
+            let term = match arg_node.kind() {
+                ExprKind::Variable(v_id) => Term::Variable(*v_id),
+                ExprKind::Object(obj_id) => Term::Constant(*obj_id),
+                _ => {
+                    return Err(DatalogError::invalid_atom_argument(arg_id));
+                }
+            };
+            terms.push(term);
+        }
+
+        Ok(Atom::new(skeleton_id, terms))
     }
 
-    /// Encodes a new auxiliary predicate based on a collection of atoms.
+    /*/// Encodes a new auxiliary predicate based on a collection of atoms.
     ///
     /// This is a helper function used during the transformation of complex formulas
     /// (like AND/OR) into Horn clauses. It performs two main steps:
@@ -1373,6 +1763,7 @@ impl<'a> DatalogEncoder<'a> {
         &mut self,
         atoms: &[Atom],
         parameters: &TypedList<VariableId, TypeId>,
+        store: &mut ExprStore,
     ) -> Result<(Atom, Vec<Atom>), DatalogError> {
         // <--- Retourne le tuple (Tête, Corps Sécurisé)
         // 1. Collecte et résolution des variables
@@ -1424,12 +1815,84 @@ impl<'a> DatalogEncoder<'a> {
 
         // 3. Création de l'atome de tête
         // Note : on passe final_vars et resolved_terms qui sont déjà minimalistes
-        let head = self.create_aux_atom(final_vars, resolved_terms, parameters);
+        let head = self.create_aux_atom(final_vars, resolved_terms, parameters, store);
 
         Ok((head, secured_body)) // <--- On renvoie les deux !
+    }*/
+
+    /// Version locale (associée) pour encoder un nouveau prédicat auxiliaire avec Type Guards
+    pub fn local_encode_new_aux_predicate(
+        atoms: &[Atom],
+        parameters_id: TypedListId, // 🌟 Mis à jour : passage par ID
+        next_aux_id: &mut usize,
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>,
+        type_to_skeleton: &[AtomSkeletonId],
+        current_aliases: &std::collections::HashMap<VariableId, Term>,
+        store: &mut ExprStore,
+    ) -> Result<(Atom, Vec<Atom>), DatalogError> {
+        // 1. Collecte et résolution des variables
+        let used_vars = Self::local_collect_variables(atoms, current_aliases)?;
+
+        let mut resolved_terms: Vec<Term> = used_vars
+            .into_iter()
+            .map(|v_id| Self::local_resolve_var(v_id, current_aliases))
+            .collect();
+
+        resolved_terms.sort();
+        resolved_terms.dedup();
+
+        let final_vars: Vec<VariableId> = resolved_terms
+            .iter()
+            .filter_map(|t| {
+                if let Term::Variable(v) = t {
+                    Some(*v)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // --- 2. LA RÉPARATION (Type Guard Injection) ---
+        let mut covered_vars = std::collections::HashSet::new();
+        for atom in atoms {
+            if !atom.is_negated() {
+                for term in atom.terms() {
+                    if let Term::Variable(v) = term {
+                        covered_vars.insert(*v);
+                    }
+                }
+            }
+        }
+
+        let mut secured_body = atoms.to_vec();
+
+        // 🌟 Récupération locale et temporaire des paramètres pour injecter les Type Guards
+        let parameters = store.fetch_typed_list(parameters_id)?;
+
+        for v_id in &final_vars {
+            if !covered_vars.contains(v_id) {
+                let type_id = parameters[v_id.as_usize()].ty().members()[0].as_usize();
+                let type_sk = type_to_skeleton[type_id];
+
+                secured_body.push(Atom::new(type_sk, vec![Term::Variable(*v_id)]));
+                covered_vars.insert(*v_id);
+            }
+        }
+
+        // 3. Création de l'atome de tête
+        let head = Self::local_create_aux_atom(
+            final_vars,
+            resolved_terms,
+            parameters_id, // 🌟 On relaie l'ID ici aussi
+            next_aux_id,
+            aux_defs,
+            store,
+        );
+
+        Ok((head, secured_body))
     }
 
-    // Creates a new auxiliary atom and registers its skeleton locally.
+    /*/// Creates a new auxiliary atom and registers its skeleton locally.
     ///
     /// This method is a support part of the **Skolemization** process during flattening.
     /// It generates a unique predicate ID for a sub-formula and maps the provided
@@ -1455,6 +1918,7 @@ impl<'a> DatalogEncoder<'a> {
         skeleton_vars: Vec<VariableId>,
         resolved_terms: Vec<Term>,
         parameters: &TypedList<VariableId, TypeId>,
+        store: &mut ExprStore,
     ) -> Atom {
         let id = self.next_aux_id;
         self.next_aux_id += 1;
@@ -1466,10 +1930,46 @@ impl<'a> DatalogEncoder<'a> {
         }
 
         // --- CORRIGÉ : On interne la liste brute dans l'arène globale ---
-        let list_id = self.expr_store.intern_typed_list(aux_params);
+        let list_id = store.intern_typed_list(aux_params);
 
         // Enregistrement avec le TypedListId conforme au nouveau modèle
         self.aux_defs.push(AtomicFormulaSkeleton::new(
+            PredicateSymbolId::from(id),
+            list_id,
+        ));
+
+        Atom::new(AtomSkeletonId::from(id), resolved_terms)
+    }*/
+
+    /// Version locale (associée) pour générer un nouvel atome auxiliaire unique
+    /// Version locale (associée) pour générer un nouvel atome auxiliaire unique
+    pub fn local_create_aux_atom(
+        skeleton_vars: Vec<VariableId>,
+        resolved_terms: Vec<Term>,
+        parameters_id: TypedListId, // 🌟 Mis à jour : passage par ID
+        next_aux_id: &mut usize,
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>,
+        store: &mut ExprStore,
+    ) -> Atom {
+        let id = *next_aux_id;
+        *next_aux_id += 1;
+
+        // 🌟 Récupération temporaire de la liste originale pour lire les types
+        let parameters = store
+            .fetch_typed_list(parameters_id)
+            .expect("Valid TypedListId");
+
+        let mut aux_params = TypedList::new();
+        for &v_id in &skeleton_vars {
+            let ty = parameters[v_id.as_usize()].ty();
+            aux_params.push(TypedSymbol::new(v_id, ty.clone()));
+        }
+
+        // --- On interne la liste brute dans l'arène globale ---
+        let list_id = store.intern_typed_list(aux_params);
+
+        // Enregistrement avec le TypedListId conforme au nouveau modèle
+        aux_defs.push(AtomicFormulaSkeleton::new(
             PredicateSymbolId::from(id),
             list_id,
         ));
@@ -1512,7 +2012,7 @@ impl<'a> DatalogEncoder<'a> {
         }
     }
 
-    /// Collects all unique variables from a slice of atoms and returns them as a sorted vector.
+    /*/// Collects all unique variables from a slice of atoms and returns them as a sorted vector.
     ///
     /// This function identifies every `VariableId` present in the terms of the provided atoms
     /// and produces a compact, deduplicated list.
@@ -1549,9 +2049,18 @@ impl<'a> DatalogEncoder<'a> {
     pub fn collect_variables(&self, atoms: &[Atom]) -> Result<Vec<VariableId>, DatalogError> {
         let mask = self.collect_mask(atoms);
         Ok(self.mask_to_vars(mask))
+    }*/
+
+    pub fn local_collect_variables(
+        atoms: &[Atom],
+        current_aliases: &HashMap<VariableId, Term>, // 💡 Ajouté ici pour propager
+    ) -> Result<Vec<VariableId>, DatalogError> {
+        // 💡 Transmis ici à local_collect_mask
+        let mask = Self::local_collect_mask(atoms, current_aliases);
+        Ok(Self::local_mask_to_vars(mask))
     }
 
-    fn mask_to_vars(&self, mut mask: u64) -> Vec<VariableId> {
+    /*fn mask_to_vars(&self, mut mask: u64) -> Vec<VariableId> {
         let mut vars = Vec::with_capacity(mask.count_ones() as usize);
         while mask != 0 {
             let bit = mask.trailing_zeros();
@@ -1559,9 +2068,19 @@ impl<'a> DatalogEncoder<'a> {
             mask &= mask - 1;
         }
         vars
+    }*/
+
+    pub fn local_mask_to_vars(mut mask: u64) -> Vec<VariableId> {
+        let mut vars = Vec::with_capacity(mask.count_ones() as usize);
+        while mask != 0 {
+            let bit = mask.trailing_zeros();
+            vars.push(VariableId::from(bit as usize));
+            mask &= mask - 1; // 💡 Efface le bit de poids faible mis à 1
+        }
+        vars
     }
 
-    pub fn scan_required_terms_mask(&self, expr: &Expr, start_node_id: ExprId) -> u64 {
+    /*pub fn scan_required_terms_mask(&self, expr: &Expr, start_node_id: ExprId) -> u64 {
         let mut mask: u64 = 0;
         let mut stack = vec![start_node_id];
 
@@ -1599,9 +2118,54 @@ impl<'a> DatalogEncoder<'a> {
             }
         }
         mask
+    }*/
+
+    /// Version locale (associée) pour scanner le masque des variables requises
+    pub fn local_scan_required_terms_mask(
+        expr: &Expr,
+        start_node_id: ExprId,
+        current_aliases: &std::collections::HashMap<VariableId, Term>, // 💡 Type corrigé !
+    ) -> u64 {
+        let mut mask: u64 = 0;
+        let mut stack = vec![start_node_id];
+
+        while let Some(node_id) = stack.pop() {
+            if let Ok(node) = expr.fetch_node(node_id) {
+                match node.kind() {
+                    // On scanne les enfants pour trouver les variables
+                    ExprKind::AtomicFormula(_) | ExprKind::Comparison(_) => {
+                        for &child_id in node.children().iter() {
+                            if let Ok(child_node) = expr.fetch_node(child_id) {
+                                if let ExprKind::Variable(v) = child_node.kind() {
+                                    // 💡 Utilisation de la version locale avec la map VariableId -> Term
+                                    if let Term::Variable(rv) =
+                                        Self::local_resolve_var(*v, current_aliases)
+                                    {
+                                        mask |= 1 << rv.as_usize();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ExprKind::And
+                    | ExprKind::Or
+                    | ExprKind::When
+                    | ExprKind::AtStart
+                    | ExprKind::AtEnd
+                    | ExprKind::Overall
+                    | ExprKind::Not => {
+                        for &child_id in node.children() {
+                            stack.push(child_id);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        mask
     }
 
-    fn collect_mask(&self, atoms: &[Atom]) -> u64 {
+    /*fn collect_mask(&self, atoms: &[Atom]) -> u64 {
         let mut mask: u64 = 0;
         for atom in atoms {
             for term in atom.terms() {
@@ -1617,9 +2181,31 @@ impl<'a> DatalogEncoder<'a> {
             }
         }
         mask
+    }*/
+
+    /// Version locale (associée) pour collecter le masque binaire des variables utilisées
+    pub fn local_collect_mask(
+        atoms: &[Atom],
+        current_aliases: &std::collections::HashMap<VariableId, Term>, // 💡 Type aligné sur ta fonction !
+    ) -> u64 {
+        let mut mask: u64 = 0;
+        for atom in atoms {
+            for term in atom.terms() {
+                // AJOUT : Résolution systématique via ta fonction locale à 2 paramètres
+                let resolved_term = match term {
+                    Term::Variable(v) => Self::local_resolve_var(*v, current_aliases),
+                    Term::Constant(_) => term.clone(),
+                };
+
+                if let Term::Variable(v) = resolved_term {
+                    mask |= 1 << v.as_usize();
+                }
+            }
+        }
+        mask
     }
 
-    /// Résout une variable vers son représentant canonique (le plus petit ID du groupe d'égalité)
+    /*/// Résout une variable vers son représentant canonique (le plus petit ID du groupe d'égalité)
     #[inline(always)]
     fn resolve_var(&self, v: VariableId) -> Term {
         // Si la fermeture a bien aplati la map, un seul get suffit.
@@ -1628,9 +2214,22 @@ impl<'a> DatalogEncoder<'a> {
             .get(&v)
             .cloned()
             .unwrap_or(Term::Variable(v))
+    }*/
+
+    /// Résout une variable vers son représentant canonique (le plus petit ID du groupe d'égalité)
+    #[inline(always)]
+    pub fn local_resolve_var(
+        v: VariableId,
+        current_aliases: &std::collections::HashMap<VariableId, Term>, // 💡 Injecté à la place de self
+    ) -> Term {
+        // Si la fermeture a bien aplati la map, un seul get suffit.
+        current_aliases
+            .get(&v)
+            .cloned()
+            .unwrap_or(Term::Variable(v))
     }
 
-    pub fn extract_variable_aliases(
+    /* pub fn extract_variable_aliases(
         &self,
         expr: Expr,
     ) -> Result<HashMap<VariableId, Term>, DatalogError> {
@@ -1725,7 +2324,104 @@ impl<'a> DatalogEncoder<'a> {
         // Aplatissement final unique (Path Compression) en fin de fonction
         self.compute_transitive_closure(&mut aliases);
         Ok(aliases)
+    }*/
+
+    /// Version locale (associée) pour extraire la table des alias d'un groupe d'égalité
+    /// Version locale (associée) pour extraire la table des alias d'un groupe d'égalité
+    pub fn local_extract_variable_aliases(
+        effect_id: ExprId,
+        store: &ExprStore,
+    ) -> Result<std::collections::HashMap<VariableId, Term>, DatalogError> {
+        let mut aliases = std::collections::HashMap::new();
+
+        // Gardien du DAG (Hash-Consing) - Allocation unique de la taille du store
+        let mut visited = vec![false; store.len()];
+        let mut stack = vec![effect_id];
+
+        // 🌟 Version optimisée : Zéro allocation, parcours direct et sécurisé par le tri des IDs
+        let find_rep = |map: &std::collections::HashMap<VariableId, Term>, v: VariableId| -> Term {
+            let mut curr = Term::Variable(v);
+            while let Term::Variable(var) = curr {
+                if let Some(next) = map.get(&var) {
+                    curr = next.clone();
+                } else {
+                    break;
+                }
+            }
+            curr
+        };
+
+        while let Some(node_id) = stack.pop() {
+            let idx = node_id.as_usize();
+            if visited[idx] {
+                continue;
+            }
+            visited[idx] = true;
+
+            // 🌟 Appel direct au store au lieu de expr
+            let node = store.fetch(node_id)?;
+            let kind = node.kind();
+
+            match kind {
+                ExprKind::Not => {
+                    continue; // Les égalités dans un NOT sont des inégalités, on ignore.
+                }
+
+                ExprKind::Comparison(op) => {
+                    if *op == CompareOp::Equal {
+                        let children = node.children();
+                        if children.len() == 2 {
+                            // 💡 Appels mis à jour pour passer l'ID et le store
+                            let t1 = Self::local_node_to_term(children[0], store)?;
+                            let t2 = Self::local_node_to_term(children[1], store)?;
+
+                            match (t1, t2) {
+                                (Some(Term::Variable(v1)), Some(Term::Variable(v2))) => {
+                                    let r1 = find_rep(&aliases, v1);
+                                    let r2 = find_rep(&aliases, v2);
+
+                                    if r1 != r2 {
+                                        match (r1, r2) {
+                                            (Term::Variable(var1), Term::Variable(var2)) => {
+                                                aliases.insert(
+                                                    var1.max(var2),
+                                                    Term::Variable(var1.min(var2)),
+                                                );
+                                            }
+                                            (Term::Variable(var), Term::Constant(c))
+                                            | (Term::Constant(c), Term::Variable(var)) => {
+                                                aliases.insert(var, Term::Constant(c));
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                                (Some(Term::Variable(v)), Some(Term::Constant(c)))
+                                | (Some(Term::Constant(c)), Some(Term::Variable(v))) => {
+                                    let r = find_rep(&aliases, v);
+                                    if let Term::Variable(var) = r {
+                                        aliases.insert(var, Term::Constant(c));
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+
+                _ => {
+                    for &child_id in node.children().iter().rev() {
+                        stack.push(child_id);
+                    }
+                }
+            }
+        }
+
+        // Aplatissement final unique (Path Compression)
+        Self::local_compute_transitive_closure(&mut aliases);
+        Ok(aliases)
     }
+
     /*pub fn extract_variable_aliases(
         &self,
         expr: Expr,
@@ -1864,7 +2560,7 @@ impl<'a> DatalogEncoder<'a> {
         Ok(aliases)
     }*/
 
-    /// Helper pour transformer un Node en Term atomique
+    /*/// Helper pour transformer un Node en Term atomique
     fn node_to_term(&self, expr: Expr, node_id: ExprId) -> Result<Option<Term>, DatalogError> {
         let n = expr.fetch_node(node_id)?;
 
@@ -1873,9 +2569,56 @@ impl<'a> DatalogEncoder<'a> {
             ExprKind::Object(obj_id) => Some(Term::Constant(*obj_id)),
             _ => None,
         })
+    }*/
+
+    /// Version locale (associée) pour convertir un identifiant de nœud en Term
+    pub fn local_node_to_term(
+        node_id: ExprId,
+        store: &ExprStore,
+    ) -> Result<Option<Term>, DatalogError> {
+        // 🌟 Appel direct au store pour récupérer le nœud
+        let n = store.fetch(node_id)?;
+
+        Ok(match n.kind() {
+            ExprKind::Variable(v_id) => Some(Term::Variable(*v_id)),
+            ExprKind::Object(obj_id) => Some(Term::Constant(*obj_id)),
+            _ => None,
+        })
     }
 
-    fn compute_transitive_closure(&self, aliases: &mut HashMap<VariableId, Term>) {
+    /*fn compute_transitive_closure(&self, aliases: &mut HashMap<VariableId, Term>) {
+        let keys: Vec<VariableId> = aliases.keys().cloned().collect();
+
+        for start_var in keys {
+            // On récupère le terme cible initial
+            let mut current_term = aliases.get(&start_var).unwrap().clone();
+            let mut visited = std::collections::HashSet::new();
+            visited.insert(start_var);
+
+            // On suit la chaîne des variables aliasées
+            while let Term::Variable(v) = current_term {
+                if let Some(next_term) = aliases.get(&v) {
+                    // Sécurité anti-cycle (ex: v1 = v2 et v2 = v1)
+                    if !visited.insert(v) {
+                        break;
+                    }
+                    current_term = next_term.clone();
+                } else {
+                    break;
+                }
+            }
+
+            // On "aplatit" la structure (Path Compression)
+            if let Some(alias) = aliases.get_mut(&start_var) {
+                *alias = current_term;
+            }
+        }
+    }*/
+
+    /// Version locale (associée) pour calculer la fermeture transitive (Path Compression)
+    pub fn local_compute_transitive_closure(
+        aliases: &mut std::collections::HashMap<VariableId, Term>,
+    ) {
         let keys: Vec<VariableId> = aliases.keys().cloned().collect();
 
         for start_var in keys {

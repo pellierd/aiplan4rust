@@ -2,7 +2,6 @@ use crate::aiplan4rust::compiler::grounding::analysis::inertia::table::InertiaTa
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::atom::Atom;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::cause::Cause;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::database::Database;
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::renderers::{
     database, rules, DatalogRenderContext,
@@ -12,7 +11,8 @@ use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::te
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::tuple::Tuple;
 use crate::aiplan4rust::compiler::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprKind, ExprNode, ExprStore};
+use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprNode, ExprStore};
+use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::compiler::lir::renderers::LiftedSyntaxDisplay;
@@ -31,20 +31,18 @@ pub const MAX_VARS: usize = 64;
 
 // pre requis les types doivent faltten et les quantfier remove pas d'imply
 pub struct DatalogEngine<'a> {
-    problem: &'a LiftedProblem,
+    pub(crate) problem: &'a mut LiftedProblem,
     value_registry: &'a ValueRegistry,
     inertia_table: &'a InertiaTable,
     negated_predicates: &'a Vec<AtomSkeletonId>,
     db: Database,
-    rules: Vec<Rule>,
+    pub(crate) rules: Vec<Rule>,
     current_env: [Option<ObjectId>; MAX_VARS],
     /// Pile de traçage pour le rollback des variables (Undo Stack)
     trailing_indices: Vec<usize>,
     // Buffer temporaire pour stocker les faits trouvés pour une règle
     discovered_facts: Vec<(AtomSkeletonId, Vec<ObjectId>)>,
-    type_to_skeleton: Vec<AtomSkeletonId>,
     head_buffer: Vec<ObjectId>,
-    encoder: DatalogEncoder<'a>,
     fluence_threshold: usize,
     type_threshold: usize,
     type_segment_start: usize,
@@ -54,41 +52,353 @@ pub struct DatalogEngine<'a> {
     /// Cache pour ne pas dupliquer les prédicats d'union.
     /// Clé : La liste triée des TypeId. Valeur : L'ID du squelette Datalog.
     union_cache: HashMap<Vec<TypeId>, AtomSkeletonId>,
+
+    //////////////////////////////////////////////////
+    //// ENCODER
+    /// The starting offset for auxiliary predicate IDs.
+    /// Typically set to the count of original predicates in the domain.
+    pub(crate) base_aux_id: usize,
+    /// Monotonic counter for generating the next unique auxiliary ID.
+    pub(crate) next_aux_id: usize,
+    /// Registry of auxiliary predicate signatures (skeletons).
+    /// Used for debugging and reconstructing the logical state post-saturation.
+    pub(crate) aux_defs: Vec<AtomicFormulaSkeleton>,
+    /// Structural cache mapping a set of body atoms to a head atom.
+    /// Prevents the redundant creation of multiple auxiliary predicates
+    /// for the same logical sub-expression (Common Subexpression Elimination).
+    pub(crate) cache: HashMap<Vec<Atom>, Atom>,
+
+    // Ajout du champ interne
+    // On utilise un champ membre pour éviter de le passer partout
+    pub(crate) current_aliases: HashMap<VariableId, Term>,
+
+    /// Table de causalité : associe chaque effet à son origine (Action ou Pivot).
+    pub(crate) action_effects: Vec<Vec<(Atom, Cause)>>,
+
+    pub(crate) action_anchor: Option<Atom>,
+
+    pub(crate) negation_offset: usize,
+    pub(crate) type_to_skeleton: Vec<AtomSkeletonId>,
 }
 
 impl<'a> DatalogEngine<'a> {
-    pub fn new(/*problem: &'a LiftedProblem,
+    pub fn load(
+        problem: &'a mut LiftedProblem,
         value_registry: &'a ValueRegistry,
         inertia_table: &'a InertiaTable,
-        negated_predicates: &'a Vec<AtomSkeletonId>,*/) -> Self {
-        // Objets temporaires immortels juste pour le démarrage
-        let problem = Box::leak(Box::new(LiftedProblem::default()));
-        let value_registry = Box::leak(Box::new(ValueRegistry::default()));
-        let inertia_table = Box::leak(Box::new(InertiaTable::default()));
-        let negated_predicates = Box::leak(Box::new(Vec::new()));
-        let expr_store = Box::leak(Box::new(ExprStore::new()));
-        Self {
+        negated_predicates: &'a Vec<AtomSkeletonId>,
+    ) -> Result<Self, DatalogError> {
+        // =========================================================================
+        // 1. EXTRACTION DU STORE ET THRESHOLDS INITIALES
+        // =========================================================================
+        let mut local_store = problem.take_store();
+
+        let fluence_threshold = problem.predicate_defs().len();
+        let type_segment_start = if negated_predicates.is_empty() {
+            fluence_threshold
+        } else {
+            fluence_threshold * 2
+        };
+        let action_count = problem.action_defs().len();
+        let init_expr_id = problem.init();
+
+        let type_defs_slice = problem.type_defs().as_slice();
+        let action_defs_slice = problem.action_defs();
+        let object_defs_slice = problem.object_defs().as_slice();
+
+        // =========================================================================
+        // 2. REPRODUCTION DE L'ORDRE DES SEUILS (STRICT SANS ENCODEUR)
+        // =========================================================================
+        let mut type_to_skeleton = Vec::new();
+        let mut dummy_id = type_segment_start;
+
+        // Remplit type_to_skeleton
+        Self::local_declare_types_as_unary_predicates(
+            type_defs_slice,
+            &mut type_to_skeleton,
+            &mut dummy_id,
+        );
+
+        // 🔥 Alignement crucial avec ton ancien code :
+        // L'encodeur définitif écrasait le compteur pour repartir de `type_segment_start`
+        let type_threshold = type_segment_start;
+        let action_base_id = type_threshold;
+
+        // Les actions consomment les IDs à partir de action_base_id
+        let mut current_id = action_base_id;
+        let mut aux_defs = Vec::with_capacity(256);
+        Self::local_declare_action_as_predicates(
+            action_defs_slice,
+            &mut local_store,
+            &mut current_id,
+            &mut aux_defs,
+        )?;
+
+        let action_threshold = current_id;
+        let builtin_threshold = action_threshold;
+
+        // =========================================================================
+        // 3. INGESTION DES DONNÉES ET RÈGLES
+        // =========================================================================
+        let mut db = Database::new();
+        let mut rules = Vec::with_capacity(1024);
+        let mut cache = HashMap::with_capacity(256);
+        let mut current_aliases = HashMap::with_capacity(256);
+        let mut action_effects = vec![Vec::new(); action_count];
+        let union_cache = HashMap::new();
+
+        // Remplissage de la DB
+        Self::local_fill_db_from_objects(
+            &mut db,
+            &type_to_skeleton,
+            object_defs_slice,
+            type_defs_slice,
+        )?;
+
+        Self::local_fill_db_from_init(&mut db, init_expr_id, &mut local_store)?;
+
+        // Compilation des règles (génère les aux_XX >= builtin_threshold)
+        Self::local_compile_domain_actions_as_rules(
+            &mut rules,
+            &mut db,
+            &mut action_effects,
+            &mut cache,
+            &mut aux_defs,
+            &mut current_id, // S'incrémente dynamiquement pour chaque aux_XX créé
+            fluence_threshold,
+            action_defs_slice,
+            action_base_id,
+            inertia_table,
+            &type_to_skeleton,
+            &mut local_store,
+        )?;
+
+        let final_builtin_threshold = current_id;
+
+        // =========================================================================
+        // 4. RESTAURATION ET EMPEQUETAGE
+        // =========================================================================
+        problem.set_store(local_store);
+
+        let engine = Self {
             problem,
             value_registry,
             inertia_table,
             negated_predicates,
+
+            db,
+            rules,
+            current_env: [None; MAX_VARS],
+            trailing_indices: Vec::with_capacity(MAX_VARS),
+            discovered_facts: Vec::with_capacity(1024),
+            head_buffer: Vec::with_capacity(16),
+            union_cache,
+
+            base_aux_id: type_segment_start, // Reste calqué sur la structure originale
+            next_aux_id: current_id,
+            aux_defs,
+            cache,
+            current_aliases,
+            action_effects,
+            action_anchor: None,
+            negation_offset: fluence_threshold,
+            type_to_skeleton,
+
+            fluence_threshold,
+            type_threshold,
+            type_segment_start,
+            action_base_id,
+            action_threshold,
+            builtin_threshold: final_builtin_threshold,
+        };
+
+        #[cfg(debug_assertions)]
+        engine.dump_database();
+
+        #[cfg(debug_assertions)]
+        engine.dump_rules();
+
+        Ok(engine)
+    }
+
+    /*/// Initialise et charge un nouveau système unifié DatalogEngine (Moteur + Encodeur).
+    ///
+    /// L'instance retournée est entièrement compilée, sa base de données est initialisée,
+    /// et elle est prête pour l'exécution de la saturation (`.run()`).
+    pub fn load(
+        problem: &'a mut LiftedProblem, // Reste mutable pour modifier son store si besoin
+        value_registry: &'a ValueRegistry,
+        inertia_table: &'a InertiaTable,
+        negated_predicates: &'a Vec<AtomSkeletonId>,
+    ) -> Result<Self, DatalogError> {
+        // =========================================================================
+        // 1. CALCULS PRÉLIMINAIRES DES SEUILS ET PARAMÈTRES D'ENCODAGE
+        // =========================================================================
+        let fluence_threshold = problem.predicate_defs().len();
+        let type_segment_start = if negated_predicates.is_empty() {
+            fluence_threshold
+        } else {
+            fluence_threshold * 2
+        };
+        let action_count = problem.action_defs().len();
+
+        // On extrait le store de manière exclusive
+        let store = problem.store_mut();
+
+        // =========================================================================
+        // 2. INSTANCIATION DIRECTE AVEC TOUTES LES RÉFÉRENCES GLOBALES
+        // =========================================================================
+        let mut engine = Self {
+            // Context & Global References
+            problem,
+            value_registry,
+            inertia_table,
+            negated_predicates,
+
+            // Engine Base State
+            db: Database::new(),
+            rules: Vec::with_capacity(1024), // Capacité initiale pour éviter les allocations répétées
+            current_env: [None; MAX_VARS],
+            trailing_indices: Vec::with_capacity(MAX_VARS),
+            discovered_facts: Vec::with_capacity(1024),
+            head_buffer: Vec::with_capacity(16),
+            union_cache: HashMap::new(),
+
+            // Encoder Shared State
+            base_aux_id: type_segment_start,
+            next_aux_id: type_segment_start,
+            aux_defs: Vec::with_capacity(256),
+            cache: HashMap::with_capacity(256),
+            current_aliases: HashMap::with_capacity(256),
+            action_effects: vec![Vec::new(); action_count], // Table dense O(1)
+            action_anchor: None,
+            negation_offset: fluence_threshold,
+            type_to_skeleton: Vec::new(),
+
+            // Thresholds & Segment Tracking
+            fluence_threshold,
+            type_threshold: 0, // Ajusté dynamiquement ci-dessous
+            type_segment_start,
+            action_base_id: 0,    // Ajusté dynamiquement ci-dessous
+            action_threshold: 0,  // Ajusté dynamiquement ci-dessous
+            builtin_threshold: 0, // Ajusté dynamiquement ci-dessous
+        };
+
+        // =========================================================================
+        // 3. EXÉCUTION DE LA LOGIQUE D'ENCODAGE ET D'INITIALISATION
+        // =========================================================================
+
+        // Configuration initiale des IDs pour le segment des types
+        engine.reset_with_start_id(engine.type_segment_start);
+        engine.declare_types_as_unary_predicates(problem.type_defs().as_slice());
+
+        // Fixation du seuil des types et transition vers le segment des actions
+        engine.type_threshold = engine.current_id();
+        engine.action_base_id = engine.type_threshold;
+
+        engine.declare_action_as_predicates(problem.action_defs(), store);
+        engine.action_threshold = engine.current_id();
+
+        // Transition vers le segment des prédicats built-in / auxiliaires
+        engine.builtin_threshold = engine.action_threshold;
+        engine.reset_with_start_id(engine.builtin_threshold);
+
+        // Remplissage de la base de données avec les objets et types PDDL
+        engine.fill_db_from_objects(
+            problem.object_defs().as_slice(),
+            problem.type_defs().as_slice(),
+        )?;
+
+        // Traitement et ingestion de l'état initial (Zéro conflit d'emprunt sur expr_store !)
+        engine.fill_db_from_init(problem.init(), store)?;
+
+        #[cfg(debug_assertions)]
+        engine.dump_database();
+
+        // Compilation des actions du domaine sous forme de règles Datalog
+        engine.compile_domain_actions_as_rules(problem.action_defs(), store)?;
+
+        #[cfg(debug_assertions)]
+        engine.dump_rules();
+
+        // Clôture des seuils d'IDs après génération de toutes les règles
+        engine.builtin_threshold = engine.current_id();
+
+        // Le moteur est complètement chargé et prêt à saturer
+        Ok(engine)
+    }*/
+
+    /*/// Initialise un nouveau système unifié DatalogEngine (Moteur de saturation + Encodeur).
+    ///
+    /// # Arguments
+    ///
+    /// * `problem` - Référence vers le problème Lifted global.
+    /// * `value_registry` - Registre des constantes et objets.
+    /// * `inertia_table` - Table d'analyse d'inertie des prédicats.
+    /// * `negated_predicates` - Liste des prédicats qui apparaissent sous forme négative.
+    /// * `base_id` - L'index de départ pour les prédicats auxiliaires (après les prédicats de base).
+    /// * `action_count` - Le nombre total d'actions (pour pré-allouer la table de causalité).
+    /// * `negation_offset` - L'offset pour dériver les IDs des fluents négatifs.
+    /// * `type_to_skeleton` - Mapping initial des types PDDL vers les squelettes Datalog.
+    /// * `expr_store` - Le store d'expressions mutable partagé.
+    pub fn new(
+        problem: &'a LiftedProblem,
+        value_registry: &'a ValueRegistry,
+        inertia_table: &'a InertiaTable,
+        negated_predicates: &'a Vec<AtomSkeletonId>,
+        base_id: usize,
+        action_count: usize,
+        negation_offset: usize,
+        type_to_skeleton: Vec<AtomSkeletonId>,
+        expr_store: &'a mut ExprStore,
+    ) -> Self {
+        Self {
+            // ==========================================
+            // 1. Context & Global References
+            // ==========================================
+            problem,
+            value_registry,
+            inertia_table,
+            negated_predicates,
+            expr_store,
+
+            // ==========================================
+            // 2. Engine Base State
+            // ==========================================
             db: Database::new(),
             rules: Vec::new(),
             current_env: [None; MAX_VARS],
             trailing_indices: Vec::with_capacity(MAX_VARS),
             discovered_facts: Vec::with_capacity(1024),
-            type_to_skeleton: Vec::new(),
             head_buffer: Vec::with_capacity(16),
-            encoder: DatalogEncoder::new(0, 0, 0, Vec::new(), expr_store),
+            union_cache: HashMap::new(),
+
+            // ==========================================
+            // 3. Encoder Shared State (Champs pub(crate))
+            // ==========================================
+            base_aux_id: base_id,
+            next_aux_id: base_id,
+            // Pré-allocation pour éviter les réallocations mémoire intensives sur le tas
+            aux_defs: Vec::with_capacity(256),
+            cache: HashMap::with_capacity(256),
+            current_aliases: HashMap::with_capacity(256),
+            // Table dense pour les lookups de causalité en O(1)
+            action_effects: vec![Vec::new(); action_count],
+            action_anchor: None,
+            negation_offset,
+            type_to_skeleton,
+
+            // ==========================================
+            // 4. Thresholds & Segment Tracking
+            // ==========================================
             fluence_threshold: 0,
             type_threshold: 0,
+            type_segment_start: 0,
             action_base_id: 0,
             action_threshold: 0,
             builtin_threshold: 0,
-            type_segment_start: 0,
-            union_cache: HashMap::new(),
         }
-    }
+    }*/
 
     pub fn get_reachable_fluents(&self) -> Vec<Tuple<AtomSkeletonId>> {
         let mut fluents = Vec::new();
@@ -187,7 +497,7 @@ impl<'a> DatalogEngine<'a> {
         let action_index = action_sk_id.as_usize() - self.action_base_id;
 
         // 3. On demande à l'encodeur de nous donner le segment correspondant (Vec<(Atom, Cause)>)
-        self.encoder.get_action_effects(action_index)
+        self.get_action_effects(action_index)
     }
 
     pub fn get_rule_for_action(&self, action_index: usize) -> &Rule {
@@ -209,34 +519,22 @@ impl<'a> DatalogEngine<'a> {
             .expect("Inconsistance : fait auxiliaire trouvé sans règle correspondante")
     }
 
-    pub fn load_problem(
-        mut self,                       // Builder Pattern
-        problem: &'a mut LiftedProblem, // Reçoit le problème mutable
+    /*pub fn load_problem(
+        mut self,
+        problem: &'a mut LiftedProblem, // Reste mutable car on va modifier son store via l'encodage
         value_registry: &'a ValueRegistry,
         inertia_table: &'a InertiaTable,
         negated_predicates: &'a Vec<AtomSkeletonId>,
     ) -> Result<Self, DatalogError> {
         // =========================================================================
-        // 1. CLONAGE DE SÉCURITÉ DU STORE
-        // =========================================================================
-        let mut problem_read_store = problem.store().clone();
-        let mut encoder_store = self.encoder.take_store();
-
-        // On met le store réel du problème dans l'encodeur (qui va le modifier)
-        std::mem::swap(problem.store_mut(), encoder_store);
-
-        // On donne le store cloné au problème pour ses lectures internes (tl#4)
-        std::mem::swap(problem.store_mut(), &mut problem_read_store);
-
-        // =========================================================================
-        // 2. Reset de l'état (On utilise l'argument `problem` direct)
+        // 1. LIAISON ET RESET DE L'ÉTAT INITIAL
         // =========================================================================
         self.db = Database::new();
         self.rules.clear();
         self.union_cache.clear();
         self.type_to_skeleton.clear();
 
-        // Configuration des seuils via la variable locale `problem`
+        // Configuration des seuils
         self.fluence_threshold = problem.predicate_defs().len();
         self.type_segment_start = if negated_predicates.is_empty() {
             self.fluence_threshold
@@ -244,76 +542,54 @@ impl<'a> DatalogEngine<'a> {
             self.fluence_threshold * 2
         };
 
-        self.encoder.reset_with_start_id(self.type_segment_start);
+        self.reset_with_start_id(self.type_segment_start);
         self.declare_types_as_unary_predicates(problem.type_defs().as_slice());
 
-        // Réinitialisation de l'encodeur avec le store de travail principal
-        self.encoder = DatalogEncoder::new(
-            self.type_segment_start,
-            problem.action_defs().len(),
-            self.fluence_threshold,
-            self.type_to_skeleton.clone(),
-            encoder_store,
-        );
+        // ❌ PLUS BESOIN DE CRÉER self.encoder = DatalogEncoder::new(...) !
+        // Les variables comme negation_offset, action_effects, etc., ont déjà été
+        // initialisées à la création de l'Engine ou via reset_with_start_id.
+        self.negation_offset = self.fluence_threshold;
+        self.action_effects = vec![Vec::new(); problem.action_defs().len()];
 
-        self.type_threshold = self.encoder.current_id();
+        self.type_threshold = self.current_id();
         self.action_base_id = self.type_threshold;
 
         self.declare_action_as_predicates(problem.action_defs());
-        self.action_threshold = self.encoder.current_id();
+        self.action_threshold = self.current_id();
 
         self.builtin_threshold = self.action_threshold;
-        self.encoder.reset_with_start_id(self.builtin_threshold);
+        self.reset_with_start_id(self.builtin_threshold);
 
+        // =========================================================================
+        // 2. REMPLISSAGE DE LA BASE DE DONNÉES ET DES RÈGLES
+        // =========================================================================
         self.fill_db_from_objects(
             problem.object_defs().as_slice(),
             problem.type_defs().as_slice(),
         )?;
 
-        // =========================================================================
-        // 3. Traitement de l'état Initial
-        // =========================================================================
-        let temp_store_for_init = self.encoder.take_store();
-        let init = Expr::new(problem.init(), temp_store_for_init);
-        self.fill_db_from_init(init)?;
-        self.encoder.set_store(temp_store_for_init);
+        // Traitement de l'état Initial
+        // Plus besoin de "take_store" temporaire : l'engine utilise directement son store partagé
+        self.fill_db_from_init(problem.init())?;
 
         self.dump_database();
 
-        // =========================================================================
-        // 4. Compilation des Règles
-        // =========================================================================
-        // Temporairement, pendant cette fonction, les appels internes se basent
-        // sur l'argument `problem` (qui a le store cloné valide).
+        // Compilation des Règles (appelle le code situé dans encoder.rs)
         self.compile_domain_actions_as_rules(problem.action_defs())?;
 
         self.dump_rules();
-        self.builtin_threshold = self.encoder.current_id();
+        self.builtin_threshold = self.current_id();
 
         // =========================================================================
-        // 5. Restitution finale du Store enrichi & Assignation
+        // 3. ASSIGNATION DES RÉFÉRENCES GLOBALES
         // =========================================================================
-        // On remet le store cloné dans sa boîte
-        std::mem::swap(problem.store_mut(), &mut problem_read_store);
-
-        // On récupère le store final de l'encodeur
-        let final_store = self.encoder.take_store();
-
-        // On le remet proprement dans le problème (via la référence mutable d'origine)
-        std::mem::swap(problem.store_mut(), final_store);
-
-        // On redonne le store final à l'encodeur pour le reste de sa vie
-        self.encoder.set_store(final_store);
-
-        // TOUTE FIN : Maintenant que le problème mutable a fini ses swaps,
-        // on le fige sous forme de référence dans `self`
         self.problem = problem;
         self.value_registry = value_registry;
         self.inertia_table = inertia_table;
         self.negated_predicates = negated_predicates;
 
         Ok(self)
-    }
+    }*/
 
     /*pub fn load_problem(
         &mut self,
@@ -510,7 +786,7 @@ impl<'a> DatalogEngine<'a> {
         self.rules.push(rule);
     }
 
-    fn declare_types_as_unary_predicates(&mut self, type_defs: &[TypedSymbol<TypeId, TypeId>]) {
+    /*fn declare_types_as_unary_predicates(&mut self, type_defs: &[TypedSymbol<TypeId, TypeId>]) {
         let num_types = type_defs.len();
 
         // Capacity for N domain types + 1 sentinel Root typing
@@ -521,18 +797,45 @@ impl<'a> DatalogEngine<'a> {
         // we avoid a +1 offset in translation functions like `atom_id_to_type_id`.
         // Example: PDDL Type index 0 maps directly to Datalog ID (fluence_threshold + 0).
         for _ in 0..num_types {
-            let sk_id = self.encoder.encode_type_as_unary_predicate();
+            let sk_id = self.encode_type_as_unary_predicate();
             self.type_to_skeleton.push(sk_id);
         }
 
         // 2. Encode the ROOT typing as a sentinel in the LAST slot.
         // This places the Root ID at the very end of the typing segment (or start of auxiliary).
         // It remains accessible for internal rules but does not shift the domain indices.
-        let root_type_sk = self.encoder.encode_type_as_unary_predicate();
+        let root_type_sk = self.encode_type_as_unary_predicate();
         self.type_to_skeleton.push(root_type_sk);
+    }*/
+
+    /// Version locale (associée) pour initialiser les types sans bloquer `self`
+    pub fn local_declare_types_as_unary_predicates(
+        type_defs: &[TypedSymbol<TypeId, TypeId>],
+        type_to_skeleton: &mut Vec<AtomSkeletonId>,
+        current_id: &mut usize, // 💡 On passe le compteur d'IDs qui remplace l'état de self
+    ) {
+        let num_types = type_defs.len();
+
+        // Capacity for N domain types + 1 sentinel Root typing
+        *type_to_skeleton = Vec::with_capacity(num_types + 1);
+
+        // 1. Encode domain types first to ensure a 1:1 mapping with PDDL indices.
+        for _ in 0..num_types {
+            // 💡 Appel à la logique locale d'encodage (génération de l'ID + incrément)
+            let sk_id = AtomSkeletonId::from(*current_id);
+            *current_id += 1;
+
+            type_to_skeleton.push(sk_id);
+        }
+
+        // 2. Encode the ROOT typing as a sentinel in the LAST slot.
+        let root_type_sk = AtomSkeletonId::from(*current_id);
+        *current_id += 1;
+
+        type_to_skeleton.push(root_type_sk);
     }
 
-    fn fill_db_from_objects(
+    /*fn fill_db_from_objects(
         &mut self,
         object_defs: &[TypedSymbol<ObjectId, TypeId>],
         type_defs: &[TypedSymbol<TypeId, TypeId>], // Ajouté pour voir la hiérarchie
@@ -573,17 +876,57 @@ impl<'a> DatalogEngine<'a> {
             }
         }
         Ok(())
+    }*/
+
+    /// Version locale (associée) pour remplir la base de faits statiques à partir des objets
+    pub fn local_fill_db_from_objects(
+        db: &mut Database,                   // 💡 Injecté au lieu de self.db
+        type_to_skeleton: &[AtomSkeletonId], // 💡 Injecté au lieu de self.type_to_skeleton
+        object_defs: &[TypedSymbol<ObjectId, TypeId>],
+        type_defs: &[TypedSymbol<TypeId, TypeId>],
+    ) -> Result<(), DatalogError> {
+        // Récupération de la sentinelle ROOT depuis le tableau local injecté
+        let root_sk_id = *type_to_skeleton.last().ok_or_else(|| {
+            DatalogError::internal_state("Root typing skeleton missing".to_string())
+        })?;
+
+        for object in object_defs {
+            let obj_id = object.symbol();
+
+            // 1. On l'insère dans la sentinelle ROOT (le garde-fou universel) via la db locale
+            db.insert_stable_fact(root_sk_id, &[obj_id]);
+
+            // 2. Pour chaque typing déclaré de l'objet (ex: [ball])
+            for &type_id in object.ty() {
+                // On l'insère dans le typing lui-même
+                let sk_id = type_to_skeleton[type_id.as_usize()];
+                db.insert_stable_fact(sk_id, &[obj_id]);
+
+                // 3. On l'insère dans TOUS les parents/membres identifiés par le flattener
+                if let Some(ty_def) = type_defs.get(type_id.as_usize()) {
+                    for &parent_id in ty_def.ty().members() {
+                        let parent_sk_id = type_to_skeleton[parent_id.as_usize()];
+                        db.insert_stable_fact(parent_sk_id, &[obj_id]);
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
-    // --- ÉTAPE 1 : INITIALISATION (L'Ingestion) ---
+    /*// --- ÉTAPE 1 : INITIALISATION (L'Ingestion) ---
     /// Centralise ici la conversion du PDDL vers la Database interne.
     /// On passe un Registry ou le Problem pour mapper les IDs vers les SkeletonIds.
     /// Parcourt l'état initial du problème pour remplir la Database.
-    fn fill_db_from_init(&mut self, init: Expr) -> Result<(), DatalogError> {
-        let mut iter = init.preorder();
+    fn fill_db_from_init(
+        &mut self,
+        init: ExprId,
+        store: &mut ExprStore,
+    ) -> Result<(), DatalogError> {
+        let mut iter = store.preorder(init);
 
         // VITESSE MAXIMALE : Tableau de booléens direct, indexé par la valeur numérique de l'ExprId.
-        let mut visited = vec![false; init.store().len()];
+        let mut visited = vec![false; store.len()];
 
         while let Some((id, _depth, entry)) = iter.next() {
             let idx = id.as_usize();
@@ -603,7 +946,7 @@ impl<'a> DatalogEngine<'a> {
                 let mut args = Vec::with_capacity(children.len().saturating_sub(1));
 
                 for &arg_id in children.iter().skip(1) {
-                    let child_node = init.fetch_node(arg_id)?;
+                    let child_node = store.fetch(arg_id)?;
 
                     if let ExprKind::Object(object_id) = child_node.kind() {
                         args.push(*object_id);
@@ -617,37 +960,144 @@ impl<'a> DatalogEngine<'a> {
             }
         }
         Ok(())
+    }*/
+
+    /// Version locale (associée) pour ingérer l'état initial dans la base de faits delta
+    pub fn local_fill_db_from_init(
+        db: &mut Database, // 💡 Injecté au lieu de self.db
+        init: ExprId,
+        store: &mut ExprStore,
+    ) -> Result<(), DatalogError> {
+        let mut iter = store.preorder(init);
+
+        // VITESSE MAXIMALE : Tableau de booléens direct, indexé par la valeur numérique de l'ExprId.
+        let mut visited = vec![false; store.len()];
+
+        while let Some((id, _depth, entry)) = iter.next() {
+            let idx = id.as_usize();
+
+            if visited[idx] {
+                continue;
+            }
+            visited[idx] = true;
+
+            let node = ExprNode::new(id, entry);
+
+            if let ExprKind::AtomicFormula(sk_id) = node.kind() {
+                let sk_id = *sk_id;
+                let children = node.children();
+
+                // Allocation optimale pour les arguments réels
+                let mut args = Vec::with_capacity(children.len().saturating_sub(1));
+
+                for &arg_id in children.iter().skip(1) {
+                    let child_node = store.fetch(arg_id)?;
+
+                    if let ExprKind::Object(object_id) = child_node.kind() {
+                        args.push(*object_id);
+                    } else {
+                        return Err(DatalogError::invalid_atom_argument(arg_id));
+                    }
+                }
+
+                // Ingestion directe dans la DB Datalog locale passée en argument
+                db.insert_delta_fact(sk_id, &args);
+            }
+        }
+        Ok(())
     }
 
-    /// Crée les squelettes de prédicats pour chaque action du problème.
+    /*/// Crée les squelettes de prédicats pour chaque action du problème.
     /// Cela permet de fixer les IDs des actions avant de générer les auxiliaires.
-    fn declare_action_as_predicates(&mut self, action_defs: &[ActionDef]) {
+    fn declare_action_as_predicates(&mut self, action_defs: &[ActionDef], store: &mut ExprStore) {
         for (id, action) in action_defs.iter().enumerate() {
             // Cette méthode dans ton encoder doit simplement créer l'ID
             // et l'ajouter à son mapping interne (ex: action_to_skeleton).
-            self.encoder.encode_action_as_predicate(action);
+            self.encode_action_as_predicate(action, store);
         }
+    }*/
+
+    /// Version locale (associée) pour déclarer les actions sans bloquer `self`
+    pub fn local_declare_action_as_predicates(
+        action_defs: &[ActionDef],
+        store: &mut ExprStore,
+        current_id: &mut usize, // 💡 Passé à l'encodeur qui gérera l'incrémentation
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>, // 💡 Pour stocker les métadonnées de debug
+    ) -> Result<(), DatalogError> {
+        for action in action_defs.iter() {
+            // 💡 L'encodeur calcule l'ID, incrémente `current_id` et remplit `aux_defs` d'un seul coup !
+            let _action_sk_id =
+                Self::local_encode_action_as_predicate(action, store, current_id, aux_defs)?;
+
+            // Si tu as besoin de retourner ou de collecter ces `_action_sk_id` dans un tableau local,
+            // tu peux ajouter un paramètre `action_to_skeleton: &mut Vec<AtomSkeletonId>` et faire un `.push(_action_sk_id)`.
+        }
+
+        Ok(())
     }
 
-    fn compile_domain_actions_as_rules(
+    /*fn compile_domain_actions_as_rules(
         &mut self,
         action_defs: &[ActionDef], // On ne passe que les définitions d'actions
+        store: &mut ExprStore,
     ) -> Result<(), DatalogError> {
         for (id, action) in action_defs.iter().enumerate() {
             // L'ID est toujours basé sur le threshold + l'index dans la liste
             let action_sk_id = AtomSkeletonId::from(self.type_threshold + id);
 
             // Compilation de l'unité (on garde action_as_rule au singulier ici)
-            self.compile_action_as_rules(action, action_sk_id)?;
+            self.compile_action_as_rules(action, action_sk_id, store)?;
+        }
+
+        Ok(())
+    }*/
+
+    /// Version locale (associée) pour compiler toutes les actions du domaine
+    /// Version locale (associée) pour compiler toutes les actions du domaine
+    pub fn local_compile_domain_actions_as_rules(
+        rules: &mut Vec<Rule>,
+        db: &mut Database,
+        action_effects: &mut Vec<Vec<(Atom, Cause)>>,
+        cache: &mut HashMap<Vec<Atom>, Atom>, // 💡 Injecté pour local_compile_action_as_rules
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>, // 💡 Injecté pour local_compile_action_as_rules
+        next_aux_id: &mut usize,              // 💡 Injecté pour local_compile_action_as_rules
+        negation_offset: usize,               // 💡 Injecté pour local_compile_action_as_rules
+        action_defs: &[ActionDef],
+        action_base_id: usize,
+        inertia_table: &InertiaTable,
+        type_to_skeleton: &[AtomSkeletonId],
+        store: &mut ExprStore,
+    ) -> Result<(), DatalogError> {
+        for (id, action) in action_defs.iter().enumerate() {
+            // L'ID du squelette Datalog est basé sur la base des actions + l'index courant
+            let action_sk_id = AtomSkeletonId::from(action_base_id + id);
+
+            // Appel de la version locale mis à jour avec le relai complet des paramètres
+            Self::local_compile_action_as_rules(
+                rules,
+                db,
+                action_effects,
+                cache,           // 💡 Relayé ici
+                aux_defs,        // 💡 Relayé ici
+                next_aux_id,     // 💡 Relayé ici
+                negation_offset, // 💡 Relayé ici
+                action,
+                action_sk_id,
+                action_base_id,
+                inertia_table,
+                type_to_skeleton,
+                store,
+            )?;
         }
 
         Ok(())
     }
 
-    fn compile_action_as_rules(
+    /*fn compile_action_as_rules(
         &mut self,
         action: &ActionDef,
         action_sk_id: AtomSkeletonId,
+        store: &mut ExprStore,
     ) -> Result<(), DatalogError> {
         let action_index = action_sk_id.as_usize() - self.action_base_id;
 
@@ -659,10 +1109,10 @@ impl<'a> DatalogEngine<'a> {
         );*/
 
         // A. Générer l'atome de nom (Pivot : action(?p1, ?p2...))
-        let action_atom = self.compile_action_name_as_rules(action, action_sk_id)?;
+        let action_atom = self.compile_action_name_as_rules(action, action_sk_id, store)?;
 
         // B. Générer la règle de déclenchement (Preconditions -> Action)
-        self.compile_action_body_as_rules(action, action_atom.clone())?;
+        self.compile_action_body_as_rules(action, action_atom.clone(), store)?;
 
         // --- LOG DE DEBUG FINALISATION ---
         if let Some(rule) = self.rules.last() {
@@ -686,7 +1136,7 @@ impl<'a> DatalogEngine<'a> {
         // 1. On extrait le TypedListId de l'action
         let param_list_id = action.parameters();
         // 2. On interroge le store du problème pour récupérer la liste typée concrète
-        let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
+        let parameters = store.fetch_typed_list(param_list_id)?;
 
         if let Some(trigger_rule) = self.rules.last() {
             // Si le corps est vide et l'action n'a pas de paramètres (?x)
@@ -697,33 +1147,88 @@ impl<'a> DatalogEngine<'a> {
         }
 
         // C. Générer les règles de causalité (Action -> Effets)
-        let effect = Expr::new(action.effect(), self.problem.store());
-        self.encoder.encode_effects(
-            effect,
+        let effect = Expr::new(action.effect(), store);
+        self.encode_effects(effect, &action_atom, parameters, action_index, store)?;
+
+        Ok(())
+    }*/
+
+    /// Version locale (associée) pour compiler une action spécifique en règles
+    pub fn local_compile_action_as_rules(
+        rules: &mut Vec<Rule>,
+        db: &mut Database,
+        action_effects: &mut Vec<Vec<(Atom, Cause)>>,
+        cache: &mut HashMap<Vec<Atom>, Atom>,
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>,
+        next_aux_id: &mut usize,
+        negation_offset: usize,
+        action: &ActionDef,
+        action_sk_id: AtomSkeletonId,
+        action_base_id: usize,
+        inertia_table: &InertiaTable,
+        type_to_skeleton: &[AtomSkeletonId],
+        store: &mut ExprStore,
+    ) -> Result<(), DatalogError> {
+        let action_index = action_sk_id.as_usize() - action_base_id;
+
+        // A. Générer l'atome de nom (Pivot : action(?p1, ?p2...))
+        let action_atom = Self::local_compile_action_name_as_rules(action, action_sk_id, store)?;
+
+        // B. Générer la règle de déclenchement (Preconditions -> Action)
+        // 💡 Ajout des caches et compteurs requis par local_encode_preconditions
+        Self::local_compile_action_body_as_rules(
+            rules,
+            cache,
+            aux_defs,
+            next_aux_id,
+            action,
+            action_atom.clone(),
+            inertia_table,
+            type_to_skeleton,
+            store,
+        )?;
+
+        // --- LE BOOTSTRAP EST ICI ---
+        let param_list_id = action.parameters();
+
+        if let Some(trigger_rule) = rules.last() {
+            if trigger_rule.body().is_empty() && store.fetch_typed_list(param_list_id)?.is_empty() {
+                db.insert_delta_fact(action_sk_id, &[]);
+            }
+        }
+
+        Self::local_encode_effects(
+            action.effect(),
             &action_atom,
-            &mut self.rules,
-            parameters,
+            param_list_id,
             action_index,
+            rules,
+            action_effects,
+            cache,
+            aux_defs,
+            type_to_skeleton,
+            next_aux_id,
+            negation_offset,
+            store,
         )?;
 
         Ok(())
     }
 
-    pub fn compile_action_body_as_rules(
+    /*pub fn compile_action_body_as_rules(
         &mut self,
         action: &ActionDef,
         head: Atom,
+        store: &mut ExprStore,
     ) -> Result<(), DatalogError> {
         // 1. On récupère l'ID de la liste de paramètres
         let param_list_id = action.parameters();
         // 2. On extrait la liste concrète depuis le store du problème
-        let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
+        let parameters = store.fetch_typed_list(param_list_id)?;
 
-        let precondition = self.problem.store().fetch_expr(action.precondition())?;
+        let precondition = store.fetch_expr(action.precondition())?;
 
-        let precond_opt =
-            self.encoder
-                .encode_preconditions(precondition, &mut self.rules, parameters)?;
+        let precond_opt = self.encode_preconditions(precondition, parameters, store)?;
 
         // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
         let mut final_action_body = Vec::new();
@@ -735,7 +1240,7 @@ impl<'a> DatalogEngine<'a> {
         // ==========================================================
         // SEULE MODIFICATION : Le gardien de parcours pour le Hash-Consing
         // ==========================================================
-        let mut visited = vec![false; self.problem.store().len()];
+        let mut visited = vec![false; store.len()];
 
         // Récupération des atomes en postorder
         let atoms = precondition
@@ -813,9 +1318,7 @@ impl<'a> DatalogEngine<'a> {
 
         // 4. Génération de l'Ancre et de la règle finale
         if !anchor_elements.is_empty() {
-            let anchor_head = self
-                .encoder
-                .generate_anchor_atom(action.name(), parameters, &head);
+            let anchor_head = self.generate_anchor_atom(action.name(), parameters, &head);
 
             self.push_rule(Rule::new(anchor_head.clone(), anchor_elements));
             final_action_body.push(anchor_head);
@@ -830,19 +1333,164 @@ impl<'a> DatalogEngine<'a> {
         self.push_rule(Rule::new(head, final_action_body));
 
         Ok(())
+    }*/
+
+    /// Version locale (associée) pour compiler le corps de l'action
+    pub fn local_compile_action_body_as_rules(
+        rules: &mut Vec<Rule>,
+        cache: &mut HashMap<Vec<Atom>, Atom>,
+        aux_defs: &mut Vec<AtomicFormulaSkeleton>,
+        next_aux_id: &mut usize,
+        action: &ActionDef,
+        head: Atom,
+        inertia_table: &InertiaTable,
+        type_to_skeleton: &[AtomSkeletonId],
+        store: &mut ExprStore,
+    ) -> Result<(), DatalogError> {
+        // 1. On récupère l'ID de la liste de paramètres
+        let param_list_id = action.parameters();
+        // 2. On extrait la liste concrète depuis le store
+
+        // 💡 SÉCURITÉ BORROW CHECKER : On prend la taille avant d'emprunter immuablement via fetch_expr
+        let store_len = store.len();
+
+        // 💡 Appel mis à jour avec tous les nouveaux paramètres requis de la chaîne locale
+        let precond_opt = Self::local_encode_preconditions(
+            action.precondition(),
+            action.parameters(),
+            rules,
+            cache,
+            aux_defs,
+            type_to_skeleton,
+            next_aux_id,
+            store,
+        )?;
+
+        // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
+        let mut final_action_body = Vec::new();
+        let mut anchor_elements = Vec::new();
+        let mut covered_vars = std::collections::HashSet::new();
+
+        // ==========================================================
+        // LE GARDIEN DE PARCOURS
+        // ==========================================================
+        let mut visited = vec![false; store_len];
+
+        let precondition = store.fetch_expr(action.precondition())?;
+        // Récupération des atomes en postorder
+        let atoms = precondition
+            .postorder()
+            .references()
+            .filter(|node| matches!(node.kind(), ExprKind::AtomicFormula(_)));
+
+        for atom_node in atoms {
+            let idx = atom_node.id().as_usize();
+            if visited[idx] {
+                continue;
+            }
+            visited[idx] = true;
+
+            let skel_id = match atom_node.kind() {
+                ExprKind::AtomicFormula(sk) => *sk,
+                _ => unreachable!(),
+            };
+
+            let positive_id = skel_id.strip_negation();
+
+            if inertia_table.is_predicate_positive_negative_inertia(positive_id)? {
+                let children = atom_node.children();
+                let mut terms = Vec::with_capacity(children.len().saturating_sub(1));
+
+                for &term_id in children.iter().skip(1) {
+                    let term_node = precondition.fetch_node(term_id)?;
+
+                    let term = match term_node.kind() {
+                        ExprKind::Variable(var_id) => {
+                            let var_id = *var_id;
+                            covered_vars.insert(var_id);
+                            Term::Variable(var_id)
+                        }
+                        ExprKind::Object(obj_id) => Term::Constant(*obj_id),
+                        _ => {
+                            return Err(DatalogError::invalid_atom_argument(term_id));
+                        }
+                    };
+                    terms.push(term);
+                }
+
+                let static_atom = Atom::new(skel_id, terms);
+                anchor_elements.push(static_atom);
+            }
+        }
+
+        // ==========================================================
+        // TRAITEMENT DES PARAMÈTRES
+        // ==========================================================
+        // 🌟 Récupération locale des paramètres via l'ID et le store
+        let parameters = store.fetch_typed_list(param_list_id)?;
+        for (i, param) in parameters.iter().enumerate() {
+            let var_id = VariableId::from(i);
+            if !covered_vars.contains(&var_id) {
+                let var_term = Term::Variable(var_id);
+                let type_id = param.ty().members()[0].as_usize();
+                let type_sk = type_to_skeleton[type_id];
+
+                anchor_elements.push(Atom::new(type_sk, vec![var_term]));
+                covered_vars.insert(var_id);
+            }
+        }
+
+        // 4. Génération de l'Ancre et de la règle finale
+        if !anchor_elements.is_empty() {
+            // 💡 Alignement ici : on passe explicitement la référence mutable `next_aux_id`
+            let anchor_head =
+                Self::local_generate_anchor_atom(action.name(), parameters, &head, next_aux_id);
+
+            rules.push(Rule::new(anchor_head.clone(), anchor_elements));
+            final_action_body.push(anchor_head);
+        }
+
+        if let Some(p_atom) = precond_opt {
+            final_action_body.push(p_atom);
+        }
+
+        rules.push(Rule::new(head, final_action_body));
+
+        Ok(())
     }
 
-    /// Génère l'atome de tête représentant l'action avec ses paramètres.
+    /*/// Génère l'atome de tête représentant l'action avec ses paramètres.
     fn compile_action_name_as_rules(
         &self,
         action: &ActionDef,
         action_sk_id: AtomSkeletonId,
+        store: &mut ExprStore,
     ) -> Result<Atom, DatalogError> {
         // 1. On récupère l'ID de la liste de paramètres
         let param_list_id = action.parameters();
 
         // 2. On extrait la liste concrète depuis le store du problème
-        let parameters = self.encoder.store().fetch_typed_list(param_list_id)?;
+        let parameters = store.fetch_typed_list(param_list_id)?;
+
+        let head_terms: Vec<Term> = parameters
+            .iter()
+            .map(|param| Term::Variable(param.symbol()))
+            .collect();
+
+        Ok(Atom::new(action_sk_id, head_terms))
+    }*/
+
+    /// Version locale (associée) pour générer l'atome de nom de l'action
+    pub fn local_compile_action_name_as_rules(
+        action: &ActionDef,
+        action_sk_id: AtomSkeletonId,
+        store: &mut ExprStore,
+    ) -> Result<Atom, DatalogError> {
+        // 1. On récupère l'ID de la liste de paramètres
+        let param_list_id = action.parameters();
+
+        // 2. On extrait la liste concrète depuis le store du problème
+        let parameters = store.fetch_typed_list(param_list_id)?;
 
         let head_terms: Vec<Term> = parameters
             .iter()
@@ -1117,7 +1765,7 @@ impl<'a> DatalogEngine<'a> {
         }
 
         // 2. On crée un nouveau prédicat auxiliaire (unaire)
-        let union_sk_id = self.encoder.encode_type_as_unary_predicate();
+        let union_sk_id = self.encode_type_as_unary_predicate();
 
         // 3. Pour chaque typing de l'union, on crée une règle :
         // Union(?x) :- Type_i(?x)

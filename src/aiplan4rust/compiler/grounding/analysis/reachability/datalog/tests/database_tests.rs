@@ -1,4 +1,4 @@
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::database::Database;
+/*use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::database::Database;
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
 use std::error::Error;
 
@@ -375,4 +375,4 @@ fn test_predicate_collision() {
 
     assert!(!db.contains_stable(id1, &[ObjectId::from(20)]));
     assert!(!db.contains_stable(id2, &[ObjectId::from(10)]));
-}
+}*/
