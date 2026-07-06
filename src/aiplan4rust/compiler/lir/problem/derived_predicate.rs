@@ -9,7 +9,7 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, VariableId};
 use core::fmt::Formatter;
@@ -146,14 +146,14 @@ impl DerivedPredicate {
 
 impl LiftedSyntaxDisplay for DerivedPredicate {
     /// Rendu PDDL propre (ex: (:derived (p ?x) (and ...)))
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::syntax::derived_predicate::render(f, self, ctx)
     }
 }
 
 impl LiftedDebugDisplay for DerivedPredicate {
     /// Rendu structurel pour le debug (Head ID, Body Expr Tree, Local Symbols)
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::debug::derived_predicate::render(f, self, ctx)
     }
 }

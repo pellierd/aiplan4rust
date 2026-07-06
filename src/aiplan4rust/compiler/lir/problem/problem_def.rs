@@ -37,7 +37,7 @@ use crate::aiplan4rust::compiler::lir::expr::ExprId;
 use crate::aiplan4rust::compiler::lir::problem::{InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::support::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
@@ -169,26 +169,26 @@ impl<'a> ProblemDef<'a> {
 
 impl<'a> LiftedSyntaxDisplay for ProblemDef<'a> {
     /// Rendu PDDL/HDDL du problème (objets, init, goal, etc.) avec un contexte externe.
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::syntax::problem::render(f, self, ctx)
     }
 
     /// Rendu "Auto-géré" : crée le contexte à partir du LiftedProblem interne.
     fn fmt_syntax_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let ctx = RenderContext::new(self.problem);
+        let ctx = LirRenderContext::new(self.problem);
         self.fmt_syntax(f, &ctx)
     }
 }
 
 impl<'a> LiftedDebugDisplay for ProblemDef<'a> {
     /// Rendu structurel technique du problème (Store IDs, Interning, etc.).
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::debug::problem_def::render(f, self, ctx)
     }
 
     /// Rendu "Auto-géré" pour le debug technique.
     fn fmt_debug_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let ctx = RenderContext::new(self.problem);
+        let ctx = LirRenderContext::new(self.problem);
         self.fmt_debug(f, &ctx)
     }
 }

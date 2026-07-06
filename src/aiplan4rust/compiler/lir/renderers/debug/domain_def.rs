@@ -4,11 +4,15 @@ use crate::aiplan4rust::compiler::lir::renderers::debug::common::writeln_centere
 use crate::aiplan4rust::compiler::lir::renderers::debug::{
     action, atom, expr, function, method, typed_list,
 };
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 
 /// Renders a human-readable representation of a `DomainDef` into a formatter.
-pub fn render(f: &mut fmt::Formatter<'_>, domain: &DomainDef, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut fmt::Formatter<'_>,
+    domain: &DomainDef,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     // === HEADER ===
     writeln_centered(f, " DOMAIN DEFINITION ", 80, '=')?;
     writeln!(

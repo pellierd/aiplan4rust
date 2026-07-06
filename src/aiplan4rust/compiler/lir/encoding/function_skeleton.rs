@@ -49,7 +49,7 @@ pub fn encode(
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(params_node, params_node_id, ast),
         registry,
-        builder.store(),
+        builder.store_mut(),
     )?;
 
     // 2. Récupération des noms de variables pour le debug

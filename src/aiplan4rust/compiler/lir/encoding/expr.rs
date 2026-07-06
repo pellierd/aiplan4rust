@@ -141,7 +141,7 @@ pub fn encode(
                         let vars = typed_list::encode_variable_list(
                             &tl_subtree,
                             registry,
-                            builder.store(),
+                            builder.store_mut(),
                         )?;
                         let body = *children_ids
                             .last()

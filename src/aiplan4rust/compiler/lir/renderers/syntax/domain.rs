@@ -2,11 +2,15 @@ use crate::aiplan4rust::compiler::lir::problem::DomainDef;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::{
     action, atom, derived_predicate, expr, function, method, task, typed_list,
 };
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt::{self, Formatter};
 
 /// Rendu complet d'une définition de domaine au format PDDL/HDDL (Syntaxe).
-pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut Formatter<'_>,
+    domain: &DomainDef<'_>,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     // 1. En-tête : (define (domain nom))
     write!(
         f,

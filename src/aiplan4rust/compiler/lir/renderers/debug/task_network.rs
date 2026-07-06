@@ -1,13 +1,13 @@
 use crate::aiplan4rust::compiler::lir::problem::TaskNetwork;
 use crate::aiplan4rust::compiler::lir::renderers::debug::common::render_labeled_expr;
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 
 /// Rendu d'un TaskNetwork (utilisé dans les méthodes et l'ITN)
 pub fn render(
     f: &mut fmt::Formatter<'_>,
     network: &TaskNetwork,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     // Affichage des trois composantes avec le moteur d'expression
     render_labeled_expr(f, "TASKS", network.tasks(), ctx)?;

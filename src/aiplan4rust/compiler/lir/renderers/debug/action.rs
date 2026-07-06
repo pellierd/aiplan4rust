@@ -3,10 +3,14 @@ use crate::aiplan4rust::compiler::lir::renderers::debug::common::{
     render_labeled_variable_typed_list, writeln_centered,
 };
 use crate::aiplan4rust::compiler::lir::renderers::debug::expr;
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 
-pub fn render(f: &mut fmt::Formatter<'_>, action: &ActionDef, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut fmt::Formatter<'_>,
+    action: &ActionDef,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     // 1. Détermination du titre et du style
     // On suppose que ton Action a une méthode is_durative() ou qu'on le déduit du Store
     let is_durative = action.is_durative();

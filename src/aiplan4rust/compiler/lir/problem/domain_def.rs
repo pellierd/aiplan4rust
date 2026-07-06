@@ -27,7 +27,7 @@ use crate::aiplan4rust::compiler::lir::problem::{
 };
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::support::lang::{
@@ -202,27 +202,27 @@ impl<'a> DomainDef<'a> {
 
 impl<'a> LiftedSyntaxDisplay for DomainDef<'a> {
     /// Rendu PDDL du domaine complet en utilisant un contexte externe.
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::syntax::domain::render(f, self, ctx)
     }
 
     /// Rendu "Auto-géré" : crée le contexte à partir du problème interne.
     fn fmt_syntax_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let ctx = RenderContext::new(self.problem);
+        let ctx = LirRenderContext::new(self.problem);
         self.fmt_syntax(f, &ctx)
     }
 }
 
 impl<'a> LiftedDebugDisplay for DomainDef<'a> {
     /// Rendu structurel technique du domaine.
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         // Souvent, on délègue au renderer de problème car le domaine est une vue du problème
         renderers::debug::domain_def::render(f, self, ctx)
     }
 
     /// Rendu "Auto-géré" pour le debug.
     fn fmt_debug_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let ctx = RenderContext::new(self.problem);
+        let ctx = LirRenderContext::new(self.problem);
         self.fmt_debug(f, &ctx)
     }
 }

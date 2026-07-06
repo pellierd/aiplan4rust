@@ -68,7 +68,7 @@ pub fn encode(
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(params_node, params_node_id, ast),
         registry,
-        builder.store(),
+        builder.store_mut(),
     )?;
 
     let variable_symbols = registry.get_variable_symbols();

@@ -70,7 +70,7 @@ pub fn encode(
     let parameters = typed_list::encode_variable_list(
         &SyntaxSubtree::new(parameters_node, parameters_id, tree),
         registry,
-        builder.store(),
+        builder.store_mut(),
     )?;
 
     // 3. CONSTRUCTION : On utilise task_symbol_id au lieu de name_str_id

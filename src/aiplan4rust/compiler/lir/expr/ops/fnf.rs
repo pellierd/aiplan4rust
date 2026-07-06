@@ -68,7 +68,7 @@ use crate::aiplan4rust::compiler::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::expr::iter::scratchpad::Scratchpad;
 use crate::aiplan4rust::compiler::lir::expr::ops::error::ExprOpError;
 use crate::aiplan4rust::compiler::lir::expr::{validation, Expr, ExprId, ExprKind, ExprStore};
-use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, LirRenderContext};
 use smallvec::SmallVec;
 
 /// The inline capacity threshold for stack-allocated child arrays.
@@ -171,7 +171,7 @@ pub fn to_fnf(
     };
 
     // Check if the final result is a valid FNF expression.
-    check_post_conditions(builder.store(), expr, final_res);
+    check_post_conditions(builder.store_mut(), expr, final_res);
 
     Ok(final_res)
 }
@@ -212,7 +212,7 @@ fn check_post_conditions(store: &ExprStore, original: ExprId, factored: ExprId) 
             );
 
             // 1. Instanciation du contexte de debug isolé et léger
-            let ctx = RenderContext::debug(store);
+            let ctx = LirRenderContext::debug(store);
 
             // 2. Affichage propre et unifié de l'arbre original
             println!("--- ORIGINAL TREE ---");

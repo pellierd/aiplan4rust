@@ -1,7 +1,7 @@
 //! This module handles the syntax rendering of HDDL Task Networks.
 
 use crate::aiplan4rust::compiler::lir::problem::TaskNetwork;
-use crate::aiplan4rust::compiler::lir::renderers::context::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::context::LirRenderContext;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::expr;
 use std::fmt;
 
@@ -9,7 +9,7 @@ use std::fmt;
 pub fn render(
     f: &mut fmt::Formatter<'_>,
     network: &TaskNetwork,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     // 1. Subtasks
     // HDDL utilise :ordered-subtasks si l'ordre est total, sinon :subtasks

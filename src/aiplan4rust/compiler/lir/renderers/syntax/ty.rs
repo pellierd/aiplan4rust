@@ -1,10 +1,14 @@
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use crate::aiplan4rust::support::lang::{Type, TypeId};
 use std::fmt;
 
 /// Rendu syntaxique PDDL pour un Type.
 /// Produit " - type" ou " - (either type1 type2)"
-pub fn render(f: &mut fmt::Formatter<'_>, ty: &Type<TypeId>, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut fmt::Formatter<'_>,
+    ty: &Type<TypeId>,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     let members = ty.members();
 
     match members.len() {

@@ -1,6 +1,6 @@
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::{ty, typed_list};
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -9,7 +9,7 @@ use std::fmt::Formatter;
 pub fn render(
     f: &mut Formatter<'_>,
     function: &AtomicFunctionSkeleton,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     // 1. Début de la signature et nom de la fonction (functor)
     // On utilise resolve_functor pour obtenir le nom correct (ex: "distance")

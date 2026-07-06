@@ -2,7 +2,7 @@
 
 use crate::aiplan4rust::compiler::lir::problem::DerivedPredicateDef;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::{atom, expr};
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 
 /// Renders a [DerivedPredicateDef] into its PDDL representation (Syntax version).
@@ -11,7 +11,7 @@ use std::fmt;
 pub fn render(
     f: &mut fmt::Formatter<'_>,
     derived: &DerivedPredicateDef,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     // 1. Début du bloc et "head"
     // Le head est un AtomicFormulaSkeleton (ex: (path ?x ?y))

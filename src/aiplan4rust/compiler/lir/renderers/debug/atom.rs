@@ -1,6 +1,6 @@
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::renderers::debug::typed_list;
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt::{self, Formatter};
 
 /// Rendu d'une signature nommée et typée (utilisée par les prédicats, fonctions, tâches).
@@ -8,7 +8,7 @@ use std::fmt::{self, Formatter};
 pub fn render(
     f: &mut Formatter<'_>,
     formula: &AtomicFormulaSkeleton,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     // 1. Nom du prédicat avec son ID [as#ID]
     let symbol_id = formula.symbol();

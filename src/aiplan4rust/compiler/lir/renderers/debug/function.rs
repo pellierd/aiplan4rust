@@ -1,6 +1,6 @@
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::compiler::lir::renderers::debug::{ty, typed_list};
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use core::fmt::Formatter;
 use std::fmt;
 
@@ -9,7 +9,7 @@ use std::fmt;
 pub fn render(
     f: &mut Formatter<'_>,
     function: &AtomicFunctionSkeleton,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     let functor_id = function.functor();
     let name = ctx.resolve_functor(functor_id);

@@ -1,6 +1,6 @@
 use crate::aiplan4rust::compiler::lir::expr::ExprId;
 use crate::aiplan4rust::compiler::lir::renderers::debug::typed_list;
-use crate::aiplan4rust::compiler::lir::renderers::{debug, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{debug, LirRenderContext};
 use crate::aiplan4rust::support::lang::{TypeId, TypedList, VariableId};
 use std::fmt;
 
@@ -41,7 +41,7 @@ pub fn render_labeled_variable_typed_list(
     f: &mut fmt::Formatter<'_>,
     label: &str,
     items: &TypedList<VariableId, TypeId>,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     write!(f, "  {:<12} : ", label)?;
 
@@ -61,7 +61,7 @@ pub fn render_labeled_expr(
     f: &mut fmt::Formatter<'_>,
     label: &str,
     expr_id: ExprId,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     writeln!(f, "  {:<12} :", label)?;
 

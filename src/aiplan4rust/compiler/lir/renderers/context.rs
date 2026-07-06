@@ -7,7 +7,7 @@ use crate::aiplan4rust::support::lang::{
 };
 use std::sync::LazyLock;
 
-pub struct RenderContext<'a> {
+pub struct LirRenderContext<'a> {
     interner: &'a SymbolInterner,
     store: &'a ExprStore,
     type_symbols: &'a SymbolRegistry<TypeId>,
@@ -21,7 +21,7 @@ pub struct RenderContext<'a> {
     variable_symbols: Option<&'a SymbolRegistry<VariableId>>,
 }
 
-impl<'a> RenderContext<'a> {
+impl<'a> LirRenderContext<'a> {
     pub fn new(problem: &'a LiftedProblem) -> Self {
         Self {
             interner: &problem.interner(),

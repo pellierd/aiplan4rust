@@ -59,7 +59,7 @@ use crate::aiplan4rust::compiler::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::expr::iter::scratchpad::Scratchpad;
 use crate::aiplan4rust::compiler::lir::expr::ops::error::ExprOpError;
 use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind};
-use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, LirRenderContext};
 use smallvec::SmallVec;
 
 /// The maximum number of children stored inline in a `SmallVec` before spilling to the heap.
@@ -274,8 +274,8 @@ fn check_post_conditions(builder: &mut ExprBuilder, final_res: ExprId, is_effect
                 println!("Is Effect Context: {}", is_effect);
 
                 // 1. Retrieve the isolated store from the builder to instantiate the debug context.
-                let store = builder.store();
-                let ctx = RenderContext::debug(store);
+                let store = builder.store_mut();
+                let ctx = LirRenderContext::debug(store);
 
                 // 2. Wrap the raw root ID and store into the high-level Expr handle.
                 let expr_handle = Expr::new(final_res, store);
@@ -866,7 +866,7 @@ mod tests {
         // --- ASSERTION & VALIDATION ---
         if let Some(vars_id) = target_vars_id {
             // Now that the builder/node references are dropped, fetch the flattened list from the store
-            let actual_vars = builder.store().fetch_typed_list(vars_id).unwrap();
+            let actual_vars = builder.store_mut().fetch_typed_list(vars_id).unwrap();
 
             assert_eq!(
                 actual_vars.len(),

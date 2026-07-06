@@ -2,13 +2,13 @@ use crate::aiplan4rust::compiler::lir::expr::ExprId;
 use crate::aiplan4rust::compiler::lir::problem::ProblemDef;
 use crate::aiplan4rust::compiler::lir::renderers::debug::common::writeln_centered;
 use crate::aiplan4rust::compiler::lir::renderers::debug::{expr, initial_task_network, typed_list};
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 
 pub fn render(
     f: &mut fmt::Formatter<'_>,
     problem: &ProblemDef,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     // === HEADER ===
     writeln_centered(f, " [ PROBLEM DEFINITION ] ", 80, '=')?;

@@ -72,7 +72,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// This is an internal helper used when direct old manipulation is required
     /// outside of standard interning.
-    pub(crate) fn store(&mut self) -> &mut ExprStore {
+    pub(crate) fn store_mut(&mut self) -> &mut ExprStore {
         self.store
     }
 
@@ -89,7 +89,7 @@ impl<'a> ExprBuilder<'a> {
     /// The unique [`ExprId`] associated with the interned node.
     #[inline]
     pub fn intern(&mut self, kind: ExprKind, children: &[ExprId]) -> ExprId {
-        self.store().intern(kind, children)
+        self.store_mut().intern(kind, children)
     }
 
     /// Retrieves an ergonomic view of an expression node.

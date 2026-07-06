@@ -23,7 +23,7 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::compiler::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use crate::aiplan4rust::support::lang::{PredicateSymbolId, TypedListId, VariableId};
 
@@ -129,7 +129,7 @@ impl DerefMut for Formula {
 
 impl LiftedSyntaxDisplay for Formula {
     /// Rendu syntaxique PDDL : (at ?obj - object ?loc - location)
-    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result {
         let local_ctx = ctx.with_variables(&self.variable_symbols);
         renderers::syntax::atom::render(f, self, &local_ctx)
     }
@@ -137,7 +137,7 @@ impl LiftedSyntaxDisplay for Formula {
 
 impl LiftedDebugDisplay for Formula {
     /// Rendu technique : PredicateSkeleton{ (at [p#2] ?obj [v#0] - object [t#1]) }
-    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result {
         let local_ctx = ctx.with_variables(&self.variable_symbols);
         renderers::debug::atom::render(f, self, &local_ctx)
     }

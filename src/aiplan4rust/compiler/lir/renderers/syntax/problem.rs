@@ -1,12 +1,16 @@
 use crate::aiplan4rust::compiler::lir::problem::ProblemDef;
-use crate::aiplan4rust::compiler::lir::renderers::context::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::context::LirRenderContext;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::{
     expr, initial_task_network, typed_list,
 };
 use std::fmt::{self, Formatter};
 
 /// Rendu complet d'une définition de problème (PDDL/HDDL Syntax version).
-pub fn render(f: &mut Formatter<'_>, problem: &ProblemDef<'_>, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut Formatter<'_>,
+    problem: &ProblemDef<'_>,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     // 1. En-tête : (define (problem ...) (:domain ...))
     writeln!(
         f,

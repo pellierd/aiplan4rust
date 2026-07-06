@@ -38,7 +38,7 @@
 use crate::aiplan4rust::compiler::lir::expr::ExprId;
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use crate::aiplan4rust::support::lang::TaskSkeletonId;
 use core::fmt::Formatter;
@@ -185,14 +185,14 @@ impl TaskNetwork {
 
 impl LiftedSyntaxDisplay for TaskNetwork {
     /// Rendu PDDL/HDDL (le "beau" texte pour l'export ou l'utilisateur).
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::syntax::task_network::render(f, self, ctx)
     }
 }
 
 impl LiftedDebugDisplay for TaskNetwork {
     /// Rendu structurel (l'arbre technique avec IDs et structure interne).
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::debug::task_network::render(f, self, ctx)
     }
 }

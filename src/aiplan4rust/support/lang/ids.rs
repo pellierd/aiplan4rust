@@ -145,15 +145,27 @@ macro_rules! impl_id_type_core {
                 }
                 Self { value: new_value }
             }
+
+            /// Retourne la valeur interne brute contenant l'index ET les bits de flags (ex: le bit 60 de négation).
+            /// ⚠️ À utiliser avec précaution, principalement réservé à l'encodage opaque (Datalog, PNF).
+            #[inline(always)]
+            pub const fn as_raw_usize(self) -> usize {
+                self.value
+            }
         }
 
-        impl From<usize> for $id {
+       impl From<usize> for $id {
             #[inline(always)]
             fn from(value: usize) -> Self {
+                // 1. Isolation de l'index numérique pur (60 bits de poids faible)
+                let pure_index = value & $crate::aiplan4rust::support::lang::ids::INDEX_MASK;
+
+                // 2. 🛡️ Sécurité préservée : On s'assure que l'index utile ne déborde pas sur la sentinelle (2^60 - 1)
                 assert!(
-                    value < $crate::aiplan4rust::support::lang::ids::RAW_NONE,
-                    "L'index donné écrase les sentinelles système !"
+                    pure_index < $crate::aiplan4rust::support::lang::ids::RAW_NONE,
+                    "L'index numérique pur donné écrase les sentinelles système !"
                 );
+
                 Self { value }
             }
         }
@@ -168,9 +180,13 @@ macro_rules! impl_id_type_core {
         impl From<$id> for usize {
             #[inline(always)]
             fn from(id: $id) -> Self {
+                // 🛡️ Zéro dette technique : Into<usize> renvoie TOUJOURS l'index pur sans les flags.
+                // Cela évite de corrompre l'indexation standard des Vec à travers le reste du projet.
                 id.as_usize()
             }
         }
+
+
 
         impl<T> ::std::ops::Index<$id> for Vec<T> {
             type Output = T;

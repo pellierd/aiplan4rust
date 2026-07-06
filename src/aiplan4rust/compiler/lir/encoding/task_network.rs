@@ -134,7 +134,7 @@ fn finalize_task_network(
     // Note: task_labels n'est plus nécessaire si tu ne t'en sers pas dans TaskNetwork::new
 
     // On crée l'itérateur pour parcourir l'arbre à partir de la racine 'tasks_id'
-    let iter = TreePreorderIter::new(builder.store(), tasks_id);
+    let iter = TreePreorderIter::new(builder.store_mut(), tasks_id);
 
     // Cette variable nous permet de garder en mémoire l'index du label
     // pour la prochaine tâche qu'on va croiser

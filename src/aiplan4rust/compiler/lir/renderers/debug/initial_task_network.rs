@@ -2,13 +2,13 @@ use crate::aiplan4rust::compiler::lir::problem::InitialTaskNetwork;
 use crate::aiplan4rust::compiler::lir::renderers::debug::common::{
     render_labeled_variable_typed_list, writeln_centered,
 };
-use crate::aiplan4rust::compiler::lir::renderers::{debug, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{debug, LirRenderContext};
 use std::fmt;
 
 pub fn render(
     f: &mut fmt::Formatter<'_>,
     itn: &InitialTaskNetwork,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     writeln_centered(f, " [ INITIAL TASK NETWORK ] ", 60, '=')?;
 

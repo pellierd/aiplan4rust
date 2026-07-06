@@ -1,8 +1,12 @@
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use crate::aiplan4rust::support::lang::{Type, TypeId};
 use std::fmt;
 
-pub fn render(f: &mut fmt::Formatter<'_>, ty: &Type<TypeId>, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut fmt::Formatter<'_>,
+    ty: &Type<TypeId>,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     let members = ty.members();
 
     match members.len() {

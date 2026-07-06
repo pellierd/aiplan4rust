@@ -1,5 +1,5 @@
 use crate::aiplan4rust::compiler::lir::renderers::syntax::ty;
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use crate::aiplan4rust::support::lang::{ObjectId, TypeId, TypedSymbol, VariableId};
 use std::fmt;
 
@@ -7,7 +7,7 @@ use std::fmt;
 pub fn render_typed_variable_list(
     f: &mut fmt::Formatter<'_>,
     parameters: &[TypedSymbol<VariableId, TypeId>],
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     for (i, param) in parameters.iter().enumerate() {
         if i > 0 {
@@ -28,7 +28,7 @@ pub fn render_typed_variable_list(
 pub fn render_typed_object_list(
     f: &mut fmt::Formatter<'_>,
     objects: &[TypedSymbol<ObjectId, TypeId>],
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     for (i, obj) in objects.iter().enumerate() {
         if i > 0 {
@@ -48,7 +48,7 @@ pub fn render_typed_object_list(
 pub fn render_typed_type_list(
     f: &mut fmt::Formatter<'_>,
     types: &[TypedSymbol<TypeId, TypeId>],
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     for (i, t_def) in types.iter().enumerate() {
         if i > 0 {

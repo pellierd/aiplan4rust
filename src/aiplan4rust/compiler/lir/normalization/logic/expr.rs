@@ -46,7 +46,7 @@ pub fn normalize(
     let final_root = fnf::to_fnf(root, &mut builder, scratch, true)?;
 
     // Global pipeline validation
-    check_post_conditions(builder.store(), root, final_root);
+    check_post_conditions(builder.store_mut(), root, final_root);
 
     Ok(final_root)
 }

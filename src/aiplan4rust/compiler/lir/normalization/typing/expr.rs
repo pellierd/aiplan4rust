@@ -132,7 +132,7 @@ pub fn normalize(
                     // builder.store_mut() redonne accès au &mut ExprStore de manière propre
                     let new_vars_id = typed_list::normalize_typed_variable_list(
                         old_vars_id,
-                        builder.store(),
+                        builder.store_mut(),
                         registry,
                     )?;
                     ExprKind::Forall(new_vars_id)
@@ -140,7 +140,7 @@ pub fn normalize(
                 ExprKind::Exists(old_vars_id) => {
                     let new_vars_id = typed_list::normalize_typed_variable_list(
                         old_vars_id,
-                        builder.store(),
+                        builder.store_mut(),
                         registry,
                     )?;
                     ExprKind::Exists(new_vars_id)

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
-use crate::aiplan4rust::compiler::lir::renderers::context::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::context::LirRenderContext;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::typed_list;
 use std::fmt::{self, Formatter};
 
@@ -10,7 +10,7 @@ use std::fmt::{self, Formatter};
 pub fn render(
     f: &mut Formatter<'_>,
     formula: &AtomicFormulaSkeleton,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     // 1. Début de la parenthèse et résolution du nom via l'interner
     // On utilise resolve_predicate pour le nom du symbole de la formule

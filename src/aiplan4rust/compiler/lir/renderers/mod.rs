@@ -6,6 +6,6 @@ pub mod display;
 pub(crate) mod syntax;
 //pub mod syntax;
 
-pub use context::RenderContext;
+pub use context::LirRenderContext;
 pub use display::LiftedDebugDisplay;
 pub use display::LiftedSyntaxDisplay;

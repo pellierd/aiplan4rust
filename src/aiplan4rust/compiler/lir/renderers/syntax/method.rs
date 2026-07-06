@@ -1,12 +1,16 @@
 //! This module handles the HDDL representation of methods for hierarchical planning.
 
 use crate::aiplan4rust::compiler::lir::problem::MethodDef;
-use crate::aiplan4rust::compiler::lir::renderers::context::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::context::LirRenderContext;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::{expr, task_network, typed_list};
 use std::fmt;
 
 /// Renders a [MethodDef] into an HDDL-compliant method block (Syntax version).
-pub fn render(f: &mut fmt::Formatter<'_>, method: &MethodDef, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut fmt::Formatter<'_>,
+    method: &MethodDef,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     // 1. En-tête et nom de la méthode
     writeln!(f, "(:method {}", ctx.resolve_method_symbol(method.name()))?;
 

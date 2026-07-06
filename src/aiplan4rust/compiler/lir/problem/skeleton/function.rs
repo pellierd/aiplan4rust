@@ -22,7 +22,7 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::compiler::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use crate::aiplan4rust::support::lang::{FunctionSymbolId, Type, TypeId, TypedListId, VariableId};
 use core::fmt::Formatter;
@@ -152,7 +152,7 @@ impl DerefMut for Function {
 
 impl LiftedSyntaxDisplay for Function {
     /// Rendu syntaxique PDDL : (distance ?l1 ?l2 - location) - number
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result {
         // On enrichit le contexte avec les variables locales avant d'appeler le renderer
         let local_ctx = ctx.with_variables(&self.variable_symbols);
         // Appel direct au renderer que tu viens de définir
@@ -163,7 +163,7 @@ impl LiftedSyntaxDisplay for Function {
 impl LiftedDebugDisplay for Function {
     /// Rendu technique détaillé pour le debugging.
     /// Utilise le renderer spécialisé pour un affichage hybride (PDDL + IDs internes).
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result {
         let local_ctx = ctx.with_variables(&self.variable_symbols);
         renderers::debug::function::render(f, self, &local_ctx)
     }

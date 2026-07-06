@@ -2,7 +2,6 @@ use crate::aiplan4rust::compiler::grounding::analysis::inertia::table::InertiaTa
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
 use crate::aiplan4rust::compiler::syntax::ast::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::compiler::syntax::ast::tree::NodeId;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, VariableId};
 use thiserror::Error;
@@ -13,6 +12,10 @@ use thiserror::Error;
 /// unsupported PDDL/LIR constructs, and capacity limits.
 #[derive(Error, Debug)]
 pub enum DatalogError {
+    /// Modifié : Plus besoin de String, le message utilisateur est fixe.
+    #[error("Problem not loaded: The grounding engine requires a problem to be loaded via `load_problem` before execution.")]
+    ProblemNotLoaded,
+
     /// Ajout : Le prédicat référencé par son ID n'existe pas dans les définitions.
     #[error("Undefined predicate with ID: {0:?}")]
     UndefinedPredicate(AtomSkeletonId), // Ou l'ID spécifique utilisé (ex: PredicateId)
@@ -46,11 +49,7 @@ pub enum DatalogError {
 
     /// Raised if an atom argument is neither a variable nor a constant.
     #[error("Invalid atom argument at node index {0}")]
-    InvalidAtomArgument(NodeId),
-
-    /// Raised if an atom argument is neither a variable nor a constant.
-    #[error("Invalid atom argument at node index {0}")]
-    InvalidAtomArgument_(ExprId),
+    InvalidAtomArgument(ExprId),
 
     /// Raised when a required internal segment (e.g., Type registry or Root node)
     /// has not been initialized before use.
@@ -71,6 +70,12 @@ pub enum DatalogError {
 impl Traceable for DatalogError {}
 
 impl DatalogError {
+    /// Crée une erreur `ProblemNotLoaded` et capture la trace sans aucun paramètre.
+    #[track_caller]
+    pub fn problem_not_loaded() -> Self {
+        DatalogError::ProblemNotLoaded.trace()
+    }
+
     /// Crée une erreur UndefinedPredicate et capture la trace.
     #[track_caller]
     pub fn undefined_predicate(id: AtomSkeletonId) -> Self {
@@ -101,14 +106,8 @@ impl DatalogError {
 
     /// Creates an `InvalidAtomArgument` error for the specified node and captures the trace.
     #[track_caller]
-    pub fn invalid_atom_argument(node_id: NodeId) -> Self {
+    pub fn invalid_atom_argument(node_id: ExprId) -> Self {
         DatalogError::InvalidAtomArgument(node_id).trace()
-    }
-
-    /// Creates an `InvalidAtomArgument` error for the specified node and captures the trace.
-    #[track_caller]
-    pub fn invalid_atom_argument_(node_id: ExprId) -> Self {
-        DatalogError::InvalidAtomArgument_(node_id).trace()
     }
 
     // Ajoute ce helper pour la traçabilité

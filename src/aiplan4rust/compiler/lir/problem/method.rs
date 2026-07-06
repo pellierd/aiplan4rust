@@ -31,7 +31,7 @@ use crate::aiplan4rust::compiler::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::compiler::lir::problem::TaskNetwork;
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use crate::aiplan4rust::support::lang::{
     MethodSymbolId, TaskLabelSymbolId, TypedListId, VariableId,
@@ -181,14 +181,14 @@ impl Method {
 
 impl LiftedSyntaxDisplay for Method {
     /// Rendu HDDL propre (ex: (:method name :parameters (...) :task (...) :precondition (...) :subtasks (...)))
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::syntax::method::render(f, self, ctx)
     }
 }
 
 impl LiftedDebugDisplay for Method {
     /// Rendu structurel pour le debug (Method ID, Task Refined, Precondition Tree, TaskNetwork Tree)
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::debug::method::render(f, self, ctx)
     }
 }

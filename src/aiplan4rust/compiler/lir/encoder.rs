@@ -241,8 +241,28 @@ fn encode_lifted_problem(mut context: LinkedSemanticContext) -> Result<LiftedPro
     // This finalizes all encoded expressions
     problem.set_store(expr_store);
 
+    // --- 🔍 DUMP 1 : AVANT NORMALISATION ---
+    println!("=== DUMP TECHNIQUE DU PROBLEM AVANT NORMALISATION ===");
+    println!("{}", problem);
+
     // 7. Normalize the lifted problem (apply simplifications / rewrites)
     normalization::normalize(&mut problem)?;
+
+    // --- 🔍 AJOUTE L'AFFICHAGE ICI ---
+
+    // Option A : Affichage Debug technique complet (via ton impl Display)
+    println!(
+        "=== DUMP TECHNIQUE DU PROBLEM APRES NORMALISATION ===\n{}",
+        problem
+    );
+
+    // Option B : Si tu préfères voir le rendu syntaxique PDDL pur à la place :
+    /*
+    println!("=== RENDU SYNTAXIQUE PDDL/HDDL ===");
+    if let Err(e) = problem.fmt_syntax_self(&mut std::io::stdout()) {
+        eprintln!("Erreur lors du rendu syntaxique : {:?}", e);
+    }
+    */
 
     // 8. Return fully constructed lifted problem
     Ok(problem)

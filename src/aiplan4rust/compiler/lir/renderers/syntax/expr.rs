@@ -2,7 +2,7 @@
 
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
 use crate::aiplan4rust::compiler::lir::renderers::syntax::typed_list;
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use crate::aiplan4rust::support::lang::TypedListId;
 use std::fmt;
 use std::fmt::Formatter;
@@ -19,14 +19,14 @@ enum RenderOp {
     Newline,
 }
 
-pub fn render(f: &mut Formatter<'_>, root_id: ExprId, context: &RenderContext) -> fmt::Result {
+pub fn render(f: &mut Formatter<'_>, root_id: ExprId, context: &LirRenderContext) -> fmt::Result {
     render_with_indent(f, root_id, context, 0)
 }
 
 pub fn render_with_indent(
     f: &mut Formatter<'_>,
     root_id: ExprId,
-    context: &RenderContext,
+    context: &LirRenderContext,
     indent: usize,
 ) -> fmt::Result {
     if root_id.is_none() {
@@ -314,7 +314,7 @@ fn render_infix_operation(
 }
 
 /// Résolution et affichage direct des feuilles terminales depuis le nouveau modèle
-fn render_terminal_node(f: &mut Formatter<'_>, id: ExprId, ctx: &RenderContext) -> fmt::Result {
+fn render_terminal_node(f: &mut Formatter<'_>, id: ExprId, ctx: &LirRenderContext) -> fmt::Result {
     let kind = ctx.store()[id].kind();
     match kind {
         ExprKind::Variable(v_id) => write!(f, "?x{}", v_id.as_usize()),

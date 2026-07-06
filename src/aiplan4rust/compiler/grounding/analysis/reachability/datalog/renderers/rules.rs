@@ -1,8 +1,8 @@
-use crate::analysis::reachability::datalog::renderers::{atom, RenderContext};
+use crate::analysis::reachability::datalog::renderers::{atom, DatalogRenderContext};
 use crate::analysis::reachability::datalog::rule::Rule;
 
 /// Affiche l'ensemble des règles du programme
-pub fn render(ctx: &RenderContext, rules: &[Rule]) {
+pub fn render(ctx: &DatalogRenderContext, rules: &[Rule]) {
     println!("\n>>> DOMAIN LOGIC COMPILATION (Datalog Rules)\n");
 
     if rules.is_empty() {
@@ -18,7 +18,7 @@ pub fn render(ctx: &RenderContext, rules: &[Rule]) {
     println!(">>> END OF RULES\n");
 }
 
-pub fn render_rule(ctx: &RenderContext, rule: &Rule) {
+pub fn render_rule(ctx: &DatalogRenderContext, rule: &Rule) {
     // 1. Formatage de la tête (Head) avec le contexte
     let interner = ctx.problem.interner();
     let head_str = atom::render(ctx, &rule.head());

@@ -1,8 +1,8 @@
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 
-pub fn render(f: &mut fmt::Formatter<'_>, root_id: ExprId, ctx: &RenderContext) -> fmt::Result {
+pub fn render(f: &mut fmt::Formatter<'_>, root_id: ExprId, ctx: &LirRenderContext) -> fmt::Result {
     if root_id == ExprId::default() {
         return write!(f, "    <Empty Expression>");
     }
@@ -44,7 +44,7 @@ pub fn render(f: &mut fmt::Formatter<'_>, root_id: ExprId, ctx: &RenderContext) 
 fn render_hybrid_content(
     f: &mut fmt::Formatter<'_>,
     kind: &ExprKind,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     match kind {
         // --- Terminaux Variables & Labels ---

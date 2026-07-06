@@ -18,7 +18,7 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::compiler::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use crate::aiplan4rust::support::lang::{TaskSymbolId, TypedListId, VariableId};
 use core::fmt::{Debug, Formatter};
@@ -117,7 +117,7 @@ impl DerefMut for Task {
 
 impl LiftedSyntaxDisplay for Task {
     /// Rendu syntaxique HDDL : (:task move :parameters (?obj - object ?to - location))
-    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result {
         let local_ctx = ctx.with_variables(&self.variable_symbols);
         renderers::syntax::task::render(f, self, &local_ctx)
     }
@@ -125,7 +125,7 @@ impl LiftedSyntaxDisplay for Task {
 
 impl LiftedDebugDisplay for Task {
     /// Rendu technique : TaskSkeleton{ (move [t#4] ?obj [v#0] - object [t#1]) }
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result {
         let local_ctx = ctx.with_variables(&self.variable_symbols);
         renderers::debug::task::render(f, self, &local_ctx)
     }

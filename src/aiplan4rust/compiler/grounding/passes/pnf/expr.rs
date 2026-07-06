@@ -2,7 +2,7 @@ use crate::aiplan4rust::compiler::grounding::error::GroundingError;
 use crate::aiplan4rust::compiler::grounding::passes::pnf::scratchpad::PnfScratchpad;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{validation, Expr, ExprId, ExprKind, ExprStore};
-use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, LirRenderContext};
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
 /// Final lowering of an expression tree into its encoded NNF (Negation Normal Form) via Negation Absorption.
@@ -367,7 +367,7 @@ fn check_post_condition(store: &ExprStore, root_id: ExprId, is_effect: bool) {
             println!("Is Effect Context: {}", is_effect);
 
             // Render the unified structural tree via the debug RenderContext
-            let ctx = RenderContext::debug(store);
+            let ctx = LirRenderContext::debug(store);
             let expr_handle = Expr::new(root_id, store);
             println!("{}", expr_handle.as_debug(&ctx));
 

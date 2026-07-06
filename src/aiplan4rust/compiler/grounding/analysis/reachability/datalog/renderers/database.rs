@@ -2,10 +2,10 @@ use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::da
 use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 use crate::analysis::reachability::datalog::relation::Relation;
-use crate::analysis::reachability::datalog::renderers::context::RenderContext;
+use crate::analysis::reachability::datalog::renderers::context::DatalogRenderContext;
 
 /// Affiche l'intégralité de la base de données (Stable et Delta) au format SQL-Style.
-pub fn render(ctx: &RenderContext, db: &Database) {
+pub fn render(ctx: &DatalogRenderContext, db: &Database) {
     let interner = ctx.problem.interner();
     let main_separator = "=".repeat(100);
 
@@ -39,7 +39,7 @@ pub fn render(ctx: &RenderContext, db: &Database) {
 }
 
 fn render_table(
-    ctx: &RenderContext,
+    ctx: &DatalogRenderContext,
     sk_id: AtomSkeletonId,
     relation: &Relation,
     interner: &SymbolInterner,

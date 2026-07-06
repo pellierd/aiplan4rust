@@ -39,6 +39,8 @@
 //!
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
+// Regroupement des imports de rendu
+use crate::aiplan4rust::cli::io::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprStore};
 use crate::aiplan4rust::compiler::lir::problem::error::LiftedProblemError;
 use crate::aiplan4rust::compiler::lir::problem::skeleton::{
@@ -48,18 +50,16 @@ use crate::aiplan4rust::compiler::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::compiler::lir::problem::{
     ActionDef, DerivedPredicateDef, DomainDef, InitialTaskNetwork, MethodDef, ProblemDef,
 };
+use crate::aiplan4rust::compiler::lir::renderers::display::{
+    LiftedDebugDisplay, LiftedSyntaxDisplay,
+};
+use crate::aiplan4rust::compiler::lir::renderers::{self, LirRenderContext};
 use crate::aiplan4rust::support::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::support::lang::{
     ActionSymbolId, AtomSkeletonId, DerivedPredicateDefId, FunctionSkeletonId, FunctionSymbolId,
     MethodSymbolId, ObjectId, PredicateSymbolId, PreferenceSymbolId, Requirement, SymbolId,
     TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol,
 };
-// Regroupement des imports de rendu
-use crate::aiplan4rust::cli::io::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::compiler::lir::renderers::display::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay,
-};
-use crate::aiplan4rust::compiler::lir::renderers::{self, RenderContext};
 
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
@@ -1605,7 +1605,7 @@ impl LiftedSyntaxDisplay for Problem {
     /// Rendu syntaxique complet (PDDL/HDDL) du problème.
     /// Note : En PDDL, un "Problem" est généralement rendu séparément du "Domain",
     /// mais cette structure LIR contient les deux. Le renderer décidera quoi afficher.
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::syntax::domain::render(f, &DomainDef::new(self), ctx)?;
         writeln!(f, "\n")?;
         renderers::syntax::problem::render(f, &ProblemDef::new(self), ctx)
@@ -1613,20 +1613,20 @@ impl LiftedSyntaxDisplay for Problem {
 
     /// Point d'entrée principal pour générer du code PDDL/HDDL à partir d'un Problem.
     fn fmt_syntax_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let ctx = RenderContext::new(self);
+        let ctx = LirRenderContext::new(self);
         self.fmt_syntax(f, &ctx)
     }
 }
 
 impl LiftedDebugDisplay for Problem {
     /// Rendu structurel technique de l'intégralité du problème (Squelettes, Actions, Methods, Init, Goal).
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::debug::problem::render(f, self, ctx)
     }
 
     /// Point d'entrée principal pour inspecter la structure interne (Debug).
     fn fmt_debug_self(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let ctx = RenderContext::new(self);
+        let ctx = LirRenderContext::new(self);
         self.fmt_debug(f, &ctx)
     }
 }

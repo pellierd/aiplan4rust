@@ -7,4 +7,4 @@ pub mod database;
 pub mod fluent;
 pub mod rules;
 
-pub use context::RenderContext;
+pub use context::DatalogRenderContext;

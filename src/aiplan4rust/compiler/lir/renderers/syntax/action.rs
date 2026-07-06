@@ -1,7 +1,7 @@
 //! This module handles the syntax rendering of PDDL/HDDL lifted actions.
 
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
-use crate::aiplan4rust::compiler::lir::renderers::context::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::context::LirRenderContext;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::{expr, typed_list};
 use std::fmt;
 
@@ -9,7 +9,7 @@ use std::fmt;
 pub fn render(
     f: &mut fmt::Formatter<'_>,
     action: &ActionDef,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> std::fmt::Result {
     let is_durative = action.is_durative();
 

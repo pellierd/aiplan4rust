@@ -1,11 +1,15 @@
 use crate::aiplan4rust::compiler::lir::problem::InitialTaskNetwork;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::typed_list;
-use crate::aiplan4rust::compiler::lir::renderers::{syntax, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{syntax, LirRenderContext};
 use core::fmt::Formatter;
 use std::fmt;
 
 /// Renders the Initial Task Network (HTN) for a problem file.
-pub fn render(f: &mut Formatter<'_>, itn: &InitialTaskNetwork, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut Formatter<'_>,
+    itn: &InitialTaskNetwork,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     write!(f, "(:htn")?;
 
     // 1. Parameters (Optional in HTN) : Récupération sécurisée via le store

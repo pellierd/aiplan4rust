@@ -5,16 +5,17 @@ use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::da
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::encoder::DatalogEncoder;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::renderers::{
-    database, rules, RenderContext,
+    database, rules, DatalogRenderContext,
 };
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::rule::Rule;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::term::Term;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::tuple::Tuple;
 use crate::aiplan4rust::compiler::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
-use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprKind, ExprNode, ExprStore};
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
+use crate::aiplan4rust::compiler::lir::renderers::LiftedSyntaxDisplay;
 use crate::aiplan4rust::support::lang::{
     ActionDefId, AtomSkeletonId, Id, ObjectId, TypeId, TypedSymbol, VariableId,
 };
@@ -43,7 +44,7 @@ pub struct DatalogEngine<'a> {
     discovered_facts: Vec<(AtomSkeletonId, Vec<ObjectId>)>,
     type_to_skeleton: Vec<AtomSkeletonId>,
     head_buffer: Vec<ObjectId>,
-    encoder: DatalogEncoder,
+    encoder: DatalogEncoder<'a>,
     fluence_threshold: usize,
     type_threshold: usize,
     type_segment_start: usize,
@@ -56,12 +57,16 @@ pub struct DatalogEngine<'a> {
 }
 
 impl<'a> DatalogEngine<'a> {
-    pub fn new(
-        problem: &'a LiftedProblem,
+    pub fn new(/*problem: &'a LiftedProblem,
         value_registry: &'a ValueRegistry,
         inertia_table: &'a InertiaTable,
-        negated_predicates: &'a Vec<AtomSkeletonId>,
-    ) -> Self {
+        negated_predicates: &'a Vec<AtomSkeletonId>,*/) -> Self {
+        // Objets temporaires immortels juste pour le démarrage
+        let problem = Box::leak(Box::new(LiftedProblem::default()));
+        let value_registry = Box::leak(Box::new(ValueRegistry::default()));
+        let inertia_table = Box::leak(Box::new(InertiaTable::default()));
+        let negated_predicates = Box::leak(Box::new(Vec::new()));
+        let expr_store = Box::leak(Box::new(ExprStore::new()));
         Self {
             problem,
             value_registry,
@@ -74,7 +79,7 @@ impl<'a> DatalogEngine<'a> {
             discovered_facts: Vec::with_capacity(1024),
             type_to_skeleton: Vec::new(),
             head_buffer: Vec::with_capacity(16),
-            encoder: DatalogEncoder::new(0, 0, 0, Vec::new()),
+            encoder: DatalogEncoder::new(0, 0, 0, Vec::new(), expr_store),
             fluence_threshold: 0,
             type_threshold: 0,
             action_base_id: 0,
@@ -204,7 +209,124 @@ impl<'a> DatalogEngine<'a> {
             .expect("Inconsistance : fait auxiliaire trouvé sans règle correspondante")
     }
 
-    pub fn load_problem(&mut self) -> Result<(), DatalogError> {
+    pub fn load_problem(
+        mut self,                       // Builder Pattern
+        problem: &'a mut LiftedProblem, // Reçoit le problème mutable
+        value_registry: &'a ValueRegistry,
+        inertia_table: &'a InertiaTable,
+        negated_predicates: &'a Vec<AtomSkeletonId>,
+    ) -> Result<Self, DatalogError> {
+        // =========================================================================
+        // 1. CLONAGE DE SÉCURITÉ DU STORE
+        // =========================================================================
+        let mut problem_read_store = problem.store().clone();
+        let mut encoder_store = self.encoder.take_store();
+
+        // On met le store réel du problème dans l'encodeur (qui va le modifier)
+        std::mem::swap(problem.store_mut(), encoder_store);
+
+        // On donne le store cloné au problème pour ses lectures internes (tl#4)
+        std::mem::swap(problem.store_mut(), &mut problem_read_store);
+
+        // =========================================================================
+        // 2. Reset de l'état (On utilise l'argument `problem` direct)
+        // =========================================================================
+        self.db = Database::new();
+        self.rules.clear();
+        self.union_cache.clear();
+        self.type_to_skeleton.clear();
+
+        // Configuration des seuils via la variable locale `problem`
+        self.fluence_threshold = problem.predicate_defs().len();
+        self.type_segment_start = if negated_predicates.is_empty() {
+            self.fluence_threshold
+        } else {
+            self.fluence_threshold * 2
+        };
+
+        self.encoder.reset_with_start_id(self.type_segment_start);
+        self.declare_types_as_unary_predicates(problem.type_defs().as_slice());
+
+        // Réinitialisation de l'encodeur avec le store de travail principal
+        self.encoder = DatalogEncoder::new(
+            self.type_segment_start,
+            problem.action_defs().len(),
+            self.fluence_threshold,
+            self.type_to_skeleton.clone(),
+            encoder_store,
+        );
+
+        self.type_threshold = self.encoder.current_id();
+        self.action_base_id = self.type_threshold;
+
+        self.declare_action_as_predicates(problem.action_defs());
+        self.action_threshold = self.encoder.current_id();
+
+        self.builtin_threshold = self.action_threshold;
+        self.encoder.reset_with_start_id(self.builtin_threshold);
+
+        self.fill_db_from_objects(
+            problem.object_defs().as_slice(),
+            problem.type_defs().as_slice(),
+        )?;
+
+        // =========================================================================
+        // 3. Traitement de l'état Initial
+        // =========================================================================
+        let temp_store_for_init = self.encoder.take_store();
+        let init = Expr::new(problem.init(), temp_store_for_init);
+        self.fill_db_from_init(init)?;
+        self.encoder.set_store(temp_store_for_init);
+
+        self.dump_database();
+
+        // =========================================================================
+        // 4. Compilation des Règles
+        // =========================================================================
+        // Temporairement, pendant cette fonction, les appels internes se basent
+        // sur l'argument `problem` (qui a le store cloné valide).
+        self.compile_domain_actions_as_rules(problem.action_defs())?;
+
+        self.dump_rules();
+        self.builtin_threshold = self.encoder.current_id();
+
+        // =========================================================================
+        // 5. Restitution finale du Store enrichi & Assignation
+        // =========================================================================
+        // On remet le store cloné dans sa boîte
+        std::mem::swap(problem.store_mut(), &mut problem_read_store);
+
+        // On récupère le store final de l'encodeur
+        let final_store = self.encoder.take_store();
+
+        // On le remet proprement dans le problème (via la référence mutable d'origine)
+        std::mem::swap(problem.store_mut(), final_store);
+
+        // On redonne le store final à l'encodeur pour le reste de sa vie
+        self.encoder.set_store(final_store);
+
+        // TOUTE FIN : Maintenant que le problème mutable a fini ses swaps,
+        // on le fige sous forme de référence dans `self`
+        self.problem = problem;
+        self.value_registry = value_registry;
+        self.inertia_table = inertia_table;
+        self.negated_predicates = negated_predicates;
+
+        Ok(self)
+    }
+
+    /*pub fn load_problem(
+        &mut self,
+        problem: &'a LiftedProblem,
+        value_registry: &'a ValueRegistry,
+        inertia_table: &'a InertiaTable,
+        negated_predicates: &'a Vec<AtomSkeletonId>,
+    ) -> Result<(), DatalogError> {
+        self.problem = problem;
+        self.value_registry = value_registry;
+        self.inertia_table = inertia_table;
+        self.negated_predicates = negated_predicates;
+
         // 1. Internal State Reset
         // Reset the fact database and clear existing inference rules.
         self.db = Database::new();
@@ -236,7 +358,8 @@ impl<'a> DatalogEngine<'a> {
             self.type_segment_start,
             self.problem.action_defs().len(),
             self.fluence_threshold,
-            self.type_to_skeleton.clone(), // Le vecteur est maintenant peuplé
+            self.type_to_skeleton.clone(),
+            expr_store,
         );
 
         // We now use self.encoder.current_id() instead of manual length calculation.
@@ -293,7 +416,7 @@ impl<'a> DatalogEngine<'a> {
         self.builtin_threshold = self.encoder.current_id();
 
         Ok(())
-    }
+    }*/
 
     #[inline]
     pub fn is_fluent(&self, id: AtomSkeletonId) -> bool {
@@ -459,37 +582,38 @@ impl<'a> DatalogEngine<'a> {
     fn fill_db_from_init(&mut self, init: Expr) -> Result<(), DatalogError> {
         let mut iter = init.preorder();
 
+        // VITESSE MAXIMALE : Tableau de booléens direct, indexé par la valeur numérique de l'ExprId.
+        let mut visited = vec![false; init.store().len()];
+
         while let Some((id, _depth, entry)) = iter.next() {
-            // On construit le ExprNodeRef à la volée
+            let idx = id.as_usize();
+
+            if visited[idx] {
+                continue;
+            }
+            visited[idx] = true;
+
             let node = ExprNode::new(id, entry);
 
-            match node.kind() {
-                ExprKind::AtomicFormula(sk_id) => {
-                    // 1. L'ID du Skeleton est directement extrait du variant de l'enum
-                    let sk_id = *sk_id;
+            if let ExprKind::AtomicFormula(sk_id) = node.kind() {
+                let sk_id = *sk_id;
+                let children = node.children();
 
-                    // 2. Extraction des ObjectIds avec une boucle explicite
-                    let children = node.children();
-                    let mut args = Vec::with_capacity(children.len());
+                // Allocation optimale pour les arguments réels
+                let mut args = Vec::with_capacity(children.len().saturating_sub(1));
 
-                    for &arg_id in children.iter() {
-                        // On récupère le nœud enfant
-                        let child_node = init.fetch_node(arg_id)?;
+                for &arg_id in children.iter().skip(1) {
+                    let child_node = init.fetch_node(arg_id)?;
 
-                        // On extrait la constante (l'ObjectId) par pattern matching direct
-                        if let ExprKind::Object(object_id) = child_node.kind() {
-                            args.push(*object_id);
-                        } else {
-                            return Err(DatalogError::invalid_atom_argument_(arg_id));
-                        }
+                    if let ExprKind::Object(object_id) = child_node.kind() {
+                        args.push(*object_id);
+                    } else {
+                        return Err(DatalogError::invalid_atom_argument(arg_id));
                     }
-
-                    // 3. Ajouter le fait à la Database interne
-                    self.db.insert_delta_fact(sk_id, &args);
                 }
-                // Tout le reste (Comparison, Not, etc.) n'ayant pas de descendance logique
-                // pertinente pour l'état initial, l'itérateur avance naturellement au nœud suivant.
-                _ => {}
+
+                // Ingestion directe dans la DB Datalog
+                self.db.insert_delta_fact(sk_id, &args);
             }
         }
         Ok(())
@@ -585,6 +709,129 @@ impl<'a> DatalogEngine<'a> {
         Ok(())
     }
 
+    pub fn compile_action_body_as_rules(
+        &mut self,
+        action: &ActionDef,
+        head: Atom,
+    ) -> Result<(), DatalogError> {
+        // 1. On récupère l'ID de la liste de paramètres
+        let param_list_id = action.parameters();
+        // 2. On extrait la liste concrète depuis le store du problème
+        let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
+
+        let precondition = self.problem.store().fetch_expr(action.precondition())?;
+
+        let precond_opt =
+            self.encoder
+                .encode_preconditions(precondition, &mut self.rules, parameters)?;
+
+        // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
+        let mut final_action_body = Vec::new();
+        let mut anchor_elements = Vec::new();
+        let mut covered_vars = std::collections::HashSet::new();
+
+        // --- LOGIQUE FD : Utiliser l'inertie pour lier les variables ---
+
+        // ==========================================================
+        // SEULE MODIFICATION : Le gardien de parcours pour le Hash-Consing
+        // ==========================================================
+        let mut visited = vec![false; self.problem.store().len()];
+
+        // Récupération des atomes en postorder
+        let atoms = precondition
+            .postorder()
+            .references()
+            .filter(|node| matches!(node.kind(), ExprKind::AtomicFormula(_)));
+
+        for atom_node in atoms {
+            // Si le nœud a déjà été visité via une autre branche du DAG, on le saute
+            let idx = atom_node.id().as_usize();
+            if visited[idx] {
+                continue;
+            }
+            visited[idx] = true;
+
+            // Extraction directe du SkeletonId depuis le variant de l'enum
+            let skel_id = match atom_node.kind() {
+                ExprKind::AtomicFormula(sk) => *sk,
+                _ => unreachable!(),
+            };
+
+            // On récupère l'ID "propre" (sans bit de négation)
+            let positive_id = skel_id.strip_negation();
+
+            if self
+                .inertia_table
+                .is_predicate_positive_negative_inertia(positive_id)?
+            {
+                let children = atom_node.children();
+                let mut terms = Vec::with_capacity(children.len().saturating_sub(1));
+
+                // On itère sur tous les enfants (arguments de l'atome)
+                for &term_id in children.iter().skip(1) {
+                    let term_node = precondition.fetch_node(term_id)?;
+
+                    let term = match term_node.kind() {
+                        ExprKind::Variable(var_id) => {
+                            let var_id = *var_id;
+                            // IMPORTANT : On note que cette variable est couverte par un fait statique
+                            covered_vars.insert(var_id);
+                            Term::Variable(var_id)
+                        }
+                        ExprKind::Object(obj_id) => Term::Constant(*obj_id),
+                        _ => {
+                            // ON RESTE STRICT : On lève l'erreur si l'argument n'est pas valide
+                            return Err(DatalogError::invalid_atom_argument(term_id));
+                        }
+                    };
+                    terms.push(term);
+                }
+
+                // 3. ON STOCK l'atome dans les éléments de l'ancre
+                let static_atom = Atom::new(skel_id, terms);
+                anchor_elements.push(static_atom);
+            }
+        }
+
+        // ==========================================================
+        // LE RESTE DU CODE RESTE INCHANGÉ
+        // ==========================================================
+        for (i, param) in parameters.iter().enumerate() {
+            let var_id = VariableId::from(i);
+            if !covered_vars.contains(&var_id) {
+                let var_term = Term::Variable(var_id);
+                let type_id = param.ty().members()[0].as_usize();
+                let type_sk = self.type_to_skeleton[type_id];
+
+                // 1. AJOUT PHYSIQUE À L'ANCRE
+                anchor_elements.push(Atom::new(type_sk, vec![var_term]));
+
+                // 2. MARQUAGE LOGIQUE (Indispensable pour le Datalog)
+                covered_vars.insert(var_id);
+            }
+        }
+
+        // 4. Génération de l'Ancre et de la règle finale
+        if !anchor_elements.is_empty() {
+            let anchor_head = self
+                .encoder
+                .generate_anchor_atom(action.name(), parameters, &head);
+
+            self.push_rule(Rule::new(anchor_head.clone(), anchor_elements));
+            final_action_body.push(anchor_head);
+        }
+
+        // 5. On ajoute la partie dynamique (les Aux_N générés par encode_preconditions)
+        if let Some(p_atom) = precond_opt {
+            final_action_body.push(p_atom);
+        }
+
+        // Règle finale
+        self.push_rule(Rule::new(head, final_action_body));
+
+        Ok(())
+    }
+
     /// Génère l'atome de tête représentant l'action avec ses paramètres.
     fn compile_action_name_as_rules(
         &self,
@@ -595,7 +842,7 @@ impl<'a> DatalogEngine<'a> {
         let param_list_id = action.parameters();
 
         // 2. On extrait la liste concrète depuis le store du problème
-        let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
+        let parameters = self.encoder.store().fetch_typed_list(param_list_id)?;
 
         let head_terms: Vec<Term> = parameters
             .iter()
@@ -605,7 +852,7 @@ impl<'a> DatalogEngine<'a> {
         Ok(Atom::new(action_sk_id, head_terms))
     }
 
-    pub fn compile_action_body_as_rules(
+    /*pub fn compile_action_body_as_rules(
         &mut self,
         action: &ActionDef,
         head: Atom,
@@ -718,7 +965,7 @@ impl<'a> DatalogEngine<'a> {
         self.push_rule(Rule::new(head, final_action_body));
 
         Ok(())
-    }
+    }*/
 
     /*fn compile_action_body_as_rules(
         &mut self,
@@ -1503,16 +1750,6 @@ impl<'a> DatalogEngine<'a> {
         255
     }
 
-    // Pour vérifier l'état (lecture seule)
-    #[cfg(test)]
-    pub fn encoder(&self) -> &DatalogEncoder {
-        &self.encoder
-    }
-
-    #[cfg(test)]
-    pub fn encoder_mut(&mut self) -> &mut DatalogEncoder {
-        &mut self.encoder
-    }
     pub fn dump_database(&self) {
         // 1. On crée le Snapshot de données (le contexte)
         let ctx = self.render_context();
@@ -1528,8 +1765,8 @@ impl<'a> DatalogEngine<'a> {
         rules::render(&ctx, &self.rules);
     }
 
-    fn render_context(&self) -> RenderContext {
-        RenderContext::new(
+    fn render_context(&self) -> DatalogRenderContext {
+        DatalogRenderContext::new(
             self.problem,
             &self.type_to_skeleton,
             self.fluence_threshold,

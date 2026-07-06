@@ -591,7 +591,7 @@ mod tests {
 
         // --- ASSERTION & ISOLATION CHECK ---
         if let Some(vars_id) = target_vars_id {
-            let actual_vars = builder.store().fetch_typed_list(vars_id).unwrap();
+            let actual_vars = builder.store_mut().fetch_typed_list(vars_id).unwrap();
 
             assert_eq!(
                 actual_vars.len(),

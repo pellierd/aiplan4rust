@@ -1,7 +1,7 @@
 //! Context-aware rendering traits for Lifted Intermediate Representation (LIR).
 //!
 //! This module defines a specialized display system for PDDL and HDDL structures.
-//! Unlike standard formatting, LIR components rely on a [`RenderContext`] to
+//! Unlike standard formatting, LIR components rely on a [`LirRenderContext`] to
 //! resolve internal database identifiers into human-readable symbols.
 //!
 //! # Architecture
@@ -16,7 +16,7 @@
 //! **private**. Users interact with the rendering engine solely through the public
 //! trait methods, ensuring a seamless and robust abstraction.
 
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt::{self, Write};
 
 // =============================================================================
@@ -32,11 +32,11 @@ pub trait LiftedSyntaxDisplay {
     ///
     /// ### Parameters
     /// - `f`: The standard format writer.
-    /// - `ctx`: The [`RenderContext`] used to resolve IDs (Types, Predicates, etc.).
+    /// - `ctx`: The [`LirRenderContext`] used to resolve IDs (Types, Predicates, etc.).
     ///
     /// ### Returns
     /// - `fmt::Result`: Success or a formatting error.
-    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result;
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result;
 
     /// Generates a standalone [`String`] representation of the element.
     ///
@@ -47,7 +47,7 @@ pub trait LiftedSyntaxDisplay {
     ///
     /// ### Returns
     /// - `String`: The formatted PDDL/HDDL syntax.
-    fn to_syntax_string(&self, ctx: &RenderContext) -> String
+    fn to_syntax_string(&self, ctx: &LirRenderContext) -> String
     where
         Self: Sized,
     {
@@ -65,7 +65,7 @@ pub trait LiftedSyntaxDisplay {
     ///
     /// ### Returns
     /// - A private wrapper implementing [`fmt::Display`].
-    fn as_syntax<'a>(&'a self, ctx: &'a RenderContext<'a>) -> impl fmt::Display + 'a
+    fn as_syntax<'a>(&'a self, ctx: &'a LirRenderContext<'a>) -> impl fmt::Display + 'a
     where
         Self: Sized,
     {
@@ -94,14 +94,14 @@ pub trait LiftedDebugDisplay {
     ///
     /// ### Parameters
     /// - `f`: The standard format writer.
-    /// - `ctx`: The [`RenderContext`] used for symbol resolution.
-    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result;
+    /// - `ctx`: The [`LirRenderContext`] used for symbol resolution.
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result;
 
     /// Generates a detailed debug [`String`].
     ///
     /// ### Parameters
     /// - `ctx`: The rendering context.
-    fn to_debug_string(&self, ctx: &RenderContext) -> String
+    fn to_debug_string(&self, ctx: &LirRenderContext) -> String
     where
         Self: Sized,
     {
@@ -114,7 +114,7 @@ pub trait LiftedDebugDisplay {
     ///
     /// ### Parameters
     /// - `ctx`: The rendering context.
-    fn as_debug<'a>(&'a self, ctx: &'a RenderContext<'a>) -> impl fmt::Display + 'a
+    fn as_debug<'a>(&'a self, ctx: &'a LirRenderContext<'a>) -> impl fmt::Display + 'a
     where
         Self: Sized,
     {
@@ -134,7 +134,7 @@ pub trait LiftedDebugDisplay {
 /// Private bridge between `LiftedSyntaxDisplay` and `fmt::Display`.
 struct LiftedSyntaxDisplayWrapper<'a, T: ?Sized> {
     value: &'a T,
-    ctx: &'a RenderContext<'a>,
+    ctx: &'a LirRenderContext<'a>,
 }
 
 impl<'a, T: LiftedSyntaxDisplay + ?Sized> fmt::Display for LiftedSyntaxDisplayWrapper<'a, T> {
@@ -146,7 +146,7 @@ impl<'a, T: LiftedSyntaxDisplay + ?Sized> fmt::Display for LiftedSyntaxDisplayWr
 /// Private bridge between `LiftedDebugDisplay` and `fmt::Display`.
 struct LiftedDebugDisplayWrapper<'a, T: ?Sized> {
     value: &'a T,
-    ctx: &'a RenderContext<'a>,
+    ctx: &'a LirRenderContext<'a>,
 }
 
 impl<'a, T: LiftedDebugDisplay + ?Sized> fmt::Display for LiftedDebugDisplayWrapper<'a, T> {

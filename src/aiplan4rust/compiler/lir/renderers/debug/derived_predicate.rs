@@ -1,13 +1,13 @@
 use crate::aiplan4rust::compiler::lir::problem::DerivedPredicateDef;
 use crate::aiplan4rust::compiler::lir::renderers::debug::common::writeln_centered;
 use crate::aiplan4rust::compiler::lir::renderers::debug::{atom, expr};
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 
 pub fn render(
     f: &mut fmt::Formatter<'_>,
     dp: &DerivedPredicateDef,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     writeln_centered(f, " [ DERIVED PREDICATE ] ", 60, '=')?;
 

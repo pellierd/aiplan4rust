@@ -1,6 +1,6 @@
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicTaskSkeleton;
 use crate::aiplan4rust::compiler::lir::renderers::syntax::typed_list;
-use crate::aiplan4rust::compiler::lir::renderers::RenderContext;
+use crate::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -12,7 +12,7 @@ use std::fmt::Formatter;
 pub fn render(
     f: &mut Formatter<'_>,
     task: &AtomicTaskSkeleton,
-    ctx: &RenderContext,
+    ctx: &LirRenderContext,
 ) -> fmt::Result {
     // 1. Début du bloc de tâche et résolution du nom du symbole de tâche
     let task_name = ctx.resolve_task_symbol(task.task_symbol());

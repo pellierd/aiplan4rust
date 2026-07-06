@@ -2,11 +2,15 @@ use crate::aiplan4rust::compiler::lir::problem::MethodDef;
 use crate::aiplan4rust::compiler::lir::renderers::debug::common::{
     render_labeled_expr, render_labeled_variable_typed_list, writeln_centered,
 };
-use crate::aiplan4rust::compiler::lir::renderers::{debug, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{debug, LirRenderContext};
 use std::fmt;
 
 /// Rendu d'une Méthode HDDL structurée.
-pub fn render(f: &mut fmt::Formatter<'_>, method: &MethodDef, ctx: &RenderContext) -> fmt::Result {
+pub fn render(
+    f: &mut fmt::Formatter<'_>,
+    method: &MethodDef,
+    ctx: &LirRenderContext,
+) -> fmt::Result {
     // 1. En-tête de section
     writeln_centered(
         f,

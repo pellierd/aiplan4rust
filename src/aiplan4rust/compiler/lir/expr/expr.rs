@@ -3,7 +3,7 @@ use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprNode, ExprStore};
 use crate::aiplan4rust::compiler::lir::renderers::{
-    syntax, LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    syntax, LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
 use std::fmt;
 
@@ -79,13 +79,13 @@ impl<'a> std::fmt::Debug for Expr<'a> {
 }
 
 impl<'a> LiftedDebugDisplay for Expr<'a> {
-    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    fn fmt_debug(&self, f: &mut fmt::Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result {
         crate::aiplan4rust::compiler::lir::renderers::debug::expr::render(f, self.root_id(), ctx)
     }
 }
 
 impl<'a> LiftedSyntaxDisplay for Expr<'a> {
-    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &LirRenderContext) -> fmt::Result {
         syntax::expr::render(f, self.root_id(), ctx)
     }
 }

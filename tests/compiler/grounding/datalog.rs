@@ -1,11 +1,13 @@
-/*use crate::common::io::*;
-use crate::common::pipeline::*;
-use aiplan4rust::aiplan4rust::grounding::analysis::inertia::table::builder::build as analyze_inertia;
-use aiplan4rust::aiplan4rust::grounding::config;
-use aiplan4rust::aiplan4rust::grounding::passes::positive_form_normalization::to_pnf;
-use aiplan4rust::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
+// Imports du framework de test (communs/pipelines)
+use crate::common::compiler::{analyze_file, encode, link};
+use crate::common::io::*;
+use aiplan4rust::aiplan4rust::compiler::grounding::config;
+use aiplan4rust::aiplan4rust::compiler::grounding::passes::to_pnf;
+use aiplan4rust::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
+use aiplan4rust::aiplan4rust::compiler::lir::expr::Expr;
 use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
-use aiplan4rust::quantifier_expansion::problem::expand_with;
+use aiplan4rust::analysis::inertia::table::InertiaTable;
+use aiplan4rust::qnf::problem::expand_with;
 use aiplan4rust::DatalogEngine;
 use std::path::Path;
 use test_case::test_case;
@@ -17,9 +19,8 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
     let all_files = collect_domain_files(domain_dir);
     let problems_to_process = get_test_files_for_mode(filter_problem_files(&all_files));
 
-    // Message global pour confirmer que le test tourne
     println!(
-        "\n\x1b[1;36m>>> Starting Datalog Cardinality Test in: {}\x1b[0m",
+        "\n\x1b[1;36m>>> Running Datalog Reachability Suite in: {}\x1b[0m",
         domain_dir.display()
     );
 
@@ -28,9 +29,8 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
         let problem_name = problem_path.file_name().unwrap().to_str().unwrap();
         let oracle_key = format!("{}/{}", domain_name, problem_name);
 
-        // Ligne de debug pour voir quel fichier est en cours de traitement
-        print!("  Processing {}... ", oracle_key);
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+        print!("  Processing Oracle Key [{}] ... ", oracle_key);
+        let _ = std::io::Write::flush(&mut std::io::stdout());
 
         let domain_path = find_associated_domain(problem_path).expect("Domain not found");
 
@@ -64,35 +64,98 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             }
         };
 
-        let mut pb = lir_result.take_lifted_problem().expect("No lifted problem");
+        let mut lifted_problem = lir_result.take_lifted_problem().expect("No lifted problem");
 
-        let table = analyze_inertia(&pb).unwrap();
-        let registry = ValueRegistry::build(pb.type_defs(), pb.object_defs()).unwrap();
-        let evaluator = InertiaEvaluator::build(
-            pb.predicate_defs(),
-            pb.function_defs(),
-            pb.init(),
+        // --- PIPELINE DE PRÉ-TRAITEMENT ISSU DE TON NOYAU ---
+
+        // 2. ANALYSE D'INERTIE
+        let table = match InertiaTable::build(&lifted_problem) {
+            Ok(t) => t,
+            Err(e) => {
+                println!("\x1b[1;31mFAILED (Inertia Table)\x1b[0m");
+                eprintln!("    Error: {}", e);
+                success = false;
+                continue;
+            }
+        };
+
+        // 3. VALUE REGISTRY CONSTRUCTION
+        let registry = match ValueRegistry::build(
+            lifted_problem.type_defs().as_slice(),
+            lifted_problem.object_defs().as_slice(),
+        ) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("\x1b[1;31mFAILED (Value Registry)\x1b[0m");
+                eprintln!("    Error: {}", e);
+                success = false;
+                continue;
+            }
+        };
+
+        // Extraction propre de init pour l'évaluateur d'inertie
+        let init = Expr::new(lifted_problem.init(), lifted_problem.store());
+        let evaluator = match InertiaEvaluator::build(
+            lifted_problem.predicate_defs(),
+            lifted_problem.function_defs(),
+            init,
             &table,
             &registry,
             config::DEFAULT_MAX_ARITY,
             config::DEFAULT_MAX_PROJ,
-        )
-        .unwrap();
-        expand_with(&mut pb, &registry, Some(&evaluator)).unwrap();
-        let negated_predicates = to_pnf(&mut pb).unwrap();
-        let mut datalog = DatalogEngine::new(&pb, &registry, &table, &negated_predicates);
-        if let Err(e) = datalog.load_problem() {
-            println!("\x1b[1;31mFAILED (Datalog Load)\x1b[0m");
+        ) {
+            Ok(ev) => ev,
+            Err(e) => {
+                println!("\x1b[1;31mFAILED (Inertia Evaluator)\x1b[0m");
+                eprintln!("    Error: {}", e);
+                success = false;
+                continue;
+            }
+        };
+
+        // 5. QUANTIFIER EXPANSION
+        if let Err(e) = expand_with(&mut lifted_problem, &registry, Some(&evaluator)) {
+            println!("\x1b[1;31mFAILED (QNF Expansion)\x1b[0m");
             eprintln!("    Error: {}", e);
             success = false;
             continue;
         }
 
+        // 6. PNF
+        let negated_predicates = match to_pnf(&mut lifted_problem) {
+            Ok(np) => np,
+            Err(e) => {
+                println!("\x1b[1;31mFAILED (PNF Transformation)\x1b[0m");
+                eprintln!("    Error: {}", e);
+                success = false;
+                continue;
+            }
+        };
+
+        // 1. Déclare datalog normalement
+        let mut datalog = DatalogEngine::new();
+
+        // 2. CHANGER : Réassigne le résultat de load_problem à datalog s'il réussit
+        datalog =
+            match datalog.load_problem(&mut lifted_problem, &registry, &table, &negated_predicates)
+            {
+                Ok(engine_configure) => engine_configure, // On récupère l'engine retourné
+                Err(e) => {
+                    println!("\x1b[1;31mFAILED (Datalog Load)\x1b[0m");
+                    eprintln!("    Error: {}", e);
+                    success = false;
+                    continue;
+                }
+            }; // Ne pas oublier le point-virgule ici
+
+        // 3. Maintenant datalog possède à nouveau la propriété de l'objet,
+        // et tu peux appeler .run() sans erreur !
         datalog.run();
 
         let actual_f = datalog.get_reachable_fluents().len();
         let actual_a = datalog.get_reachable_actions().len();
 
+        // Comparaison avec les Oracles connus
         let expected = match oracle_key.as_str() {
             "combinatorial/pb01.pddl" => Some((13, 15)),
             "combinatorial/pb02.pddl" => Some((267, 680)),
@@ -109,7 +172,7 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
                 if actual_f != exp_f || actual_a != exp_a {
                     println!("\x1b[1;31m[FAIL]\x1b[0m");
                     println!(
-                        "    Expected: ({}F, {}A) | Got: ({}F, {}A)",
+                        "    Expected: ({} Fluents, {} Actions) | Got: ({} Fluents, {} Actions)",
                         exp_f, exp_a, actual_f, actual_a
                     );
                     success = false;
@@ -118,7 +181,10 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
                 }
             }
             None => {
-                println!("\x1b[1;34m[NEW]\x1b[0m Found {}F, {}A", actual_f, actual_a);
+                println!(
+                    "\x1b[1;34m[NEW ORACLE]\x1b[0m Grounded Layout -> {} Fluents, {} Actions",
+                    actual_f, actual_a
+                );
             }
         }
     }
@@ -126,11 +192,13 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
     success
 }
 
-#[test_case("tests/fixtures/other/combinatorial/"; "com")]
-//#[test_case("tests/fixtures/pddl/ipc98/assembly/adl/"; "ipc98_pddl_adl_assembly")]
+#[test_case("tests/fixtures/pddl/ipc98/assembly/adl/"; "ipc98_adl_assembly")]
 pub fn test_pddl_datalog(domain_path: &str) {
     let _ = env_logger::builder().is_test(true).try_init();
     let path = Path::new(domain_path);
-    assert!(test_datalog_cardinality(path));
+    assert!(
+        test_datalog_cardinality(path),
+        "Datalog integration test failed for path: {}",
+        domain_path
+    );
 }
-*/

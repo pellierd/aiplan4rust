@@ -3,7 +3,7 @@ use crate::aiplan4rust::support::lang::AtomSkeletonId;
 
 /// Objet contexte pour le rendu, contenant uniquement les données nécessaires
 /// pour traduire les IDs bruts en symboles lisibles.
-pub struct RenderContext<'a> {
+pub struct DatalogRenderContext<'a> {
     pub problem: &'a LiftedProblem,
     pub type_to_skeleton: &'a [AtomSkeletonId],
     pub fluence_threshold: usize,
@@ -11,7 +11,7 @@ pub struct RenderContext<'a> {
     pub action_threshold: usize,
 }
 
-impl<'a> RenderContext<'a> {
+impl<'a> DatalogRenderContext<'a> {
     /// Crée un contexte à partir des accesseurs publics de l'Engine.
     pub fn new(
         problem: &'a LiftedProblem,

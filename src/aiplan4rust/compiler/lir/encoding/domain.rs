@@ -59,7 +59,7 @@ pub(crate) fn encode(
     collect_definitions(syntax_tree, registry, ir, builder)?;
 
     // 2. Built-in Phase: Ensure support PDDL functions are registered.
-    encode_builtin_functions(registry, ir, builder.store())?;
+    encode_builtin_functions(registry, ir, builder.store_mut())?;
 
     // 3. Logic Encoding Phase:
     // At this stage, the symbol registry is populated, allowing 'encode_logic'

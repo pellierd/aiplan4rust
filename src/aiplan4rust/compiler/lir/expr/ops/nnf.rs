@@ -36,7 +36,7 @@ use crate::aiplan4rust::compiler::lir::expr::ops::error::ExprOpError;
 use crate::aiplan4rust::compiler::lir::expr::builder::ExprBuilder;
 use crate::aiplan4rust::compiler::lir::expr::iter::scratchpad::Scratchpad;
 use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind};
-use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, RenderContext};
+use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, LirRenderContext};
 
 /// Converts a logical expression to Negation Normal Form (NNF).
 ///
@@ -374,7 +374,7 @@ pub fn to_nnf(
     let final_res = final_id.ok_or_else(|| ExprOpError::nnf_logic_error())?;
 
     // Validate NNF correctness before exiting the pipeline
-    check_post_conditions(builder.store(), final_res);
+    check_post_conditions(builder.store_mut(), final_res);
 
     Ok(final_res)
 }
@@ -409,7 +409,7 @@ fn check_post_conditions(store: &expr::ExprStore, final_res: ExprId) {
             println!("Root ExprId: {:?}", final_res);
 
             // 1. Instantiate the safe, symbol-free rendering context.
-            let ctx = RenderContext::debug(store);
+            let ctx = LirRenderContext::debug(store);
 
             // 2. Wrap the raw ExprId and store into the high-level Expr handle.
             let expr_handle = Expr::new(final_res, store);

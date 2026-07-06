@@ -8,10 +8,10 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::NamedTypedList;
 use crate::aiplan4rust::compiler::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::compiler::lir::renderers;
 use crate::aiplan4rust::compiler::lir::renderers::{
-    LiftedDebugDisplay, LiftedSyntaxDisplay, RenderContext,
+    LiftedDebugDisplay, LiftedSyntaxDisplay, LirRenderContext,
 };
-use crate::aiplan4rust::support::lang::{ActionSymbolId, VariableId};
 use crate::aiplan4rust::support::lang::TypedListId;
+use crate::aiplan4rust::support::lang::{ActionSymbolId, VariableId};
 use core::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
@@ -213,14 +213,14 @@ impl Action {
 
 impl LiftedSyntaxDisplay for Action {
     /// Rendu PDDL propre (soit (:action ...) soit (:durative-action ...)).
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::syntax::action::render(f, self, ctx)
     }
 }
 
 impl LiftedDebugDisplay for Action {
     /// Rendu structurel pour le debug (Type d'action, Header ID, Body Expr Trees, Local Symbols).
-    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+    fn fmt_debug(&self, f: &mut Formatter<'_>, ctx: &LirRenderContext) -> std::fmt::Result {
         renderers::debug::action::render(f, self, ctx)
     }
 }

@@ -7,7 +7,7 @@ use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprId, ExprKind, ExprNode, 
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
 use crate::aiplan4rust::compiler::syntax::ast::tree::SyntaxContent;
-use crate::aiplan4rust::support::lang::{ActionSymbolId, CompareOp};
+use crate::aiplan4rust::support::lang::{ActionSymbolId, CompareOp, Id};
 use crate::aiplan4rust::support::lang::{
     AtomSkeletonId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
 };
@@ -42,7 +42,7 @@ use std::collections::HashMap;
 /// - **Schema Tracking**: Maintains a monotonic evaluator of generated signatures
 ///   ([`AtomicFormulaSkeleton`]), allowing the grounded results to be mapped back
 ///   to human-readable names after saturation.
-pub struct DatalogEncoder {
+pub struct DatalogEncoder<'a> {
     /// The starting offset for auxiliary predicate IDs.
     /// Typically set to the count of original predicates in the domain.
     base_aux_id: usize,
@@ -67,10 +67,10 @@ pub struct DatalogEncoder {
 
     negation_offset: usize,
     type_to_skeleton: Vec<AtomSkeletonId>,
-    expr_store: ExprStore,
+    expr_store: &'a mut ExprStore,
 }
 
-impl DatalogEncoder {
+impl<'a> DatalogEncoder<'a> {
     /// Initializes a new Datalog Encoder.
     ///
     /// # Arguments
@@ -109,6 +109,7 @@ impl DatalogEncoder {
         action_count: usize,
         negation_offset: usize,
         type_to_skeleton: Vec<AtomSkeletonId>,
+        expr_store: &'a mut ExprStore,
     ) -> Self {
         Self {
             base_aux_id: base_id,
@@ -122,8 +123,24 @@ impl DatalogEncoder {
             action_anchor: None,
             negation_offset,
             type_to_skeleton,
-            expr_store: ExprStore::new(),
+            expr_store,
         }
+    }
+
+    /// Extrait temporairement le store mutable de l'encodeur en le remplaçant
+    /// par un store par défaut "leaked" (immortel pour la durée 'a).
+    pub fn take_store(&mut self) -> &'a mut ExprStore {
+        let default_store = Box::leak(Box::new(ExprStore::default()));
+        std::mem::replace(&mut self.expr_store, default_store)
+    }
+
+    /// Réinjecte ou écrase le store de l'encodeur avec une nouvelle référence.
+    pub fn set_store(&mut self, store: &'a mut ExprStore) {
+        self.expr_store = store;
+    }
+
+    pub fn store(&self) -> &ExprStore {
+        self.expr_store
     }
 
     /// Retourne la tranche (slice) d'effets pour l'index d'action donné.
@@ -294,6 +311,165 @@ impl DatalogEncoder {
         parameters: &TypedList<VariableId, TypeId>,
         action_index: usize,
     ) -> Result<(), DatalogError> {
+        let mut root_cause = action_atom.clone();
+        for term in root_cause.terms_mut() {
+            if let Term::Variable(v) = *term {
+                *term = self.resolve_var(v);
+            }
+        }
+
+        let root_cause_id = root_cause.skeleton_id();
+
+        // Work stack: (Node ID, Current Cause)
+        let mut work_stack = vec![(root_effect.root_id(), root_cause)];
+
+        // Protège le parcours des effets contre le Hash-Consing
+        // Note : Si la même condition s'applique à plusieurs sous-effets,
+        // le couple (node_id, cause) ne doit être traité qu'une fois.
+        let mut visited = std::collections::HashSet::new();
+
+        while let Some((node_id, current_cause)) = work_stack.pop() {
+            // Évite les boucles ou redondances induites par le Hash-Consing
+            if !visited.insert((node_id, current_cause.skeleton_id())) {
+                continue;
+            }
+
+            let node = root_effect.fetch_node(node_id)?;
+            let kind = node.kind();
+
+            match kind {
+                ExprKind::AtomicFormula(_) => {
+                    let mut effect_atom = self.extract_atom(root_effect, node)?;
+
+                    for term in effect_atom.terms_mut() {
+                        if let Term::Variable(v) = *term {
+                            *term = self.resolve_var(v);
+                        }
+                    }
+
+                    let cause = if current_cause.skeleton_id() == root_cause_id {
+                        Cause::Action
+                    } else {
+                        Cause::Pivot(current_cause.clone())
+                    };
+                    self.action_effects[action_index].push((effect_atom.clone(), cause));
+
+                    rules_sink.push(Rule::new(effect_atom, vec![current_cause.clone()]));
+                }
+
+                ExprKind::And => {
+                    for &child_id in node.children().iter().rev() {
+                        work_stack.push((child_id, current_cause.clone()));
+                    }
+                }
+
+                ExprKind::When => {
+                    let children = node.children();
+                    let condition_id = children[0];
+                    let sub_effect_id = children[1];
+
+                    if let Some(cond_atom) =
+                        self.encode_expr(root_effect, condition_id, rules_sink, parameters)?
+                    {
+                        let mut combined_body = vec![current_cause.clone(), cond_atom.clone()];
+                        combined_body.sort_by_key(|a| a.skeleton_id());
+
+                        let aux_when_atom =
+                            if let Some(existing_head) = self.cache.get(&combined_body) {
+                                existing_head.clone()
+                            } else {
+                                // 🌟 CORRECTION : La tête de règle doit représenter l'ensemble
+                                // du corps combiné (cause + condition) pour éviter les collisions de cache !
+                                let (head, secured_body) =
+                                    self.encode_new_aux_predicate(&combined_body, parameters)?;
+
+                                rules_sink.push(Rule::new(head.clone(), secured_body));
+                                self.cache.insert(combined_body, head.clone());
+                                head
+                            };
+
+                        work_stack.push((sub_effect_id, aux_when_atom));
+                    } else {
+                        work_stack.push((sub_effect_id, current_cause));
+                    }
+                }
+
+                ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
+                    if let Some(&child_id) = node.children().first() {
+                        work_stack.push((child_id, current_cause));
+                    }
+                }
+
+                ExprKind::Assignment(_) | ExprKind::Arithmetic(_) => {
+                    continue;
+                }
+
+                ExprKind::Not => {
+                    let children = node.children();
+                    if let Some(&child_id) = children.first() {
+                        let child_node = root_effect.fetch_node(child_id)?;
+                        let child_kind = child_node.kind();
+
+                        if let ExprKind::AtomicFormula(_) = child_kind {
+                            let mut del_atom = self.extract_atom(root_effect, child_node)?;
+
+                            for term in del_atom.terms_mut() {
+                                if let Term::Variable(v) = *term {
+                                    *term = self.resolve_var(v);
+                                }
+                            }
+
+                            // On marque l'atome comme négatif
+                            del_atom.set_negated(true);
+
+                            // 🛡️ SÉCURISÉ (Zéro dette technique) :
+                            // 1. On extrait l'index pur (les 60 bits utiles) débarrassé du bit 60
+                            let pure_id = del_atom.skeleton_id().as_usize();
+
+                            // 2. On applique l'offset arithmétique sur cet index propre
+                            let target_idx = pure_id + self.negation_offset;
+
+                            // 3. On reconstruit le squelette (notre nouveau From<usize> valide sans paniquer)
+                            let mut final_skeleton = AtomSkeletonId::from(target_idx);
+
+                            // 4. On s'assure que le bit 60 de négation est bien positionné pour le Datalog
+                            final_skeleton.set_negated(true);
+
+                            del_atom.set_skeleton_id(final_skeleton);
+
+                            let cause = if current_cause.skeleton_id() == root_cause_id {
+                                Cause::Action
+                            } else {
+                                Cause::Pivot(current_cause.clone())
+                            };
+
+                            self.action_effects[action_index].push((del_atom.clone(), cause));
+                        }
+                    }
+                }
+
+                ExprKind::Forall(_) | ExprKind::Exists(_) | ExprKind::Imply => {
+                    return Err(DatalogError::feature_not_supported(
+                        format!("ADL construct {:?} in effects", kind),
+                        node_id,
+                    ));
+                }
+
+                _ => {
+                    return Err(DatalogError::incompatible_node(kind.clone(), node_id));
+                }
+            }
+        }
+        Ok(())
+    }
+    /*pub fn encode_effects(
+        &mut self,
+        root_effect: Expr,
+        action_atom: &Atom,
+        rules_sink: &mut Vec<Rule>,
+        parameters: &TypedList<VariableId, TypeId>,
+        action_index: usize,
+    ) -> Result<(), DatalogError> {
         // --- MODIFICATION : ALIASING SUR L'ACTION RACINE ---
         // On doit appliquer resolve_var sur l'atome d'action initial pour que
         // toutes les "causes" utilisent les représentants canoniques.
@@ -457,7 +633,7 @@ impl DatalogEncoder {
             }
         }
         Ok(())
-    }
+    }*/
 
     /// Encodes the preconditions of an action into Datalog atoms and rules.
     ///
@@ -539,7 +715,308 @@ impl DatalogEncoder {
     /// * `Ok(Some(Atom))` - The head atom representing the encoded sub-expression.
     /// * `Ok(None)` - If the branch contains no logical content (e.g., empty AND, ignored nodes).
     /// * `Err(DatalogError)` - If the stack is inconsistent or an unsupported node is encountered.
+
     pub fn encode_expr(
+        &mut self,
+        expr: Expr,
+        node_id: ExprId, // Ajusté avec ton type d'identifiant d'expression
+        rules_sink: &mut Vec<Rule>,
+        parameters: &TypedList<VariableId, TypeId>,
+    ) -> Result<Option<Atom>, DatalogError> {
+        // ÉTAPE 1 : On nettoie et on collecte les alias pour cet arbre précis
+        self.current_aliases = self.extract_variable_aliases(expr)?;
+
+        let mut work_stack = vec![(node_id, false)];
+        let mut results_stack: Vec<Option<Atom>> = Vec::with_capacity(32);
+
+        // =========================================================================
+        // AJOUT HASH-CONSING : Tableau de mémoïsation indexé par la valeur de l'ExprId
+        // =========================================================================
+        let mut memo: Vec<Option<Option<Atom>>> = vec![None; expr.store().len()];
+
+        while let Some((current_id, visited)) = work_stack.pop() {
+            let idx = current_id.as_usize(); // Extraction du usize depuis ton ExprId
+
+            // Si le nœud a déjà été entièrement traité et synthétisé par le passé,
+            // on pousse directement son résultat dans la pile de résultats et on passe.
+            if !visited {
+                if let Some(cached_result) = &memo[idx] {
+                    results_stack.push(cached_result.clone());
+                    continue;
+                }
+            }
+
+            // Utilisation de la méthode dédiée sur Expr qui retourne un ExprNodeRef<'a>
+            let node = expr.fetch_node(current_id)?;
+            let kind = node.kind();
+
+            if !visited {
+                match kind {
+                    // FILTRAGE EN DESCENTE
+                    ExprKind::Not => {
+                        let children = node.children();
+
+                        // 1. Vérification de l'arité (1 seul enfant)
+                        if children.len() != 1 {
+                            return Err(StorerError::invalid_node(current_id).into());
+                        }
+
+                        let child_id = children[0];
+                        let child_node = expr.fetch_node(child_id)?;
+                        let child_kind = child_node.kind();
+
+                        // 2. Vérification du typing (Comparison) et de l'opérateur (Equal uniquement)
+                        let is_valid_comparison = match child_kind {
+                            ExprKind::Comparison(op) => *op == CompareOp::Equal,
+                            _ => false,
+                        };
+
+                        if !is_valid_comparison {
+                            let feature_desc = format!("Negation of {:?}", child_kind);
+                            return Err(DatalogError::feature_not_supported(
+                                feature_desc,
+                                child_id,
+                            ));
+                        }
+
+                        // Si c'est bon, on continue la visite
+                        work_stack.push((current_id, true));
+                        work_stack.push((child_id, false));
+                    }
+
+                    ExprKind::And
+                    | ExprKind::Or
+                    | ExprKind::AtStart
+                    | ExprKind::AtEnd
+                    | ExprKind::Overall => {
+                        work_stack.push((current_id, true));
+                        for &child_id in node.children().iter().rev() {
+                            work_stack.push((child_id, false));
+                        }
+                    }
+
+                    ExprKind::AtomicFormula(_) | ExprKind::Comparison(_) => {
+                        work_stack.push((current_id, true));
+                    }
+
+                    ExprKind::Arithmetic(_) => {
+                        results_stack.push(None);
+                    }
+
+                    _ => return Err(DatalogError::incompatible_node(kind.clone(), current_id)),
+                }
+            } else {
+                // --- PHASE 2 : Synthèse ---
+                let num_children = node.children().len();
+                let result = match kind {
+                    ExprKind::AtomicFormula(skeleton_id) => {
+                        let mut atom = self.extract_atom(expr, node)?;
+                        for term in atom.terms_mut() {
+                            if let Term::Variable(v) = *term {
+                                *term = self.resolve_var(v); // Utilise la version récursive !
+                            }
+                        }
+                        // 2. GESTION DE LA NÉGATION
+                        if skeleton_id.is_negated() {
+                            let mut sk = atom.skeleton_id();
+                            sk.set_negated(true);
+                            atom.set_skeleton_id(sk);
+                        }
+                        Some(atom)
+                    }
+
+                    ExprKind::Not => {
+                        // On sait que c'est une égalité positive grâce à la Phase 1
+                        match results_stack.pop().flatten() {
+                            Some(mut atom) => {
+                                let terms = atom.terms();
+                                if terms[0] == terms[1] {
+                                    // NOT(c1 = c1) -> False
+                                    None
+                                } else {
+                                    // (= c1 c2) -> (!= c1 c2)
+                                    atom.set_negated(true);
+                                    Some(atom)
+                                }
+                            }
+                            None => {
+                                // NOT(False) -> True (Tautologie témoin)
+                                let v = VariableId::from(0);
+                                Some(Atom::equality(Term::Variable(v), Term::Variable(v)))
+                            }
+                        }
+                    }
+
+                    ExprKind::And => {
+                        let start_idx = results_stack.len() - num_children;
+                        let child_results: Vec<Option<Atom>> =
+                            results_stack.drain(start_idx..).collect();
+
+                        // 1. Si un enfant est None (branche impossible), le AND est None
+                        if child_results.iter().any(|r| r.is_none()) {
+                            None
+                        } else {
+                            let mut atoms: Vec<Atom> = Vec::new();
+                            for a in child_results.into_iter().flatten() {
+                                if a.is_equality() {
+                                    let terms = a.terms();
+                                    if a.is_negated() {
+                                        if terms[0] == terms[1] {
+                                            return Ok(None);
+                                        } // Contradiction: ?x != ?x
+                                        atoms.push(a);
+                                    } else {
+                                        if terms[0] != terms[1] {
+                                            atoms.push(a);
+                                        } // On garde ?x = constante
+                                    }
+                                } else {
+                                    atoms.push(a);
+                                }
+                            }
+
+                            // 2. Synthèse
+                            if atoms.is_empty() {
+                                // Tautologie (1=1), on renvoie un témoin
+                                Some(Atom::equality(
+                                    Term::Variable(VariableId::from(0)),
+                                    Term::Variable(VariableId::from(0)),
+                                ))
+                            } else if atoms.len() == 1 {
+                                Some(atoms[0].clone())
+                            } else {
+                                // 3. Cache & Auxiliaires
+                                atoms.sort_by_key(|a| a.skeleton_id());
+                                if let Some(existing_head) = self.cache.get(&atoms) {
+                                    Some(existing_head.clone())
+                                } else {
+                                    // On récupère la tête ET le corps sécurisé (avec les Type Guards)
+                                    let (head, secured_body) =
+                                        self.encode_new_aux_predicate(&atoms, parameters)?;
+
+                                    // CRUCIAL : On pousse la version sécurisée dans le moteur Datalog
+                                    rules_sink.push(Rule::new(head.clone(), secured_body));
+
+                                    // On garde les 'atoms' originaux comme clé de cache
+                                    self.cache.insert(atoms, head.clone());
+                                    Some(head)
+                                }
+                            }
+                        }
+                    }
+
+                    ExprKind::Or => {
+                        let start_idx = results_stack.len() - num_children;
+                        let mut atoms: Vec<Atom> =
+                            results_stack.drain(start_idx..).flatten().collect();
+
+                        if atoms.is_empty() {
+                            None
+                        } else if atoms.len() == 1 {
+                            Some(atoms[0].clone())
+                        } else {
+                            atoms.sort_by_key(|a| a.skeleton_id());
+                            atoms.dedup();
+
+                            if let Some(existing_head) = self.cache.get(&atoms) {
+                                Some(existing_head.clone())
+                            } else {
+                                // 1. On récupère la tête
+                                let (head, _) =
+                                    self.encode_new_aux_predicate(&atoms, parameters)?;
+
+                                for atom in &atoms {
+                                    // Chaque règle du OR est : Aux_Or(?x) :- Branche_N(?x)
+                                    let mut branch_body = vec![atom.clone()];
+
+                                    // --- SÉCURISATION DE LA BRANCHE ---
+                                    // On vérifie quelles variables de la tête sont couvertes par CETTE branche précise
+                                    let mut covered_vars = std::collections::HashSet::new();
+                                    if !atom.is_negated() {
+                                        for term in atom.terms() {
+                                            if let Term::Variable(v) = term {
+                                                covered_vars.insert(*v);
+                                            }
+                                        }
+                                    }
+
+                                    // Pour chaque variable de la tête, si elle est "orpheline" dans cette branche,
+                                    // on injecte son Type Guard.
+                                    for term in head.terms() {
+                                        if let Term::Variable(v) = term {
+                                            if !covered_vars.contains(v) {
+                                                let type_id =
+                                                    parameters[v.as_usize()].ty().members()[0]
+                                                        .as_usize();
+                                                let type_sk = self.type_to_skeleton[type_id];
+
+                                                // Ajout du Type Guard spécifique à la branche
+                                                branch_body.push(Atom::new(
+                                                    type_sk,
+                                                    vec![Term::Variable(*v)],
+                                                ));
+                                                covered_vars.insert(*v);
+                                            }
+                                        }
+                                    }
+
+                                    // On enregistre la règle de la branche sécurisée
+                                    rules_sink.push(Rule::new(head.clone(), branch_body));
+                                }
+
+                                self.cache.insert(atoms, head.clone());
+                                Some(head)
+                            }
+                        }
+                    }
+
+                    ExprKind::Comparison(op) => {
+                        if *op == CompareOp::Equal {
+                            // Utilise ta fonction centrale !
+                            let mut atom = self.extract_atom(expr, node)?;
+
+                            // Résolution des termes (important !)
+                            for term in atom.terms_mut() {
+                                if let Term::Variable(v) = *term {
+                                    *term = self.resolve_var(v);
+                                }
+                            }
+
+                            let terms = atom.terms();
+                            if terms[0] == terms[1] {
+                                Some(atom) // Tautologie
+                            } else if let (Term::Constant(c1), Term::Constant(c2)) =
+                                (&terms[0], &terms[1])
+                            {
+                                None // Conflit de constantes
+                            } else {
+                                Some(atom)
+                            }
+                        } else {
+                            None
+                        }
+                    }
+
+                    ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
+                        if num_children > 0 {
+                            results_stack.pop().flatten()
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+
+                // =========================================================================
+                // ENREGISTREMENT HASH-CONSING : On fige le résultat produit pour ce nœud
+                // =========================================================================
+                memo[idx] = Some(result.clone());
+                results_stack.push(result);
+            }
+        }
+        Ok(results_stack.pop().flatten())
+    }
+    /*pub fn encode_expr(
         &mut self,
         expr: Expr,
         node_id: ExprId, // Ajusté avec ton type d'identifiant d'expression
@@ -817,7 +1294,7 @@ impl DatalogEncoder {
             }
         }
         Ok(results_stack.pop().flatten())
-    }
+    }*/
 
     /// Extracts a logical [`Atom`] from a specific expression node.
     ///
@@ -839,8 +1316,10 @@ impl DatalogEncoder {
         // 1. Fast determination of the Skeleton ID and the child skip offset.
         // On extrait l'identifiant directement depuis les variants de l'enum ExprEntryKind.
         let (skeleton_id, skip_count) = match kind {
+            // EQUALITY_ID est un index pur, From<usize> passe sans problème avec notre nouvelle macro
             ExprKind::Comparison(_) => (AtomSkeletonId::from(Atom::EQUALITY_ID), 0),
-            ExprKind::AtomicFormula(sk_id) => (*sk_id, 0),
+            // On copie sk_id intact avec son bit 60 s'il a été mis à jour par la PNF !
+            ExprKind::AtomicFormula(sk_id) => (*sk_id, 1),
             _ => {
                 return Err(DatalogError::incompatible_node(
                     kind.clone(),
@@ -861,7 +1340,11 @@ impl DatalogEncoder {
             let term = match arg_node.kind() {
                 ExprKind::Variable(v_id) => Term::Variable(*v_id),
                 ExprKind::Object(obj_id) => Term::Constant(*obj_id),
-                _ => return Err(DatalogError::invalid_atom_argument_(arg_id)),
+                _ => {
+                    // Remplacement du panic temporaire par une vraie erreur typée
+                    // propre à ton architecture pour éviter les crashs violents en production
+                    return Err(DatalogError::invalid_atom_argument(arg_id));
+                }
             };
             terms.push(term);
         }
@@ -1153,6 +1636,176 @@ impl DatalogEncoder {
     ) -> Result<HashMap<VariableId, Term>, DatalogError> {
         let mut aliases = HashMap::new();
 
+        let root_id = expr.root_id();
+        if root_id.is_none() {
+            return Ok(aliases);
+        }
+
+        // Gardien du DAG (Hash-Consing) - Allocation unique de la taille du store
+        let mut visited = vec![false; expr.store().len()];
+        let mut stack = vec![root_id];
+
+        // 🌟 Version optimisée : Zéro allocation, parcours direct et sécurisé par le tri des IDs
+        let find_rep = |map: &HashMap<VariableId, Term>, v: VariableId| -> Term {
+            let mut curr = Term::Variable(v);
+            while let Term::Variable(var) = curr {
+                if let Some(next) = map.get(&var) {
+                    curr = next.clone();
+                } else {
+                    break;
+                }
+            }
+            curr
+        };
+
+        while let Some(node_id) = stack.pop() {
+            let idx = node_id.as_usize();
+            if visited[idx] {
+                continue;
+            }
+            visited[idx] = true;
+
+            let node = expr.fetch_node(node_id)?;
+            let kind = node.kind();
+
+            match kind {
+                ExprKind::Not => {
+                    continue; // Les égalités dans un NOT sont des inégalités, on ignore.
+                }
+
+                ExprKind::Comparison(op) => {
+                    if *op == CompareOp::Equal {
+                        let children = node.children();
+                        if children.len() == 2 {
+                            let t1 = self.node_to_term(expr, children[0])?;
+                            let t2 = self.node_to_term(expr, children[1])?;
+
+                            match (t1, t2) {
+                                (Some(Term::Variable(v1)), Some(Term::Variable(v2))) => {
+                                    let r1 = find_rep(&aliases, v1);
+                                    let r2 = find_rep(&aliases, v2);
+
+                                    if r1 != r2 {
+                                        match (r1, r2) {
+                                            (Term::Variable(var1), Term::Variable(var2)) => {
+                                                aliases.insert(
+                                                    var1.max(var2),
+                                                    Term::Variable(var1.min(var2)),
+                                                );
+                                            }
+                                            (Term::Variable(var), Term::Constant(c))
+                                            | (Term::Constant(c), Term::Variable(var)) => {
+                                                aliases.insert(var, Term::Constant(c));
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                                (Some(Term::Variable(v)), Some(Term::Constant(c)))
+                                | (Some(Term::Constant(c)), Some(Term::Variable(v))) => {
+                                    let r = find_rep(&aliases, v);
+                                    if let Term::Variable(var) = r {
+                                        aliases.insert(var, Term::Constant(c));
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+
+                _ => {
+                    for &child_id in node.children().iter().rev() {
+                        stack.push(child_id);
+                    }
+                }
+            }
+        }
+
+        // Aplatissement final unique (Path Compression) en fin de fonction
+        self.compute_transitive_closure(&mut aliases);
+        Ok(aliases)
+    }
+    /*pub fn extract_variable_aliases(
+        &self,
+        expr: Expr,
+    ) -> Result<HashMap<VariableId, Term>, DatalogError> {
+        let mut aliases = HashMap::new();
+
+        // On récupère l'ID racine. Si l'expression est vide (NONE), on sort.
+        let root_id = expr.root_id();
+        if root_id.is_none() {
+            return Ok(aliases);
+        }
+
+        // =========================================================================
+        // GARDIEN DU DAG : On évite de reparcourir les nœuds partagés par le Hash-Consing
+        // =========================================================================
+        let mut visited = vec![false; expr.store().len()];
+        let mut stack = vec![root_id];
+
+        while let Some(node_id) = stack.pop() {
+            let idx = node_id.as_usize(); // Extraction du usize depuis ton ExprId
+            if visited[idx] {
+                continue;
+            }
+            visited[idx] = true;
+
+            let node = expr.fetch_node(node_id)?;
+            let kind = node.kind();
+
+            match kind {
+                // SI C'EST UN NOT : On ne descend pas dedans !
+                // Les égalités à l'intérieur d'un NOT sont des inégalités.
+                ExprKind::Not => {
+                    continue;
+                }
+
+                // SI C'EST UNE ÉGALITÉ : On extrait l'alias directement via le variant
+                ExprKind::Comparison(op) => {
+                    if *op == CompareOp::Equal {
+                        let children = node.children();
+                        if children.len() == 2 {
+                            let t1 = self.node_to_term(expr, children[0])?;
+                            let t2 = self.node_to_term(expr, children[1])?;
+
+                            // ✅ CORRECTION : Emballage avec Some() car node_to_term renvoie Option<Term>
+                            match (t1, t2) {
+                                (Some(Term::Variable(v1)), Some(Term::Variable(v2)))
+                                    if v1 != v2 =>
+                                {
+                                    aliases.insert(v1.max(v2), Term::Variable(v1.min(v2)));
+                                }
+                                (Some(Term::Variable(v)), Some(Term::Constant(c)))
+                                | (Some(Term::Constant(c)), Some(Term::Variable(v))) => {
+                                    aliases.insert(v, Term::Constant(c));
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+
+                // POUR LES AUTRES : On continue de descendre (And, Or, When, etc.)
+                _ => {
+                    for &child_id in node.children().iter().rev() {
+                        stack.push(child_id);
+                    }
+                }
+            }
+        }
+
+        // Une fois la collecte finie, on applique la fermeture transitive
+        self.compute_transitive_closure(&mut aliases);
+        Ok(aliases)
+    }*/
+
+    /*pub fn extract_variable_aliases(
+        &self,
+        expr: Expr,
+    ) -> Result<HashMap<VariableId, Term>, DatalogError> {
+        let mut aliases = HashMap::new();
+
         // On récupère l'ID racine. Si l'expression est vide (NONE), on sort.
         let root_id = expr.root_id();
         if root_id.is_none() {
@@ -1209,7 +1862,7 @@ impl DatalogEncoder {
         // Une fois la collecte finie, on applique la fermeture transitive
         self.compute_transitive_closure(&mut aliases);
         Ok(aliases)
-    }
+    }*/
 
     /// Helper pour transformer un Node en Term atomique
     fn node_to_term(&self, expr: Expr, node_id: ExprId) -> Result<Option<Term>, DatalogError> {

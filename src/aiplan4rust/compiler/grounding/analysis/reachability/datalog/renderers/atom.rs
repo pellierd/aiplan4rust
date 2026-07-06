@@ -1,10 +1,10 @@
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::support::lang::SymbolId;
 use crate::analysis::reachability::datalog::atom::Atom;
-use crate::analysis::reachability::datalog::renderers::RenderContext;
+use crate::analysis::reachability::datalog::renderers::DatalogRenderContext;
 use crate::analysis::reachability::datalog::term::Term;
 
-pub fn render(ctx: &RenderContext, atom: &Atom) -> String {
+pub fn render(ctx: &DatalogRenderContext, atom: &Atom) -> String {
     let sk_id = atom.skeleton_id();
     let is_neg = atom.is_negated();
 
@@ -25,7 +25,7 @@ pub fn render(ctx: &RenderContext, atom: &Atom) -> String {
 }
 
 /// Transforme les termes (variables ou constantes) en chaînes lisibles.
-fn resolve_terms(ctx: &RenderContext, terms: &[Term]) -> Vec<String> {
+fn resolve_terms(ctx: &DatalogRenderContext, terms: &[Term]) -> Vec<String> {
     let interner = ctx.problem.interner();
     terms
         .iter()
@@ -84,7 +84,7 @@ fn resolve_terms(ctx: &RenderContext, terms: &[Term]) -> Vec<String> {
 }*/
 
 /// Détermine le nom complet du prédicat en fonction des seuils du RenderContext.
-fn resolve_predicate_name(ctx: &RenderContext, raw_index: usize, is_neg: bool) -> String {
+fn resolve_predicate_name(ctx: &DatalogRenderContext, raw_index: usize, is_neg: bool) -> String {
     let neg_prefix = if is_neg { "not_" } else { "" };
 
     if raw_index < ctx.fluence_threshold {
@@ -122,7 +122,7 @@ fn resolve_predicate_name(ctx: &RenderContext, raw_index: usize, is_neg: bool) -
 }
 
 /// Helper spécifique pour extraire le nom d'un type.
-fn resolve_type_label(ctx: &RenderContext, raw_index: usize) -> String {
+fn resolve_type_label(ctx: &DatalogRenderContext, raw_index: usize) -> String {
     ctx.type_to_skeleton
         .iter()
         .position(|&id| id.as_usize() == raw_index)
