@@ -14,7 +14,7 @@ use std::fmt;
 /// during rule transformation and join reordering phases, the rule's body utilizes
 /// a stack-allocated [`SmallVec`]. Since most PDDL action translations generate rules
 /// with a tight set of preconditions and typing literals, an inline capacity of
-/// [`Self::INLINE_BODY_CAPACITY`] (typically 8) ensures that the vast majority of rules
+/// [`Rule::INLINE_BODY_CAPACITY`] (typically 8) ensures that the vast majority of rules
 /// require **zero heap allocations** for their body components.
 #[derive(Debug, Clone)]
 pub struct Rule {
@@ -22,7 +22,7 @@ pub struct Rule {
     head: Atom,
     /// The list of atoms that must be satisfied to trigger the rule,
     /// optimized for stack-allocation.
-    body: SmallVec<[Atom; Self::INLINE_BODY_CAPACITY]>,
+    body: SmallVec<[Atom; Rule::INLINE_BODY_CAPACITY]>,
 }
 
 impl Rule {
@@ -80,7 +80,7 @@ impl Rule {
     ///
     /// Returns an exclusive mutable reference (`&mut SmallVec<...>`) over the rule's body.
     #[inline]
-    pub(crate) fn body_mut(&mut self) -> &mut SmallVec<[Atom; Self::INLINE_BODY_CAPACITY]> {
+    pub(crate) fn body_mut(&mut self) -> &mut SmallVec<[Atom; Rule::INLINE_BODY_CAPACITY]> {
         &mut self.body
     }
 }

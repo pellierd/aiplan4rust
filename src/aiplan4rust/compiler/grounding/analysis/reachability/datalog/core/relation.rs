@@ -29,7 +29,7 @@ pub struct Relation {
     /// Contiguous buffer of object identifiers.
     tuples: Vec<ObjectId>,
     /// Set used to enforce uniqueness and provide fast $\mathcal{O}(1)$ lookups via stack-allocated inline buffers.
-    index: FxHashSet<smallvec::SmallVec<[ObjectId; Self::INLINE_TUPLE_CAPACITY]>>,
+    index: FxHashSet<smallvec::SmallVec<[ObjectId; Relation::INLINE_TUPLE_CAPACITY]>>,
     /// Index optimized for joins: Maps `first_arg -> [buffer_offsets]`.
     first_arg_index: FxHashMap<ObjectId, Vec<usize>>,
 }
@@ -120,7 +120,7 @@ impl Relation {
         if let Some(&first_obj) = tuple.first() {
             self.first_arg_index
                 .entry(first_obj)
-                .or_insert_with(|| Vec::with_capacity(Self::DEFAULT_INDEX_BUCKET_CAPACITY))
+                .or_insert_with(|| Vec::with_capacity(Relation::DEFAULT_INDEX_BUCKET_CAPACITY))
                 .push(start_offset);
         }
 

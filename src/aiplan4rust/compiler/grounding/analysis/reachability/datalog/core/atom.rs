@@ -22,7 +22,7 @@ use std::fmt;
 ///   the footprint lightweight and optimizes CPU cache locality during intensive grounding loops.
 /// * **Inline Stack Allocation**: To prevent continuous heap fragmentation during iterative grounding loops,
 ///   arguments are stored inside a stack-allocated [`SmallVec`] container. For any relation with an
-///   arity lower than or equal to [`Self::INLINE_TERM_CAPACITY`] (typically $\le 4$), the structure
+///   arity lower than or equal to [`Atom::INLINE_TERM_CAPACITY`] (typically $\le 4$), the structure
 ///   triggers **zero heap allocations**, guaranteeing extreme data locality and low cache-miss ratios.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Atom {
@@ -31,7 +31,7 @@ pub struct Atom {
     skeleton_id: AtomSkeletonId,
     /// The contiguous sequence of arguments assigned to this instance, matching either
     /// [`Term::Variable`] placeholders or evaluated [`Term::Constant`] literals.
-    terms: SmallVec<[Term; Self::INLINE_TERM_CAPACITY]>,
+    terms: SmallVec<[Term; Atom::INLINE_TERM_CAPACITY]>,
 }
 
 impl Atom {
@@ -97,7 +97,7 @@ impl Atom {
         terms.push(t2);
 
         Self {
-            skeleton_id: AtomSkeletonId::from(Self::EQUALITY_ID),
+            skeleton_id: AtomSkeletonId::from(Atom::EQUALITY_ID),
             terms,
         }
     }
@@ -148,7 +148,7 @@ impl Atom {
     /// operation and an integer comparison.
     pub fn is_equality(&self) -> bool {
         // Mask out the negation bit (bit 60) so that inequalities are also recognized.
-        (self.skeleton_id.as_raw_usize() & !(1 << 60)) == Self::EQUALITY_ID
+        (self.skeleton_id.as_raw_usize() & !(1 << 60)) == Atom::EQUALITY_ID
     }
 
     /// Checks whether this atom is negated by evaluating the Most Significant Bit (MSB) of its identifier.
