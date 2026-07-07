@@ -12,7 +12,7 @@
 
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::relation::Relation;
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 /// A two-tier relational database for Datalog facts.
 ///
@@ -25,9 +25,9 @@ use std::collections::HashMap;
 #[derive(Default, Debug, Clone)]
 pub struct Database {
     /// Facts that have been fully integrated into the knowledge base.
-    stable: HashMap<AtomSkeletonId, Relation>,
+    stable: FxHashMap<AtomSkeletonId, Relation>,
     /// Buffer containing facts found in the latest saturation round.
-    delta: HashMap<AtomSkeletonId, Relation>,
+    delta: FxHashMap<AtomSkeletonId, Relation>,
 }
 
 impl Database {
@@ -106,7 +106,7 @@ impl Database {
     /// This is primarily used by the saturation algorithm to iterate over the
     /// current knowledge base and evaluate rules during the fixed-point calculation.
     #[inline]
-    pub fn stable_relations(&self) -> &HashMap<AtomSkeletonId, Relation> {
+    pub fn stable_relations(&self) -> &FxHashMap<AtomSkeletonId, Relation> {
         &self.stable
     }
 
@@ -115,7 +115,7 @@ impl Database {
     /// This is crucial for the Semi-Naive algorithm to identify
     /// the "newly discovered" facts that trigger rules.
     #[inline]
-    pub fn delta_relations(&self) -> &HashMap<AtomSkeletonId, Relation> {
+    pub fn delta_relations(&self) -> &FxHashMap<AtomSkeletonId, Relation> {
         &self.delta
     }
 
@@ -340,6 +340,7 @@ impl std::fmt::Display for Database {
         Ok(())
     }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::database::Database;
