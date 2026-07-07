@@ -1,35 +1,27 @@
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::cause::Cause;
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::database::Database;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::rule::Rule;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::compiler::lir::expr::{ExprKind, ExprStore};
-use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
 use crate::aiplan4rust::support::lang::{
     ActionSymbolId, AtomSkeletonId, TypeId, TypedList, VariableId,
 };
-use crate::analysis::inertia::table::InertiaTable;
+use crate::analysis::reachability::datalog::context::DatalogContext;
 use crate::analysis::reachability::datalog::encoder;
 use crate::analysis::reachability::datalog::error::DatalogError;
-use std::collections::HashMap;
+use crate::analysis::reachability::datalog::state::DatalogState;
 
 /// Compile l'ensemble des définitions d'actions du domaine PDDL en règles Datalog logiques.
 ///
 /// Cette fonction fusionnée parcourt chaque action, extrait sa signature, compile son corps
 /// (préconditions), gère le cas des actions sans paramètres (bootstrap), et traduit ses effets.
 pub(crate) fn encode_action_defs(
-    rules: &mut Vec<Rule>,
-    db: &mut Database,
+    ctx: DatalogContext<'_>,
+    state: &mut DatalogState<'_>,
     action_effects: &mut Vec<Vec<(Atom, Cause)>>,
-    cache: &mut HashMap<Vec<Atom>, Atom>,
-    aux_defs: &mut Vec<AtomicFormulaSkeleton>,
-    next_aux_id: &mut usize,
-    negation_offset: usize,
     action_defs: &[ActionDef],
     action_base_id: usize,
-    inertia_table: &InertiaTable,
-    type_to_skeleton: &[AtomSkeletonId],
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
     for (id, action) in action_defs.iter().enumerate() {
@@ -40,41 +32,33 @@ pub(crate) fn encode_action_defs(
         // A. Générer l'atome de nom (Pivot : action(?p1, ?p2...))
         let action_atom = encode_action_name(action, action_sk_id, store)?;
 
+        // 🌟 Mise à jour locale du contexte avec les paramètres de l'action courante
+        let action_ctx = DatalogContext {
+            param_list_id: action.parameters(),
+            ..ctx
+        };
+
         // B. Générer la règle de déclenchement (Preconditions -> Action)
-        encode_action_body(
-            rules,
-            cache,
-            aux_defs,
-            next_aux_id,
-            action,
-            action_atom.clone(),
-            inertia_table,
-            type_to_skeleton,
-            store,
-        )?;
+        encode_action_body(action_ctx, state, action, action_atom.clone(), store)?;
 
         // --- LE BOOTSTRAP DE L'ACTION ---
         // Si l'action n'a aucun paramètre et un corps vide, elle est immédiatement applicable.
         let param_list_id = action.parameters();
-        if let Some(trigger_rule) = rules.last() {
+        if let Some(trigger_rule) = state.rules.last() {
             if trigger_rule.body().is_empty() && store.fetch_typed_list(param_list_id)?.is_empty() {
-                db.insert_delta_fact(action_sk_id, &[]);
+                state.db.insert_delta_fact(action_sk_id, &[]);
             }
         }
 
         // C. Extraction et encodage des effets de l'action
+        // 🌟 Appel mis à jour avec le contexte localisé et l'état complet unifié
         encoder::expr::encode_effects(
             action.effect(),
             &action_atom,
-            param_list_id,
             action_index,
-            rules,
+            action_ctx,
+            state,
             action_effects,
-            cache,
-            aux_defs,
-            type_to_skeleton,
-            next_aux_id,
-            negation_offset,
             store,
         )?;
     }
@@ -104,34 +88,27 @@ fn encode_action_name(
 
 /// Version locale (associée) pour compiler le corps de l'action
 fn encode_action_body(
-    rules: &mut Vec<Rule>,
-    cache: &mut HashMap<Vec<Atom>, Atom>,
-    aux_defs: &mut Vec<AtomicFormulaSkeleton>,
-    next_aux_id: &mut usize,
+    context: DatalogContext<'_>,
+    state: &mut DatalogState<'_>,
     action: &ActionDef,
     head: Atom,
-    inertia_table: &InertiaTable,
-    type_to_skeleton: &[AtomSkeletonId],
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
     // 1. On récupère l'ID de la liste de paramètres
     let param_list_id = action.parameters();
-    // 2. On extrait la liste concrète depuis le store
 
     // 💡 SÉCURITÉ BORROW CHECKER : On prend la taille avant d'emprunter immuablement via fetch_expr
     let store_len = store.len();
 
-    // 💡 Appel mis à jour avec tous les nouveaux paramètres requis de la chaîne locale
-    let precond_opt = encoder::expr::encode_preconditions(
-        action.precondition(),
-        action.parameters(),
-        rules,
-        cache,
-        aux_defs,
-        type_to_skeleton,
-        next_aux_id,
-        store,
-    )?;
+    // 🌟 On met à jour le contexte pour les préconditions de cette action spécifique
+    let precond_ctx = DatalogContext {
+        param_list_id,
+        ..context
+    };
+
+    // 💡 Appel mis à jour avec le contexte et l'état unifiés
+    let precond_opt =
+        encoder::expr::encode_preconditions(action.precondition(), precond_ctx, state, store)?;
 
     // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
     let mut final_action_body = Vec::new();
@@ -164,7 +141,10 @@ fn encode_action_body(
 
         let positive_id = skel_id.strip_negation();
 
-        if inertia_table.is_predicate_positive_negative_inertia(positive_id)? {
+        if context
+            .inertia_table
+            .is_predicate_positive_negative_inertia(positive_id)?
+        {
             let children = atom_node.children();
             let mut terms = Vec::with_capacity(children.len().saturating_sub(1));
 
@@ -200,7 +180,7 @@ fn encode_action_body(
         if !covered_vars.contains(&var_id) {
             let var_term = Term::Variable(var_id);
             let type_id = param.ty().members()[0].as_usize();
-            let type_sk = type_to_skeleton[type_id];
+            let type_sk = context.type_to_skeleton[type_id];
 
             anchor_elements.push(Atom::new(type_sk, vec![var_term]));
             covered_vars.insert(var_id);
@@ -210,9 +190,11 @@ fn encode_action_body(
     // 4. Génération de l'Ancre et de la règle finale
     if !anchor_elements.is_empty() {
         // 💡 Alignement ici : on passe explicitement la référence mutable `next_aux_id`
-        let anchor_head = create_anchor_atom(action.name(), parameters, &head, next_aux_id);
+        let anchor_head = create_anchor_atom(action.name(), parameters, &head, state.next_aux_id);
 
-        rules.push(Rule::new(anchor_head.clone(), anchor_elements));
+        state
+            .rules
+            .push(Rule::new(anchor_head.clone(), anchor_elements));
         final_action_body.push(anchor_head);
     }
 
@@ -220,7 +202,7 @@ fn encode_action_body(
         final_action_body.push(p_atom);
     }
 
-    rules.push(Rule::new(head, final_action_body));
+    state.rules.push(Rule::new(head, final_action_body));
 
     Ok(())
 }

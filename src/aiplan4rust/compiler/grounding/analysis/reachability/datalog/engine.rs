@@ -12,8 +12,12 @@ use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegi
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::compiler::lir::renderers::LiftedSyntaxDisplay;
-use crate::aiplan4rust::support::lang::{AtomSkeletonId, Id, ObjectId, TypeId, VariableId};
+use crate::aiplan4rust::support::lang::{
+    AtomSkeletonId, Id, ObjectId, TypeId, TypedListId, VariableId,
+};
+use crate::analysis::reachability::datalog::context::DatalogContext;
 use crate::analysis::reachability::datalog::encoder;
+use crate::analysis::reachability::datalog::state::DatalogState;
 use itertools::Itertools;
 use std::collections::HashMap;
 use toml::value::Index;
@@ -102,35 +106,12 @@ impl<'a> DatalogEngine<'a> {
         let object_defs_slice = problem.object_defs().as_slice();
 
         // =========================================================================
-        // 2. REPRODUCTION DE L'ORDRE DES SEUILS (STRICT SANS ENCODEUR)
+        // 2. REPRODUCTION DE L'ORDRE DES SEUILS (ARCHITECTURE PROPRE)
         // =========================================================================
         let mut type_to_skeleton = Vec::new();
-        let mut dummy_id = type_segment_start;
-
-        // Remplit type_to_skeleton
-        encoder::facts::declare_type_defs(type_defs_slice, &mut type_to_skeleton, &mut dummy_id);
-
-        // 🔥 Alignement crucial avec ton ancien code :
-        // L'encodeur définitif écrasait le compteur pour repartir de `type_segment_start`
-        let type_threshold = type_segment_start;
-        let action_base_id = type_threshold;
-
-        // Les actions consomment les IDs à partir de action_base_id
-        let mut current_id = action_base_id;
+        let mut current_id = type_segment_start;
         let mut aux_defs = Vec::with_capacity(256);
-        encoder::facts::declare_action_defs(
-            action_defs_slice,
-            &mut local_store,
-            &mut current_id,
-            &mut aux_defs,
-        )?;
 
-        let action_threshold = current_id;
-        let builtin_threshold = action_threshold;
-
-        // =========================================================================
-        // 3. INGESTION DES DONNÉES ET RÈGLES
-        // =========================================================================
         let mut db = Database::new();
         let mut rules = Vec::with_capacity(1024);
         let mut cache = HashMap::with_capacity(256);
@@ -138,40 +119,63 @@ impl<'a> DatalogEngine<'a> {
         let mut action_effects = vec![Vec::new(); action_count];
         let union_cache = HashMap::new();
 
-        // Remplissage de la DB
-        encoder::facts::fill_db_from_objects(
-            &mut db,
-            &type_to_skeleton,
-            object_defs_slice,
-            type_defs_slice,
-        )?;
-
-        encoder::facts::fill_db_from_init(&mut db, init_expr_id, &mut local_store)?;
-
-        // Compilation des règles (génère les aux_XX >= builtin_threshold)
-        encoder::action::encode_action_defs(
+        // On crée le State pour orchestrer les enregistrements mutables
+        let mut state = DatalogState::new(
             &mut rules,
-            &mut db,
-            &mut action_effects,
             &mut cache,
             &mut aux_defs,
-            &mut current_id, // S'incrémente dynamiquement pour chaque aux_XX créé
+            &mut current_id,
+            &mut db,
+            &mut current_aliases,
+        );
+
+        // 1. Déclaration et remplissage de type_to_skeleton via le State unifié
+        encoder::facts::declare_type_defs(type_defs_slice, &mut type_to_skeleton, &mut state);
+
+        let type_threshold = type_segment_start;
+        let action_base_id = type_threshold;
+
+        // 2. Déclaration des actions via le State unifié
+        encoder::facts::declare_action_defs(action_defs_slice, &mut state)?;
+
+        let action_threshold = *state.next_aux_id;
+        let builtin_threshold = action_threshold;
+
+        // =========================================================================
+        // 3. INGESTION DES DONNÉES ET COMPILATION DES RÈGLES
+        // =========================================================================
+        // 🌟 Initialisation du contexte (maintenant que type_to_skeleton est prêt et figé)
+        let ctx = DatalogContext::new(
+            TypedListId::default(),
+            &type_to_skeleton,
             fluence_threshold,
+            inertia_table,
+        );
+
+        // 🌟 3. Nouvelle signature propre pour fill_db_from_objects (ctx + state)
+        encoder::facts::fill_db_from_objects(ctx, &mut state, object_defs_slice, type_defs_slice)?;
+
+        // Dans pub fn encode, section 3 :
+        encoder::facts::fill_db_from_init(&mut state, init_expr_id, &mut local_store)?;
+
+        // Compilation des règles
+        encoder::action::encode_action_defs(
+            ctx,
+            &mut state,
+            &mut action_effects,
             action_defs_slice,
             action_base_id,
-            inertia_table,
-            &type_to_skeleton,
             &mut local_store,
         )?;
 
-        let final_builtin_threshold = current_id;
+        let final_builtin_threshold = *state.next_aux_id;
 
         // =========================================================================
-        // 4. RESTAURATION ET EMPEQUETAGE
+        // 4. RESTAURATION ET EMPAQUETAGE
         // =========================================================================
         problem.set_store(local_store);
 
-        let mut engine = Self {
+        let engine = Self {
             problem,
             value_registry,
             inertia_table,
@@ -185,8 +189,8 @@ impl<'a> DatalogEngine<'a> {
             head_buffer: Vec::with_capacity(16),
             union_cache,
 
-            base_aux_id: type_segment_start, // Reste calqué sur la structure originale
-            next_aux_id: current_id,
+            base_aux_id: type_segment_start,
+            next_aux_id: final_builtin_threshold,
             aux_defs,
             cache,
             current_aliases,

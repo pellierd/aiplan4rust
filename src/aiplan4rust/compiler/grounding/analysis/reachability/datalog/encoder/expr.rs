@@ -8,7 +8,9 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::support::lang::{
     AtomSkeletonId, CompareOp, PredicateSymbolId, TypedList, TypedListId, TypedSymbol, VariableId,
 };
+use crate::analysis::reachability::datalog::context::DatalogContext;
 use crate::analysis::reachability::datalog::error::DatalogError;
+use crate::analysis::reachability::datalog::state::DatalogState;
 use std::collections::HashMap;
 
 /// Encodes the preconditions of an action into Datalog atoms and rules.
@@ -23,8 +25,9 @@ use std::collections::HashMap;
 /// # Arguments
 ///
 /// * `expr` - The global expression handle wrapping the store and the root.
-/// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
-/// * `parameters` - The typed parameters of the action, used to define the signature of auxiliary predicates.
+/// * `ctx` - The Datalog context containing immuable information like parameter lists and types.
+/// * `state` - The mutable Datalog state accumulating rules, cache, and IDs.
+/// * `store` - The expression store containing the precondition trees.
 ///
 /// # Returns
 ///
@@ -33,28 +36,16 @@ use std::collections::HashMap;
 /// * `Err(DatalogError)` - If the expression tree is malformed or contains unsupported nodes.
 pub fn encode_preconditions(
     expr: ExprId,
-    param_list_id: TypedListId, // 🌟 Modifié : passage par ID pour éliminer la lifetime
-    rules: &mut Vec<Rule>,
-    cache: &mut HashMap<Vec<Atom>, Atom>,
-    aux_defs: &mut Vec<AtomicFormulaSkeleton>,
-    type_to_skeleton: &[AtomSkeletonId],
-    next_aux_id: &mut usize,
+    ctx: DatalogContext<'_>,
+    state: &mut DatalogState<'_>,
     store: &mut ExprStore,
 ) -> Result<Option<Atom>, DatalogError> {
     // 1. Nettoyage et préparation des alias (pour gérer les ?x = ?y)
-    let current_aliases = extract_variable_aliases(expr, store)?;
+    // 🌟 Remplissage direct de l'état mutable pour que `encode_expr` puisse y accéder !
+    *state.current_aliases = extract_variable_aliases(expr, store)?;
 
-    // 🌟 On relaie le param_list_id directement à local_encode_expr
-    encode_expr(
-        expr,
-        param_list_id,
-        rules,
-        cache,
-        aux_defs,
-        type_to_skeleton,
-        next_aux_id,
-        store,
-    )
+    // 2. 🌟 Appel mis à jour avec le contexte et l'état complets (plus de déballage !)
+    encode_condition(expr, ctx, state, store)
 }
 
 /// Encodes action effects into Datalog rules by propagating causality from the action to its consequences.
@@ -80,37 +71,33 @@ pub fn encode_preconditions(
 ///
 /// # Arguments
 ///
-/// * `root_effect` - The expression tree representing the action's effects.
+/// * `effect` - The expression tree representing the action's effects.
 /// * `action_atom` - The atom representing the execution of the action (the initial cause).
-/// * `rules_sink` - A vector where newly generated Datalog rules are stored.
-/// * `parameters` - The typed parameters of the action, used for auxiliary predicate signatures.
+/// * `action_index` - The unique offset index of the current action.
+/// * `ctx` - The immuable context (parameters list, skeleton maps, negation offset).
+/// * `state` - The mutable compiler state (rules sink, cache, tables, global alias map).
+/// * `action_effects` - Accummulator vector for storing effect causes per action.
+/// * `store` - The expression store containing the node contents.
 ///
 /// # Errors
 ///
-/// Returns a [`DatalogError`] if:
-/// * An unsupported node kind is encountered (e.g., `Forall` or `Exists` not yet implemented).
-/// * There is a failure in auxiliary predicate generation or variable collection.
+/// Returns a [`DatalogError`] if an unsupported node kind is encountered.
 pub fn encode_effects(
     effect: ExprId,
     action_atom: &Atom,
-    param_list_id: TypedListId, // 🌟 Strict minimum : on passe l'ID ici
     action_index: usize,
-    rules: &mut Vec<Rule>,
+    ctx: DatalogContext<'_>,
+    state: &mut DatalogState<'_>,
     action_effects: &mut Vec<Vec<(Atom, Cause)>>,
-    cache: &mut HashMap<Vec<Atom>, Atom>,
-    aux_defs: &mut Vec<AtomicFormulaSkeleton>,
-    type_to_skeleton: &[AtomSkeletonId],
-    next_aux_id: &mut usize,
-    negation_offset: usize,
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
-    // ÉTAPE 1 : Extraction locale des alias en passant directement l'ID
-    let current_aliases = extract_variable_aliases(effect, store)?;
+    // ÉTAPE 1 : Remplissage direct de la table d'alias dans l'état partagé
+    *state.current_aliases = extract_variable_aliases(effect, store)?;
 
     let mut root_cause = action_atom.clone();
     for term in root_cause.terms_mut() {
         if let Term::Variable(v) = *term {
-            *term = resolve_var(v, &current_aliases);
+            *term = resolve_var(v, state.current_aliases);
         }
     }
 
@@ -124,7 +111,7 @@ pub fn encode_effects(
             continue;
         }
 
-        // 🌟 Appel direct au store : l'emprunt sur `store` s'arrête dès que `node` ou `kind` sort du scope
+        // Appel direct au store : l'emprunt sur `store` s'arrête dès que `node` ou `kind` sort du scope
         let node = store.fetch(current_id)?;
         let kind = node.kind();
 
@@ -134,7 +121,7 @@ pub fn encode_effects(
 
                 for term in effect_atom.terms_mut() {
                     if let Term::Variable(v) = *term {
-                        *term = resolve_var(v, &current_aliases);
+                        *term = resolve_var(v, state.current_aliases);
                     }
                 }
 
@@ -144,7 +131,9 @@ pub fn encode_effects(
                     Cause::Pivot(current_cause.clone())
                 };
                 action_effects[action_index].push((effect_atom.clone(), cause));
-                rules.push(Rule::new(effect_atom, vec![current_cause.clone()]));
+                state
+                    .rules
+                    .push(Rule::new(effect_atom, vec![current_cause.clone()]));
             }
 
             ExprKind::And => {
@@ -158,35 +147,27 @@ pub fn encode_effects(
                 let condition_id = children[0];
                 let sub_effect_id = children[1];
 
-                // 🌟 On passe le param_list_id à local_encode_expr
-                if let Some(cond_atom) = encode_expr(
-                    condition_id,
-                    param_list_id, // 🌟 Alignement requis pour casser la lifetime
-                    rules,
-                    cache,
-                    aux_defs,
-                    type_to_skeleton,
-                    next_aux_id,
-                    store,
-                )? {
+                // 🌟 Appel propre à encode_expr avec nos structures unifiées
+                if let Some(cond_atom) = encode_condition(condition_id, ctx, state, store)? {
                     let mut combined_body = vec![current_cause.clone(), cond_atom.clone()];
                     combined_body.sort_by_key(|a| a.skeleton_id());
 
-                    let aux_when_atom = if let Some(existing_head) = cache.get(&combined_body) {
+                    let aux_when_atom = if let Some(existing_head) = state.cache.get(&combined_body)
+                    {
                         existing_head.clone()
                     } else {
                         let (head, secured_body) = encode_new_aux_predicate(
                             &combined_body,
-                            param_list_id,
-                            next_aux_id,
-                            aux_defs,
-                            type_to_skeleton,
-                            &current_aliases,
+                            ctx.param_list_id,
+                            state.next_aux_id,
+                            state.aux_defs,
+                            ctx.type_to_skeleton,
+                            state.current_aliases,
                             store,
                         )?;
 
-                        rules.push(Rule::new(head.clone(), secured_body));
-                        cache.insert(combined_body, head.clone());
+                        state.rules.push(Rule::new(head.clone(), secured_body));
+                        state.cache.insert(combined_body, head.clone());
                         head
                     };
 
@@ -217,14 +198,14 @@ pub fn encode_effects(
 
                         for term in del_atom.terms_mut() {
                             if let Term::Variable(v) = *term {
-                                *term = resolve_var(v, &current_aliases);
+                                *term = resolve_var(v, state.current_aliases);
                             }
                         }
 
                         del_atom.set_negated(true);
 
                         let pure_id = del_atom.skeleton_id().as_usize();
-                        let target_idx = pure_id + negation_offset;
+                        let target_idx = pure_id + ctx.negation_offset;
 
                         let mut final_skeleton = AtomSkeletonId::from(target_idx);
                         final_skeleton.set_negated(true);
@@ -244,13 +225,12 @@ pub fn encode_effects(
             ExprKind::Forall(_) | ExprKind::Exists(_) | ExprKind::Imply => {
                 return Err(DatalogError::feature_not_supported(
                     format!("ADL construct {:?} in effects", kind),
-                    current_id, // 🌟 Correction du nom de variable invalide
+                    current_id,
                 ));
             }
 
             _ => {
                 return Err(DatalogError::incompatible_node(kind.clone(), current_id));
-                // 🌟 Correction ici aussi
             }
         }
     }
@@ -265,30 +245,23 @@ pub fn encode_effects(
 ///
 /// # Arguments
 ///
-/// * `expr` - The global expression handle wrapping the store and the root.
-/// * `node_id` - The starting point for the encoding (root of the sub-tree).
-/// * `rules_sink` - A vector where newly generated Datalog rules (auxiliary definitions) are stored.
-/// * `parameters` - The typed parameters available in the current context (e.g., action parameters).
+/// * `expr` - The starting point for the encoding (root of the sub-tree).
+/// * `ctx` - The Datalog context containing immuable information like parameter lists and types.
+/// * `state` - The mutable Datalog state accumulating rules, cache, and the active alias map.
+/// * `store` - The expression store containing the tree nodes.
 ///
 /// # Returns
 ///
 /// * `Ok(Some(Atom))` - The head atom representing the encoded sub-expression.
 /// * `Ok(None)` - If the branch contains no logical content (e.g., empty AND, ignored nodes).
 /// * `Err(DatalogError)` - If the stack is inconsistent or an unsupported node is encountered.
-fn encode_expr(
-    node_id: ExprId,
-    param_list_id: TypedListId, // 🌟 Accepté par ID pour casser la dépendance de lifetime
-    rules: &mut Vec<Rule>,
-    cache: &mut HashMap<Vec<Atom>, Atom>,
-    aux_defs: &mut Vec<AtomicFormulaSkeleton>,
-    type_to_skeleton: &[AtomSkeletonId],
-    next_aux_id: &mut usize,
+fn encode_condition(
+    expr: ExprId,
+    ctx: DatalogContext<'_>,
+    state: &mut DatalogState<'_>,
     store: &mut ExprStore,
 ) -> Result<Option<Atom>, DatalogError> {
-    // ÉTAPE 1 : On nettoie et on collecte les alias pour cet arbre précis
-    let current_aliases = extract_variable_aliases(node_id, store)?;
-
-    let mut work_stack = vec![(node_id, false)];
+    let mut work_stack = vec![(expr, false)];
     let mut results_stack: Vec<Option<Atom>> = Vec::with_capacity(32);
 
     // =========================================================================
@@ -367,7 +340,8 @@ fn encode_expr(
                     let mut atom = extract_atom(node, store)?;
                     for term in atom.terms_mut() {
                         if let Term::Variable(v) = *term {
-                            *term = resolve_var(v, &current_aliases);
+                            // 🌟 Utilisation de la table partagée de l'état mutable
+                            *term = resolve_var(v, state.current_aliases);
                         }
                     }
                     if skeleton_id.is_negated() {
@@ -430,21 +404,22 @@ fn encode_expr(
                             Some(atoms[0].clone())
                         } else {
                             atoms.sort_by_key(|a| a.skeleton_id());
-                            if let Some(existing_head) = cache.get(&atoms) {
+                            if let Some(existing_head) = state.cache.get(&atoms) {
                                 Some(existing_head.clone())
                             } else {
+                                // 🌟 Passage des sous-champs unifiés
                                 let (head, secured_body) = encode_new_aux_predicate(
                                     &atoms,
-                                    param_list_id,
-                                    next_aux_id,
-                                    aux_defs,
-                                    type_to_skeleton,
-                                    &current_aliases,
+                                    ctx.param_list_id,
+                                    state.next_aux_id,
+                                    state.aux_defs,
+                                    ctx.type_to_skeleton,
+                                    state.current_aliases,
                                     store,
                                 )?;
 
-                                rules.push(Rule::new(head.clone(), secured_body));
-                                cache.insert(atoms, head.clone());
+                                state.rules.push(Rule::new(head.clone(), secured_body));
+                                state.cache.insert(atoms, head.clone());
                                 Some(head)
                             }
                         }
@@ -463,16 +438,17 @@ fn encode_expr(
                         atoms.sort_by_key(|a| a.skeleton_id());
                         atoms.dedup();
 
-                        if let Some(existing_head) = cache.get(&atoms) {
+                        if let Some(existing_head) = state.cache.get(&atoms) {
                             Some(existing_head.clone())
                         } else {
+                            // 🌟 Passage des sous-champs unifiés
                             let (head, _) = encode_new_aux_predicate(
                                 &atoms,
-                                param_list_id,
-                                next_aux_id,
-                                aux_defs,
-                                type_to_skeleton,
-                                &current_aliases,
+                                ctx.param_list_id,
+                                state.next_aux_id,
+                                state.aux_defs,
+                                ctx.type_to_skeleton,
+                                state.current_aliases,
                                 store,
                             )?;
 
@@ -491,11 +467,11 @@ fn encode_expr(
                                     if let Term::Variable(v) = term {
                                         if !covered_vars.contains(v) {
                                             let parameters =
-                                                store.fetch_typed_list(param_list_id)?;
+                                                store.fetch_typed_list(ctx.param_list_id)?;
                                             let type_id = parameters[v.as_usize()].ty().members()
                                                 [0]
                                             .as_usize();
-                                            let type_sk = type_to_skeleton[type_id];
+                                            let type_sk = ctx.type_to_skeleton[type_id];
 
                                             branch_body
                                                 .push(Atom::new(type_sk, vec![Term::Variable(*v)]));
@@ -504,10 +480,10 @@ fn encode_expr(
                                     }
                                 }
 
-                                rules.push(Rule::new(head.clone(), branch_body));
+                                state.rules.push(Rule::new(head.clone(), branch_body));
                             }
 
-                            cache.insert(atoms, head.clone());
+                            state.cache.insert(atoms, head.clone());
                             Some(head)
                         }
                     }
@@ -519,7 +495,8 @@ fn encode_expr(
 
                         for term in atom.terms_mut() {
                             if let Term::Variable(v) = *term {
-                                *term = resolve_var(v, &current_aliases);
+                                // 🌟 Résolution via l'état partagé des alias
+                                *term = resolve_var(v, state.current_aliases);
                             }
                         }
 
