@@ -324,3 +324,142 @@ impl fmt::Display for Relation {
         write!(f, "}}")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Objective: Verify standard insertion, duplicate detection, and membership tracking for small arities (<= 4).
+    /// Input: Two distinct tuples of arity 2: `[1, 2]` and `[2, 3]`, followed by a duplicate insert of `[1, 2]`.
+    /// Output: Initial inserts return `true`, duplicate returns `false`, `len()` equals 2, and `contains` validates existence.
+    #[test]
+    fn test_standard_arity_insertion_and_lookup() {
+        let mut rel = Relation::new(2);
+        assert_eq!(rel.arity(), 2);
+        assert!(rel.is_empty());
+
+        let o1 = ObjectId::from(1);
+        let o2 = ObjectId::from(2);
+        let o3 = ObjectId::from(3);
+
+        let t1 = [o1, o2];
+        let t2 = [o2, o3];
+
+        assert!(rel.insert(&t1));
+        assert!(rel.insert(&t2));
+        assert_eq!(rel.len(), 2);
+        assert!(!rel.is_empty());
+
+        assert!(!rel.insert(&t1));
+        assert_eq!(rel.len(), 2);
+
+        assert!(rel.contains(&t1));
+        assert!(rel.contains(&t2));
+        assert!(!rel.contains(&[o1, o3]));
+    }
+
+    /// Objective: Ensure correct behavioral layout and safety when arity exceeds the inline stack capacity (> 4).
+    /// Input: A single tuple of arity 5: `[1, 2, 3, 4, 5]`.
+    /// Output: Successful insertion returning `true`, `len()` equals 1, and flat data buffer size equals 5.
+    #[test]
+    fn test_large_arity_spillover() {
+        let mut rel = Relation::new(5);
+        let tuple = [
+            ObjectId::from(1),
+            ObjectId::from(2),
+            ObjectId::from(3),
+            ObjectId::from(4),
+            ObjectId::from(5),
+        ];
+
+        assert!(rel.insert(&tuple));
+        assert!(rel.contains(&tuple));
+        assert_eq!(rel.len(), 1);
+        assert_eq!(rel.data().len(), 5);
+    }
+
+    /// Objective: Validate Datalog propositional behavior (arity 0) where presence represents a global logical truth.
+    /// Input: An empty slice `[]` committed as a fact, followed by an iterator extraction and display formatting request.
+    /// Output: `len()` equals 1, `iter()` yields exactly one empty slice `[]`, and `format!("{}", rel)` outputs `"State: TRUE⟿"`.
+    #[test]
+    fn test_propositional_arity_zero() {
+        let mut rel = Relation::new(0);
+        assert!(rel.is_empty());
+
+        assert!(rel.insert(&[]));
+        assert_eq!(rel.len(), 1);
+        assert!(!rel.is_empty());
+
+        assert!(!rel.insert(&[]));
+
+        let mut it = rel.iter();
+        assert_eq!(it.next(), Some(&[][..]));
+        assert_eq!(it.next(), None);
+
+        let display_string = format!("{}", rel);
+        assert_eq!(display_string, "State: TRUE⟿");
+    }
+
+    /// Objective: Verify that the first-argument index accurately maps initial object coordinates to correct flat buffer offsets.
+    /// Input: Three tuples of arity 3 inserted in sequence: `[10, 20, 30]`, `[10, 30, 20]`, and `[20, 10, 30]`.
+    /// Output: Map query for key `10` yields offsets `[0, 3]`; map query for key `20` yields offset `[6]`.
+    #[test]
+    fn test_first_argument_join_indexing() {
+        let mut rel = Relation::new(3);
+        let a = ObjectId::from(10);
+        let b = ObjectId::from(20);
+        let c = ObjectId::from(30);
+
+        rel.insert(&[a, b, c]);
+        rel.insert(&[a, c, b]);
+        rel.insert(&[b, a, c]);
+
+        let index = rel.index_by_first_arg();
+
+        let offsets_a = index.get(&a).expect("Key should exist");
+        assert_eq!(offsets_a.len(), 2);
+        assert_eq!(offsets_a[0], 0);
+        assert_eq!(offsets_a[1], 3);
+
+        let offsets_b = index.get(&b).expect("Key should exist");
+        assert_eq!(offsets_b.len(), 1);
+        assert_eq!(offsets_b[0], 6);
+    }
+
+    /// Objective: Prove that calling `clear()` resets the logical state to empty while fully preserving underlying allocation footprints.
+    /// Input: Bulk insertion of 50 distinct tuples of arity 2 to trigger heap allocation, followed by a call to `clear()`.
+    /// Output: Logical `len()` and buffer lengths drop to 0, but internal map capacity stays greater than zero.
+    #[test]
+    fn test_buffer_pooling_clear_retains_capacity() {
+        let mut rel = Relation::new(2);
+
+        for i in 0..50 {
+            rel.insert(&[ObjectId::from(i), ObjectId::from(i + 1)]);
+        }
+
+        assert!(rel.data().len() > 0);
+
+        rel.clear();
+        assert!(rel.is_empty());
+        assert_eq!(rel.len(), 0);
+        assert_eq!(rel.data().len(), 0);
+
+        // VÉRIFICATION DU POOLING : La structure conserve ses buckets alloués sur le tas
+        assert!(rel.index_by_first_arg().capacity() > 0);
+    }
+
+    /// Objective: Check the safety and correctness of retrieving precise chunks by their positional entry index.
+    /// Input: A committed tuple `[7, 8]` queried at valid index `0` and out-of-bounds index `1`.
+    /// Output: Index `0` returns `Some(&[7, 8])`; index `1` returns `None`.
+    #[test]
+    fn test_get_by_logical_index() {
+        let mut rel = Relation::new(2);
+        let o1 = ObjectId::from(7);
+        let o2 = ObjectId::from(8);
+
+        rel.insert(&[o1, o2]);
+
+        assert_eq!(rel.get(0), Some(&[o1, o2][..]));
+        assert_eq!(rel.get(1), None);
+    }
+}
