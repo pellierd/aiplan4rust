@@ -1,6 +1,5 @@
 use crate::aiplan4rust::support::lang::ObjectId;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt;
 
 /// A specialized collection for storing unique relational facts.
@@ -20,9 +19,9 @@ pub struct Relation {
     /// Contiguous buffer of object identifiers.
     tuples: Vec<ObjectId>,
     /// Set used to enforce uniqueness and provide $O(1)$ lookups.
-    index: HashSet<Vec<ObjectId>>,
+    index: FxHashSet<Vec<ObjectId>>,
     /// Index optimized for joins: Maps `first_arg -> [buffer_offsets]`.
-    first_arg_index: HashMap<ObjectId, Vec<usize>>,
+    first_arg_index: FxHashMap<ObjectId, Vec<usize>>,
 }
 
 impl Relation {
@@ -35,8 +34,8 @@ impl Relation {
         Self {
             arity,
             tuples: Vec::new(),
-            index: HashSet::new(),
-            first_arg_index: HashMap::new(),
+            index: FxHashSet::default(),
+            first_arg_index: FxHashMap::default(),
         }
     }
 
@@ -83,7 +82,7 @@ impl Relation {
     ///
     /// This is primarily used by the Datalog engine to perform indexed joins.
     #[inline]
-    pub fn index_by_first_arg(&self) -> &HashMap<ObjectId, Vec<usize>> {
+    pub fn index_by_first_arg(&self) -> &FxHashMap<ObjectId, Vec<usize>> {
         &self.first_arg_index
     }
 
