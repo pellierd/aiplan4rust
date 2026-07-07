@@ -1,5 +1,6 @@
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
+use smallvec::SmallVec;
 use std::fmt;
 
 /// Represents a logical atom within a Datalog rule or fact representation.
@@ -19,9 +20,10 @@ use std::fmt;
 /// * **Packed Fields**: The [`AtomSkeletonId`] packs boolean control flags (such as the negation status
 ///   and built-in zone markers) directly into the unused upper bits of the predicate index. This keeps
 ///   the footprint lightweight and optimizes CPU cache locality during intensive grounding loops.
-/// * **Heap Allocation**: The dynamic vector of terms allows for arbitrary predicate arities, though
-///   in practice, most Datalog rules rely on low-arity schemas (typically $\le 4$) to prevent
-///   exponential combinatorics during join operations.
+/// * **Inline Stack Allocation**: To prevent continuous heap fragmentation during iterative grounding loops,
+///   arguments are stored inside a stack-allocated [`SmallVec`] container. For any relation with an
+///   arity lower than or equal to [`Self::INLINE_TERM_CAPACITY`] (typically $\le 4$), the structure
+///   triggers **zero heap allocations**, guaranteeing extreme data locality and low cache-miss ratios.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Atom {
     /// The unique identifier for the predicate signature (encompassing name, arity, and parameter types).
@@ -29,10 +31,16 @@ pub struct Atom {
     skeleton_id: AtomSkeletonId,
     /// The contiguous sequence of arguments assigned to this instance, matching either
     /// [`Term::Variable`] placeholders or evaluated [`Term::Constant`] literals.
-    terms: Vec<Term>,
+    terms: SmallVec<[Term; Self::INLINE_TERM_CAPACITY]>,
 }
 
 impl Atom {
+    /// Threshold arity for stack-allocated inline term storage.
+    ///
+    /// Atoms with a number of arguments lower than or equal to this limit will reside
+    /// entirely on the stack within the struct's memory block, bypassing the heap allocator.
+    pub const INLINE_TERM_CAPACITY: usize = 4;
+
     /// Offset defining the start of the built-in zone.
     /// Shifted to avoid interfering with the negation flag (bit 60) or sign bits.
     pub const BUILTIN_ZONE_START: usize = 1 << 62;
@@ -55,10 +63,13 @@ impl Atom {
     ///
     /// # Complexity
     ///
-    /// Constant time $O(1)$ auxiliary complexity, though moving the `Vec<Term>` may scale
-    /// with the allocation overhead of the input terms.
+    /// Constant time $O(1)$ auxiliary complexity, converting the input vector into an inline stack allocation
+    /// if its size permits.
     pub fn new(skeleton_id: AtomSkeletonId, terms: Vec<Term>) -> Self {
-        Self { skeleton_id, terms }
+        Self {
+            skeleton_id,
+            terms: SmallVec::from_vec(terms),
+        }
     }
 
     /// Creates a new built-in equality atom representing the constraint `(= t1 t2)`.
@@ -78,11 +89,16 @@ impl Atom {
     ///
     /// # Complexity
     ///
-    /// Constant time $O(1)$ since it allocates a fixed contiguous buffer of exactly two terms.
+    /// Constant time $O(1)$ execution footprint with **zero heap allocations** since the two terms
+    /// fit directly within the stack limits specified by [`Self::INLINE_TERM_CAPACITY`].
     pub fn equality(t1: Term, t2: Term) -> Self {
+        let mut terms = SmallVec::new();
+        terms.push(t1);
+        terms.push(t2);
+
         Self {
             skeleton_id: AtomSkeletonId::from(Self::EQUALITY_ID),
-            terms: vec![t1, t2],
+            terms,
         }
     }
 
@@ -221,12 +237,11 @@ impl Atom {
     ///
     /// # Complexity
     ///
-    /// * **Time Complexity**: $O(1)$ auxiliary swap time if the vector allocation is moved, but triggers
-    ///   the drop of the old vector, which takes $O(N)$ where $N$ is the previous arity.
-    /// * **Memory Complexity**: Reallocates the internal buffer to hold the new sequence length.
+    /// * **Time Complexity**: $O(1)$ auxiliary swap time if the vector fits inline, or $O(N)$ memory drop
+    ///   and allocation sequence tracking if boundaries spill onto the heap.
     #[inline]
     pub fn set_terms(&mut self, new_terms: Vec<Term>) {
-        self.terms = new_terms;
+        self.terms = SmallVec::from_vec(new_terms);
     }
 
     /// Returns a mutable slice of the atom's terms.
@@ -529,5 +544,41 @@ mod tests {
         assert!(atom.is_equality());
         assert_eq!(atom.arity(), 2);
         assert_eq!(atom.terms()[0], atom.terms()[1]);
+    }
+
+    /// **Objective**: Verify that the terms buffer accurately switches from stack to heap allocation.
+    ///
+    /// **Input**: An atom initialized with 2 terms (inline), then replaced with a sequence of 5 terms.
+    ///
+    /// **Expected Output**: The initial layout must not be spilled, but after `set_terms` with 5 elements,
+    /// `spilled()` must return true, confirming the heap transition.
+    #[test]
+    fn test_atom_buffer_spillover_transition() {
+        let sk_id = AtomSkeletonId::from(1);
+        let mut atom = Atom::new(
+            sk_id,
+            vec![
+                Term::Variable(VariableId::from(0)),
+                Term::Variable(VariableId::from(1)),
+            ],
+        );
+
+        // Less than or equal to 4 terms -> Stays on the stack
+        assert!(
+            !atom.terms.spilled(),
+            "The atom must be stored on the stack (arity <= 4)"
+        );
+
+        // Replacement with 5 terms -> Switches to the heap
+        let large_sequence = (0..5)
+            .map(|i| Term::Variable(VariableId::from(i)))
+            .collect::<Vec<_>>();
+        atom.set_terms(large_sequence);
+
+        assert_eq!(atom.arity(), 5);
+        assert!(
+            atom.terms.spilled(),
+            "The atom must have migrated to the heap (arity > 4)"
+        );
     }
 }
