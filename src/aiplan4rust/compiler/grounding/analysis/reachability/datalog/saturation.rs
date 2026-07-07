@@ -10,6 +10,7 @@ use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
 use crate::analysis::reachability::datalog::engine::MAX_VARS;
 use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::DatalogEngine;
+use smallvec::SmallVec;
 
 impl<'a> DatalogEngine<'a> {
     /// Lance le calcul de l'atteignabilité (Interface publique)
@@ -493,13 +494,15 @@ impl<'a> DatalogEngine<'a> {
         self.rules = rules;
     }
 
-    fn optimize_body(&self, body: &mut Vec<Atom>) {
+    fn optimize_body(&self, body: &mut SmallVec<[Atom; Rule::INLINE_BODY_CAPACITY]>) {
         if body.len() <= 1 {
             return;
         }
 
         let mut optimized = Vec::with_capacity(body.len());
         let mut bound_vars_mask: u64 = 0;
+
+        // Ça fonctionne à nouveau ! SmallVec implémente Default.
         let mut remaining = std::mem::take(body);
 
         while !remaining.is_empty() {
@@ -509,7 +512,7 @@ impl<'a> DatalogEngine<'a> {
                 .min_by_key(|(_, atom)| {
                     let sk_id = atom.skeleton_id();
 
-                    // 1. Calcul des variables déjà liées (Indispensable pour éviter les produits cartésiens)
+                    // 1. Calcul des variables déjà liées
                     let mut bound_count = 0;
                     for term in atom.terms() {
                         match term {
@@ -529,18 +532,15 @@ impl<'a> DatalogEngine<'a> {
                     // 3. Catégorie sémantique (Type, Fluent, etc.)
                     let priority = self.get_predicate_priority(atom);
 
-                    // L'ORDRE DU TUPLE EST CRUCIAL :
-                    // a) On maximise bound_count (d'où le signe moins)
-                    // b) On minimise rel_size (pour traiter le moins de faits possible)
-                    // c) On minimise priority (Types < Fluents < Actions)
                     (-(bound_count as i32), rel_size, priority)
                 })
                 .map(|(idx, _)| idx)
                 .unwrap();
 
+            // Ça fonctionne aussi ! SmallVec possède .remove()
             let best_atom = remaining.remove(best_idx);
 
-            // Mise à jour du masque des variables liées par l'atome choisi
+            // Mise à jour du masque des variables liées
             for term in best_atom.terms() {
                 if let Term::Variable(v) = term {
                     let v_idx = v.as_usize();
@@ -551,7 +551,9 @@ impl<'a> DatalogEngine<'a> {
             }
             optimized.push(best_atom);
         }
-        *body = optimized;
+
+        // Conversion transparente de Vec vers SmallVec
+        *body = SmallVec::from_vec(optimized);
     }
 
     #[inline(always)]
