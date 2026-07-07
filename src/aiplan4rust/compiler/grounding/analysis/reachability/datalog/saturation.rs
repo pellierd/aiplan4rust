@@ -7,10 +7,10 @@ use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::co
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::compiler::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
+use crate::analysis::reachability::datalog::core::rule::RuleBody;
 use crate::analysis::reachability::datalog::engine::MAX_VARS;
 use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::DatalogEngine;
-use smallvec::SmallVec;
 
 impl<'a> DatalogEngine<'a> {
     /// Lance le calcul de l'atteignabilité (Interface publique)
@@ -62,7 +62,7 @@ impl<'a> DatalogEngine<'a> {
         let matching_rules: Vec<_> = self
             .rules
             .iter()
-            .filter(|r| r.head().skeleton_id() == target_id)
+            .filter(|r| r.head().symbol() == target_id)
             .collect();
 
         if matching_rules.is_empty() {
@@ -87,7 +87,7 @@ impl<'a> DatalogEngine<'a> {
             println!("{}|_ Branch #{} for ID {}:", indent, branch_idx, target_raw);
 
             for atom in rule.body() {
-                let sub_id = atom.skeleton_id();
+                let sub_id = atom.symbol();
                 let sub_raw = sub_id.as_usize();
 
                 if self.is_auxiliary(sub_id) {
@@ -100,7 +100,7 @@ impl<'a> DatalogEngine<'a> {
                             "{}  [CHECK] Predicate {} ({:?}) -> PRESENT ({} faits)",
                             indent,
                             sub_raw,
-                            atom.terms(),
+                            atom.arguments(),
                             rel.len()
                         );
 
@@ -113,7 +113,7 @@ impl<'a> DatalogEngine<'a> {
                             "{}  [CHECK] Predicate {} ({:?}) -> ABSENT",
                             indent,
                             sub_raw,
-                            atom.terms()
+                            atom.arguments()
                         );
                     }
                 }
@@ -173,7 +173,7 @@ impl<'a> DatalogEngine<'a> {
         }
 
         let atom = &rule.body()[body_idx];
-        let sk_id = atom.skeleton_id();
+        let sk_id = atom.symbol();
 
         // --- NOUVEAU : Branchement vers le filtrage Lazy ---
         // Si l'atome est un built-in OU s'il est négatif (bit MSB à 1)
@@ -202,7 +202,7 @@ impl<'a> DatalogEngine<'a> {
     }
 
     fn execute_filter(&mut self, atom: &Atom) -> bool {
-        let sk_id = atom.skeleton_id(); // C'est un AtomSkeletonId
+        let sk_id = atom.symbol(); // C'est un AtomSkeletonId
 
         // 1. GESTION DES BUILT-INS
         if self.is_builtin(sk_id) {
@@ -218,7 +218,7 @@ impl<'a> DatalogEngine<'a> {
             // --- Utilisation du buffer interne du moteur ---
             self.head_buffer.clear();
 
-            for term in atom.terms() {
+            for term in atom.arguments() {
                 if let Some(val) = self.get_term_value(term) {
                     self.head_buffer.push(val);
                 } else {
@@ -246,7 +246,7 @@ impl<'a> DatalogEngine<'a> {
 
     /// Logique spécifique pour l'égalité
     fn eval_equality(&self, atom: &Atom) -> bool {
-        let terms = atom.terms();
+        let terms = atom.arguments();
         // On récupère les IDs concrets des objets via l'environnement actuel
         let val_a = self.get_term_value(&terms[0]);
         let val_b = self.get_term_value(&terms[1]);
@@ -285,7 +285,7 @@ impl<'a> DatalogEngine<'a> {
         use_delta: bool,
     ) {
         let atom = &rule.body()[body_idx];
-        let terms = atom.terms();
+        let terms = atom.arguments();
 
         let Some((total_len, arity)) = self.db.get_layout(sk_id, use_delta) else {
             return;
@@ -376,7 +376,7 @@ impl<'a> DatalogEngine<'a> {
         // On note combien de variables étaient liées AVANT cet atome
         let trail_split = self.trailing_indices.len();
 
-        if self.unify_and_bind(rule.body()[body_idx].terms(), &buffer[..arity]) {
+        if self.unify_and_bind(rule.body()[body_idx].arguments(), &buffer[..arity]) {
             self.process_incremental(rule, body_idx + 1, pivot_idx);
         }
 
@@ -388,12 +388,12 @@ impl<'a> DatalogEngine<'a> {
 
     fn evaluate_head(&mut self, rule: &Rule) -> Result<(), DatalogError> {
         let head = rule.head();
-        let head_sk = head.skeleton_id();
+        let head_sk = head.symbol();
 
         // 1. On prépare le tuple de la tête dans le buffer réutilisable
         self.head_buffer.clear();
 
-        for term in head.terms() {
+        for term in head.arguments() {
             match term {
                 Term::Constant(c) => self.head_buffer.push(*c),
                 Term::Variable(v) => {
@@ -487,22 +487,23 @@ impl<'a> DatalogEngine<'a> {
         let mut rules = std::mem::take(&mut self.rules);
 
         for rule in &mut rules {
-            self.optimize_body(rule.body_mut());
+            self.optimize_rule(rule.body_mut());
         }
 
         // On remet les règles optimisées en place
         self.rules = rules;
     }
 
-    fn optimize_body(&self, body: &mut SmallVec<[Atom; Rule::INLINE_BODY_CAPACITY]>) {
+    fn optimize_rule(&self, body: &mut RuleBody) {
         if body.len() <= 1 {
             return;
         }
 
-        let mut optimized = Vec::with_capacity(body.len());
+        // 🚀 OPTIMISATION : On utilise directement RuleBody pour rester sur la pile
+        let mut optimized = RuleBody::with_capacity(body.len());
         let mut bound_vars_mask: u64 = 0;
 
-        // Ça fonctionne à nouveau ! SmallVec implémente Default.
+        // mem::take fonctionne parfaitement car RuleBody implémente Default
         let mut remaining = std::mem::take(body);
 
         while !remaining.is_empty() {
@@ -510,11 +511,11 @@ impl<'a> DatalogEngine<'a> {
                 .iter()
                 .enumerate()
                 .min_by_key(|(_, atom)| {
-                    let sk_id = atom.skeleton_id();
+                    let sk_id = atom.symbol();
 
                     // 1. Calcul des variables déjà liées
                     let mut bound_count = 0;
-                    for term in atom.terms() {
+                    for term in atom.arguments() {
                         match term {
                             Term::Constant(_) => bound_count += 1,
                             Term::Variable(v) => {
@@ -537,11 +538,10 @@ impl<'a> DatalogEngine<'a> {
                 .map(|(idx, _)| idx)
                 .unwrap();
 
-            // Ça fonctionne aussi ! SmallVec possède .remove()
             let best_atom = remaining.remove(best_idx);
 
             // Mise à jour du masque des variables liées
-            for term in best_atom.terms() {
+            for term in best_atom.arguments() {
                 if let Term::Variable(v) = term {
                     let v_idx = v.as_usize();
                     if v_idx < 64 {
@@ -552,13 +552,13 @@ impl<'a> DatalogEngine<'a> {
             optimized.push(best_atom);
         }
 
-        // Conversion transparente de Vec vers SmallVec
-        *body = SmallVec::from_vec(optimized);
+        // 🚀 Remplacement direct et transparent sans passer par la heap
+        *body = optimized;
     }
 
     #[inline(always)]
     pub fn get_predicate_priority(&self, atom: &Atom) -> u8 {
-        let id = atom.skeleton_id();
+        let id = atom.symbol();
 
         // 1. Égalité positive (Affectation) : priorité absolue
         if atom.is_equality() && !atom.is_negated() {

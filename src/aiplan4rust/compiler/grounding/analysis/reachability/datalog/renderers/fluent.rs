@@ -36,7 +36,7 @@ pub fn render(fluent_tuple: &Tuple<AtomSkeletonId>, lifted_problem: &LiftedProbl
     let fluent_str = format!(
         "{}{}",
         name,
-        common::render_args(fluent_tuple.args(), lifted_problem)
+        common::render_args(fluent_tuple.arguments(), lifted_problem)
     );
 
     // 4. Wrap avec "not" si le bit de poids fort était activé

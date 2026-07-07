@@ -1,6 +1,13 @@
 use crate::aiplan4rust::support::lang::ObjectId;
+use crate::analysis::reachability::datalog::settings;
 use smallvec::SmallVec;
 use std::fmt;
+
+/// A stack-allocated sequence of concrete object identifiers representing a ground tuple's arguments.
+///
+/// This specific layout is optimized via [`settings::INLINE_TUPLE_ARGS_CAPACITY`] to maximize
+/// stack density and eliminate heap allocations during intense database insertion and evaluation loops.
+pub type TupleArgs = SmallVec<[ObjectId; settings::INLINE_TUPLE_ARGS_CAPACITY]>;
 
 /// Represents a concrete tuple stored within the Datalog database relations.
 ///
@@ -10,39 +17,36 @@ use std::fmt;
 /// # Memory Layout & Performance
 ///
 /// To prevent heap fragmentation during intensive database population and saturation loops,
-/// the tuple's arguments use a stack-allocated [`SmallVec`]. Since the vast majority
-/// of PDDL predicates and ground facts operate with an arity of 4 or fewer, an inline
-/// capacity of 4 (`Tuple::<()>::INLINE_ARGS_CAPACITY`) guarantees **zero heap allocations**
+/// the tuple's arguments use a stack-allocated [`TupleArgs`] container. Since the vast majority
+/// of PDDL predicates and ground facts operate with a tight set of parameters, an inline
+/// capacity of [`settings::INLINE_TUPLE_ARGS_CAPACITY`] guarantees **zero heap allocations**
 /// for standard database entries.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Tuple<ID> {
     /// The unique identifier of the definition or relation (e.g., `ActionDefId`, `AtomSkeletonId`).
     pub symbol: ID,
     /// The concrete ground arguments (instantiated objects) optimized for stack allocation.
-    pub args: SmallVec<[ObjectId; Tuple::<()>::INLINE_ARGS_CAPACITY]>,
+    pub args: TupleArgs,
 }
 
 impl<ID> Tuple<ID> {
-    /// Threshold arity for stack-allocated inline arguments storage.
-    ///
-    /// Tuples with a number of arguments lower than or equal to this limit will reside
-    /// entirely on the stack within the struct's memory block, bypassing the heap allocator.
-    pub const INLINE_ARGS_CAPACITY: usize = 4;
-
-    /// Creates a new concrete ground tuple.
+    /// Creates a new concrete ground tuple from an argument buffer.
     ///
     /// # Arguments
     ///
     /// * `symbol` - The generic relation symbol or definition identifier.
-    /// * `args` - A standard vector of concrete object identifiers representing the arguments.
+    /// * `args` - A collection convertible into a [`TupleArgs`] container holding the concrete ground object identifiers.
     ///
     /// # Return Value
     ///
     /// Returns a new instance of [`Self`] with the arguments stored inline on the stack if possible.
-    pub fn new(symbol: ID, args: Vec<ObjectId>) -> Self {
+    pub fn new<A>(symbol: ID, args: A) -> Self
+    where
+        A: Into<TupleArgs>,
+    {
         Self {
             symbol,
-            args: SmallVec::from_vec(args),
+            args: args.into(),
         }
     }
 
@@ -63,7 +67,7 @@ impl<ID> Tuple<ID> {
     /// # Return Value
     ///
     /// Returns an immutable slice reference (`&[ObjectId]`) targeting the sequence of object parameters.
-    pub fn args(&self) -> &[ObjectId] {
+    pub fn arguments(&self) -> &[ObjectId] {
         &self.args
     }
 
@@ -103,6 +107,7 @@ impl<ID: fmt::Display> fmt::Display for Tuple<ID> {
 mod tests {
     use super::*;
     use crate::aiplan4rust::support::lang::AtomSkeletonId;
+    use smallvec::smallvec;
 
     /// **Objective**: Verify that a new ground tuple can be correctly initialized, accessing its symbol and arguments natively.
     ///
@@ -112,17 +117,17 @@ mod tests {
     #[test]
     fn test_tuple_creation_and_inline_storage() {
         let symbol = AtomSkeletonId::from(42);
-        let ground_args = vec![ObjectId::from(1), ObjectId::from(2)];
+        let ground_args: TupleArgs = smallvec![ObjectId::from(1), ObjectId::from(2)];
 
         let tuple = Tuple::new(symbol, ground_args);
 
         assert_eq!(tuple.symbol().as_usize(), 42);
         assert_eq!(tuple.arity(), 2);
-        assert_eq!(tuple.args().len(), 2);
-        assert_eq!(tuple.args()[0].as_usize(), 1);
-        assert_eq!(tuple.args()[1].as_usize(), 2);
+        assert_eq!(tuple.arguments().len(), 2);
+        assert_eq!(tuple.arguments()[0].as_usize(), 1);
+        assert_eq!(tuple.arguments()[1].as_usize(), 2);
 
-        // Ensures allocation limits are working as expected (Inline limit is 4)
+        // Ensures allocation limits are working as expected (Inline limit is settings::INLINE_TUPLE_ARGS_CAPACITY)
         assert!(!tuple.args.spilled(), "Arguments must remain on the stack");
     }
 
@@ -134,7 +139,8 @@ mod tests {
     #[test]
     fn test_tuple_with_primitive_id_type() {
         let symbol: u32 = 999;
-        let ground_args = vec![ObjectId::from(10), ObjectId::from(20), ObjectId::from(30)];
+        let ground_args: TupleArgs =
+            smallvec![ObjectId::from(10), ObjectId::from(20), ObjectId::from(30)];
 
         let tuple = Tuple::new(symbol, ground_args);
 
@@ -143,45 +149,47 @@ mod tests {
         assert!(!tuple.args.spilled());
     }
 
-    /// **Objective**: Verify that the arguments array safely triggers a heap spillover when its length exceeds `INLINE_ARGS_CAPACITY`.
+    /// **Objective**: Verify that the arguments array safely triggers a heap spillover when its length exceeds `INLINE_TUPLE_ARGS_CAPACITY`.
     ///
-    /// **Input**: A tuple initialized with 5 concrete object arguments (exceeding the stack limit of 4).
+    /// **Input**: A tuple initialized with concrete object arguments exceeding the stack limit.
     ///
-    /// **Expected Output**: The tuple successfully instantiates, returns an `arity()` of 5, and the internal `SmallVec` transitions `spilled()` to true.
+    /// **Expected Output**: The tuple successfully instantiates, returns an `arity()` equal to `INLINE_TUPLE_ARGS_CAPACITY + 1`, and the internal `SmallVec` transitions `spilled()` to true.
     #[test]
     fn test_tuple_arguments_heap_spillover() {
         let symbol = AtomSkeletonId::from(100);
-        let large_args = (0..=Tuple::<()>::INLINE_ARGS_CAPACITY)
+        let large_args: TupleArgs = (0..=settings::INLINE_TUPLE_ARGS_CAPACITY)
             .map(|id| ObjectId::from(id))
-            .collect::<Vec<_>>();
+            .collect::<TupleArgs>();
 
         let tuple = Tuple::new(symbol, large_args);
 
-        assert_eq!(tuple.arity(), Tuple::<()>::INLINE_ARGS_CAPACITY + 1);
+        assert_eq!(tuple.arity(), settings::INLINE_TUPLE_ARGS_CAPACITY + 1);
         assert!(
             tuple.args.spilled(),
-            "The tuple storage must migrate to the heap when arity exceeds 4"
+            "The tuple storage must migrate to the heap when arity exceeds {}",
+            settings::INLINE_TUPLE_ARGS_CAPACITY
         );
     }
 
-    /// **Objective**: Ensure that the structure handles boundary conditions perfectly when the argument slice size equals exactly `INLINE_ARGS_CAPACITY`.
+    /// **Objective**: Ensure that the structure handles boundary conditions perfectly when the argument slice size equals exactly `INLINE_TUPLE_ARGS_CAPACITY`.
     ///
-    /// **Input**: A tuple holding exactly 4 elements.
+    /// **Input**: A tuple holding exactly `INLINE_TUPLE_ARGS_CAPACITY` elements.
     ///
-    /// **Expected Output**: The array size is evaluated as 4, and `spilled()` remains strictly false, maximizing stack density.
+    /// **Expected Output**: The array size is evaluated properly, and `spilled()` remains strictly false, maximizing stack density.
     #[test]
     fn test_tuple_exact_capacity_boundary() {
         let symbol = AtomSkeletonId::from(7);
-        let boundary_args = (0..Tuple::<()>::INLINE_ARGS_CAPACITY)
+        let boundary_args = (0..settings::INLINE_TUPLE_ARGS_CAPACITY)
             .map(|id| ObjectId::from(id))
-            .collect::<Vec<_>>();
+            .collect::<TupleArgs>();
 
         let tuple = Tuple::new(symbol, boundary_args);
 
-        assert_eq!(tuple.arity(), Tuple::<()>::INLINE_ARGS_CAPACITY);
+        assert_eq!(tuple.arity(), settings::INLINE_TUPLE_ARGS_CAPACITY);
         assert!(
             !tuple.args.spilled(),
-            "An exact capacity of 4 must reside on the stack"
+            "An exact capacity of {} must reside on the stack",
+            settings::INLINE_TUPLE_ARGS_CAPACITY
         );
     }
 
@@ -193,7 +201,7 @@ mod tests {
     #[test]
     fn test_empty_tuple_arity_zero() {
         let symbol = AtomSkeletonId::from(123);
-        let tuple = Tuple::new(symbol, vec![]);
+        let tuple = Tuple::new(symbol, TupleArgs::new());
 
         assert_eq!(tuple.arity(), 0);
         assert!(!tuple.args.spilled());
@@ -207,7 +215,7 @@ mod tests {
     #[test]
     fn test_tuple_display_formatting() {
         let symbol = AtomSkeletonId::from(10);
-        let ground_args = vec![ObjectId::from(1), ObjectId::from(2)];
+        let ground_args: TupleArgs = smallvec![ObjectId::from(1), ObjectId::from(2)];
         let tuple = Tuple::new(symbol, ground_args);
 
         // Formats using the true display prefix of AtomSkeletonId ("AS#")
@@ -224,12 +232,12 @@ mod tests {
     #[test]
     fn test_tuple_deep_cloning_behavior() {
         let symbol = AtomSkeletonId::from(5);
-        let tuple_orig = Tuple::new(symbol, vec![ObjectId::from(1), ObjectId::from(2)]);
+        let tuple_orig = Tuple::new(symbol, smallvec![ObjectId::from(1), ObjectId::from(2)]);
         let tuple_cloned = tuple_orig.clone();
 
         assert_eq!(tuple_cloned.symbol(), tuple_orig.symbol());
         assert_eq!(tuple_cloned.arity(), tuple_orig.arity());
-        assert_eq!(tuple_cloned.args(), tuple_orig.args());
+        assert_eq!(tuple_cloned.arguments(), tuple_orig.arguments());
     }
 
     /// **Objective**: Verify that structural equality (`PartialEq`/`Eq`) and structural hashing (`Hash`)
@@ -244,9 +252,9 @@ mod tests {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
-        let t1 = Tuple::new(AtomSkeletonId::from(1), vec![ObjectId::from(10)]);
-        let t2 = Tuple::new(AtomSkeletonId::from(1), vec![ObjectId::from(10)]);
-        let t3 = Tuple::new(AtomSkeletonId::from(1), vec![ObjectId::from(20)]);
+        let t1 = Tuple::new(AtomSkeletonId::from(1), smallvec![ObjectId::from(10)]);
+        let t2 = Tuple::new(AtomSkeletonId::from(1), smallvec![ObjectId::from(10)]);
+        let t3 = Tuple::new(AtomSkeletonId::from(1), smallvec![ObjectId::from(20)]);
 
         // Test Equality
         assert_eq!(t1, t2);

@@ -10,5 +10,9 @@ pub fn render(aux_tuple: &Tuple<AtomSkeletonId>, lifted: &LiftedProblem) -> Stri
 
     // 2. Par contre, common::render_args fonctionnera très bien !
     // Il va transformer les IDs d'objets (les arguments du tuple) en noms (valve, bracket, etc.)
-    format!("{}{}", name, common::render_args(aux_tuple.args(), lifted))
+    format!(
+        "{}{}",
+        name,
+        common::render_args(aux_tuple.arguments(), lifted)
+    )
 }

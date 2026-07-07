@@ -6,6 +6,7 @@ use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, CompareOp, VariableId};
 use crate::analysis::reachability::datalog::context::DatalogContext;
+use crate::analysis::reachability::datalog::core::rule::RuleBody;
 use crate::analysis::reachability::datalog::encoder::{aliasing, predicate};
 use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::analysis::reachability::datalog::state::DatalogState;
@@ -92,19 +93,19 @@ pub fn encode_effects(
     *state.current_aliases = aliasing::extract_variable_aliases(effect, store)?;
 
     let mut root_cause = action_atom.clone();
-    for term in root_cause.terms_mut() {
+    for term in root_cause.arguments_mut() {
         if let Term::Variable(v) = *term {
             *term = aliasing::resolve_var(v, state.current_aliases);
         }
     }
 
-    let root_cause_id = root_cause.skeleton_id();
+    let root_cause_id = root_cause.symbol();
     // On utilise directement l'id de départ pour la pile
     let mut work_stack = vec![(effect, root_cause)];
     let mut visited = std::collections::HashSet::new();
 
     while let Some((current_id, current_cause)) = work_stack.pop() {
-        if !visited.insert((current_id, current_cause.skeleton_id())) {
+        if !visited.insert((current_id, current_cause.symbol())) {
             continue;
         }
 
@@ -116,21 +117,22 @@ pub fn encode_effects(
             ExprKind::AtomicFormula(_) => {
                 let mut effect_atom = predicate::extract_atom(node, store)?;
 
-                for term in effect_atom.terms_mut() {
+                for term in effect_atom.arguments_mut() {
                     if let Term::Variable(v) = *term {
                         *term = aliasing::resolve_var(v, state.current_aliases);
                     }
                 }
 
-                let cause = if current_cause.skeleton_id() == root_cause_id {
+                let cause = if current_cause.symbol() == root_cause_id {
                     Cause::Action
                 } else {
                     Cause::Pivot(current_cause.clone())
                 };
                 action_effects[action_index].push((effect_atom.clone(), cause));
-                state
-                    .rules
-                    .push(Rule::new(effect_atom, vec![current_cause.clone()]));
+                let mut rule_body = RuleBody::new();
+                rule_body.push(current_cause.clone());
+
+                state.rules.push(Rule::new(effect_atom, rule_body));
             }
 
             ExprKind::And => {
@@ -147,7 +149,7 @@ pub fn encode_effects(
                 // 🌟 Appel propre à encode_expr avec nos structures unifiées
                 if let Some(cond_atom) = encode_condition(condition_id, ctx, state, store)? {
                     let mut combined_body = vec![current_cause.clone(), cond_atom.clone()];
-                    combined_body.sort_by_key(|a| a.skeleton_id());
+                    combined_body.sort_by_key(|a| a.symbol());
 
                     let aux_when_atom = if let Some(existing_head) = state.cache.get(&combined_body)
                     {
@@ -193,7 +195,7 @@ pub fn encode_effects(
                     if let ExprKind::AtomicFormula(_) = child_kind {
                         let mut del_atom = predicate::extract_atom(child_node, store)?;
 
-                        for term in del_atom.terms_mut() {
+                        for term in del_atom.arguments_mut() {
                             if let Term::Variable(v) = *term {
                                 *term = aliasing::resolve_var(v, state.current_aliases);
                             }
@@ -201,14 +203,14 @@ pub fn encode_effects(
 
                         del_atom.set_negated(true);
 
-                        let pure_id = del_atom.skeleton_id().as_usize();
+                        let pure_id = del_atom.symbol().as_usize();
                         let target_idx = pure_id + ctx.negation_offset;
 
                         let mut final_skeleton = AtomSkeletonId::from(target_idx);
                         final_skeleton.set_negated(true);
-                        del_atom.set_skeleton_id(final_skeleton);
+                        del_atom.set_symbol(final_skeleton);
 
-                        let cause = if current_cause.skeleton_id() == root_cause_id {
+                        let cause = if current_cause.symbol() == root_cause_id {
                             Cause::Action
                         } else {
                             Cause::Pivot(current_cause.clone())
@@ -335,23 +337,23 @@ fn encode_condition(
             let result = match kind {
                 ExprKind::AtomicFormula(skeleton_id) => {
                     let mut atom = predicate::extract_atom(node, store)?;
-                    for term in atom.terms_mut() {
+                    for term in atom.arguments_mut() {
                         if let Term::Variable(v) = *term {
                             // 🌟 Utilisation de la table partagée de l'état mutable
                             *term = aliasing::resolve_var(v, state.current_aliases);
                         }
                     }
                     if skeleton_id.is_negated() {
-                        let mut sk = atom.skeleton_id();
+                        let mut sk = atom.symbol();
                         sk.set_negated(true);
-                        atom.set_skeleton_id(sk);
+                        atom.set_symbol(sk);
                     }
                     Some(atom)
                 }
 
                 ExprKind::Not => match results_stack.pop().flatten() {
                     Some(mut atom) => {
-                        let terms = atom.terms();
+                        let terms = atom.arguments();
                         if terms[0] == terms[1] {
                             None
                         } else {
@@ -376,7 +378,7 @@ fn encode_condition(
                         let mut atoms: Vec<Atom> = Vec::new();
                         for a in child_results.into_iter().flatten() {
                             if a.is_equality() {
-                                let terms = a.terms();
+                                let terms = a.arguments();
                                 if a.is_negated() {
                                     if terms[0] == terms[1] {
                                         return Ok(None);
@@ -400,7 +402,7 @@ fn encode_condition(
                         } else if atoms.len() == 1 {
                             Some(atoms[0].clone())
                         } else {
-                            atoms.sort_by_key(|a| a.skeleton_id());
+                            atoms.sort_by_key(|a| a.symbol());
                             if let Some(existing_head) = state.cache.get(&atoms) {
                                 Some(existing_head.clone())
                             } else {
@@ -432,7 +434,7 @@ fn encode_condition(
                     } else if atoms.len() == 1 {
                         Some(atoms[0].clone())
                     } else {
-                        atoms.sort_by_key(|a| a.skeleton_id());
+                        atoms.sort_by_key(|a| a.symbol());
                         atoms.dedup();
 
                         if let Some(existing_head) = state.cache.get(&atoms) {
@@ -450,17 +452,18 @@ fn encode_condition(
                             )?;
 
                             for atom in &atoms {
-                                let mut branch_body = vec![atom.clone()];
+                                let mut branch_body = RuleBody::new();
+                                branch_body.push(atom.clone());
                                 let mut covered_vars = std::collections::HashSet::new();
                                 if !atom.is_negated() {
-                                    for term in atom.terms() {
+                                    for term in atom.arguments() {
                                         if let Term::Variable(v) = term {
                                             covered_vars.insert(*v);
                                         }
                                     }
                                 }
 
-                                for term in head.terms() {
+                                for term in head.arguments() {
                                     if let Term::Variable(v) = term {
                                         if !covered_vars.contains(v) {
                                             let parameters =
@@ -471,7 +474,8 @@ fn encode_condition(
                                             let type_sk = ctx.type_to_skeleton[type_id];
 
                                             branch_body
-                                                .push(Atom::new(type_sk, vec![Term::Variable(*v)]));
+                                                .push(Atom::unary(type_sk, Term::Variable(*v)));
+
                                             covered_vars.insert(*v);
                                         }
                                     }
@@ -490,14 +494,14 @@ fn encode_condition(
                     if *op == CompareOp::Equal {
                         let mut atom = predicate::extract_atom(node, store)?;
 
-                        for term in atom.terms_mut() {
+                        for term in atom.arguments_mut() {
                             if let Term::Variable(v) = *term {
                                 // 🌟 Résolution via l'état partagé des alias
                                 *term = aliasing::resolve_var(v, state.current_aliases);
                             }
                         }
 
-                        let terms = atom.terms();
+                        let terms = atom.arguments();
                         if terms[0] == terms[1] {
                             Some(atom)
                         } else if let (Term::Constant(_), Term::Constant(_)) =

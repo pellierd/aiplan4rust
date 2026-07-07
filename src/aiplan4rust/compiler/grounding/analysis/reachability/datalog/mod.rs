@@ -8,6 +8,7 @@ pub mod queries;
 pub mod renderers;
 pub mod saturation;
 pub mod segments;
+pub mod settings;
 pub(crate) mod state;
 
 //pub use old_engine::DatalogEngine;

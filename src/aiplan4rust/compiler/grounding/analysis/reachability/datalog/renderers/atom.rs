@@ -5,11 +5,11 @@ use crate::aiplan4rust::support::lang::SymbolId;
 use crate::analysis::reachability::datalog::renderers::DatalogRenderContext;
 
 pub fn render(ctx: &DatalogRenderContext, atom: &Atom) -> String {
-    let sk_id = atom.skeleton_id();
+    let sk_id = atom.symbol();
     let is_neg = atom.is_negated();
 
     // 1. On résout les arguments (?v0, objet#1)
-    let terms_str = resolve_terms(ctx, atom.terms());
+    let terms_str = resolve_terms(ctx, atom.arguments());
 
     // 2. Cas particulier de l'égalité
     if atom.is_equality() && terms_str.len() == 2 {

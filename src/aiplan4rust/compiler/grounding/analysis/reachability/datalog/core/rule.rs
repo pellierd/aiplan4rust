@@ -1,6 +1,10 @@
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
+use crate::analysis::reachability::datalog::settings;
 use smallvec::SmallVec;
 use std::fmt;
+
+/// A stack-allocated sequence of atoms representing the body preconditions of a Datalog rule.
+pub type RuleBody = SmallVec<[Atom; settings::INLINE_RULE_CAPACITY]>;
 
 /// Represents a Datalog rule in the form `Head :- Body.`.
 ///
@@ -22,31 +26,31 @@ pub struct Rule {
     head: Atom,
     /// The list of atoms that must be satisfied to trigger the rule,
     /// optimized for stack-allocation.
-    body: SmallVec<[Atom; Rule::INLINE_BODY_CAPACITY]>,
+    body: RuleBody,
 }
 
 impl Rule {
-    /// Threshold capacity for stack-allocated inline body storage.
+    /// Creates a new Datalog rule from a generic collection convertible into the internal body storage.
     ///
-    /// Rules with a body containing fewer than or equal to this number of preconditions
-    /// will reside entirely on the stack, bypassing the heap allocator.
-    pub const INLINE_BODY_CAPACITY: usize = 8;
-
-    /// Creates a new Datalog rule.
+    /// # Performance Note
+    ///
+    /// For optimal performance and to guarantee zero heap allocations, pass a stack-allocated
+    /// [`RuleBody`] directly (or an auxiliary body buffer with a matching inline layout).
+    /// Passing a standard [`Vec`] will move the allocation to the heap, bypassing stack-inlining
+    /// optimization even if the atom count is below [`settings::INLINE_RULE_CAPACITY`].
     ///
     /// # Arguments
     ///
     /// * `head` - The conclusion [`Atom`] that will be inferred.
-    /// * `body` - A standard vector of [`Atom`] preconditions representing the rule's body.
-    ///
-    /// # Return Value
-    ///
-    /// Returns a new instance of [`Self`] with the body safely migrated to an inline or heap-spilled `SmallVec`.
+    /// * `body` - A collection convertible into a [`RuleBody`] containing the rule's body preconditions.
     #[inline]
-    pub fn new(head: Atom, body: Vec<Atom>) -> Self {
+    pub fn new<T>(head: Atom, body: T) -> Self
+    where
+        T: Into<RuleBody>,
+    {
         Self {
             head,
-            body: SmallVec::from_vec(body),
+            body: body.into(),
         }
     }
 
@@ -80,7 +84,7 @@ impl Rule {
     ///
     /// Returns an exclusive mutable reference (`&mut SmallVec<...>`) over the rule's body.
     #[inline]
-    pub(crate) fn body_mut(&mut self) -> &mut SmallVec<[Atom; Rule::INLINE_BODY_CAPACITY]> {
+    pub(crate) fn body_mut(&mut self) -> &mut RuleBody {
         &mut self.body
     }
 }
@@ -122,12 +126,14 @@ mod tests {
     use super::*;
     use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
     use crate::aiplan4rust::support::lang::{AtomSkeletonId, VariableId};
+    use smallvec::smallvec;
 
     /// Helper function to quickly instantiate a dummy positive Atom for testing rules.
     fn create_dummy_atom(id: usize) -> Atom {
         let sk_id = AtomSkeletonId::from(id);
-        let terms = vec![Term::Variable(VariableId::from(0))];
-        Atom::new(sk_id, terms)
+        let terms = smallvec::smallvec![Term::Variable(VariableId::from(0))];
+
+        Atom::nary(sk_id, terms)
     }
 
     /// **Objective**: Verify that a new Datalog rule can be correctly initialized from a head atom and a vector of body atoms.
@@ -138,37 +144,42 @@ mod tests {
     #[test]
     fn test_rule_creation_and_inline_storage() {
         let head = create_dummy_atom(10);
-        let body_atoms = vec![create_dummy_atom(1), create_dummy_atom(2)];
+        let body_atoms = smallvec![create_dummy_atom(1), create_dummy_atom(2)];
 
         let rule = Rule::new(head, body_atoms);
 
-        assert_eq!(rule.head().skeleton_id().as_usize(), 10);
+        assert_eq!(rule.head().symbol().as_usize(), 10);
         assert_eq!(rule.body().len(), 2);
-        assert_eq!(rule.body()[0].skeleton_id().as_usize(), 1);
-        assert_eq!(rule.body()[1].skeleton_id().as_usize(), 2);
+        assert_eq!(rule.body()[0].symbol().as_usize(), 1);
+        assert_eq!(rule.body()[1].symbol().as_usize(), 2);
 
-        // Ensure that it fits within the stack allocation limit (Inline capacity is 8)
-        assert!(!rule.body.spilled());
+        // Ensure that it fits within the stack allocation limit
+        assert!(
+            !rule.body.spilled(),
+            "The rule body must remain inline on the stack when below settings::INLINE_RULE_CAPACITY ({})",
+            settings::INLINE_RULE_CAPACITY
+        );
     }
 
-    /// **Objective**: Verify that the rule's internal `SmallVec` triggers heap spillover when the body size exceeds `INLINE_BODY_CAPACITY`.
+    /// **Objective**: Verify that the rule's internal `SmallVec` triggers heap spillover when the body size exceeds `INLINE_RULE_CAPACITY`.
     ///
-    /// **Input**: A rule initialized with a body sequence containing 9 atoms (exceeding the threshold limit of 8).
+    /// **Input**: A rule initialized with a body sequence containing more atoms than the threshold limit defined by `settings::INLINE_RULE_CAPACITY`.
     ///
-    /// **Expected Output**: The rule successfully holds all 9 elements, but `spilled()` evaluates to true, indicating a heap allocation transition.
+    /// **Expected Output**: The rule successfully holds all provided elements, but `spilled()` evaluates to true, indicating a heap allocation transition.
     #[test]
     fn test_rule_body_heap_spillover() {
         let head = create_dummy_atom(100);
-        let large_body = (0..=Rule::INLINE_BODY_CAPACITY)
+        let large_body = (0..=settings::INLINE_RULE_CAPACITY)
             .map(create_dummy_atom)
-            .collect::<Vec<_>>();
+            .collect::<SmallVec<_>>();
 
         let rule = Rule::new(head, large_body);
 
-        assert_eq!(rule.body().len(), Rule::INLINE_BODY_CAPACITY + 1);
+        assert_eq!(rule.body().len(), settings::INLINE_RULE_CAPACITY + 1);
         assert!(
             rule.body.spilled(),
-            "The rule body must migrate to the heap when arity > 8"
+            "The rule body must migrate to the heap when atom count > {}",
+            settings::INLINE_RULE_CAPACITY
         );
     }
 
@@ -180,7 +191,10 @@ mod tests {
     #[test]
     fn test_rule_body_mutable_access() {
         let head = create_dummy_atom(1);
-        let mut rule = Rule::new(head, vec![create_dummy_atom(10), create_dummy_atom(20)]);
+        let mut rule = Rule::new(
+            head,
+            smallvec![create_dummy_atom(10), create_dummy_atom(20)],
+        );
 
         // Modify the body via the pub(crate) mutable reference
         {
@@ -188,8 +202,8 @@ mod tests {
             body_ref[0] = create_dummy_atom(99);
         }
 
-        assert_eq!(rule.body()[0].skeleton_id().as_usize(), 99);
-        assert_eq!(rule.body()[1].skeleton_id().as_usize(), 20);
+        assert_eq!(rule.body()[0].symbol().as_usize(), 99);
+        assert_eq!(rule.body()[1].symbol().as_usize(), 20);
     }
 
     /// **Objective**: Validate the standard Datalog string formatting output for both standard rules and fact structures.
@@ -201,7 +215,7 @@ mod tests {
     fn test_rule_display_formatting() {
         // 1. Test standard rule with preconditions
         let head = create_dummy_atom(10);
-        let body = vec![create_dummy_atom(1), create_dummy_atom(2)];
+        let body = smallvec![create_dummy_atom(1), create_dummy_atom(2)];
         let rule = Rule::new(head, body);
 
         let expected_rule_output = "sk_10(?v#0) :- sk_1(?v#0), sk_2(?v#0).";
@@ -209,7 +223,7 @@ mod tests {
 
         // 2. Test fact representation (empty body)
         let fact_head = create_dummy_atom(5);
-        let fact = Rule::new(fact_head, vec![]);
+        let fact = Rule::new(fact_head, smallvec![]);
 
         let expected_fact_output = "sk_5(?v#0).";
         assert_eq!(format!("{}", fact), expected_fact_output);
@@ -225,33 +239,34 @@ mod tests {
     #[test]
     fn test_rule_with_empty_body_fact() {
         let head = create_dummy_atom(5);
-        let rule = Rule::new(head, vec![]);
+        let rule = Rule::new(head, smallvec![]);
 
-        assert_eq!(rule.head().skeleton_id().as_usize(), 5);
+        assert_eq!(rule.head().symbol().as_usize(), 5);
         assert_eq!(rule.body().len(), 0);
         assert!(!rule.body.spilled());
     }
 
-    /// **Objective**: Verify that the rule structure accurately preserves exactly `INLINE_BODY_CAPACITY` atoms
+    /// **Objective**: Verify that the rule structure accurately preserves exactly `INLINE_RULE_CAPACITY` atoms
     /// on the stack without spilling to the heap.
     ///
-    /// **Input**: A rule initialized with exactly 8 body conditions (the precise upper boundary limit).
+    /// **Input**: A rule initialized with exactly the maximum number of inline body conditions.
     ///
-    /// **Expected Output**: The rule's body has a length of 8, and `spilled()` remains strictly false,
+    /// **Expected Output**: The rule's body length matches the maximum capacity, and `spilled()` remains strictly false,
     /// validating that boundary saturation maximizes stack usage.
     #[test]
     fn test_rule_body_exact_capacity_boundary() {
         let head = create_dummy_atom(77);
-        let exact_body = (0..Rule::INLINE_BODY_CAPACITY)
+        let exact_body = (0..settings::INLINE_RULE_CAPACITY)
             .map(create_dummy_atom)
-            .collect::<Vec<_>>();
+            .collect::<SmallVec<_>>();
 
         let rule = Rule::new(head, exact_body);
 
-        assert_eq!(rule.body().len(), Rule::INLINE_BODY_CAPACITY);
+        assert_eq!(rule.body().len(), settings::INLINE_RULE_CAPACITY);
         assert!(
             !rule.body.spilled(),
-            "An exact capacity of 8 must remain inline on the stack"
+            "An exact capacity of {} atoms must remain inline on the stack without spilling",
+            settings::INLINE_RULE_CAPACITY
         );
     }
 
@@ -265,9 +280,9 @@ mod tests {
     #[test]
     fn test_rule_deep_cloning_behavior() {
         let head = create_dummy_atom(10);
-        let large_body = (0..=Rule::INLINE_BODY_CAPACITY)
+        let large_body = (0..=settings::INLINE_RULE_CAPACITY)
             .map(create_dummy_atom)
-            .collect::<Vec<_>>();
+            .collect::<SmallVec<_>>();
 
         let mut original_rule = Rule::new(head, large_body);
         let cloned_rule = original_rule.clone();
@@ -275,15 +290,15 @@ mod tests {
         // Structural verification
         assert_eq!(cloned_rule.body().len(), original_rule.body().len());
         assert_eq!(
-            cloned_rule.head().skeleton_id().as_usize(),
-            original_rule.head().skeleton_id().as_usize()
+            cloned_rule.head().symbol().as_usize(),
+            original_rule.head().symbol().as_usize()
         );
         assert!(cloned_rule.body.spilled());
 
         // Isolation mutation check
         original_rule.body_mut()[0] = create_dummy_atom(999);
         assert_ne!(
-            cloned_rule.body()[0].skeleton_id().as_usize(),
+            cloned_rule.body()[0].symbol().as_usize(),
             999,
             "Cloned data must be deep-copied and isolated"
         );

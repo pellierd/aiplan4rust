@@ -8,6 +8,8 @@ use crate::aiplan4rust::support::lang::{
     ActionSymbolId, AtomSkeletonId, TypeId, TypedList, VariableId,
 };
 use crate::analysis::reachability::datalog::context::DatalogContext;
+use crate::analysis::reachability::datalog::core::atom::AtomArgs;
+use crate::analysis::reachability::datalog::core::rule::RuleBody;
 use crate::analysis::reachability::datalog::encoder;
 use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::analysis::reachability::datalog::state::DatalogState;
@@ -78,12 +80,15 @@ fn encode_action_name(
     // 2. On extrait la liste concrète depuis le store du problème
     let parameters = store.fetch_typed_list(param_list_id)?;
 
-    let head_terms: Vec<Term> = parameters
-        .iter()
-        .map(|param| Term::Variable(param.symbol()))
-        .collect();
+    // 🚀 OPTIMISATION : Accumulation directe dans le SmallVec natif de l'Atom
+    let mut head_terms = AtomArgs::with_capacity(parameters.len());
 
-    Ok(Atom::new(action_sk_id, head_terms))
+    for param in parameters.iter() {
+        head_terms.push(Term::Variable(param.symbol()));
+    }
+
+    // Utilisation du nouveau constructeur n-aire sans transit par la heap
+    Ok(Atom::nary(action_sk_id, head_terms))
 }
 
 /// Version locale (associée) pour compiler le corps de l'action
@@ -111,8 +116,8 @@ fn encode_action_body(
         encoder::expr::encode_preconditions(action.precondition(), precond_ctx, state, store)?;
 
     // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
-    let mut final_action_body = Vec::new();
-    let mut anchor_elements = Vec::new();
+    let mut final_action_body = RuleBody::new();
+    let mut anchor_elements = RuleBody::new();
     let mut covered_vars = std::collections::HashSet::new();
 
     // ==========================================================
@@ -146,7 +151,9 @@ fn encode_action_body(
             .is_predicate_positive_negative_inertia(positive_id)?
         {
             let children = atom_node.children();
-            let mut terms = Vec::with_capacity(children.len().saturating_sub(1));
+
+            // 🚀 OPTIMISATION : Accumulateur direct sur la pile via SmallVec
+            let mut terms = AtomArgs::with_capacity(children.len().saturating_sub(1));
 
             for &term_id in children.iter().skip(1) {
                 let term_node = precondition.fetch_node(term_id)?;
@@ -165,7 +172,8 @@ fn encode_action_body(
                 terms.push(term);
             }
 
-            let static_atom = Atom::new(skel_id, terms);
+            // 🚀 OPTIMISATION : Utilisation du constructeur n-aire sans allocation de Vec intermédiaire
+            let static_atom = Atom::nary(skel_id, terms);
             anchor_elements.push(static_atom);
         }
     }
@@ -175,15 +183,26 @@ fn encode_action_body(
     // ==========================================================
     // 🌟 Récupération locale des paramètres via l'ID et le store
     let parameters = store.fetch_typed_list(param_list_id)?;
+
+    // 🚀 OPTIMISATION BONUS : Utilisation d'un bitmask u64 au lieu d'un HashSet
+    let mut covered_mask: u64 = 0;
+
     for (i, param) in parameters.iter().enumerate() {
         let var_id = VariableId::from(i);
-        if !covered_vars.contains(&var_id) {
+        let bit_projected = 1 << i;
+
+        // Si la variable n'est pas encore couverte (bit à 0)
+        if (covered_mask & bit_projected) == 0 {
             let var_term = Term::Variable(var_id);
             let type_id = param.ty().members()[0].as_usize();
             let type_sk = context.type_to_skeleton[type_id];
 
-            anchor_elements.push(Atom::new(type_sk, vec![var_term]));
-            covered_vars.insert(var_id);
+            // 🚀 OPTIMISATION : Utilisation de Atom::unary au lieu de Atom::new + vec![]
+            // Aucun vecteur n'est alloué sur le tas ici.
+            anchor_elements.push(Atom::unary(type_sk, var_term));
+
+            // On marque la variable comme couverte dans le bitmask
+            covered_mask |= bit_projected;
         }
     }
 
@@ -207,23 +226,21 @@ fn encode_action_body(
     Ok(())
 }
 
-/// Version locale (associée) pour générer un atome d'ancre unique pour une action
 fn create_anchor_atom(
     _action_id: ActionSymbolId, // Utile pour le debug/nommage futur
     _parameters: &TypedList<VariableId, TypeId>,
     action_head: &Atom,
-    next_aux_id: &mut usize, // 💡 Remplace self.next_aux_id pour l'attribution de l'ID
+    next_aux_id: &mut usize,
 ) -> Atom {
     // 1. On alloue un nouvel ID auxiliaire via le compteur local
-    // L'arité de l'ancre est exactement celle de l'action
     let anchor_id = *next_aux_id;
     *next_aux_id += 1;
 
     let sk_id = AtomSkeletonId::from(anchor_id);
 
-    // 2. On récupère les termes (variables) de l'atome de tête.
-    let terms = action_head.terms().to_vec();
+    // 2. 🚀 OPTIMISATION : On extrait et clone les termes directement dans un SmallVec
+    let terms = AtomArgs::from_slice(action_head.arguments());
 
-    // 3. On crée l'atome d'ancre
-    Atom::new(sk_id, terms)
+    // 3. On crée l'atome d'ancre via le constructeur n-aire
+    Atom::nary(sk_id, terms)
 }

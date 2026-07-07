@@ -3,10 +3,15 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::support::lang::{
     AtomSkeletonId, PredicateSymbolId, TypedList, TypedListId, TypedSymbol, VariableId,
 };
+use crate::analysis::reachability::datalog::core::atom::AtomArgs;
 use crate::analysis::reachability::datalog::core::{Atom, Term};
 use crate::analysis::reachability::datalog::encoder::aliasing;
 use crate::analysis::reachability::datalog::error::DatalogError;
+use crate::analysis::reachability::datalog::settings;
+use smallvec::SmallVec;
 use std::collections::HashMap;
+
+pub type AuxPredicateBody = SmallVec<[Atom; settings::INLINE_AUX_PREDICATE_CAPACITY]>;
 
 /// Encodes a new auxiliary predicate based on a collection of atoms.
 ///
@@ -27,99 +32,59 @@ use std::collections::HashMap;
 ///
 pub(crate) fn allocate_auxiliary_predicate(
     atoms: &[Atom],
-    parameters_id: TypedListId, // 🌟 Mis à jour : passage par ID
+    parameters_id: TypedListId,
     next_aux_id: &mut usize,
     aux_defs: &mut Vec<AtomicFormulaSkeleton>,
     type_to_skeleton: &[AtomSkeletonId],
-    current_aliases: &std::collections::HashMap<VariableId, Term>,
+    current_aliases: &HashMap<VariableId, Term>,
     store: &mut ExprStore,
-) -> Result<(Atom, Vec<Atom>), DatalogError> {
-    // 1. Collecte et résolution des variables
-    let used_vars = extract_unique_variables(atoms, current_aliases)?;
+) -> Result<(Atom, AuxPredicateBody), DatalogError> {
+    // 1. Collecte et résolution directe des variables (Bitmask u64)
+    let mask = compute_variable_bitmask(atoms, current_aliases);
+    let mut resolved_terms = decode_bitmask_to_resolved_terms(mask, current_aliases);
 
-    let mut resolved_terms: Vec<Term> = used_vars
-        .into_iter()
-        .map(|v_id| aliasing::resolve_var(v_id, current_aliases))
-        .collect();
-
+    // Tri et dédoublonnement requis uniquement si les alias ont introduit des constantes
     resolved_terms.sort();
     resolved_terms.dedup();
 
-    let final_vars: Vec<VariableId> = resolved_terms
-        .iter()
-        .filter_map(|t| {
-            if let Term::Variable(v) = t {
-                Some(*v)
-            } else {
-                None
-            }
-        })
-        .collect();
+    // --- 2. LA RÉPARATION VIA BITMASK (Direct SmallVec + Unary Atom - Optimal & Simple 🚀) ---
+    let mut covered_mask = compute_covered_variable_bitmask(atoms);
 
-    // --- 2. LA RÉPARATION (Type Guard Injection) ---
-    let mut covered_vars = std::collections::HashSet::new();
-    for atom in atoms {
-        if !atom.is_negated() {
-            for term in atom.terms() {
-                if let Term::Variable(v) = term {
-                    covered_vars.insert(*v);
-                }
-            }
-        }
-    }
+    // On initialise directement un SmallVec à la place du Vec.
+    // Si (atoms.len() + resolved_terms.len()) <= settings::INLINE_BODY_CAPACITY,
+    // l'allocation sur le tas est totalement évitée.
+    let mut secured_body = AuxPredicateBody::with_capacity(atoms.len() + resolved_terms.len());
+    secured_body.extend(atoms.iter().cloned());
 
-    let mut secured_body = atoms.to_vec();
-
-    // 🌟 Récupération locale et temporaire des paramètres pour injecter les Type Guards
     let parameters = store.fetch_typed_list(parameters_id)?;
 
-    for v_id in &final_vars {
-        if !covered_vars.contains(v_id) {
-            let type_id = parameters[v_id.as_usize()].ty().members()[0].as_usize();
-            let type_sk = type_to_skeleton[type_id];
+    for term in &resolved_terms {
+        if let Term::Variable(v_id) = term {
+            let bit_projected = 1 << v_id.as_usize();
+            if (covered_mask & bit_projected) == 0 {
+                let type_id = parameters[v_id.as_usize()].ty().members()[0].as_usize();
+                let type_sk = type_to_skeleton[type_id];
 
-            secured_body.push(Atom::new(type_sk, vec![Term::Variable(*v_id)]));
-            covered_vars.insert(*v_id);
+                // 🚀 OPTIMISATION : L'atome reste sur la pile et s'insère directement
+                // dans l'espace contigu du SmallVec (sur la pile également si la capacité suffit).
+                secured_body.push(Atom::unary(type_sk, Term::Variable(*v_id)));
+
+                covered_mask |= bit_projected;
+            }
         }
     }
 
     // 3. Création de l'atome de tête
-    let head = intern_auxiliary_signature(
-        final_vars,
-        resolved_terms,
-        parameters_id, // 🌟 On relaie l'ID ici aussi
-        next_aux_id,
-        aux_defs,
-        store,
-    );
+    let head =
+        intern_auxiliary_signature(&resolved_terms, parameters_id, next_aux_id, aux_defs, store);
 
     Ok((head, secured_body))
 }
 
-/// Creates a new auxiliary atom and registers its skeleton locally.
-///
-/// This method is a support part of the **Skolemization** process during flattening.
-/// It generates a unique predicate ID for a sub-formula and maps the provided
-/// variables to their respective types based on the action's parameter list.
-///
-/// # Arguments
-/// * `skeleton_vars` - The subset of variables that will become the terms of this auxiliary atom.
-/// * `resolved_terms` - The final evaluated terms to pack into the resulting atom.
-/// * `parameters` - The master list of typed variables from the current action/context
-///   used to resolve the types of `skeleton_vars`.
-/// * `store` - The global unique expressions arena used to intern the newly created signature.
-///
-/// # Returns
-/// A new [`Atom`] configured with an auxiliary [`AtomSkeletonId`] and variable terms.
-///
-/// # Performance
-/// - **ID Management**: Increments an internal counter in $O(1)$.
-/// - **Type Resolution**: Direct $O(1)` lookup per variable using the `parameters` list.
-/// - **Hash-Consing Allocation**: Interns `aux_params` into the `ExprStore`. If the signature
+/// Écrit une signature auxiliaire en extrayant les variables à la volée.
 fn intern_auxiliary_signature(
-    skeleton_vars: Vec<VariableId>,
-    resolved_terms: Vec<Term>,
-    parameters_id: TypedListId, // 🌟 Mis à jour : passage par ID
+    resolved_terms: &[Term],
+    parameters_id: TypedListId,
     next_aux_id: &mut usize,
     aux_defs: &mut Vec<AtomicFormulaSkeleton>,
     store: &mut ExprStore,
@@ -127,27 +92,66 @@ fn intern_auxiliary_signature(
     let id = *next_aux_id;
     *next_aux_id += 1;
 
-    // 🌟 Récupération temporaire de la liste originale pour lire les types
     let parameters = store
         .fetch_typed_list(parameters_id)
         .expect("Valid TypedListId");
 
     let mut aux_params = TypedList::new();
-    for &v_id in &skeleton_vars {
-        let ty = parameters[v_id.as_usize()].ty();
-        aux_params.push(TypedSymbol::new(v_id, ty.clone()));
+    for term in resolved_terms {
+        if let Term::Variable(v_id) = term {
+            let ty = parameters[v_id.as_usize()].ty();
+            aux_params.push(TypedSymbol::new(*v_id, ty.clone()));
+        }
     }
 
-    // --- On interne la liste brute dans l'arène globale ---
     let list_id = store.intern_typed_list(aux_params);
 
-    // Enregistrement avec le TypedListId conforme au nouveau modèle
     aux_defs.push(AtomicFormulaSkeleton::new(
         PredicateSymbolId::from(id),
         list_id,
     ));
 
-    Atom::new(AtomSkeletonId::from(id), resolved_terms)
+    // 🚀 OPTIMISATION FINALE : On convertit le slice directement en SmallVec
+    // Évite l'allocation d'un Vec standard sur le tas si l'arité est <= 4.
+    let terms = AtomArgs::from_slice(resolved_terms);
+
+    Atom::nary(AtomSkeletonId::from(id), terms)
+}
+
+fn decode_bitmask_to_resolved_terms(
+    mut mask: u64,
+    current_aliases: &HashMap<VariableId, Term>,
+) -> AtomArgs {
+    // 🚀 On retourne un AtomArgs à la place
+    // 🚀 L'espace est pris sur la pile. Comme count_ones() <= 64 (et souvent < 8),
+    // with_capacity voit que ça rentre dans la capacité inline et n'alloue RIEN sur le tas.
+    let mut terms = AtomArgs::with_capacity(mask.count_ones() as usize);
+
+    while mask != 0 {
+        let bit = mask.trailing_zeros();
+        let v_id = VariableId::from(bit as usize);
+
+        terms.push(aliasing::resolve_var(v_id, current_aliases));
+
+        mask &= mask - 1;
+    }
+    terms // Le SmallVec est déplacé (move) rapidement sur la pile
+}
+
+/// Calcule le masque binaire des variables couvertes par au moins un atome non-négatif.
+/// Fonction pure, déterministe et s'exécutant entièrement sur la pile (stack).
+fn compute_covered_variable_bitmask(atoms: &[Atom]) -> u64 {
+    let mut mask: u64 = 0;
+    for atom in atoms {
+        if !atom.is_negated() {
+            for term in atom.arguments() {
+                if let Term::Variable(v) = term {
+                    mask |= 1 << v.as_usize();
+                }
+            }
+        }
+    }
+    mask
 }
 
 /// Extracts a logical [`Atom`] from a specific expression node.
@@ -173,20 +177,16 @@ pub(crate) fn extract_atom(node: ExprNode<'_>, store: &ExprStore) -> Result<Atom
         ExprKind::Comparison(_) => (AtomSkeletonId::from(Atom::EQUALITY_ID), 0),
         ExprKind::AtomicFormula(sk_id) => (*sk_id, 1),
         _ => {
-            return Err(DatalogError::incompatible_node(
-                kind.clone(),
-                node.id(), // 🌟 Plus précis : donne l'ID du nœud fautif directement
-            ));
+            return Err(DatalogError::incompatible_node(kind.clone(), node.id()));
         }
     };
 
-    // 2. Exact allocation to prevent vector resizing during the loop.
+    // 2. Exact allocation using SmallVec to prevent heap allocations for arity <= 4.
     let capacity = children.len().saturating_sub(skip_count);
-    let mut terms = Vec::with_capacity(capacity);
+    let mut terms = AtomArgs::with_capacity(capacity);
 
     // 3. Optimized term collection.
     for &arg_id in children.iter().skip(skip_count) {
-        // 🌟 Appel direct au store pour récupérer le nœud de l'argument
         let arg_node = store.fetch(arg_id)?;
 
         let term = match arg_node.kind() {
@@ -199,7 +199,8 @@ pub(crate) fn extract_atom(node: ExprNode<'_>, store: &ExprStore) -> Result<Atom
         terms.push(term);
     }
 
-    Ok(Atom::new(skeleton_id, terms))
+    // 🚀 OPTIMISATION : Utilisation du constructeur n-aire sans transit par la heap
+    Ok(Atom::nary(skeleton_id, terms))
 }
 
 /// Collects all unique variables from a slice of atoms and returns them as a sorted vector.
@@ -252,7 +253,7 @@ fn compute_variable_bitmask(
 ) -> u64 {
     let mut mask: u64 = 0;
     for atom in atoms {
-        for term in atom.terms() {
+        for term in atom.arguments() {
             // AJOUT : Résolution systématique via ta fonction locale à 2 paramètres
             let resolved_term = match term {
                 Term::Variable(v) => aliasing::resolve_var(*v, current_aliases),

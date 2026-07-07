@@ -1,4 +1,5 @@
 use crate::aiplan4rust::support::lang::{ActionDefId, AtomSkeletonId, TypeId};
+use crate::analysis::reachability::datalog::core::tuple::TupleArgs;
 use crate::analysis::reachability::datalog::core::{Atom, Cause, Rule, Tuple};
 use crate::DatalogEngine;
 
@@ -15,7 +16,8 @@ impl<'a> DatalogEngine<'a> {
 
                 for tuple_data in rel.iter() {
                     // On crée un Tuple pour chaque ligne de la relation
-                    fluents.push(Tuple::new(skeleton_id, tuple_data.to_vec()));
+                    let args = TupleArgs::from_slice(tuple_data);
+                    fluents.push(Tuple::new(skeleton_id, args));
                 }
             }
         }
@@ -34,12 +36,13 @@ impl<'a> DatalogEngine<'a> {
                     // Pour l'arité 0, si la relation n'est pas vide,
                     // c'est que l'action est vraie (1 seule instance possible).
                     if !rel.is_empty() {
-                        actions.push(Tuple::new(action_def_id, vec![]));
+                        actions.push(Tuple::new(action_def_id, TupleArgs::new()));
                     }
                 } else {
                     // Pour l'arité > 0, on itère normalement sur les arguments
                     for tuple_data in rel.iter() {
-                        actions.push(Tuple::new(action_def_id, tuple_data.to_vec()));
+                        let args = TupleArgs::from_slice(tuple_data);
+                        actions.push(Tuple::new(action_def_id, args));
                     }
                 }
             }
@@ -56,7 +59,8 @@ impl<'a> DatalogEngine<'a> {
                 let skeleton_id = AtomSkeletonId::from(sk_id);
 
                 for tuple_data in rel.iter() {
-                    axioms.push(Tuple::new(skeleton_id, tuple_data.to_vec()));
+                    let args = TupleArgs::from_slice(tuple_data);
+                    axioms.push(Tuple::new(skeleton_id, args));
                 }
             }
         }
@@ -78,7 +82,8 @@ impl<'a> DatalogEngine<'a> {
 
                 for tuple_data in rel.iter() {
                     // 3. Création du Tuple (souvent unaire pour les types)
-                    types.push(Tuple::new(type_id, tuple_data.to_vec()));
+                    let args = TupleArgs::from_slice(tuple_data);
+                    types.push(Tuple::new(type_id, args));
                 }
             }
         }
@@ -113,7 +118,7 @@ impl<'a> DatalogEngine<'a> {
 
         self.rules
             .iter()
-            .find(|r| r.head().skeleton_id() == target_sk_id)
+            .find(|r| r.head().symbol() == target_sk_id)
             .expect("Aucune règle trouvée pour cet index d'action")
     }
 
@@ -122,7 +127,7 @@ impl<'a> DatalogEngine<'a> {
 
         self.rules
             .iter()
-            .find(|r| r.head().skeleton_id() == sk_id)
+            .find(|r| r.head().symbol() == sk_id)
             .expect("Inconsistance : fait auxiliaire trouvé sans règle correspondante")
     }
 }

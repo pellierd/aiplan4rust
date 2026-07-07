@@ -30,6 +30,6 @@ pub fn render(action_tuple: &Tuple<ActionDefId>, lifted: &LiftedProblem) -> Stri
     format!(
         "{}{}",
         name,
-        common::render_args(action_tuple.args(), lifted)
+        common::render_args(action_tuple.arguments(), lifted)
     )
 }
