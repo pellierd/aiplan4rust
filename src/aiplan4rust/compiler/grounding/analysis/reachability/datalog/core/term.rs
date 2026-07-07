@@ -25,28 +25,31 @@ pub enum Term {
 }
 
 impl fmt::Display for Term {
-    /// Formats the term using standard PDDL-style conventions for readability.
+    /// Formats the term using standard Datalog syntactic structures for readability.
     ///
-    /// # Output Format
-    /// - **Variables**: Prefixed with `?v` followed by the unique ID (e.g., `?v0`, `?v1`).
-    /// - **Constants**: Prefixed with `c` followed by the unique ID (e.g., `c101`, `c42`).
+    /// This method delegates formatting directly to the underlying identifier types,
+    /// prefixing variables with a standard `?` marker.
     ///
-    /// # Example
+    /// # Return Value
+    ///
+    /// Returns `Ok(())` if formatting completes successfully, or a [`fmt::Error`] upon stream buffer failure.
+    ///
+    /// # Examples
+    ///
     /// ```
-    /// # use aiplan4rust::grounding::analysis::reachability::datalog::term::Term;
-    /// # use aiplan4rust::lang::{VariableId, ObjectId};
+    /// # use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
+    /// # use crate::aiplan4rust::support::lang::{VariableId, ObjectId};
     /// let var = Term::Variable(VariableId::from(0));
     /// let con = Term::Constant(ObjectId::from(42));
     ///
-    /// assert_eq!(format!("{}", var), "?v0");
-    /// assert_eq!(format!("{}", con), "c42");
+    /// assert_eq!(format!("{}", var), "?v#0");
+    /// assert_eq!(format!("{}", con), "o#42");
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            // On utilise .as_usize() pour ne pas déclencher le "v#" de VariableId
+            // Prepends the standard Datalog variable symbol '?' to the VariableId display representation
             Term::Variable(id) => write!(f, "?{}", id),
-
-            // On utilise .as_usize() pour ne pas déclencher le "o#" de ObjectId (ou "co")
+            // Directly forwards the formatting token to the ObjectId display implementation
             Term::Constant(id) => write!(f, "{}", id),
         }
     }
