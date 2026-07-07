@@ -1,3 +1,8 @@
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::cause::Cause;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::database::Database;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::rule::Rule;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::compiler::lir::expr::{ExprKind, ExprStore};
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
@@ -5,13 +10,8 @@ use crate::aiplan4rust::support::lang::{
     ActionSymbolId, AtomSkeletonId, TypeId, TypedList, VariableId,
 };
 use crate::analysis::inertia::table::InertiaTable;
-use crate::analysis::reachability::datalog::atom::Atom;
-use crate::analysis::reachability::datalog::cause::Cause;
-use crate::analysis::reachability::datalog::database::Database;
 use crate::analysis::reachability::datalog::encoder;
 use crate::analysis::reachability::datalog::error::DatalogError;
-use crate::analysis::reachability::datalog::rule::Rule;
-use crate::analysis::reachability::datalog::term::Term;
 use std::collections::HashMap;
 
 /// Compile l'ensemble des définitions d'actions du domaine PDDL en règles Datalog logiques.

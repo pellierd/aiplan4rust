@@ -1,4 +1,4 @@
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::term::Term;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 use std::fmt;
 
@@ -10,7 +10,7 @@ use std::fmt;
 /// how facts are derived.
 ///
 /// Atoms are the "schema" level objects that the engine uses to query or
-/// update the [`Database`](crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::database::Database).
+/// update the [`Database`](crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::database::Database).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Atom {
     /// The unique identifier for the predicate signature (Name + Parameter Types).

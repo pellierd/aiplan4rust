@@ -1,5 +1,5 @@
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::rule::Rule;
 use crate::analysis::reachability::datalog::renderers::{atom, DatalogRenderContext};
-use crate::analysis::reachability::datalog::rule::Rule;
 
 /// Affiche l'ensemble des règles du programme
 pub fn render(ctx: &DatalogRenderContext, rules: &[Rule]) {

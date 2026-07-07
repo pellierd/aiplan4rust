@@ -10,7 +10,7 @@
 //! - Efficient joins via first-argument indexing.
 //! - Minimal memory overhead using raw tuple buffers.
 
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::relation::Relation;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::relation::Relation;
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
 use std::collections::HashMap;
 
@@ -342,7 +342,7 @@ impl std::fmt::Display for Database {
 }
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::database::Database;
+    use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::database::Database;
     use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
     use std::error::Error;
 

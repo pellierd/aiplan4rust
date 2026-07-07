@@ -1,8 +1,8 @@
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::support::lang::SymbolId;
-use crate::analysis::reachability::datalog::atom::Atom;
 use crate::analysis::reachability::datalog::renderers::DatalogRenderContext;
-use crate::analysis::reachability::datalog::term::Term;
 
 pub fn render(ctx: &DatalogRenderContext, atom: &Atom) -> String {
     let sk_id = atom.skeleton_id();

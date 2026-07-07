@@ -1,7 +1,7 @@
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::tuple::Tuple;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 use crate::analysis::reachability::datalog::renderers::common;
-use crate::analysis::reachability::datalog::tuple::Tuple;
 
 pub fn render(aux_tuple: &Tuple<AtomSkeletonId>, lifted: &LiftedProblem) -> String {
     // 1. On ne peut pas récupérer de "Def" car c'est un prédicat généré.

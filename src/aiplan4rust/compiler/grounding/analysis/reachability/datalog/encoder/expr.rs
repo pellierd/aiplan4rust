@@ -1,14 +1,14 @@
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::cause::Cause;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::rule::Rule;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprNode, ExprStore};
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::support::lang::{
     AtomSkeletonId, CompareOp, PredicateSymbolId, TypedList, TypedListId, TypedSymbol, VariableId,
 };
-use crate::analysis::reachability::datalog::atom::Atom;
-use crate::analysis::reachability::datalog::cause::Cause;
 use crate::analysis::reachability::datalog::error::DatalogError;
-use crate::analysis::reachability::datalog::rule::Rule;
-use crate::analysis::reachability::datalog::term::Term;
 use std::collections::HashMap;
 
 /// Encodes the preconditions of an action into Datalog atoms and rules.

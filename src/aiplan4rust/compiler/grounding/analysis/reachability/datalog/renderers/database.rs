@@ -1,7 +1,7 @@
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::database::Database;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::database::Database;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::relation::Relation;
 use crate::aiplan4rust::support::interner::SymbolInterner;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
-use crate::analysis::reachability::datalog::relation::Relation;
 use crate::analysis::reachability::datalog::renderers::context::DatalogRenderContext;
 
 /// Affiche l'intégralité de la base de données (Stable et Delta) au format SQL-Style.

@@ -9,8 +9,8 @@ use std::fmt;
 /// object in the planning problem.
 ///
 /// This enum is fundamental for defining the structure of both
-/// [Rules](crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::rule::Rule)
-/// and [Atoms](crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::atom::Atom).
+/// [Rules](crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::rule::Rule)
+/// and [Atoms](crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum Term {
     /// A logical variable used in rules to represent an unspecified object.

@@ -1,4 +1,4 @@
-use crate::analysis::reachability::datalog::atom::Atom;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
 
 /// Explique l'origine d'un effet pour le grounding.
 /// On dérive Copy car c'est un type "POD" (Plain Old Data) léger.

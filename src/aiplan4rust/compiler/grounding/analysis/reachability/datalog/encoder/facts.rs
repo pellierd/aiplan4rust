@@ -1,10 +1,10 @@
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::database::Database;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprNode, ExprStore};
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::ActionDef;
 use crate::aiplan4rust::support::lang::{
     AtomSkeletonId, ObjectId, PredicateSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId,
 };
-use crate::analysis::reachability::datalog::database::Database;
 use crate::analysis::reachability::datalog::error::DatalogError;
 
 /// Encodes a PDDL Type as a unary Datalog predicate and maintains a semantic mapping.

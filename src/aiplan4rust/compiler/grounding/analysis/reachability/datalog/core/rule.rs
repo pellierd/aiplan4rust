@@ -1,4 +1,4 @@
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::atom::Atom;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
 use std::fmt;
 
 /// Represents a Datalog rule in the form `Head :- Body.`.
