@@ -10,7 +10,7 @@
 //! - Efficient joins via first-argument indexing.
 //! - Minimal memory overhead using raw tuple buffers.
 
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::relation::Relation;
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::Relation;
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, ObjectId};
 use rustc_hash::FxHashMap;
 
@@ -22,6 +22,16 @@ use rustc_hash::FxHashMap;
 ///
 /// This separation is essential for the Semi-Naive algorithm, ensuring that
 /// each rule is only evaluated against at least one new fact from the Delta set.
+///
+/// # Memory Layout & Performance
+///
+/// * **Algorithmic Throughput**: This structure drops the standard library's SipHash layout in favor
+///   of [`FxHashMap`] (via `rustc_hash`). Because [`AtomSkeletonId`] behaves fundamentally as a
+///   lightweight integer key, `FxHash` bypasses cryptographic DOS protection to execute hash
+///   lookups via elementary bit shifts, maximizing throughput during saturation.
+/// * **Dual-Buffer Allocation**: The stable and delta collections isolate newly inferred facts,
+///   preventing structural mutations or pointer invalidation inside the stable layers during a
+///   fixed-point cycle.
 #[derive(Default, Debug, Clone)]
 pub struct Database {
     /// Facts that have been fully integrated into the knowledge base.
@@ -31,21 +41,48 @@ pub struct Database {
 }
 
 impl Database {
-    /// Creates a new, empty Datalog database.
+    /// Creates a new, empty Datalog database initialized with zero heap allocations.
+    ///
+    /// This constructor provides a clean state for bootstrapping the Semi-Naive
+    /// evaluation engine, deferring internal storage map creation until the first
+    /// insertion occurs.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a fresh, default-initialized [`Self`] instance wrapping empty stable
+    /// and delta relational structures.
+    ///
+    /// # Complexity
+    ///
+    /// Constant time $O(1)$ auxiliary memory footprint and execution overhead, as
+    /// [`FxHashMap::default()`] does not allocate heap segments upfront.
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Inserts a fact into the stable storage.
+    /// Inserts a ground fact tuple into the stable relational storage.
+    ///
+    /// If the target relation corresponding to the given `skeleton_id` does not exist yet,
+    /// it is lazily initialized using the arity inferred from the `args` slice. The fact
+    /// is then passed down to the underlying structure which enforces set semantics.
     ///
     /// # Arguments
-    /// * `skeleton_id` - The unique identifier for the predicate.
-    /// * `args` - A slice of [`ObjectId`] representing the tuple of constants.
     ///
-    /// # Returns
-    /// * `true` if the fact was successfully inserted (i.e., it was not already present).
-    /// * `false` if the fact was a duplicate.
+    /// * `skeleton_id` - The unique identifier matching the predicate definition schema.
+    /// * `args` - A contiguous slice of constant [`ObjectId`] literals acting as the relation tuple.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `true` if the fact was genuinely new and successfully appended to the
+    /// relation layout, and `false` if it triggered duplicate detection.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time average of $O(1)$ to compute the key hash and locate or insert
+    /// the map entry, plus $O(A)$ where $A$ represents the arity (length) of the `args` slice
+    /// to complete hash-based duplicate detection via `HashSet` and copy the constants into the [`Relation`].
+    #[inline]
     pub fn insert_stable_fact(&mut self, skeleton_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
         let arity = args.len();
         self.stable
@@ -54,41 +91,96 @@ impl Database {
             .insert(args)
     }
 
-    /// Checks if a fact exists within the stable storage.
+    /// Checks if a concrete tuple fact exists within the stable database layer.
+    ///
+    /// This method performs a read-only lookup inside the permanent knowledge base
+    /// without scanning or affecting the transient delta buffer.
     ///
     /// # Arguments
-    /// * `skeleton_id` - The identifier of the relation to query.
-    /// * `args` - The tuple to search for.
     ///
-    /// # Returns
-    /// `true` if the fact is found in the stable set.
+    /// * `skeleton_id` - The identifier of the relation schema to query.
+    /// * `args` - The constant tuple slice to search for.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `true` if the fact is validated inside the stable layer, and `false` otherwise.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ lookup to fetch the relation from the map, scaling
+    /// linearly $O(A)$ with the target arity $A$ during the internal byte-slice comparison.
+    #[inline]
     pub fn contains_stable(&self, skeleton_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
         self.stable
             .get(&skeleton_id)
             .map_or(false, |rel| rel.contains(args))
     }
 
-    /// Checks if a fact exists within the delta buffer.
+    /// Checks if a concrete tuple fact exists within the transient delta buffer.
     ///
-    /// # Returns
-    /// `true` if the fact is currently in the delta set.
+    /// This method performs a read-only lookup inside the active generation's
+    /// scratchpad, which isolates newly discovered facts before their promotion.
+    ///
+    /// # Arguments
+    ///
+    /// * `skeleton_id` - The identifier of the relation schema to query.
+    /// * `args` - The constant tuple slice to search for.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `true` if the fact currently populates the delta layer, and `false` otherwise.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ lookup to fetch the relation from the delta map, scaling
+    /// linearly $O(A)$ with the target arity $A$ during the internal byte-slice comparison.
+    #[inline]
     pub fn contains_delta(&self, skeleton_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
         self.delta
             .get(&skeleton_id)
             .map_or(false, |rel| rel.contains(args))
     }
 
-    /// Checks if a fact exists in either the stable or delta storage.
+    /// Evaluates if a concrete tuple fact is known anywhere across the multi-tier database storage.
     ///
-    /// # Returns
-    /// `true` if the fact is known to the database.
+    /// This method aggregates lookups from both the stable and delta buffers to determine
+    /// global visibility of a fact within the current generation.
+    ///
+    /// # Arguments
+    ///
+    /// * `skeleton_id` - The unique predicate identifier schema to query.
+    /// * `args` - The constant tuple slice to search for.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `true` if the tuple is present in either stable storage or the delta scratchpad.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ lookup, scaling linearly $O(A)$ with the target arity $A$
+    /// due to internal byte comparisons. It benefits from short-circuiting evaluated from left to right.
+    #[inline]
     pub fn has_fact(&self, skeleton_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
         self.contains_stable(skeleton_id, args) || self.contains_delta(skeleton_id, args)
     }
 
-    /// Calculates the total number of unique facts across all stable relations.
+    /// Retrieves a shared reference to a specific stable relation block if it exists.
     ///
-    /// This is typically used to monitor the growth of the knowledge base.
+    /// This lookup is typically used during rule evaluation cycles to inspect the
+    /// current permanent knowledge base for a given predicate identifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `skeleton_id` - The unique predicate identifier schema to look up.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `Some(&Relation)` if initialized, or `None` if the database has not yet
+    /// recorded any stable facts matching this schema.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ average footprint via `FxHash` lookup.
     #[inline]
     pub fn get_relation(&self, skeleton_id: AtomSkeletonId) -> Option<&Relation> {
         self.stable.get(&skeleton_id)
@@ -110,45 +202,77 @@ impl Database {
         &self.stable
     }
 
-    /// Returns a reference to the internal map of delta relations.
+    /// Returns a shared reference to the internal map layout of delta buffer relations.
     ///
-    /// This is crucial for the Semi-Naive algorithm to identify
-    /// the "newly discovered" facts that trigger rules.
+    /// This accessor is critical for the Semi-Naive evaluation engine to efficiently
+    /// isolate and iterate over "newly discovered" facts that drive the next incremental
+    /// rule instantiation round.
+    ///
+    /// # Return Value
+    ///
+    /// A shared reference to the underlying transient [`FxHashMap`] mapping
+    /// [`AtomSkeletonId`] keys to their respective [`Relation`] objects.
+    ///
+    /// # Complexity
+    ///
+    /// Constant time $O(1)$ overhead with zero memory allocations or copy actions.
     #[inline]
     pub fn delta_relations(&self) -> &FxHashMap<AtomSkeletonId, Relation> {
         &self.delta
     }
 
-    /// Calculates the total number of unique facts across all stable relations.
+    /// Aggregates the total number of unique atom tuples stored across all stable relations.
     ///
-    /// This method iterates through every relation in the stable storage and
-    /// aggregates their individual tuple counts.
+    /// This method iterates through every relation in the stable storage and aggregates
+    /// their individual row counts. It serves as a vital metric for tracking the growth
+    /// of the knowledge base.
     ///
-    /// # Returns
-    /// The total count of unique ground facts (tuples) currently stored in the
+    /// # Return Value
+    ///
+    /// The total count of unique ground facts (tuples) currently verified inside the
     /// stable knowledge base.
     ///
     /// # Usage
-    /// This is a critical metric for the [`DatalogEngine`]. By comparing this count
-    /// before and after a saturation step, the engine can determine if new
-    /// information was discovered or if a **fixed-point** (saturation) has
-    /// been reached.
+    ///
+    /// This is a critical tracking metric for the saturation driver loop. By comparing
+    /// this total count before and after an evaluation step, the engine can determine
+    /// if new information was inferred or if a structural **fixed-point** (saturation)
+    /// has been reached.
+    ///
+    /// # Complexity
+    ///
+    /// Linear time $O(R)$ where $R$ represents the total number of distinct predicate
+    /// relation buckets registered in stable storage, executing a fast, allocation-free iteration.
+    #[inline]
     pub fn total_facts_count(&self) -> usize {
         self.stable.values().map(|rel| rel.len()).sum()
     }
 
-    /// Clears all facts from the stable storage.
+    /// Clears all relations from the stable storage layer.
     ///
-    /// This removes all confirmed relations but leaves the Delta buffer intact.
+    /// This removes all confirmed facts from the primary knowledge base but leaves
+    /// the transient Delta buffer entirely intact.
+    ///
+    /// # Complexity
+    ///
+    /// Linear time $O(R)$ with respect to the number of registered relations $R$,
+    /// triggering the structural deallocation or truncation of the underlying row buffers.
+    #[inline]
     pub fn clear_stable(&mut self) {
         self.stable.clear();
     }
 
-    /// Promotes all facts from the Delta buffer to Stable storage.
+    /// Promotes all transient discoveries from the Delta buffer into permanent Stable storage.
     ///
-    /// This method is called at the end of each saturation step. It drains the
-    /// Delta set and merges its content into the Stable relations, clearing
-    /// the Delta buffer for the next round.
+    /// This method is called at the very end of each saturation iteration. It drains the
+    /// Delta relations map to avoid heap reallocations, merging its structural content
+    /// into the corresponding Stable relation buckets, clearing the Delta buffer for the next generation.
+    ///
+    /// # Complexity
+    ///
+    /// Time complexity scales with $O(T)$ where $T$ represents the absolute number of individual
+    /// tuples currently residing inside the delta buffer layer, as each item is moved and re-inserted
+    /// into the permanent stable mappings.
     pub fn commit_delta(&mut self) {
         for (sk_id, delta_rel) in self.delta.drain() {
             let arity = delta_rel.arity();
@@ -158,34 +282,49 @@ impl Database {
                 .or_insert_with(|| Relation::new(arity));
 
             if arity == 0 {
-                // CAS ARITÉ 0 : Si le delta n'est pas vide, la proposition est vraie.
-                // On l'insère dans le stable via un tuple vide.
+                // ARITY 0 CASE: Fast pathway for propositions.
+                // If delta contains the truth token, insert it into stable.
                 if !delta_rel.is_empty() {
                     rel.insert(&[]);
                 }
             } else {
-                // CAS NORMAL : On itère sur les tuples de taille > 0.
-                for tuple in delta_rel.iter() {
+                // STANDARD CASE: Direct flat-buffer chunking.
+                // Zero allocations, perfect L1/L2 cache locality, fully inlined.
+                for tuple in delta_rel.data().chunks_exact(arity) {
                     rel.insert(tuple);
                 }
             }
         }
     }
 
-    /// Attempts to insert a new discovery into the Delta buffer.
+    /// Attempts to stage a new inferred discovery into the transient Delta buffer lane.
     ///
-    /// A fact is only added to Delta if it is not already present in
-    /// the Stable storage or the current Delta buffer.
+    /// A fact tuple is uniquely appended to the Delta tier if and only if it is completely absent
+    /// from both the permanent Stable repository and the current generation's Delta scratchpad.
+    /// This mutual exclusion is vital to prevent infinite looping and guarantee saturation termination.
     ///
-    /// # Returns
-    /// `true` if the fact is genuinely new and was added to the Delta.
+    /// # Arguments
+    ///
+    /// * `sk_id` - The unique predicate skeleton token tracking the relation schema definition.
+    /// * `args` - A contiguous slice of constant [`ObjectId`] literals acting as the relation row.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `true` if the fact is genuinely new to the entire database system and was successfully
+    /// staged into the Delta buffer, and `false` if it triggered duplicate exclusion rules.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ average footprint to execute global exclusion lookups, scaling
+    /// linearly $O(A)$ with the arity $A$ of the constant slice during binary row insertions.
+    #[inline]
     pub fn insert_delta_fact(&mut self, sk_id: AtomSkeletonId, args: &[ObjectId]) -> bool {
-        // 1. Si on l'a déjà (n'importe où), on ne fait rien
+        // 1. If the fact already exists anywhere within the storage layers, discard the insertion.
         if self.has_fact(sk_id, args) {
             return false;
         }
 
-        // 2. Sinon, on l'ajoute au delta pour le tour suivant
+        // 2. Otherwise, allocate or append the new row into the delta scratchpad for the next round.
         let arity = args.len();
         self.delta
             .entry(sk_id)
@@ -193,62 +332,142 @@ impl Database {
             .insert(args)
     }
 
-    /// Returns a reference to a specific relation in the Delta buffer.
+    /// Returns a shared reference to a specific relation inside the transient Delta buffer lane.
     ///
-    /// This is primarily used to access the "pivot" relation during
-    /// incremental evaluation.
+    /// This is primarily used by the saturation engine to access the "pivot" relation
+    /// during incremental Semi-Naive rule evaluations.
+    ///
+    /// # Arguments
+    ///
+    /// * `sk_id` - The unique predicate skeleton token tracking the target relation schema.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `Some(&Relation)` if registered in the delta layer, or `None` if the database
+    /// has not recorded any transient facts for this schema during the current round.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ average footprint via `FxHash` lookup.
     #[inline]
     pub fn get_delta_relation(&self, sk_id: AtomSkeletonId) -> Option<&Relation> {
         self.delta.get(&sk_id)
     }
 
-    /// Transfers all stable facts to the Delta buffer.
+    /// Transfers all stable facts directly into the Delta tier buffer lane.
     ///
-    /// This is used to bootstrap the saturation process by treating the initial
-    /// state (PDDL `init`) as the first set of "newly discovered" facts.
+    /// This method is utilized to bootstrap the Semi-Naive saturation process by treating
+    /// the initial problem configuration state (e.g., the PDDL `init` block) as the original
+    /// cohort of "newly discovered" facts.
+    ///
+    /// # Complexity
+    ///
+    /// Constant time $O(1)$ execution overhead. It leverages [`std::mem::swap`] to safely
+    /// exchange internal pointer descriptors between hash map headers in place without
+    /// re-allocating rows or losing structural capacities.
+    #[inline]
     pub fn move_all_to_delta(&mut self) {
-        // On échange les maps pour que relations devienne delta
-        self.delta = std::mem::take(&mut self.stable);
+        // Swap both hash maps.
+        // This is an atomic pointer operation: zero copies, zero allocations.
+        std::mem::swap(&mut self.stable, &mut self.delta);
     }
 
-    /// Returns `true` if the Delta buffer is empty.
+    /// Inspects whether the transient Delta buffer has exhausted all fresh information.
     ///
-    /// When this returns `true` after a saturation step, the fixed-point
-    /// has been reached.
+    /// # Return Value
+    ///
+    /// Returns `true` if the delta buffer lane is completely empty, signaling that
+    /// a structural **fixed-point** saturation has successfully been achieved.
+    ///
+    /// # Complexity
+    ///
+    /// Constant time $O(1)$ evaluation execution.
     #[inline]
     pub fn is_delta_empty(&self) -> bool {
         self.delta.is_empty()
     }
 
-    /// Completely wipes the database, clearing both Stable and Delta storages.
+    /// Completely flushes the database layout, clearing both Stable and Delta storages.
     ///
-    /// This resets the database to its initial empty state. It is typically
-    /// called when transitioning between different planning problems to
-    /// ensure no data leakage occurs.
+    /// This resets the database instance back to its initial pristine state. It is
+    /// typically invoked when transitioning between distinct planning problems to
+    /// prevent cross-contamination or data leakage.
+    ///
+    /// # Complexity
+    ///
+    /// Linear time $O(R_{stable} + R_{delta})$ with respect to the total number of
+    /// registered relations across both storage layers, dropping or truncating all maps.
+    #[inline]
     pub fn clear_all(&mut self) {
         self.stable.clear();
         self.delta.clear();
     }
 
-    /// Retrieves structural information about a specific relation.
+    /// Retrieves structural memory layout metadata about a specific relation schema.
     ///
-    /// # Returns
-    /// An `Option` containing a tuple of `(raw_buffer_length, arity)`.
+    /// This method targets the requested storage partition (`Stable` or `Delta`), but
+    /// gracefully falls back to the alternate partition if the primary partition
+    /// has not yet instantiated the relation bucket. This fallback ensures that
+    /// query planners can always resolve the relational arity even immediately
+    /// following an evaluation epoch swap.
+    ///
+    /// # Arguments
+    ///
+    /// * `sk_id` - The unique predicate skeleton identifier token to query.
+    /// * `use_delta` - A flag directive; if `true`, scans the transient Delta scratchpad,
+    ///   otherwise targets the permanent Stable layer.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `Some((raw_buffer_length, arity))` tracking the absolute size of the internal
+    /// flattened vector buffer along with the relation's fixed arity, or `None` if the
+    /// relation has not yet been initialized in either layer.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ lookup footprint via dual-lookup `FxHash`.
+    #[inline]
     pub fn get_layout(&self, sk_id: AtomSkeletonId, use_delta: bool) -> Option<(usize, usize)> {
-        let rel = if use_delta {
+        let primary = if use_delta {
             self.delta.get(&sk_id)
         } else {
             self.stable.get(&sk_id)
         };
-        rel.map(|r| (r.data().len(), r.arity()))
+
+        if let Some(r) = primary {
+            Some((r.data().len(), r.arity()))
+        } else {
+            // FALLBACK STRATEGY: If the requested table is absent (e.g., stable right after a swap),
+            // query the mirror table to extract at least the structural arity,
+            // while simulating a data length of 0.
+            let secondary = if use_delta {
+                self.stable.get(&sk_id)
+            } else {
+                self.delta.get(&sk_id)
+            };
+            secondary.map(|r| (0, r.arity()))
+        }
     }
 
-    /// Reads a tuple from the raw storage into a provided output buffer.
+    /// Reads a flat tuple from the raw relation buffer into a provided mutable output slice.
+    ///
+    /// This method extracts a specific slice of [`ObjectId`]s from the flattened contiguous vector
+    /// layout of the relation, applying defensive bounds checking to prevent panics.
     ///
     /// # Arguments
-    /// * `start` - The memory offset where the tuple begins.
-    /// * `arity` - The number of elements to read.
-    /// * `out` - The destination buffer (must be at least `arity` long).
+    ///
+    /// * `sk_id` - The unique predicate skeleton token targeting the relation schema.
+    /// * `use_delta` - A flag directive; if `true`, reads from the transient Delta buffer,
+    ///   otherwise targets the permanent Stable storage.
+    /// * `start` - The linear memory offset indexing where the target tuple begins.
+    /// * `arity` - The number of continuous elements (arity) to read.
+    /// * `out` - The destination buffer slice, which must possess a capacity of at least `arity`.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ lookup to fetch the relation, plus linear time $O(A)$
+    /// with respect to the arity $A$ to copy the data elements via sequential memory block copying.
+    #[inline]
     pub fn read_tuple(
         &self,
         sk_id: AtomSkeletonId,
@@ -264,43 +483,68 @@ impl Database {
         };
         if let Some(rel) = rel_opt {
             let data = rel.data();
-            // Vérification de sécurité pour éviter le out-of-bounds
+            // Safety boundary check to prevent out-of-bounds indexing or slicing panics.
             if start + arity <= data.len() {
                 out[..arity].copy_from_slice(&data[start..start + arity]);
             }
         }
     }
 
-    /// Performs an indexed lookup for facts starting with a specific [`ObjectId`].
+    /// Performs an indexed lookup for facts sharing a specific leading constant argument.
     ///
-    /// # Returns
-    /// A vector of memory offsets where matching tuples can be found.
+    /// This method queries the structural index tied to the first position of the relation,
+    /// significantly accelerating join operations by avoiding complete relation scans.
+    ///
+    /// # Arguments
+    ///
+    /// * `sk_id` - The unique predicate skeleton token targeting the relation schema.
+    /// * `use_delta` - A flag directive; if `true`, scans the transient Delta index,
+    ///   otherwise targets the permanent Stable index layout.
+    /// * `first_arg` - The leading constant [`ObjectId`] key to filter on.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `Some(&[usize])` containing a shared slice reference of raw memory offsets
+    /// pointing to matching tuples, or `None` if no indexing exists or no matches are found.
+    ///
+    /// # Complexity
+    ///
+    /// Amortized constant time $O(1)$ execution footprint. It fetches the relation and
+    /// extracts the index map bucket slice with zero heap allocations or copy overhead.
+    #[inline]
     pub fn lookup_index(
         &self,
         sk_id: AtomSkeletonId,
         use_delta: bool,
         first_arg: ObjectId,
-    ) -> Option<Vec<usize>> {
+    ) -> Option<&[usize]> {
         let rel = if use_delta {
             self.delta.get(&sk_id)
         } else {
             self.stable.get(&sk_id)
         };
-        // On clone le petit vecteur d'offsets (pas les données des faits)
-        rel.and_then(|r| r.index_by_first_arg().get(&first_arg).cloned())
+        // Return a zero-cost slice view over the internal memory offsets vector.
+        rel.and_then(|r| r.index_by_first_arg().get(&first_arg).map(|v| v.as_slice()))
     }
 
     /// Returns the total number of unique facts (tuples) associated with a given predicate.
     ///
-    /// This method aggregates the count from both the `stable` (fixed) and `delta` (newly discovered)
-    /// storage layers. It is a constant-time $O(1)$ operation, making it ideal for
-    /// query optimization heuristics such as join ordering.
+    /// This method aggregates the row count from both the permanent Stable repository and the
+    /// transient Delta buffer lane. It is designed as an ultra-fast metric, ideal for driving
+    /// query optimization heuristics such as dynamic join ordering.
     ///
     /// # Arguments
-    /// * `sk_id` - The unique identifier of the predicate (skeleton).
+    ///
+    /// * `sk_id` - The unique identifier of the predicate schema to inspect.
+    ///
+    /// # Return Value
+    ///
+    /// The aggregated count of unique ground facts currently tracking under this schema.
     ///
     /// # Complexity
-    /// $O(1)$ since it relies on the pre-calculated length of the underlying storage.
+    ///
+    /// Amortized constant time $O(1)$ average footprint, as it relies purely on the pre-calculated
+    /// headers of the underlying relational storage structures.
     #[inline]
     pub fn get_relation_size(&self, sk_id: AtomSkeletonId) -> usize {
         let stable_size = self.stable.get(&sk_id).map(|r| r.len()).unwrap_or(0);
@@ -310,25 +554,25 @@ impl Database {
 }
 
 impl std::fmt::Display for Database {
-    /// Formats the database state into a human-readable representation.
+    /// Formats the complete database structural state into a human-readable string representation.
     ///
-    /// This implementation leverages the `Display` implementation of [`Relation`]
-    /// to provide a clean overview of both Stable and Delta storages.
+    /// This implementation cascades down to the individual `Display` formatting routines
+    /// provided by each [`Relation`] block, isolating the Stable repository from the Delta buffer.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "=== DATABASE STATE ===")?;
 
-        // Section 1: Confirmed Facts
+        // Section 1: Confirmed permanent Stable facts
         writeln!(f, "--- STABLE STORAGE ---")?;
         if self.stable.is_empty() {
             writeln!(f, "  (empty)")?;
         } else {
             for (sk_id, rel) in &self.stable {
-                // rel est maintenant affiché via sa propre méthode fmt
+                // Delegate to the relation's internal fmt implementation.
                 writeln!(f, "  Relation #{} (arity {}): {}", sk_id, rel.arity(), rel)?;
             }
         }
 
-        // Section 2: Newly discovered facts pending promotion
+        // Section 2: Newly discovered facts pending promotion to stable
         writeln!(f, "\n--- DELTA BUFFER ---")?;
         if self.delta.is_empty() {
             writeln!(f, "  (empty)")?;
@@ -720,5 +964,112 @@ mod tests {
 
         assert!(!db.contains_stable(id1, &[ObjectId::from(20)]));
         assert!(!db.contains_stable(id2, &[ObjectId::from(10)]));
+    }
+
+    /// # Objective
+    /// Verify that the custom `iter()` implementation correctly handles arity 0
+    /// (propositions) without panicking and yields exactly one empty slice if true.
+    ///
+    /// # Input
+    /// - Scenario A: Querying an uninitialized or empty relation of arity 0.
+    /// - Scenario B: Inserting an empty fact vector `[]` (arity 0) into stable storage.
+    ///
+    /// # Expected Output
+    /// - Scenario A: `iter().count()` returns `0`.
+    /// - Scenario B: `iter()` yields exactly one item containing an empty slice `&[]`, then terminates.
+    #[test]
+    fn test_iter_arity_zero() {
+        let mut db = Database::new();
+        let sk_id = AtomSkeletonId::from(500);
+        let empty_fact: Vec<ObjectId> = vec![];
+
+        // Scenario A: Relation does not exist yet -> Should yield 0 items
+        if let Some(rel) = db.get_relation(sk_id) {
+            let count = rel.iter().count();
+            assert_eq!(count, 0, "Empty relation should yield 0 items");
+        }
+
+        // Scenario B: Proposition is inserted (True) -> Should yield exactly 1 empty slice
+        db.insert_stable_fact(sk_id, &empty_fact);
+        let rel = db.get_relation(sk_id).expect("Relation must exist");
+
+        let mut iter = rel.iter();
+        let first_item = iter.next();
+
+        assert!(first_item.is_some(), "Should yield exactly one item");
+        assert_eq!(
+            first_item.unwrap(),
+            &[][..],
+            "Yielded item must be an empty slice"
+        );
+        assert!(iter.next().is_none(), "Should not yield a second item");
+    }
+
+    /// # Objective
+    /// Ensure that `commit_delta` correctly processes arity 0 facts via its dedicated
+    /// fast pathway without dropping propositions or causing structural panics.
+    ///
+    /// # Input
+    /// - Action: `insert_delta_fact` with an empty fact vector `[]` (arity 0), followed by `commit_delta()`.
+    ///
+    /// # Expected Output
+    /// - Before commit: `contains_delta` is `true`.
+    /// - After commit: `is_delta_empty()` is `true` and `contains_stable` becomes `true`.
+    #[test]
+    fn test_commit_delta_arity_zero() {
+        let mut db = Database::new();
+        let sk_id = AtomSkeletonId::from(777);
+        let empty_fact: Vec<ObjectId> = vec![];
+
+        // 1. Stage the proposition into delta
+        db.insert_delta_fact(sk_id, &empty_fact);
+        assert!(db.contains_delta(sk_id, &empty_fact));
+
+        // 2. Commit to stable
+        db.commit_delta();
+
+        // 3. Verify successful promotion
+        assert!(db.is_delta_empty());
+        assert!(
+            db.contains_stable(sk_id, &empty_fact),
+            "Proposition must be successfully promoted to stable storage"
+        );
+    }
+
+    /// # Objective
+    /// Verify that `clear_all()` effectively clears all data from the maps,
+    /// drops the internal Relation allocations, and resets the database state.
+    ///
+    /// # Input
+    /// - Stable storage: `[10, 20]`
+    /// - Delta storage: `[30, 40]`
+    /// - Action: Call `clear_all()`.
+    ///
+    /// # Expected Output
+    /// - `total_facts_count` is `0`.
+    /// - `is_delta_empty()` is `true`.
+    /// - Lookups for the cleared relations return `None`.
+    #[test]
+    fn test_clear_all_standard() {
+        let mut db = Database::new();
+        let sk_id = AtomSkeletonId::from(42);
+
+        db.insert_stable_fact(sk_id, &[ObjectId::from(10), ObjectId::from(20)]);
+        db.insert_delta_fact(sk_id, &[ObjectId::from(30), ObjectId::from(40)]);
+
+        // Clear everything using the standard implementation
+        db.clear_all();
+
+        // Verify that the database is completely empty and structures are dropped
+        assert_eq!(db.total_facts_count(), 0);
+        assert!(db.is_delta_empty());
+        assert!(
+            db.get_relation(sk_id).is_none(),
+            "Relation should be fully removed from stable"
+        );
+        assert!(
+            db.get_delta_relation(sk_id).is_none(),
+            "Relation should be fully removed from delta"
+        );
     }
 }

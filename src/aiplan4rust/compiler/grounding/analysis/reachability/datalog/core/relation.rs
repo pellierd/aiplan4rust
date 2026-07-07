@@ -111,14 +111,40 @@ impl Relation {
         &self.tuples
     }
 
-    /// Returns an iterator yielding each fact as a slice of size [`arity`].
-    pub fn iter(&self) -> std::slice::ChunksExact<'_, ObjectId> {
-        if self.arity == 0 {
-            // On renvoie un itérateur sur du vide avec un chunk size de 1 (autorisé)
-            // pour éviter le panic.
-            return [].chunks_exact(1);
-        }
-        self.tuples.chunks_exact(self.arity)
+    /// Returns an iterator yielding each fact as a shared slice of size [`arity`].
+    ///
+    /// This method abstracts the underlying flat-buffer storage layout. For standard
+    /// relations (arity > 0), it chunks the contiguous buffer into exact slices.
+    /// For propositional facts (arity = 0), it guarantees semantic correctness by
+    /// yielding exactly one empty slice if the proposition is true, rather than
+    /// skipping execution due to the empty data buffer.
+    ///
+    /// # Return Value
+    ///
+    /// An opaque `impl Iterator` yielding `&[ObjectId]` items. This avoids dynamic
+    /// heap allocations (`Box<dyn Iterator>`) or virtual table lookups, allowing
+    /// the compiler to fully inline and optimize downstream loops.
+    ///
+    /// # Safety & Panics
+    ///
+    /// Safe from execution panics. It explicitly prevents passing a step size of 0
+    /// to [`slice::chunks_exact`], which would otherwise trigger an immediate runtime panic.
+    pub fn iter(&self) -> impl Iterator<Item = &[ObjectId]> {
+        // 1. If arity is 0 and the proposition is true, stage exactly one empty slice.
+        let empty_arity_slice = if self.arity == 0 && !self.index.is_empty() {
+            Some(&[][..])
+        } else {
+            None
+        };
+
+        // 2. Defensive guard: chunks_exact(0) panics in Rust.
+        // Use 1 as a placeholder size if arity is 0 since self.tuples is empty anyway.
+        let chunk_size = if self.arity == 0 { 1 } else { self.arity };
+
+        // 3. Chain both sources under a unified structural type layout.
+        empty_arity_slice
+            .into_iter()
+            .chain(self.tuples.chunks_exact(chunk_size))
     }
 
     /// Retrieves a specific tuple by its logical index.

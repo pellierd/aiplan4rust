@@ -324,8 +324,9 @@ impl<'a> DatalogEngine<'a> {
 
         if let Some(obj_id) = first_arg_binding {
             // MODE INDEXÉ
-            if let Some(offsets) = self.db.lookup_index(sk_id, use_delta, obj_id) {
-                for start in offsets {
+            if let Some(offsets_slice) = self.db.lookup_index(sk_id, use_delta, obj_id) {
+                let offsets_cloned = offsets_slice.to_vec();
+                for start in offsets_cloned {
                     self.process_tuple(
                         rule,
                         body_idx,
