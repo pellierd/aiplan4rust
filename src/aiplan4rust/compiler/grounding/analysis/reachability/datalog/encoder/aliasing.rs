@@ -2,21 +2,22 @@ use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
 use crate::aiplan4rust::support::lang::{CompareOp, VariableId};
 use crate::analysis::reachability::datalog::core::Term;
 use crate::analysis::reachability::datalog::error::DatalogError;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 /// Version locale (associée) pour extraire la table des alias d'un groupe d'égalité
 /// Version locale (associée) pour extraire la table des alias d'un groupe d'égalité
 pub(crate) fn extract_variable_aliases(
     effect_id: ExprId,
     store: &ExprStore,
-) -> Result<std::collections::HashMap<VariableId, Term>, DatalogError> {
-    let mut aliases = std::collections::HashMap::new();
+) -> Result<FxHashMap<VariableId, Term>, DatalogError> {
+    let mut aliases = FxHashMap::default();
 
     // Gardien du DAG (Hash-Consing) - Allocation unique de la taille du store
     let mut visited = vec![false; store.len()];
     let mut stack = vec![effect_id];
 
     // 🌟 Version optimisée : Zéro allocation, parcours direct et sécurisé par le tri des IDs
-    let find_rep = |map: &std::collections::HashMap<VariableId, Term>, v: VariableId| -> Term {
+    let find_rep = |map: &FxHashMap<VariableId, Term>, v: VariableId| -> Term {
         let mut curr = Term::Variable(v);
         while let Term::Variable(var) = curr {
             if let Some(next) = map.get(&var) {
@@ -112,13 +113,13 @@ fn node_to_term(node_id: ExprId, store: &ExprStore) -> Result<Option<Term>, Data
 }
 
 /// Version locale (associée) pour calculer la fermeture transitive (Path Compression)
-fn compute_transitive_closure(aliases: &mut std::collections::HashMap<VariableId, Term>) {
+fn compute_transitive_closure(aliases: &mut FxHashMap<VariableId, Term>) {
     let keys: Vec<VariableId> = aliases.keys().cloned().collect();
 
     for start_var in keys {
         // On récupère le terme cible initial
         let mut current_term = aliases.get(&start_var).unwrap().clone();
-        let mut visited = std::collections::HashSet::new();
+        let mut visited = FxHashSet::default();
         visited.insert(start_var);
 
         // On suit la chaîne des variables aliasées
@@ -145,7 +146,7 @@ fn compute_transitive_closure(aliases: &mut std::collections::HashMap<VariableId
 #[inline(always)]
 pub(crate) fn resolve_var(
     v: VariableId,
-    current_aliases: &std::collections::HashMap<VariableId, Term>, // 💡 Injecté à la place de self
+    current_aliases: &FxHashMap<VariableId, Term>, // 💡 Injecté à la place de self
 ) -> Term {
     // Si la fermeture a bien aplati la map, un seul get suffit.
     current_aliases

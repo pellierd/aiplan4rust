@@ -19,7 +19,7 @@ use crate::analysis::reachability::datalog::context::DatalogContext;
 use crate::analysis::reachability::datalog::encoder;
 use crate::analysis::reachability::datalog::state::DatalogState;
 use itertools::Itertools;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use toml::value::Index;
 
 /// Maximum number of variables (parameters) allowed per action or rule.
@@ -50,7 +50,7 @@ pub struct DatalogEngine<'a> {
     pub(crate) builtin_threshold: usize,
     /// Cache pour ne pas dupliquer les prédicats d'union.
     /// Clé : La liste triée des TypeId. Valeur : L'ID du squelette Datalog.
-    pub(crate) union_cache: HashMap<Vec<TypeId>, AtomSkeletonId>,
+    pub(crate) union_cache: FxHashMap<Vec<TypeId>, AtomSkeletonId>,
 
     //////////////////////////////////////////////////
     //// ENCODER
@@ -65,11 +65,11 @@ pub struct DatalogEngine<'a> {
     /// Structural cache mapping a set of body atoms to a head atom.
     /// Prevents the redundant creation of multiple auxiliary predicates
     /// for the same logical sub-expression (Common Subexpression Elimination).
-    pub(crate) cache: HashMap<Vec<Atom>, Atom>,
+    pub(crate) cache: FxHashMap<Vec<Atom>, Atom>,
 
     // Ajout du champ interne
     // On utilise un champ membre pour éviter de le passer partout
-    pub(crate) current_aliases: HashMap<VariableId, Term>,
+    pub(crate) current_aliases: FxHashMap<VariableId, Term>,
 
     /// Table de causalité : associe chaque effet à son origine (Action ou Pivot).
     pub(crate) action_effects: Vec<Vec<(Atom, Cause)>>,
@@ -114,10 +114,10 @@ impl<'a> DatalogEngine<'a> {
 
         let mut db = Database::new();
         let mut rules = Vec::with_capacity(1024);
-        let mut cache = HashMap::with_capacity(256);
-        let mut current_aliases = HashMap::with_capacity(256);
+        let mut cache = FxHashMap::with_capacity_and_hasher(256, Default::default());
+        let mut current_aliases = FxHashMap::with_capacity_and_hasher(256, Default::default());
         let mut action_effects = vec![Vec::new(); action_count];
-        let union_cache = HashMap::new();
+        let union_cache = FxHashMap::default();
 
         // On crée le State pour orchestrer les enregistrements mutables
         let mut state = DatalogState::new(
