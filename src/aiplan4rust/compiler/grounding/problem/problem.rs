@@ -8,7 +8,7 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::{
 };
 use crate::aiplan4rust::compiler::lir::problem::{LiftedProblem, SymbolRegistry};
 use crate::aiplan4rust::support::interner::{InternerError, SymbolInterner};
-use crate::aiplan4rust::support::lang::ids::{
+use crate::aiplan4rust::support::lang::id::{
     FunctionSymbolId, ObjectId, PredicateSymbolId, TypeId,
 };
 use crate::aiplan4rust::support::lang::{Requirement, SymbolId, TaskSymbolId, TypedList};

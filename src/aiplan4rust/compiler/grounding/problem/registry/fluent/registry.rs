@@ -1,6 +1,6 @@
 use crate::aiplan4rust::compiler::grounding::problem::registry::fluent::error::FluentRegistryError;
 use crate::aiplan4rust::compiler::grounding::problem::{Fluent, NumericFluent};
-use crate::aiplan4rust::support::lang::ids::{FluentId, NumericFluentId};
+use crate::aiplan4rust::support::lang::id::{FluentId, NumericFluentId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

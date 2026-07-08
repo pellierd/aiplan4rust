@@ -1,4 +1,4 @@
-use crate::aiplan4rust::support::lang::ids::PredicateSymbolId;
+use crate::aiplan4rust::support::lang::id::PredicateSymbolId;
 use crate::aiplan4rust::support::lang::ObjectId;
 use serde::{Deserialize, Serialize};
 use std::fmt;

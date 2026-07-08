@@ -5,7 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 // On importe uniquement la sentinelle unique à jour
-use crate::aiplan4rust::support::lang::ids::RAW_NONE;
+use crate::aiplan4rust::support::lang::id::RAW_NONE;
 
 // Invocation propre avec Serde personnalisé
 crate::impl_id_type!(ExprId, custom_serde);

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::support::lang::ids::{FunctionSymbolId, ObjectId, TypeId};
+use crate::aiplan4rust::support::lang::id::{FunctionSymbolId, ObjectId, TypeId};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

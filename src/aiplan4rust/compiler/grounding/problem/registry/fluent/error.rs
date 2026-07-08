@@ -1,4 +1,4 @@
-use crate::aiplan4rust::support::lang::ids::{FluentId, NumericFluentId};
+use crate::aiplan4rust::support::lang::id::{FluentId, NumericFluentId};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

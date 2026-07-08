@@ -39,7 +39,7 @@ impl<'a> DatalogRenderContext<'a> {
             let name = self
                 .problem
                 .type_symbols()
-                .get_ident(crate::aiplan4rust::support::lang::ids::TypeId::from(
+                .get_ident(crate::aiplan4rust::support::lang::id::TypeId::from(
                     type_idx,
                 ))
                 .and_then(|&sym| interner.resolve_symbol(sym))
@@ -59,7 +59,7 @@ impl<'a> DatalogRenderContext<'a> {
             let name = self
                 .problem
                 .predicate_symbols()
-                .get_ident(crate::aiplan4rust::support::lang::ids::PredicateSymbolId::from(raw_id))
+                .get_ident(crate::aiplan4rust::support::lang::id::PredicateSymbolId::from(raw_id))
                 .and_then(|&sym| interner.resolve_symbol(sym))
                 .unwrap_or("Unknown_Predicate");
             return ("FLUENT", name.to_string());
@@ -71,7 +71,9 @@ impl<'a> DatalogRenderContext<'a> {
             let name = self
                 .problem
                 .action_symbols()
-                .get_ident(crate::aiplan4rust::support::lang::ids::ActionSymbolId::from(act_idx))
+                .get_ident(crate::aiplan4rust::support::lang::id::ActionSymbolId::from(
+                    act_idx,
+                ))
                 .and_then(|&sym| interner.resolve_symbol(sym))
                 .unwrap_or("Unknown_Action");
             return ("ACTION", name.to_string());
