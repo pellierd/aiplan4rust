@@ -9,6 +9,7 @@ use crate::analysis::reachability::datalog::context::DatalogContext;
 use crate::analysis::reachability::datalog::core::rule::RuleBody;
 use crate::analysis::reachability::datalog::encoder::{aliasing, predicate};
 use crate::analysis::reachability::datalog::error::DatalogError;
+use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
 use crate::analysis::reachability::datalog::state::DatalogState;
 
 /// Encodes the preconditions of an action into Datalog atoms and rules.
@@ -36,11 +37,12 @@ pub fn encode_preconditions(
     expr: ExprId,
     ctx: DatalogContext<'_>,
     state: &mut DatalogState<'_>,
+    scratchpad: &mut DatalogScratchpad,
     store: &mut ExprStore,
 ) -> Result<Option<Atom>, DatalogError> {
     // 1. Nettoyage et préparation des alias (pour gérer les ?x = ?y)
     // 🌟 Remplissage direct de l'état mutable pour que `encode_expr` puisse y accéder !
-    *state.current_aliases = aliasing::extract_variable_aliases(expr, store)?;
+    *state.current_aliases = aliasing::compute_variable_aliasing(expr, scratchpad, store)?;
 
     // 2. 🌟 Appel mis à jour avec le contexte et l'état complets (plus de déballage !)
     encode_condition(expr, ctx, state, store)
@@ -87,15 +89,16 @@ pub fn encode_effects(
     ctx: DatalogContext<'_>,
     state: &mut DatalogState<'_>,
     action_effects: &mut Vec<Vec<(Atom, Cause)>>,
+    scratchpad: &mut DatalogScratchpad,
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
     // ÉTAPE 1 : Remplissage direct de la table d'alias dans l'état partagé
-    *state.current_aliases = aliasing::extract_variable_aliases(effect, store)?;
+    *state.current_aliases = aliasing::compute_variable_aliasing(effect, scratchpad, store)?;
 
     let mut root_cause = action_atom.clone();
     for term in root_cause.arguments_mut() {
         if let Term::Variable(v) = *term {
-            *term = aliasing::resolve_var(v, state.current_aliases);
+            *term = aliasing::find(v, state.current_aliases);
         }
     }
 
@@ -119,7 +122,7 @@ pub fn encode_effects(
 
                 for term in effect_atom.arguments_mut() {
                     if let Term::Variable(v) = *term {
-                        *term = aliasing::resolve_var(v, state.current_aliases);
+                        *term = aliasing::find(v, state.current_aliases);
                     }
                 }
 
@@ -197,7 +200,7 @@ pub fn encode_effects(
 
                         for term in del_atom.arguments_mut() {
                             if let Term::Variable(v) = *term {
-                                *term = aliasing::resolve_var(v, state.current_aliases);
+                                *term = aliasing::find(v, state.current_aliases);
                             }
                         }
 
@@ -340,7 +343,7 @@ fn encode_condition(
                     for term in atom.arguments_mut() {
                         if let Term::Variable(v) = *term {
                             // 🌟 Utilisation de la table partagée de l'état mutable
-                            *term = aliasing::resolve_var(v, state.current_aliases);
+                            *term = aliasing::find(v, state.current_aliases);
                         }
                     }
                     if skeleton_id.is_negated() {
@@ -497,7 +500,7 @@ fn encode_condition(
                         for term in atom.arguments_mut() {
                             if let Term::Variable(v) = *term {
                                 // 🌟 Résolution via l'état partagé des alias
-                                *term = aliasing::resolve_var(v, state.current_aliases);
+                                *term = aliasing::find(v, state.current_aliases);
                             }
                         }
 

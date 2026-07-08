@@ -45,10 +45,9 @@ use crate::aiplan4rust::support::lang::{
 };
 use crate::analysis::reachability::datalog::core::atom::AtomArgs;
 use crate::analysis::reachability::datalog::core::{Atom, Term};
-use crate::analysis::reachability::datalog::encoder::aliasing;
+use crate::analysis::reachability::datalog::encoder::{aliasing, AliasTable};
 use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::analysis::reachability::datalog::settings;
-use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 
 /// Represents the continuous sequence of atoms forming the body of an auxiliary rule.
@@ -78,24 +77,25 @@ pub type AuxPredicateBody = SmallVec<[Atom; settings::INLINE_AUX_PREDICATE_CAPAC
 /// * `next_aux_id` - A mutable reference to the generator for unique auxiliary predicate IDs.
 /// * `aux_defs` - A mutable reference to the vector storing the definitions of auxiliary formulas.
 /// * `type_to_skeleton` - A slice mapping type IDs to their corresponding atom skeleton IDs.
-/// * `current_aliases` - A map containing variable aliases and substitutions active in the current scope.
+/// * `aliases` - A dense stack-allocated table containing variable aliases and substitutions active in the current scope.
 /// * `store` - A mutable reference to the expression store for data lookups and interning.
 ///
 /// # Errors
 /// Returns a [`DatalogError`] if variable collection fails, if an alias resolution error occurs,
-/// or if there is an inconsistency within the retrieved typed arguments list.
+/// if a variable index exceeds the allowed capacity, or if there is an inconsistency within
+/// the retrieved typed arguments list.
 pub(crate) fn allocate_auxiliary_predicate(
     atoms: &[Atom],
     arguments: TypedListId,
     next_aux_id: &mut usize,
     aux_defs: &mut Vec<AtomicFormulaSkeleton>,
     type_to_skeleton: &[AtomSkeletonId],
-    current_aliases: &FxHashMap<VariableId, Term>,
+    aliases: &AliasTable,
     store: &mut ExprStore,
 ) -> Result<(Atom, AuxPredicateBody), DatalogError> {
     // 1. Collect and directly resolve variables using a u64 bitmask
-    let mask = compute_variable_bitmask(atoms, current_aliases)?;
-    let mut resolved_terms = decode_bitmask_to_resolved_terms(mask, current_aliases);
+    let mask = compute_variable_bitmask(atoms, aliases)?;
+    let mut resolved_terms = decode_bitmask_to_resolved_terms(mask, aliases);
 
     // Sorting and deduplication are only required if aliases introduced constants
     resolved_terms.sort();
@@ -185,25 +185,26 @@ pub(crate) fn extract_atom(node: ExprNode<'_>, store: &ExprStore) -> Result<Atom
 /// Computes a compressed bitmask representing all unique variables present in a collection of atoms.
 ///
 /// This function iterates through the arguments of each provided atom, resolves any variable aliases
-/// active within the current scope, and encodes the resulting variable indices into a dense bitmask.
+/// active within the current scope using a dense stack-allocated table, and encodes the resulting
+/// variable indices into a dense bitmask.
 ///
 /// # Arguments
 /// * `atoms` - A slice of atoms whose arguments will be inspected.
-/// * `current_aliases` - A map containing variable-to-term substitutions used to resolve active aliases.
+/// * `aliases` - A dense stack-allocated table containing variable-to-term substitutions used to resolve active aliases.
 ///
 /// # Errors
 /// Returns a [`DatalogError::VariableLimitExceeded`] if a resolved variable index equals or exceeds
 /// the compile-time limit specified by `settings::MAX_VARIABLES_PER_SCOPE`.
 fn compute_variable_bitmask(
     atoms: &[Atom],
-    current_aliases: &FxHashMap<VariableId, Term>,
+    aliases: &AliasTable,
 ) -> Result<settings::VariableMask, DatalogError> {
     let mut mask: settings::VariableMask = 0;
 
     for atom in atoms {
         for term in atom.arguments() {
             let resolved_term = match term {
-                Term::Variable(v) => aliasing::resolve_var(*v, current_aliases),
+                Term::Variable(v) => aliasing::find(*v, aliases),
                 Term::Constant(_) => term.clone(),
             };
 
@@ -227,20 +228,21 @@ fn compute_variable_bitmask(
 ///
 /// This function iteratively extracts the active variable indices from the dense bitmask,
 /// maps them back to their corresponding `VariableId`, resolves any active aliases
-/// within the current scope, and aggregates them into an `AtomArgs` collection.
+/// within the current scope using a dense stack-allocated table, and aggregates them
+/// into an `AtomArgs` collection.
 ///
 /// # Arguments
 /// * `mask` - The compressed bitmask containing the variable indices to decode.
-/// * `current_aliases` - A map containing variable-to-term substitutions used to resolve active aliases.
+/// * `aliases` - A dense stack-allocated table containing variable-to-term substitutions used to resolve active aliases.
 fn decode_bitmask_to_resolved_terms(
     mut mask: settings::VariableMask,
-    current_aliases: &FxHashMap<VariableId, Term>,
+    aliases: &AliasTable,
 ) -> AtomArgs {
     let mut terms = AtomArgs::with_capacity(mask.count_ones() as usize);
     while mask != 0 {
         let bit = mask.trailing_zeros();
         let v_id = VariableId::from(bit as usize);
-        terms.push(aliasing::resolve_var(v_id, current_aliases));
+        terms.push(aliasing::find(v_id, aliases));
         mask &= mask - 1; // Clear the lowest set bit
     }
     terms
@@ -335,12 +337,13 @@ fn intern_auxiliary_signature(
 /// Collects all unique variables from a slice of atoms and returns them as a sorted vector.
 ///
 /// This function identifies every `VariableId` present in the terms of the provided atoms,
-/// resolves any active variable aliases, and produces a compact, deduplicated list.
+/// resolves any active variable aliases using a dense stack-allocated table, and produces a
+/// compact, deduplicated list.
 ///
 /// # Logic and Implementation
 /// This function uses a **Bitset** (a bitmask of type `settings::VariableMask` via `compute_variable_bitmask`)
 /// to perform a "Union" operation of all variables in a single pass.
-/// 1. It iterates through all terms of all atoms and resolves active aliases.
+/// 1. It iterates through all terms of all atoms and resolves active aliases using the `aliases` table.
 /// 2. For each variable, it sets the corresponding bit in the mask.
 /// 3. It then extracts the set bits (`decode_bitmask_to_variables`) to reconstruct the sorted `VariableId` list.
 ///
@@ -361,6 +364,10 @@ fn intern_auxiliary_signature(
 ///   and enforced up to `settings::MAX_VARIABLES_PER_SCOPE`. This ensures the bitset fits entirely
 ///   within a local CPU register context for optimal performance.
 ///
+/// # Arguments
+/// * `atoms` - A slice of atoms whose arguments will be inspected.
+/// * `aliases` - A dense stack-allocated table containing variable-to-term substitutions used to resolve active aliases.
+///
 /// # Errors
 /// Returns a [`DatalogError::VariableLimitExceeded`] if a resolved variable index equals or exceeds
 /// the compile-time limit specified by `settings::MAX_VARIABLES_PER_SCOPE`.
@@ -369,9 +376,9 @@ fn intern_auxiliary_signature(
 /// A `Vec<VariableId>` sorted by ID in ascending order (due to the nature of bit-scanning).
 fn extract_unique_variables(
     atoms: &[Atom],
-    current_aliases: &FxHashMap<VariableId, Term>,
+    aliases: &AliasTable,
 ) -> Result<Vec<VariableId>, DatalogError> {
-    let mask = compute_variable_bitmask(atoms, current_aliases)?;
+    let mask = compute_variable_bitmask(atoms, aliases)?;
     Ok(decode_bitmask_to_variables(mask))
 }
 
@@ -405,7 +412,7 @@ fn decode_bitmask_to_variables(mut mask: settings::VariableMask) -> Vec<Variable
 mod tests {
     use super::*;
     use crate::aiplan4rust::compiler::lir::expr::ExprBuilder;
-    use crate::aiplan4rust::support::lang::{Type, TypeId};
+    use crate::aiplan4rust::support::lang::{ObjectId, Type, TypeId};
 
     // =========================================================================
     // 1. BITMASK & BINARY OPERATIONS TESTS
@@ -419,7 +426,7 @@ mod tests {
     #[test]
     fn test_variable_bitmask_nominal() {
         // 1. Arrange
-        let current_aliases = FxHashMap::default();
+        let aliases = aliasing::new_alias_table();
 
         let p_unary = AtomSkeletonId::from(101);
         let p_nary = AtomSkeletonId::from(102);
@@ -437,7 +444,7 @@ mod tests {
         let atoms = vec![Atom::unary(p_unary, v0), Atom::nary(p_nary, nary_args)];
 
         // 2. Act
-        let mask = compute_variable_bitmask(&atoms, &current_aliases)
+        let mask = compute_variable_bitmask(&atoms, &aliases)
             .expect("Bitmask computation failed unexpectedly");
 
         // 3. Assert
@@ -458,7 +465,7 @@ mod tests {
     #[test]
     fn test_variable_bitmask_overflow_safety() {
         // 1. Arrange
-        let current_aliases = FxHashMap::default();
+        let aliases = aliasing::new_alias_table();
         let invalid_idx = settings::MAX_VARIABLES_PER_SCOPE;
 
         let p_unary = AtomSkeletonId::from(999);
@@ -468,7 +475,7 @@ mod tests {
         let atoms = vec![Atom::unary(p_unary, overflow_var)];
 
         // 2. Act
-        let result = compute_variable_bitmask(&atoms, &current_aliases);
+        let result = compute_variable_bitmask(&atoms, &aliases);
 
         // 3. Assert
         assert!(
@@ -631,7 +638,7 @@ mod tests {
         let mut store = ExprStore::new();
         let mut aux_defs = Vec::new();
         let mut next_id = 0;
-        let current_aliases = rustc_hash::FxHashMap::default();
+        let aliases = aliasing::new_alias_table();
 
         // Dummy type identifiers and skeletons for testing
         let type_id = TypeId::from(3);
@@ -668,7 +675,7 @@ mod tests {
             &mut next_id,
             &mut aux_defs,
             &type_to_skeleton,
-            &current_aliases,
+            &aliases,
             &mut store,
         )
         .expect("allocate_auxiliary_predicate failed during rule repair fabrication");
@@ -729,10 +736,10 @@ mod tests {
         let mut next_id = 0;
 
         // 1. Arrange an alias: Variable(0) -> Constant(7)
-        let mut current_aliases = FxHashMap::default();
+        let mut aliases = aliasing::new_alias_table();
         let free_var_id = VariableId::from(0);
-        let obj_id = crate::aiplan4rust::support::lang::ObjectId::from(7);
-        current_aliases.insert(free_var_id, Term::Constant(obj_id));
+        let obj_id = ObjectId::from(7);
+        aliases[free_var_id.as_usize()] = Term::Constant(obj_id);
 
         let type_id = TypeId::from(3);
         let type_skel_id = AtomSkeletonId::from(500);
@@ -759,7 +766,7 @@ mod tests {
             &mut next_id,
             &mut aux_defs,
             &type_to_skeleton,
-            &current_aliases,
+            &aliases,
             &mut store,
         )
         .unwrap();
@@ -812,8 +819,7 @@ mod tests {
         let mut store = ExprStore::new();
         let mut aux_defs = Vec::new();
         let mut next_id = 0;
-        let current_aliases = FxHashMap::default();
-
+        let aliases = aliasing::new_alias_table();
         let type_id = TypeId::from(0);
         let type_to_skeleton = vec![AtomSkeletonId::from(99)];
 
@@ -834,7 +840,7 @@ mod tests {
             &mut next_id,
             &mut aux_defs,
             &type_to_skeleton,
-            &current_aliases,
+            &aliases,
             &mut store,
         )
         .unwrap();
@@ -856,7 +862,7 @@ mod tests {
     #[test]
     fn test_variable_bitmask_exact_boundary() {
         // 1. Arrange
-        let current_aliases = FxHashMap::default();
+        let aliases = aliasing::new_alias_table();
         // Maximum allowed index (e.g., 63 if the limit is 64)
         let boundary_idx = settings::MAX_VARIABLES_PER_SCOPE - 1;
 
@@ -865,7 +871,7 @@ mod tests {
         let atoms = vec![Atom::unary(p_unary, boundary_var)];
 
         // 2. Act
-        let mask = compute_variable_bitmask(&atoms, &current_aliases);
+        let mask = compute_variable_bitmask(&atoms, &aliases);
 
         // 3. Assert
         assert!(

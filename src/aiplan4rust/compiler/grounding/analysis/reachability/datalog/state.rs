@@ -2,9 +2,7 @@ use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::co
     atom::Atom, database::Database, rule::Rule,
 };
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
-use crate::aiplan4rust::support::lang::VariableId;
-// 🌟 Ajout de l'import pour les variables
-use crate::analysis::reachability::datalog::core::Term;
+use crate::analysis::reachability::datalog::encoder::AliasTable;
 use rustc_hash::FxHashMap;
 
 #[derive(Debug)]
@@ -14,7 +12,7 @@ pub(crate) struct DatalogState<'a> {
     pub(crate) aux_defs: &'a mut Vec<AtomicFormulaSkeleton>,
     pub(crate) next_aux_id: &'a mut usize,
     pub(crate) db: &'a mut Database,
-    pub(crate) current_aliases: &'a mut FxHashMap<VariableId, Term>, // 🌟 Ajout de la table d'alias
+    pub(crate) current_aliases: &'a mut AliasTable,
 }
 
 impl<'a> DatalogState<'a> {
@@ -25,7 +23,7 @@ impl<'a> DatalogState<'a> {
         aux_defs: &'a mut Vec<AtomicFormulaSkeleton>,
         next_aux_id: &'a mut usize,
         db: &'a mut Database,
-        current_aliases: &'a mut FxHashMap<VariableId, Term>, // 🌟 Ajouté au constructeur
+        current_aliases: &'a mut AliasTable,
     ) -> Self {
         Self {
             rules,

@@ -3,7 +3,6 @@ use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::co
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::cause::Cause;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::database::Database;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::rule::Rule;
-use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::error::DatalogError;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::renderers::{
     database, rules, DatalogRenderContext,
@@ -12,11 +11,11 @@ use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegi
 use crate::aiplan4rust::compiler::lir::problem::skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
 use crate::aiplan4rust::compiler::lir::renderers::LiftedSyntaxDisplay;
-use crate::aiplan4rust::support::lang::{
-    AtomSkeletonId, Id, ObjectId, TypeId, TypedListId, VariableId,
-};
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, Id, ObjectId, TypeId, TypedListId};
 use crate::analysis::reachability::datalog::context::DatalogContext;
 use crate::analysis::reachability::datalog::encoder;
+use crate::analysis::reachability::datalog::encoder::aliasing;
+use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
 use crate::analysis::reachability::datalog::state::DatalogState;
 use itertools::Itertools;
 use rustc_hash::FxHashMap;
@@ -67,10 +66,6 @@ pub struct DatalogEngine<'a> {
     /// for the same logical sub-expression (Common Subexpression Elimination).
     pub(crate) cache: FxHashMap<Vec<Atom>, Atom>,
 
-    // Ajout du champ interne
-    // On utilise un champ membre pour éviter de le passer partout
-    pub(crate) current_aliases: FxHashMap<VariableId, Term>,
-
     /// Table de causalité : associe chaque effet à son origine (Action ou Pivot).
     pub(crate) action_effects: Vec<Vec<(Atom, Cause)>>,
 
@@ -115,7 +110,7 @@ impl<'a> DatalogEngine<'a> {
         let mut db = Database::new();
         let mut rules = Vec::with_capacity(1024);
         let mut cache = FxHashMap::with_capacity_and_hasher(256, Default::default());
-        let mut current_aliases = FxHashMap::with_capacity_and_hasher(256, Default::default());
+        let mut current_aliases = aliasing::new_alias_table();
         let mut action_effects = vec![Vec::new(); action_count];
         let union_cache = FxHashMap::default();
 
@@ -159,12 +154,14 @@ impl<'a> DatalogEngine<'a> {
         encoder::facts::fill_db_from_init(&mut state, init_expr_id, &mut local_store)?;
 
         // Compilation des règles
+        let mut scratchpad = DatalogScratchpad::with_capacity(local_store.len());
         encoder::action::encode_action_defs(
             ctx,
             &mut state,
             &mut action_effects,
             action_defs_slice,
             action_base_id,
+            &mut scratchpad,
             &mut local_store,
         )?;
 
@@ -193,7 +190,6 @@ impl<'a> DatalogEngine<'a> {
             next_aux_id: final_builtin_threshold,
             aux_defs,
             cache,
-            current_aliases,
             action_effects,
             action_anchor: None,
             negation_offset: fluence_threshold,

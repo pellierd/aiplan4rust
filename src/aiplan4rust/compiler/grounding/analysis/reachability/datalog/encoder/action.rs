@@ -12,6 +12,7 @@ use crate::analysis::reachability::datalog::core::atom::AtomArgs;
 use crate::analysis::reachability::datalog::core::rule::RuleBody;
 use crate::analysis::reachability::datalog::encoder;
 use crate::analysis::reachability::datalog::error::DatalogError;
+use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
 use crate::analysis::reachability::datalog::state::DatalogState;
 
 /// Compile l'ensemble des définitions d'actions du domaine PDDL en règles Datalog logiques.
@@ -24,6 +25,7 @@ pub(crate) fn encode_action_defs(
     action_effects: &mut Vec<Vec<(Atom, Cause)>>,
     action_defs: &[ActionDef],
     action_base_id: usize,
+    scratchpad: &mut DatalogScratchpad,
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
     for (id, action) in action_defs.iter().enumerate() {
@@ -41,7 +43,14 @@ pub(crate) fn encode_action_defs(
         };
 
         // B. Générer la règle de déclenchement (Preconditions -> Action)
-        encode_action_body(action_ctx, state, action, action_atom.clone(), store)?;
+        encode_action_body(
+            action_ctx,
+            state,
+            action,
+            action_atom.clone(),
+            scratchpad,
+            store,
+        )?;
 
         // --- LE BOOTSTRAP DE L'ACTION ---
         // Si l'action n'a aucun paramètre et un corps vide, elle est immédiatement applicable.
@@ -61,6 +70,7 @@ pub(crate) fn encode_action_defs(
             action_ctx,
             state,
             action_effects,
+            scratchpad,
             store,
         )?;
     }
@@ -97,6 +107,7 @@ fn encode_action_body(
     state: &mut DatalogState<'_>,
     action: &ActionDef,
     head: Atom,
+    scratchpad: &mut DatalogScratchpad,
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
     // 1. On récupère l'ID de la liste de paramètres
@@ -112,8 +123,13 @@ fn encode_action_body(
     };
 
     // 💡 Appel mis à jour avec le contexte et l'état unifiés
-    let precond_opt =
-        encoder::expr::encode_preconditions(action.precondition(), precond_ctx, state, store)?;
+    let precond_opt = encoder::expr::encode_preconditions(
+        action.precondition(),
+        precond_ctx,
+        state,
+        scratchpad,
+        store,
+    )?;
 
     // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
     let mut final_action_body = RuleBody::new();
@@ -123,7 +139,7 @@ fn encode_action_body(
     // ==========================================================
     // LE GARDIEN DE PARCOURS
     // ==========================================================
-    let mut visited = vec![false; store_len];
+    scratchpad.prepare_visited(store_len);
 
     let precondition = store.fetch_expr(action.precondition())?;
     // Récupération des atomes en postorder
@@ -134,10 +150,10 @@ fn encode_action_body(
 
     for atom_node in atoms {
         let idx = atom_node.id().as_usize();
-        if visited[idx] {
+        if scratchpad.visited[idx] {
             continue;
         }
-        visited[idx] = true;
+        scratchpad.visited[idx] = true;
 
         let skel_id = match atom_node.kind() {
             ExprKind::AtomicFormula(sk) => *sk,

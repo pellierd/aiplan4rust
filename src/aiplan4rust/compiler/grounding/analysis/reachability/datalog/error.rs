@@ -4,6 +4,7 @@ use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
 use crate::aiplan4rust::compiler::syntax::ast::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::error::Traceable;
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, VariableId};
+use crate::analysis::reachability::datalog::core::Term;
 use thiserror::Error;
 
 /// Errors encountered during the Datalog grounding and flattening process.

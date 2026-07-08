@@ -63,3 +63,7 @@ pub type VariableMask = u64;
 /// This limit is automatically computed based on the bit-width of [`VariableMask`] to ensure
 /// compile-time safety and prevent undefined behavior or bitwise overflow during encoding.
 pub const MAX_VARIABLES_PER_SCOPE: usize = size_of::<VariableMask>() * 8;
+
+/// Capacité maximale en ligne (sur la pile) pour le stockage temporaire des variables
+/// lors du calcul de la fermeture transitive des alias.
+pub const INLINE_ALIAS_BUFFER_CAPACITY: usize = 8;

@@ -7,6 +7,7 @@ mod engine;
 pub mod queries;
 pub mod renderers;
 pub mod saturation;
+mod scratchpad;
 pub mod segments;
 pub mod settings;
 pub(crate) mod state;
