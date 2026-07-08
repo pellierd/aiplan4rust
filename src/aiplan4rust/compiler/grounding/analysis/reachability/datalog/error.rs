@@ -51,6 +51,9 @@ pub enum DatalogError {
     #[error("Invalid atom argument at node index {0}")]
     InvalidAtomArgument(ExprId),
 
+    #[error("Variable limit exceeded: Variable index '{var_id:?}' exceeds the maximum allowed variables per scope ({limit}).")]
+    VariableLimitExceeded { var_id: VariableId, limit: usize },
+
     /// Raised when a required internal segment (e.g., Type registry or Root node)
     /// has not been initialized before use.
     #[error("Internal engine state inconsistency: {0}")]
@@ -114,5 +117,11 @@ impl DatalogError {
     #[track_caller]
     pub fn unbound_variable(v: VariableId) -> Self {
         DatalogError::UnboundVariable(v).trace()
+    }
+
+    /// 🛡️ AJOUT : Constructeur traçable pour le dépassement de la capacité du bitmask
+    #[track_caller]
+    pub fn variable_limit_exceeded(var_id: VariableId, limit: usize) -> Self {
+        DatalogError::VariableLimitExceeded { var_id, limit }.trace()
     }
 }

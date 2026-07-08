@@ -40,7 +40,7 @@ pub(crate) fn allocate_auxiliary_predicate(
     store: &mut ExprStore,
 ) -> Result<(Atom, AuxPredicateBody), DatalogError> {
     // 1. Collecte et résolution directe des variables (Bitmask u64)
-    let mask = compute_variable_bitmask(atoms, current_aliases);
+    let mask = compute_variable_bitmask(atoms, current_aliases)?;
     let mut resolved_terms = decode_bitmask_to_resolved_terms(mask, current_aliases);
 
     // Tri et dédoublonnement requis uniquement si les alias ont introduit des constantes
@@ -48,7 +48,7 @@ pub(crate) fn allocate_auxiliary_predicate(
     resolved_terms.dedup();
 
     // --- 2. LA RÉPARATION VIA BITMASK (Direct SmallVec + Unary Atom - Optimal & Simple 🚀) ---
-    let mut covered_mask = compute_covered_variable_bitmask(atoms);
+    let mut covered_mask = compute_covered_variable_bitmask(atoms)?;
 
     // On initialise directement un SmallVec à la place du Vec.
     // Si (atoms.len() + resolved_terms.len()) <= settings::INLINE_BODY_CAPACITY,
@@ -118,40 +118,31 @@ fn intern_auxiliary_signature(
     Atom::nary(AtomSkeletonId::from(id), terms)
 }
 
-fn decode_bitmask_to_resolved_terms(
-    mut mask: u64,
-    current_aliases: &HashMap<VariableId, Term>,
-) -> AtomArgs {
-    // 🚀 On retourne un AtomArgs à la place
-    // 🚀 L'espace est pris sur la pile. Comme count_ones() <= 64 (et souvent < 8),
-    // with_capacity voit que ça rentre dans la capacité inline et n'alloue RIEN sur le tas.
-    let mut terms = AtomArgs::with_capacity(mask.count_ones() as usize);
-
-    while mask != 0 {
-        let bit = mask.trailing_zeros();
-        let v_id = VariableId::from(bit as usize);
-
-        terms.push(aliasing::resolve_var(v_id, current_aliases));
-
-        mask &= mask - 1;
-    }
-    terms // Le SmallVec est déplacé (move) rapidement sur la pile
-}
-
 /// Calcule le masque binaire des variables couvertes par au moins un atome non-négatif.
 /// Fonction pure, déterministe et s'exécutant entièrement sur la pile (stack).
-fn compute_covered_variable_bitmask(atoms: &[Atom]) -> u64 {
-    let mut mask: u64 = 0;
+fn compute_covered_variable_bitmask(
+    atoms: &[Atom],
+) -> Result<settings::VariableMask, DatalogError> {
+    let mut mask: settings::VariableMask = 0; // 🟢 Type automatique
     for atom in atoms {
         if !atom.is_negated() {
             for term in atom.arguments() {
                 if let Term::Variable(v) = term {
-                    mask |= 1 << v.as_usize();
+                    let v_idx = v.as_usize();
+
+                    // 🛡️ Garde-fou indispensable ici aussi !
+                    if v_idx >= settings::MAX_VARIABLES_PER_SCOPE {
+                        return Err(DatalogError::variable_limit_exceeded(
+                            *v,
+                            settings::MAX_VARIABLES_PER_SCOPE,
+                        ));
+                    }
+                    mask |= 1 << v_idx;
                 }
             }
         }
     }
-    mask
+    Ok(mask)
 }
 
 /// Extracts a logical [`Atom`] from a specific expression node.
@@ -242,12 +233,12 @@ fn extract_unique_variables(
     current_aliases: &HashMap<VariableId, Term>, // 💡 Ajouté ici pour propager
 ) -> Result<Vec<VariableId>, DatalogError> {
     // 💡 Transmis ici à local_collect_mask
-    let mask = compute_variable_bitmask(atoms, current_aliases);
+    let mask = compute_variable_bitmask(atoms, current_aliases)?;
     Ok(decode_bitmask_to_variables(mask))
 }
 
 /// Version locale (associée) pour collecter le masque binaire des variables utilisées
-fn compute_variable_bitmask(
+/*fn compute_variable_bitmask(
     atoms: &[Atom],
     current_aliases: &HashMap<VariableId, Term>, // 💡 Type aligné sur ta fonction !
 ) -> u64 {
@@ -266,9 +257,72 @@ fn compute_variable_bitmask(
         }
     }
     mask
+}*/
+
+fn compute_variable_bitmask(
+    atoms: &[Atom],
+    current_aliases: &HashMap<VariableId, Term>,
+) -> Result<settings::VariableMask, DatalogError> {
+    // 🚀 Type automatique
+    let mut mask: settings::VariableMask = 0; // 🚀 Type automatique
+    for atom in atoms {
+        for term in atom.arguments() {
+            let resolved_term = match term {
+                Term::Variable(v) => aliasing::resolve_var(*v, current_aliases),
+                Term::Constant(_) => term.clone(),
+            };
+
+            if let Term::Variable(v) = resolved_term {
+                let v_idx = v.as_usize();
+
+                if v_idx >= settings::MAX_VARIABLES_PER_SCOPE {
+                    return Err(DatalogError::variable_limit_exceeded(
+                        v,
+                        settings::MAX_VARIABLES_PER_SCOPE,
+                    ));
+                }
+                mask |= 1 << v_idx;
+            }
+        }
+    }
+    Ok(mask)
 }
 
-fn decode_bitmask_to_variables(mut mask: u64) -> Vec<VariableId> {
+/*fn decode_bitmask_to_resolved_terms(
+    mut mask: u64,
+    current_aliases: &HashMap<VariableId, Term>,
+) -> AtomArgs {
+    // 🚀 On retourne un AtomArgs à la place
+    // 🚀 L'espace est pris sur la pile. Comme count_ones() <= 64 (et souvent < 8),
+    // with_capacity voit que ça rentre dans la capacité inline et n'alloue RIEN sur le tas.
+    let mut terms = AtomArgs::with_capacity(mask.count_ones() as usize);
+
+    while mask != 0 {
+        let bit = mask.trailing_zeros();
+        let v_id = VariableId::from(bit as usize);
+
+        terms.push(aliasing::resolve_var(v_id, current_aliases));
+
+        mask &= mask - 1;
+    }
+    terms // Le SmallVec est déplacé (move) rapidement sur la pile
+}*/
+
+fn decode_bitmask_to_resolved_terms(
+    mut mask: settings::VariableMask, // 🚀 Reçoit le type automatique
+    current_aliases: &HashMap<VariableId, Term>,
+) -> AtomArgs {
+    let mut terms = AtomArgs::with_capacity(mask.count_ones() as usize);
+    while mask != 0 {
+        let bit = mask.trailing_zeros();
+        let v_id = VariableId::from(bit as usize);
+        terms.push(aliasing::resolve_var(v_id, current_aliases));
+        mask &= mask - 1;
+    }
+    terms
+}
+
+fn decode_bitmask_to_variables(mut mask: settings::VariableMask) -> Vec<VariableId> {
     let mut vars = Vec::with_capacity(mask.count_ones() as usize);
     while mask != 0 {
         let bit = mask.trailing_zeros();

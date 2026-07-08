@@ -21,3 +21,9 @@ pub const INLINE_ATOM_ARGS_CAPACITY: usize = 4;
 /// This threshold is strictly aligned with [`INLINE_ATOM_ARGS_CAPACITY`] to reflect that
 /// ground tuples directly mirror the arity of their logical atom counterparts.
 pub const INLINE_TUPLE_ARGS_CAPACITY: usize = INLINE_ATOM_ARGS_CAPACITY;
+
+/// Le type brut utilisé pour le bitmask des variables (u64 ou u128)
+pub type VariableMask = u64; // Idéalement u64 pour le moment, ou u128 plus tard
+
+/// La limite de variables, calquée automatiquement sur la taille du type choisi
+pub const MAX_VARIABLES_PER_SCOPE: usize = size_of::<VariableMask>() * 8;
