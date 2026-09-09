@@ -312,3 +312,242 @@ fn as_term(expr: ExprId, store: &ExprStore) -> Result<Option<Term>, DatalogError
         _ => None,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprStore};
+    use crate::aiplan4rust::support::lang::{CompareOp, ObjectId, VariableId};
+    use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
+
+    #[test]
+    fn test_new_alias_table_identity() {
+        let table = new_alias_table();
+        for i in 0..settings::MAX_VARIABLES_PER_SCOPE {
+            let var = VariableId::from(i);
+            assert_eq!(find(var, &table), Term::Variable(var));
+        }
+    }
+
+    #[test]
+    fn test_find_with_direct_aliasing() {
+        let mut table = new_alias_table();
+        // Map ?1 to ?0
+        table[1] = Term::Variable(VariableId::from(0));
+
+        assert_eq!(
+            find(VariableId::from(1), &table),
+            Term::Variable(VariableId::from(0))
+        );
+    }
+
+    #[test]
+    fn test_find_with_constant_binding() {
+        let mut table = new_alias_table();
+        let obj = ObjectId::from(42);
+        // Map ?2 to Constant(42)
+        table[2] = Term::Constant(obj);
+
+        assert_eq!(find(VariableId::from(2), &table), Term::Constant(obj));
+    }
+
+    #[test]
+    fn test_find_cycle_protection() {
+        let mut table = new_alias_table();
+        // Create a synthetic cycle: ?0 -> ?1, ?1 -> ?0
+        table[0] = Term::Variable(VariableId::from(1));
+        table[1] = Term::Variable(VariableId::from(0));
+
+        // The bitmask cycle protection should break the loop and return safely
+        let result = find(VariableId::from(0), &table);
+        assert!(matches!(result, Term::Variable(_)));
+    }
+
+    #[test]
+    fn test_compute_variable_aliasing_simple_equality() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let v0 = builder.variable(VariableId::from(0));
+        let v1 = builder.variable(VariableId::from(1));
+
+        // (= ?0 ?1) via ExprBuilder
+        let eq_expr = builder.comparison(CompareOp::Equal, v0, v1);
+
+        let mut scratchpad = DatalogScratchpad::with_capacity(64);
+        let table = compute_variable_aliasing(eq_expr, &mut scratchpad, &store).unwrap();
+
+        assert_eq!(
+            find(VariableId::from(1), &table),
+            Term::Variable(VariableId::from(0))
+        );
+    }
+
+    #[test]
+    fn test_as_term_extraction() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let var_expr = builder.variable(VariableId::from(5));
+        let obj_expr = builder.object(ObjectId::from(10));
+        let op_expr = builder.and(&vec![]);
+
+        assert_eq!(
+            as_term(var_expr, &store).unwrap(),
+            Some(Term::Variable(VariableId::from(5)))
+        );
+        assert_eq!(
+            as_term(obj_expr, &store).unwrap(),
+            Some(Term::Constant(ObjectId::from(10)))
+        );
+        assert_eq!(as_term(op_expr, &store).unwrap(), None);
+    }
+
+    #[test]
+    fn test_compute_variable_aliasing_transitive() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let v0 = builder.variable(VariableId::from(0));
+        let v1 = builder.variable(VariableId::from(1));
+        let v2 = builder.variable(VariableId::from(2));
+
+        // (= ?0 ?1) AND (= ?1 ?2)
+        let eq1 = builder.comparison(CompareOp::Equal, v0, v1);
+        let eq2 = builder.comparison(CompareOp::Equal, v1, v2);
+        let and_expr = builder.and(&vec![eq1, eq2]);
+
+        let mut scratchpad = DatalogScratchpad::with_capacity(64);
+        let table = compute_variable_aliasing(and_expr, &mut scratchpad, &store).unwrap();
+
+        // Transitive flattening should map ?2 -> ?0
+        assert_eq!(
+            find(VariableId::from(2), &table),
+            Term::Variable(VariableId::from(0))
+        );
+    }
+
+    #[test]
+    fn test_compute_variable_aliasing_constant_binding() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let v0 = builder.variable(VariableId::from(0));
+        let c10 = builder.object(ObjectId::from(10));
+
+        // (= ?0 10)
+        let eq_expr = builder.comparison(CompareOp::Equal, v0, c10);
+
+        let mut scratchpad = DatalogScratchpad::with_capacity(64);
+        let table = compute_variable_aliasing(eq_expr, &mut scratchpad, &store).unwrap();
+
+        assert_eq!(
+            find(VariableId::from(0), &table),
+            Term::Constant(ObjectId::from(10))
+        );
+    }
+
+    #[test]
+    fn test_compute_variable_aliasing_ignores_not() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let v0 = builder.variable(VariableId::from(0));
+        let v1 = builder.variable(VariableId::from(1));
+
+        // (NOT (= ?0 ?1)) -> Should be ignored by alias extraction
+        let eq = builder.comparison(CompareOp::Equal, v0, v1);
+        let not_expr = builder.not(eq);
+
+        let mut scratchpad = DatalogScratchpad::with_capacity(64);
+        let table = compute_variable_aliasing(not_expr, &mut scratchpad, &store).unwrap();
+
+        // Should remain identity mapping
+        assert_eq!(
+            find(VariableId::from(1), &table),
+            Term::Variable(VariableId::from(1))
+        );
+    }
+
+    #[test]
+    fn test_try_fetch_term_variable_limit_exceeded() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        // Create a variable ID that exceeds MAX_VARIABLES_PER_SCOPE
+        let invalid_var_id = VariableId::from(settings::MAX_VARIABLES_PER_SCOPE + 5);
+        let invalid_var_expr = builder.variable(invalid_var_id);
+        let valid_var_expr = builder.variable(VariableId::from(0));
+
+        // Wrap it in an equality comparison so try_fetch_term gets executed
+        let eq_expr = builder.comparison(CompareOp::Equal, invalid_var_expr, valid_var_expr);
+
+        let mut scratchpad = DatalogScratchpad::with_capacity(64);
+        let result = compute_variable_aliasing(eq_expr, &mut scratchpad, &store);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_compute_variable_aliasing_symmetric_constant_binding() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let c10 = builder.object(ObjectId::from(10));
+        let v0 = builder.variable(VariableId::from(0));
+
+        // (= 10 ?0) -> Constant on the left side
+        let eq_expr = builder.comparison(CompareOp::Equal, c10, v0);
+
+        let mut scratchpad = DatalogScratchpad::with_capacity(64);
+        let table = compute_variable_aliasing(eq_expr, &mut scratchpad, &store).unwrap();
+
+        assert_eq!(
+            find(VariableId::from(0), &table),
+            Term::Constant(ObjectId::from(10))
+        );
+    }
+
+    #[test]
+    fn test_compute_variable_aliasing_self_equality() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let v0 = builder.variable(VariableId::from(0));
+
+        // (= ?0 ?0)
+        let eq_expr = builder.comparison(CompareOp::Equal, v0, v0);
+
+        let mut scratchpad = DatalogScratchpad::with_capacity(64);
+        let table = compute_variable_aliasing(eq_expr, &mut scratchpad, &store).unwrap();
+
+        assert_eq!(
+            find(VariableId::from(0), &table),
+            Term::Variable(VariableId::from(0))
+        );
+    }
+
+    #[test]
+    fn test_compute_variable_aliasing_conflicting_constants() {
+        let mut store = ExprStore::new();
+        let mut builder = ExprBuilder::new(&mut store);
+
+        let v0 = builder.variable(VariableId::from(0));
+        let c10 = builder.object(ObjectId::from(10));
+        let c20 = builder.object(ObjectId::from(20));
+
+        // (= ?0 10) AND (= ?0 20) -> Contradiction handled silently
+        let eq1 = builder.comparison(CompareOp::Equal, v0, c10);
+        let eq2 = builder.comparison(CompareOp::Equal, v0, c20);
+        let and_expr = builder.and(&vec![eq1, eq2]);
+
+        let mut scratchpad = DatalogScratchpad::with_capacity(64);
+        let table = compute_variable_aliasing(and_expr, &mut scratchpad, &store).unwrap();
+
+        // The first binding should be preserved while the second is ignored silently
+        assert_eq!(
+            find(VariableId::from(0), &table),
+            Term::Constant(ObjectId::from(10))
+        );
+    }
+}
