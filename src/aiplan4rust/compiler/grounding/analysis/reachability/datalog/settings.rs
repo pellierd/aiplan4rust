@@ -67,3 +67,6 @@ pub const MAX_VARIABLES_PER_SCOPE: usize = size_of::<VariableMask>() * 8;
 /// Capacité maximale en ligne (sur la pile) pour le stockage temporaire des variables
 /// lors du calcul de la fermeture transitive des alias.
 pub const INLINE_ALIAS_BUFFER_CAPACITY: usize = 8;
+
+/// The default initial capacity for the results stack during condition expression encoding.
+pub const DEFAULT_CONDITION_RESULTS_CAPACITY: usize = 32;

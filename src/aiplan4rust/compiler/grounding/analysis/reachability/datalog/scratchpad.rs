@@ -1,3 +1,4 @@
+use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
 use crate::aiplan4rust::compiler::lir::expr::ExprId;
 use crate::aiplan4rust::support::lang::AtomSkeletonId;
 use ahash::HashSetExt;
@@ -7,8 +8,12 @@ use rustc_hash::FxHashSet;
 pub struct DatalogScratchpad {
     /// Buffer pour le suivi des nœuds visités lors des parcours de graphes d'expressions.
     pub(crate) visited: Vec<bool>,
-    /// Pile de travail générique pour les parcours de type DFS (non-récursifs).
+    /// Pile générique pour les parcours simples (ex: aliasing).
     pub(crate) stack: Vec<ExprId>,
+    /// Pile pour le parcours des conditions (état post-ordre : id + visited).
+    pub(crate) condition_stack: Vec<(ExprId, bool)>,
+    /// Pile pour le parcours des effets (id + cause).
+    pub(crate) effect_stack: Vec<(ExprId, Atom)>,
     /// Ensemble de suivi des paires (expression, cause) pour éviter les allocations dans encode_effects.
     pub(crate) visited_effects: FxHashSet<(ExprId, AtomSkeletonId)>,
 }
@@ -18,7 +23,9 @@ impl DatalogScratchpad {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             visited: Vec::with_capacity(capacity),
-            stack: Vec::with_capacity(64), // Une profondeur d'arbre dépasse rarement 64
+            stack: Vec::with_capacity(64),
+            condition_stack: Vec::with_capacity(64),
+            effect_stack: Vec::with_capacity(64),
             visited_effects: FxHashSet::with_capacity(64),
         }
     }
@@ -30,11 +37,25 @@ impl DatalogScratchpad {
         self.visited.fill(false);
     }
 
-    /// Nettoie la pile de travail pour un nouveau parcours.
+    /// Nettoie la pile générique pour un nouveau parcours.
     #[inline]
     pub fn prepare_stack(&mut self, root: ExprId) {
         self.stack.clear();
         self.stack.push(root);
+    }
+
+    /// Nettoie la pile de conditions pour un nouveau parcours.
+    #[inline]
+    pub fn prepare_condition_stack(&mut self, root: ExprId) {
+        self.condition_stack.clear();
+        self.condition_stack.push((root, false));
+    }
+
+    /// Nettoie la pile d'effets pour un nouveau parcours.
+    #[inline]
+    pub fn prepare_effect_stack(&mut self, root: ExprId, root_cause: Atom) {
+        self.effect_stack.clear();
+        self.effect_stack.push((root, root_cause));
     }
 
     /// Nettoie l'ensemble des effets visités pour un nouveau parcours d'effets.

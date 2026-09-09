@@ -1,3 +1,23 @@
+//! Expression Encoder for Datalog Grounding.
+//!
+//! This module provides the core transformation engine required to translate high-level
+//! planning expression trees (preconditions and effects) into flat Datalog Horn clauses and atomic facts.
+//!
+//! # Core Architecture & Mechanisms
+//!
+//! - Scratchpad-Based Traversal: Leverages a persistent [scratchpad::DatalogScratchpad] to manage evaluation
+//!   stacks and visited sets, completely eliminating dynamic allocation overhead during tree traversals.
+//! - Tseitin Transformation: Complex logical expressions (such as nested AND/OR blocks or conditional WHEN effects)
+//!   are flattened into auxiliary predicates and rules using structural memoization caches.
+//! - Variable Aliasing & Normalization: Resolves variable equality constraints (?x = ?y) and handles scope-local
+//!   aliasing before rule generation.
+//!
+//! # Primary Functions
+//!
+//! - [encode_preconditions]: Public entry point for flattening action preconditions.
+//! - [encode_effects]: Translates action consequences into positive Datalog rules while tracking causality and delete-effects.
+//! - [encode_condition]: The core post-order evaluation engine backing both precondition and condition flattening.
+
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::cause::Cause;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::rule::Rule;
@@ -10,13 +30,14 @@ use crate::analysis::reachability::datalog::core::rule::RuleBody;
 use crate::analysis::reachability::datalog::encoder::{aliasing, predicate};
 use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
+use crate::analysis::reachability::datalog::settings;
 use crate::analysis::reachability::datalog::state::DatalogState;
 
 /// Encodes the preconditions of an action into Datalog atoms and rules.
 ///
 /// This function serves as the public entry point for flattening action preconditions.
-/// It delegates the iterative post-order traversal to `encode_expr`, starting from
-/// the root of the provided expression tree.
+/// It delegates the iterative post-order traversal to `encode_condition`, starting from
+/// the root of the provided expression tree using a reusable scratchpad structure.
 ///
 /// Complex logical structures (AND/OR) are decomposed into auxiliary predicates
 /// using a Tseitin-like transformation to maintain a flat Horn-clause structure.
@@ -24,8 +45,9 @@ use crate::analysis::reachability::datalog::state::DatalogState;
 /// # Arguments
 ///
 /// * `expr` - The global expression handle wrapping the store and the root.
-/// * `ctx` - The Datalog context containing immuable information like parameter lists and types.
+/// * `ctx` - The Datalog context containing immutable information like parameter lists and types.
 /// * `state` - The mutable Datalog state accumulating rules, cache, and IDs.
+/// * `scratchpad` - Temporary allocation buffer providing the reusable alias and traversal structures.
 /// * `store` - The expression store containing the precondition trees.
 ///
 /// # Returns
@@ -40,43 +62,43 @@ pub fn encode_preconditions(
     scratchpad: &mut DatalogScratchpad,
     store: &mut ExprStore,
 ) -> Result<Option<Atom>, DatalogError> {
-    // 1. Nettoyage et préparation des alias (pour gérer les ?x = ?y)
-    // 🌟 Remplissage direct de l'état mutable pour que `encode_expr` puisse y accéder !
+    // Step 1: Compute and populate variable aliases (handling equality constraints like ?x = ?y).
     *state.current_aliases = aliasing::compute_variable_aliasing(expr, scratchpad, store)?;
 
-    // 2. 🌟 Appel mis à jour avec le contexte et l'état complets (plus de déballage !)
-    encode_condition(expr, ctx, state, store)
+    // Step 2: Delegate to the core condition encoding engine using the full context and scratchpad.
+    encode_condition(expr, ctx, state, scratchpad, store)
 }
 
 /// Encodes action effects into Datalog rules by propagating causality from the action to its consequences.
 ///
-/// This function performs an iterative top-down traversal of the effect expression tree.
-/// It establishes a logical chain between the "cause" (the action atom) and the resulting
+/// This function performs an iterative top-down traversal of the effect expression tree
+/// using a reusable scratchpad effect stack to avoid heap allocations. It establishes a logical
+/// chain between the "cause" (the action atom or an auxiliary pivot) and the resulting
 /// "facts" (atomic formulas).
 ///
 /// # Conditional Effects (WHEN)
 ///
 /// When encountering a `When` node, the function:
-/// 1. Uses `encode_expr` to flatten the condition into an auxiliary atom.
-/// 2. Creates a "pivot" auxiliary predicate representing the conjunction of the action
-///    and the condition.
+/// 1. Uses `encode_condition` to flatten the condition into an auxiliary atom.
+/// 2. Creates or retrieves a "pivot" auxiliary predicate representing the conjunction of the action
+///    and the condition via the dual-cache mechanism (`when_cache`).
 /// 3. Propagates this new auxiliary atom as the "cause" for all nested sub-effects.
 ///
-/// # Relaxed Semantics
+/// # Relaxed Semantics & Delete Effects
 ///
-/// For reachability analysis, this encoder follows a positive-only Datalog model:
-/// * **Delete-effects (`Not`)** are explicitly ignored.
-/// * **Numerical effects** (Assign, Operation, etc.) are skipped as they do not contribute
-///   to atomic fact reachability.
+/// For reachability analysis, this encoder handles delete-effects (`Not`) by mapping them
+/// to negated literals using configured negation offsets. Numerical effects (Assign, Arithmetic)
+/// are skipped as they do not contribute to propositional reachability.
 ///
 /// # Arguments
 ///
 /// * `effect` - The expression tree representing the action's effects.
 /// * `action_atom` - The atom representing the execution of the action (the initial cause).
 /// * `action_index` - The unique offset index of the current action.
-/// * `ctx` - The immuable context (parameters list, skeleton maps, negation offset).
+/// * `ctx` - The immutable context (parameters list, skeleton maps, negation offset).
 /// * `state` - The mutable compiler state (rules sink, cache, tables, global alias map).
-/// * `action_effects` - Accummulator vector for storing effect causes per action.
+/// * `action_effects` - Accumulator vector for storing effect causes per action.
+/// * `scratchpad` - Temporary allocation buffer providing the effect stack and visited tracker.
 /// * `store` - The expression store containing the node contents.
 ///
 /// # Errors
@@ -92,7 +114,7 @@ pub fn encode_effects(
     scratchpad: &mut DatalogScratchpad,
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
-    // ÉTAPE 1 : Remplissage direct de la table d'alias dans l'état partagé
+    // Step 1: Direct population of the alias table in the shared mutable state.
     *state.current_aliases = aliasing::compute_variable_aliasing(effect, scratchpad, store)?;
 
     let mut root_cause = action_atom.clone();
@@ -103,11 +125,14 @@ pub fn encode_effects(
     }
 
     let root_cause_id = root_cause.symbol();
-    // On utilise directement l'id de départ pour la pile
-    let mut work_stack = vec![(effect, root_cause)];
+
+    // Initialize the reusable effect stack and clean the visited set within the scratchpad.
+    scratchpad.prepare_effect_stack(effect, root_cause);
     scratchpad.prepare_effects_visited();
 
-    while let Some((current_id, current_cause)) = work_stack.pop() {
+    // Iterative traversal using the persistent scratchpad effect stack to avoid heap churn.
+    while let Some((current_id, current_cause)) = scratchpad.effect_stack.pop() {
+        // Prevent infinite loops in cyclic graphs by tracking visited (expression, cause) pairs.
         if !scratchpad
             .visited_effects
             .insert((current_id, current_cause.symbol()))
@@ -115,7 +140,7 @@ pub fn encode_effects(
             continue;
         }
 
-        // Appel direct au store : l'emprunt sur `store` s'arrête dès que `node` ou `kind` sort du scope
+        // Fetch the current expression node from the store.
         let node = store.fetch(current_id)?;
         let kind = node.kind();
 
@@ -134,7 +159,9 @@ pub fn encode_effects(
                 } else {
                     Cause::Pivot(current_cause.clone())
                 };
+
                 action_effects[action_index].push((effect_atom.clone(), cause));
+
                 let mut rule_body = RuleBody::new();
                 rule_body.push(current_cause.clone());
 
@@ -142,8 +169,11 @@ pub fn encode_effects(
             }
 
             ExprKind::And => {
+                // Push children in reverse order to preserve evaluation flow on the stack.
                 for &child_id in node.children().iter().rev() {
-                    work_stack.push((child_id, current_cause.clone()));
+                    scratchpad
+                        .effect_stack
+                        .push((child_id, current_cause.clone()));
                 }
             }
 
@@ -152,11 +182,14 @@ pub fn encode_effects(
                 let condition_id = children[0];
                 let sub_effect_id = children[1];
 
-                if let Some(cond_atom) = encode_condition(condition_id, ctx, state, store)? {
+                // Encode the conditional clause and synthesize a pivot atom if valid.
+                if let Some(cond_atom) =
+                    encode_condition(condition_id, ctx, state, scratchpad, store)?
+                {
                     let mut combined_body = [current_cause.clone(), cond_atom.clone()];
                     combined_body.sort_by_key(|a| a.symbol());
 
-                    // 🌟 Utilisation de when_cache ici
+                    // Utilize the when-cache to reuse auxiliary predicates for identical conditional clauses.
                     let aux_when_atom =
                         if let Some(existing_head) = state.when_cache.get(&combined_body) {
                             existing_head.clone()
@@ -176,19 +209,20 @@ pub fn encode_effects(
                             head
                         };
 
-                    work_stack.push((sub_effect_id, aux_when_atom));
+                    scratchpad.effect_stack.push((sub_effect_id, aux_when_atom));
                 } else {
-                    work_stack.push((sub_effect_id, current_cause));
+                    scratchpad.effect_stack.push((sub_effect_id, current_cause));
                 }
             }
 
             ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                 if let Some(&child_id) = node.children().first() {
-                    work_stack.push((child_id, current_cause));
+                    scratchpad.effect_stack.push((child_id, current_cause));
                 }
             }
 
             ExprKind::Assignment(_) | ExprKind::Arithmetic(_) => {
+                // Numerical updates do not impact propositional reachability analysis.
                 continue;
             }
 
@@ -250,8 +284,8 @@ pub fn encode_effects(
 /// using a Tseitin-like transformation.
 ///
 /// # Key Execution Steps
-/// 1. **Traversal & Memoization Check**: Utilizes a work stack and an indexed memoization table
-///    to evaluate expressions efficiently and avoid redundant computations.
+/// 1. **Traversal & Memoization Check**: Utilizes a reusable scratchpad condition stack and an indexed memoization table
+///    to evaluate expressions efficiently and avoid redundant heap allocations.
 /// 2. **Descent & Validation (Phase 1)**: Traverses down the expression tree, validating node kinds
 ///    and pushing children onto the stack. Unsupported nodes or invalid negations immediately
 ///    trigger an error.
@@ -264,6 +298,7 @@ pub fn encode_effects(
 /// * `expr` - The starting expression identifier representing the root of the sub-tree.
 /// * `ctx` - The Datalog context containing immutable configuration such as parameter lists and type mappings.
 /// * `state` - The mutable compiler state accumulating generated rules, the cache, and active variable aliases.
+/// * `scratchpad` - Temporary allocation buffer providing the reusable condition stack.
 /// * `store` - The expression store containing the global tree nodes.
 ///
 /// # Returns
@@ -275,17 +310,19 @@ pub fn encode_condition(
     expr: ExprId,
     ctx: DatalogContext<'_>,
     state: &mut DatalogState<'_>,
+    scratchpad: &mut DatalogScratchpad,
     store: &mut ExprStore,
 ) -> Result<Option<Atom>, DatalogError> {
-    // Initialize the iterative work stack with the root expression and its unvisited state.
-    let mut work_stack = vec![(expr, false)];
+    // Initialize the reusable condition stack from the scratchpad with the root expression.
+    scratchpad.prepare_condition_stack(expr);
     // Stack to accumulate the resulting atoms during bottom-up synthesis.
-    let mut results_stack: Vec<Option<Atom>> = Vec::with_capacity(32);
+    let mut results_stack: Vec<Option<Atom>> =
+        Vec::with_capacity(settings::DEFAULT_CONDITION_RESULTS_CAPACITY);
 
     // Fast O(1) vector-based memoization table mapping expression IDs to cached results.
     let mut memo: Vec<Option<Option<Atom>>> = vec![None; store.len()];
 
-    while let Some((current_id, visited)) = work_stack.pop() {
+    while let Some((current_id, visited)) = scratchpad.condition_stack.pop() {
         let idx = current_id.as_usize();
 
         // Phase 1 check: if not yet marked as visited, verify the memoization cache first.
@@ -325,8 +362,8 @@ pub fn encode_condition(
                         return Err(DatalogError::feature_not_supported(feature_desc, child_id));
                     }
 
-                    work_stack.push((current_id, true));
-                    work_stack.push((child_id, false));
+                    scratchpad.condition_stack.push((current_id, true));
+                    scratchpad.condition_stack.push((child_id, false));
                 }
 
                 // Traverse logical connectors and temporal scopes by pushing children in reverse order.
@@ -335,9 +372,9 @@ pub fn encode_condition(
                 | ExprKind::AtStart
                 | ExprKind::AtEnd
                 | ExprKind::Overall => {
-                    work_stack.push((current_id, true));
+                    scratchpad.condition_stack.push((current_id, true));
                     for &child_id in node.children().iter().rev() {
-                        work_stack.push((child_id, false));
+                        scratchpad.condition_stack.push((child_id, false));
                     }
                 }
 
@@ -346,7 +383,7 @@ pub fn encode_condition(
                 | ExprKind::Comparison(_)
                 | ExprKind::Arithmetic(_)
                 | ExprKind::Number(_) => {
-                    work_stack.push((current_id, true));
+                    scratchpad.condition_stack.push((current_id, true));
                 }
 
                 _ => return Err(DatalogError::incompatible_node(kind.clone(), current_id)),
@@ -741,6 +778,7 @@ mod encoding_tests {
             current_aliases: &mut aliases,
         };
 
+        let mut scratchpad = DatalogScratchpad::with_capacity(128);
         let type_skeletons = vec![];
         let dummy_list = builder.typed_variable_list(vec![]);
         let ctx = DatalogContext {
@@ -750,7 +788,7 @@ mod encoding_tests {
             negation_offset: 100,
         };
 
-        let result = encode_condition(conj, ctx, &mut state, &mut store);
+        let result = encode_condition(conj, ctx, &mut state, &mut scratchpad, &mut store);
         assert!(
             result.is_ok(),
             "Conjunction with equality fusion should encode successfully."
@@ -825,7 +863,9 @@ mod encoding_tests {
             negation_offset: 100,
         };
 
-        let result = encode_condition(disj, ctx, &mut state, &mut store);
+        let mut scratchpad = DatalogScratchpad::with_capacity(128);
+
+        let result = encode_condition(disj, ctx, &mut state, &mut scratchpad, &mut store);
         assert!(
             result.is_ok(),
             "Disjunction encoding with auxiliary predicate generation must succeed."
@@ -884,8 +924,8 @@ mod encoding_tests {
             inertia_table: &InertiaTable::empty(),
             negation_offset: 100,
         };
-
-        let result = encode_condition(temporal_expr, ctx, &mut state, &mut store);
+        let mut scratchpad = DatalogScratchpad::with_capacity(128);
+        let result = encode_condition(temporal_expr, ctx, &mut state, &mut scratchpad, &mut store);
         assert!(result.is_ok(), "Temporal condition encoding must succeed.");
         assert!(
             result.unwrap().is_some(),
@@ -940,7 +980,8 @@ mod encoding_tests {
             negation_offset: 100,
         };
 
-        let result = encode_condition(arith_expr, ctx, &mut state, &mut store);
+        let mut scratchpad = DatalogScratchpad::with_capacity(128);
+        let result = encode_condition(arith_expr, ctx, &mut state, &mut scratchpad, &mut store);
         println!("ERREUR RECUE : {:?}", result); // <-- Keep debugging print
         assert!(
             result.is_ok(),
@@ -997,8 +1038,8 @@ mod encoding_tests {
             inertia_table: &InertiaTable::empty(),
             negation_offset: 100,
         };
-
-        let result = encode_condition(not_expr, ctx, &mut state, &mut store);
+        let mut scratchpad = DatalogScratchpad::with_capacity(128);
+        let result = encode_condition(not_expr, ctx, &mut state, &mut scratchpad, &mut store);
         assert!(
             matches!(result, Err(DatalogError::FeatureNotSupported { .. })),
             "Negation of non-equality constructs must return FeatureNotSupported error."
@@ -1052,7 +1093,8 @@ mod encoding_tests {
             negation_offset: 100,
         };
 
-        let result = encode_condition(assign_expr, ctx, &mut state, &mut store);
+        let mut scratchpad = DatalogScratchpad::with_capacity(128);
+        let result = encode_condition(assign_expr, ctx, &mut state, &mut scratchpad, &mut store);
         assert!(
             matches!(result, Err(DatalogError::IncompatibleNode { .. })),
             "Incompatible expression nodes in conditions must return IncompatibleNode error."
