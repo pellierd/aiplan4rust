@@ -320,6 +320,15 @@ mod tests {
     use crate::aiplan4rust::support::lang::{CompareOp, ObjectId, VariableId};
     use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
 
+    /// # Test: `test_new_alias_table_identity`
+    ///
+    /// * **Test Objective**: Verify that initializing a new alias table (`AliasTable`)
+    ///   correctly establishes an identity state for each variable in the scope. That is, each variable
+    ///   initially points to itself.
+    /// * **Input**: No explicit input; calls `new_alias_table()` to create a default table
+    ///   based on the `settings::MAX_VARIABLES_PER_SCOPE` limit.
+    /// * **Expected Output**: For each index `i` from `0` to `MAX_VARIABLES_PER_SCOPE - 1`,
+    ///   calling `find(var, &table)` must return exactly `Term::Variable(var)` where `var` corresponds to the variable identifier `VariableId::from(i)`.
     #[test]
     fn test_new_alias_table_identity() {
         let table = new_alias_table();
@@ -329,6 +338,11 @@ mod tests {
         }
     }
 
+    /// # Test: `test_find_with_direct_aliasing`
+    ///
+    /// * **Test Objective**: Verify that direct variable aliasing works correctly (e.g., mapping variable 1 to variable 0).
+    /// * **Input**: An `AliasTable` where `table[1]` is manually set to `Term::Variable(VariableId::from(0))`.
+    /// * **Expected Output**: Calling `find(VariableId::from(1), &table)` returns `Term::Variable(VariableId::from(0))`.
     #[test]
     fn test_find_with_direct_aliasing() {
         let mut table = new_alias_table();
@@ -341,6 +355,11 @@ mod tests {
         );
     }
 
+    /// # Test: `test_find_with_constant_binding`
+    ///
+    /// * **Test Objective**: Verify that mapping a variable to a constant object is correctly resolved by `find`.
+    /// * **Input**: An `AliasTable` where `table[2]` is bound to `Term::Constant(ObjectId::from(42))`.
+    /// * **Expected Output**: Calling `find(VariableId::from(2), &table)` returns `Term::Constant(ObjectId::from(42))`.
     #[test]
     fn test_find_with_constant_binding() {
         let mut table = new_alias_table();
@@ -351,6 +370,12 @@ mod tests {
         assert_eq!(find(VariableId::from(2), &table), Term::Constant(obj));
     }
 
+    /// # Test: `test_find_cycle_protection`
+    ///
+    /// * **Test Objective**: Ensure that cyclic variable aliasing chains do not cause infinite loops or stack overflows,
+    ///   thanks to the register-level bitmask protection inside `find`.
+    /// * **Input**: An `AliasTable` with a synthetic cycle: `?0 -> ?1` and `?1 -> ?0`.
+    /// * **Expected Output**: The search terminates safely without crashing, returning a valid `Term::Variable`.
     #[test]
     fn test_find_cycle_protection() {
         let mut table = new_alias_table();
@@ -363,6 +388,12 @@ mod tests {
         assert!(matches!(result, Term::Variable(_)));
     }
 
+    /// # Test: `test_compute_variable_aliasing_simple_equality`
+    ///
+    /// * **Test Objective**: Verify that a simple equality comparison (`= ?0 ?1`) successfully extracts and registers
+    ///   an alias mapping between two variables.
+    /// * **Input**: An expression store containing the equality expression `(= ?0 ?1)` and a pre-allocated `DatalogScratchpad`.
+    /// * **Expected Output**: The resulting `AliasTable` maps `?1` to `?0`.
     #[test]
     fn test_compute_variable_aliasing_simple_equality() {
         let mut store = ExprStore::new();
@@ -383,6 +414,15 @@ mod tests {
         );
     }
 
+    /// # Test: `test_as_term_extraction`
+    ///
+    /// * **Test Objective**: Test the helper function `as_term` to ensure it correctly identifies and extracts
+    ///   variables and constants while ignoring non-term expression kinds.
+    /// * **Input**: Expression node IDs representing a variable (`?5`), a constant object (`10`), and a logical operator (`And`).
+    /// * **Expected Output**:
+    ///   - Variable expression returns `Some(Term::Variable(?5))`
+    ///   - Object expression returns `Some(Term::Constant(10))`
+    ///   - Operator expression returns `None`
     #[test]
     fn test_as_term_extraction() {
         let mut store = ExprStore::new();
@@ -403,6 +443,12 @@ mod tests {
         assert_eq!(as_term(op_expr, &store).unwrap(), None);
     }
 
+    /// # Test: `test_compute_variable_aliasing_transitive`
+    ///
+    /// * **Test Objective**: Verify that transitive aliasing chains (e.g., `?0 = ?1` and `?1 = ?2`)
+    ///   are properly compressed so that ultimate representatives point correctly (`?2 -> ?0`).
+    /// * **Input**: An expression store containing a conjunction of two equality expressions: `(= ?0 ?1) AND (= ?1 ?2)`.
+    /// * **Expected Output**: Looking up `?2` in the resulting `AliasTable` resolves directly to `Term::Variable(VariableId::from(0))`.
     #[test]
     fn test_compute_variable_aliasing_transitive() {
         let mut store = ExprStore::new();
@@ -427,6 +473,12 @@ mod tests {
         );
     }
 
+    /// # Test: `test_compute_variable_aliasing_constant_binding`
+    ///
+    /// * **Test Objective**: Verify that binding a variable directly to a constant value via equality (`= ?0 10`)
+    ///   is correctly processed during alias computation.
+    /// * **Input**: An expression store containing the equality expression `(= ?0 10)`.
+    /// * **Expected Output**: Looking up `?0` in the resulting `AliasTable` returns `Term::Constant(ObjectId::from(10))`.
     #[test]
     fn test_compute_variable_aliasing_constant_binding() {
         let mut store = ExprStore::new();
@@ -447,6 +499,12 @@ mod tests {
         );
     }
 
+    /// # Test: `test_compute_variable_aliasing_ignores_not`
+    ///
+    /// * **Test Objective**: Ensure that inequalities nested inside a `Not` operator (e.g., `(NOT (= ?0 ?1))`)
+    ///   are properly ignored and do not affect the alias table.
+    /// * **Input**: An expression store with a negated equality expression `(NOT (= ?0 ?1))`.
+    /// * **Expected Output**: The alias table remains in its default identity state (variable 1 maps to itself).
     #[test]
     fn test_compute_variable_aliasing_ignores_not() {
         let mut store = ExprStore::new();
@@ -469,6 +527,12 @@ mod tests {
         );
     }
 
+    /// # Test: `test_try_fetch_term_variable_limit_exceeded`
+    ///
+    /// * **Test Objective**: Verify that scope bounds enforcement triggers correctly and returns an error
+    ///   when a variable ID exceeds `MAX_VARIABLES_PER_SCOPE`.
+    /// * **Input**: An equality expression containing a variable ID greater than `MAX_VARIABLES_PER_SCOPE`.
+    /// * **Expected Output**: `compute_variable_aliasing` returns a `Result::Err` containing a variable limit exceeded error.
     #[test]
     fn test_try_fetch_term_variable_limit_exceeded() {
         let mut store = ExprStore::new();
@@ -488,6 +552,12 @@ mod tests {
         assert!(result.is_err());
     }
 
+    /// # Test: `test_compute_variable_aliasing_symmetric_constant_binding`
+    ///
+    /// * **Test Objective**: Verify that constant binding works symmetrically when the constant is placed on the left side
+    ///   of the equality expression (`(= 10 ?0)`).
+    /// * **Input**: An expression store containing the equality `(= 10 ?0)`.
+    /// * **Expected Output**: Looking up `?0` in the resulting table returns `Term::Constant(ObjectId::from(10))`.
     #[test]
     fn test_compute_variable_aliasing_symmetric_constant_binding() {
         let mut store = ExprStore::new();
@@ -508,6 +578,11 @@ mod tests {
         );
     }
 
+    /// # Test: `test_compute_variable_aliasing_self_equality`
+    ///
+    /// * **Test Objective**: Ensure that trivial self-equalities (`(= ?0 ?0)`) do not disrupt or incorrectly alter the alias table.
+    /// * **Input**: An expression store with the self-comparison expression `(= ?0 ?0)`.
+    /// * **Expected Output**: Looking up `?0` remains equal to itself (`Term::Variable(VariableId::from(0))`).
     #[test]
     fn test_compute_variable_aliasing_self_equality() {
         let mut store = ExprStore::new();
@@ -527,6 +602,12 @@ mod tests {
         );
     }
 
+    /// # Test: `test_compute_variable_aliasing_conflicting_constants`
+    ///
+    /// * **Test Objective**: Verify that contradictory constant bindings (e.g., `(= ?0 10)` and `(= ?0 20)`)
+    ///   are handled silently without crashing, preserving the first binding while leaving room for clean unification failure.
+    /// * **Input**: An expression store with conflicting equalities for variable 0.
+    /// * **Expected Output**: Looking up `?0` retains the initial constant binding (`10`).
     #[test]
     fn test_compute_variable_aliasing_conflicting_constants() {
         let mut store = ExprStore::new();
