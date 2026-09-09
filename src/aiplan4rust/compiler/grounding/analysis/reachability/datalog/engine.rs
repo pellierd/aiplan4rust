@@ -114,10 +114,13 @@ impl<'a> DatalogEngine<'a> {
         let mut action_effects = vec![Vec::new(); action_count];
         let union_cache = FxHashMap::default();
 
+        let mut when_cache = FxHashMap::default();
+
         // On crée le State pour orchestrer les enregistrements mutables
         let mut state = DatalogState::new(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut current_id,
             &mut db,

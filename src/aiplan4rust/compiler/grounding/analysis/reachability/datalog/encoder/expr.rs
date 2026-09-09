@@ -152,29 +152,29 @@ pub fn encode_effects(
                 let condition_id = children[0];
                 let sub_effect_id = children[1];
 
-                // 🌟 Appel propre à encode_expr avec nos structures unifiées
                 if let Some(cond_atom) = encode_condition(condition_id, ctx, state, store)? {
-                    let mut combined_body = vec![current_cause.clone(), cond_atom.clone()];
+                    let mut combined_body = [current_cause.clone(), cond_atom.clone()];
                     combined_body.sort_by_key(|a| a.symbol());
 
-                    let aux_when_atom = if let Some(existing_head) = state.cache.get(&combined_body)
-                    {
-                        existing_head.clone()
-                    } else {
-                        let (head, secured_body) = predicate::allocate_auxiliary_predicate(
-                            &combined_body,
-                            ctx.param_list_id,
-                            state.next_aux_id,
-                            state.aux_defs,
-                            ctx.type_to_skeleton,
-                            state.current_aliases,
-                            store,
-                        )?;
+                    // 🌟 Utilisation de when_cache ici
+                    let aux_when_atom =
+                        if let Some(existing_head) = state.when_cache.get(&combined_body) {
+                            existing_head.clone()
+                        } else {
+                            let (head, secured_body) = predicate::allocate_auxiliary_predicate(
+                                &combined_body,
+                                ctx.param_list_id,
+                                state.next_aux_id,
+                                state.aux_defs,
+                                ctx.type_to_skeleton,
+                                state.current_aliases,
+                                store,
+                            )?;
 
-                        state.rules.push(Rule::new(head.clone(), secured_body));
-                        state.cache.insert(combined_body, head.clone());
-                        head
-                    };
+                            state.rules.push(Rule::new(head.clone(), secured_body));
+                            state.when_cache.insert(combined_body, head.clone());
+                            head
+                        };
 
                     work_stack.push((sub_effect_id, aux_when_atom));
                 } else {
@@ -726,6 +726,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -734,6 +735,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -783,6 +785,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let next_aux_id = 0;
         let mut next_aux_cell = next_aux_id;
@@ -792,6 +795,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_cell,
             current_aliases: &mut aliases,
@@ -857,6 +861,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -865,6 +870,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -910,6 +916,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -918,6 +925,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -966,6 +974,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -974,6 +983,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1018,6 +1028,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1026,6 +1037,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1073,6 +1085,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1082,6 +1095,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1142,6 +1156,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1151,6 +1166,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1215,6 +1231,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1224,6 +1241,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1278,6 +1296,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1287,6 +1306,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1345,6 +1365,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1354,6 +1375,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1415,6 +1437,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1424,6 +1447,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1484,6 +1508,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1493,6 +1518,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1554,6 +1580,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1563,6 +1590,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1625,6 +1653,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1634,6 +1663,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1692,6 +1722,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1703,6 +1734,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,
@@ -1775,6 +1807,7 @@ mod encoding_tests {
         let mut aliases = [Term::Variable(VariableId::from(0)); 64];
         let mut rules = Vec::new();
         let mut cache = rustc_hash::FxHashMap::default();
+        let mut when_cache = rustc_hash::FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -1784,6 +1817,7 @@ mod encoding_tests {
             db: &mut db,
             rules: &mut rules,
             cache: &mut cache,
+            when_cache: &mut when_cache,
             aux_defs: &mut aux_defs,
             next_aux_id: &mut next_aux_id,
             current_aliases: &mut aliases,

@@ -332,12 +332,13 @@ mod tests {
     fn create_test_state<'a>(
         rules: &'a mut Vec<Rule>,
         cache: &'a mut FxHashMap<Vec<Atom>, Atom>,
+        when_cache: &'a mut FxHashMap<[Atom; 2], Atom>, // 🌟 Ajout du paramètre
         aux_defs: &'a mut Vec<AtomicFormulaSkeleton>,
         next_aux_id: &'a mut usize,
         db: &'a mut Database,
         aliases: &'a mut AliasTable,
     ) -> DatalogState<'a> {
-        DatalogState::new(rules, cache, aux_defs, next_aux_id, db, aliases)
+        DatalogState::new(rules, cache, when_cache, aux_defs, next_aux_id, db, aliases)
     }
 
     // =========================================================================
@@ -357,6 +358,7 @@ mod tests {
     fn test_declare_type_defs_allocates_sequential_ids_and_root_sentinel() {
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 100;
         let mut db = Database::new();
@@ -365,6 +367,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -408,6 +411,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 50;
         let mut db = Database::new();
@@ -416,6 +420,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -463,6 +468,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -471,6 +477,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -522,6 +529,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -530,6 +538,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -563,6 +572,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -571,6 +581,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -605,6 +616,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -613,6 +625,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -643,6 +656,7 @@ mod tests {
     fn test_declare_type_defs_with_empty_types_creates_root_sentinel_only() {
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -651,6 +665,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -690,6 +705,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -698,6 +714,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -737,6 +754,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -745,6 +763,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -775,6 +794,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -783,6 +803,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
@@ -814,6 +835,7 @@ mod tests {
 
         let mut rules = Vec::new();
         let mut cache = FxHashMap::default();
+        let mut when_cache = FxHashMap::default();
         let mut aux_defs = Vec::new();
         let mut next_aux_id = 0;
         let mut db = Database::new();
@@ -822,6 +844,7 @@ mod tests {
         let mut state = create_test_state(
             &mut rules,
             &mut cache,
+            &mut when_cache,
             &mut aux_defs,
             &mut next_aux_id,
             &mut db,
