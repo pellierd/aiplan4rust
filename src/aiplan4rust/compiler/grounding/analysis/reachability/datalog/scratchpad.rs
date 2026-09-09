@@ -1,4 +1,7 @@
 use crate::aiplan4rust::compiler::lir::expr::ExprId;
+use crate::aiplan4rust::support::lang::AtomSkeletonId;
+use ahash::HashSetExt;
+use rustc_hash::FxHashSet;
 
 /// Structure de stockage temporaire pour éviter les allocations au sein de l'encodeur Datalog.
 pub struct DatalogScratchpad {
@@ -6,6 +9,8 @@ pub struct DatalogScratchpad {
     pub(crate) visited: Vec<bool>,
     /// Pile de travail générique pour les parcours de type DFS (non-récursifs).
     pub(crate) stack: Vec<ExprId>,
+    /// Ensemble de suivi des paires (expression, cause) pour éviter les allocations dans encode_effects.
+    pub(crate) visited_effects: FxHashSet<(ExprId, AtomSkeletonId)>,
 }
 
 impl DatalogScratchpad {
@@ -14,6 +19,7 @@ impl DatalogScratchpad {
         Self {
             visited: Vec::with_capacity(capacity),
             stack: Vec::with_capacity(64), // Une profondeur d'arbre dépasse rarement 64
+            visited_effects: FxHashSet::with_capacity(64),
         }
     }
 
@@ -29,5 +35,11 @@ impl DatalogScratchpad {
     pub fn prepare_stack(&mut self, root: ExprId) {
         self.stack.clear();
         self.stack.push(root);
+    }
+
+    /// Nettoie l'ensemble des effets visités pour un nouveau parcours d'effets.
+    #[inline]
+    pub fn prepare_effects_visited(&mut self) {
+        self.visited_effects.clear();
     }
 }
