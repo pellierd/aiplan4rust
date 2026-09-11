@@ -156,7 +156,7 @@ pub(crate) fn extract_atom(node: ExprNode<'_>, store: &ExprStore) -> Result<Atom
         ExprKind::Comparison(_) => (AtomSkeletonId::from(Atom::EQUALITY_ID), 0),
         ExprKind::AtomicFormula(sk_id) => (*sk_id, 1),
         _ => {
-            return Err(DatalogError::incompatible_node(kind.clone(), node.id()));
+            return Err(DatalogError::incompatible_expr(kind.clone(), node.id()));
         }
     };
 
@@ -803,7 +803,7 @@ mod tests {
             "Expected extract_atom to fail for an And node."
         );
         match result.unwrap_err() {
-            DatalogError::IncompatibleNode { .. } => {} // Success
+            DatalogError::IncompatibleExpr { .. } => {} // Success
             other => panic!("Expected DatalogError::IncompatibleNode, got {:?}", other),
         }
     }

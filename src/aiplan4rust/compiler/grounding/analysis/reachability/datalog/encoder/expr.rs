@@ -269,7 +269,7 @@ pub fn encode_effects(
             }
 
             _ => {
-                return Err(DatalogError::incompatible_node(kind.clone(), current_id));
+                return Err(DatalogError::incompatible_expr(kind.clone(), current_id));
             }
         }
     }
@@ -386,7 +386,7 @@ pub fn encode_condition(
                     scratchpad.condition_stack.push((current_id, true));
                 }
 
-                _ => return Err(DatalogError::incompatible_node(kind.clone(), current_id)),
+                _ => return Err(DatalogError::incompatible_expr(kind.clone(), current_id)),
             }
         } else {
             // --- PHASE 2: SYNTHESIS ---
@@ -1096,7 +1096,7 @@ mod encoding_tests {
         let mut scratchpad = DatalogScratchpad::with_capacity(128);
         let result = encode_condition(assign_expr, ctx, &mut state, &mut scratchpad, &mut store);
         assert!(
-            matches!(result, Err(DatalogError::IncompatibleNode { .. })),
+            matches!(result, Err(DatalogError::IncompatibleExpr { .. })),
             "Incompatible expression nodes in conditions must return IncompatibleNode error."
         );
     }
@@ -1732,7 +1732,7 @@ mod encoding_tests {
         );
 
         assert!(
-            matches!(result, Err(DatalogError::IncompatibleNode { .. })),
+            matches!(result, Err(DatalogError::IncompatibleExpr { .. })),
             "Incompatible expression nodes in effects must return IncompatibleNode error."
         );
     }
