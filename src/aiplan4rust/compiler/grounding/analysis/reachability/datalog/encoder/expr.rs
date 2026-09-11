@@ -1048,14 +1048,14 @@ mod encoding_tests {
 
     /// # Objective
     /// Verify that an incompatible expression node type (such as an assignment)
-    /// encountered during condition encoding correctly triggers a `DatalogError::IncompatibleNode` error.
+    /// encountered during condition encoding correctly triggers a `DatalogError::IncompatibleExpr` error.
     ///
     /// # Input
     /// - An expression store containing an incompatible assignment expression used as a condition.
     /// - State, context, and expression store.
     ///
     /// # Expected Output
-    /// - `Result::Err(DatalogError::IncompatibleNode { .. })`
+    /// - `Result::Err(DatalogError::IncompatibleExpr { .. })`
     #[test]
     fn test_encode_condition_incompatible_node_error() {
         let mut store = ExprStore::new();
@@ -1097,7 +1097,7 @@ mod encoding_tests {
         let result = encode_condition(assign_expr, ctx, &mut state, &mut scratchpad, &mut store);
         assert!(
             matches!(result, Err(DatalogError::IncompatibleExpr { .. })),
-            "Incompatible expression nodes in conditions must return IncompatibleNode error."
+            "Incompatible expression nodes in conditions must return IncompatibleExpr error."
         );
     }
 
@@ -1670,14 +1670,14 @@ mod encoding_tests {
 
     /// # Objective
     /// Verify that an incompatible expression node type (such as a comparison)
-    /// encountered during effect encoding correctly triggers a `DatalogError::IncompatibleNode` error.
+    /// encountered during effect encoding correctly triggers a `DatalogError::IncompatibleExpr` error.
     ///
     /// # Input
     /// - An expression store containing an incompatible comparison expression.
     /// - An action atom, default action effects vector, state, context, and a pre-allocated scratchpad.
     ///
     /// # Expected Output
-    /// - `Result::Err(DatalogError::IncompatibleNode { .. })`
+    /// - `Result::Err(DatalogError::IncompatibleExpr(..) { .. })`
     #[test]
     fn test_encode_effects_incompatible_node_error() {
         let mut store = ExprStore::new();
@@ -1733,7 +1733,7 @@ mod encoding_tests {
 
         assert!(
             matches!(result, Err(DatalogError::IncompatibleExpr { .. })),
-            "Incompatible expression nodes in effects must return IncompatibleNode error."
+            "Incompatible expression nodes in effects must return IncompatibleExpr error."
         );
     }
 
