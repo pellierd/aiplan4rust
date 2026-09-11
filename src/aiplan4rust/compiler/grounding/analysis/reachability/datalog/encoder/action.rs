@@ -1,3 +1,9 @@
+//! PDDL action definition encoder for Datalog compilation.
+//!
+//! This module provides the compilation pipeline to translate domain action definitions
+//! into logical Datalog rules, managing action signature naming, precondition extraction,
+//! structural inertia analysis, parameter type-anchoring, bootstrap handling, and effect encoding.
+
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::cause::Cause;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::rule::Rule;
@@ -15,10 +21,24 @@ use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
 use crate::analysis::reachability::datalog::state::DatalogState;
 
-/// Compile l'ensemble des définitions d'actions du domaine PDDL en règles Datalog logiques.
+/// Compiles all PDDL domain action definitions into logical Datalog rules.
 ///
-/// Cette fonction fusionnée parcourt chaque action, extrait sa signature, compile son corps
-/// (préconditions), gère le cas des actions sans paramètres (bootstrap), et traduit ses effets.
+/// This merged function iterates through each action, extracts its signature, compiles its body
+/// (preconditions), handles parameterless actions (bootstrap), and translates its effects.
+///
+/// # Arguments
+///
+/// * `ctx` - The base translation context.
+/// * `state` - A mutable reference to the compilation state.
+/// * `action_effects` - A mutable vector accumulating the encoded effects for each action.
+/// * `action_defs` - A slice of PDDL action definitions to compile.
+/// * `action_base_id` - The base skeleton ID offset for actions.
+/// * `scratchpad` - A mutable scratchpad for temporary traversal data.
+/// * `store` - A mutable reference to the expression store.
+///
+/// # Returns
+///
+/// Returns `Ok(())` on success, or a `DatalogError` if an error occurs during encoding.
 pub(crate) fn encode_action_defs(
     ctx: DatalogContext<'_>,
     state: &mut DatalogState<'_>,
@@ -29,20 +49,20 @@ pub(crate) fn encode_action_defs(
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
     for (id, action) in action_defs.iter().enumerate() {
-        // Segmentation d'ID : calcul de l'ID du squelette Datalog pour cette action
+        // ID segmentation: compute the Datalog skeleton ID for this action
         let action_sk_id = AtomSkeletonId::from(action_base_id + id);
-        let action_index = action_sk_id.as_usize() - action_base_id;
+        let action_index = id;
 
-        // A. Générer l'atome de nom (Pivot : action(?p1, ?p2...))
+        // A. Generate the name atom (Pivot: action(?p1, ?p2...))
         let action_atom = encode_action_name(action, action_sk_id, store)?;
 
-        // 🌟 Mise à jour locale du contexte avec les paramètres de l'action courante
+        // 🌟 Locally update the context with the current action's parameters
         let action_ctx = DatalogContext {
             param_list_id: action.parameters(),
             ..ctx
         };
 
-        // B. Générer la règle de déclenchement (Preconditions -> Action)
+        // B. Generate the trigger rule (Preconditions -> Action)
         encode_action_body(
             action_ctx,
             state,
@@ -52,8 +72,8 @@ pub(crate) fn encode_action_defs(
             store,
         )?;
 
-        // --- LE BOOTSTRAP DE L'ACTION ---
-        // Si l'action n'a aucun paramètre et un corps vide, elle est immédiatement applicable.
+        // --- ACTION BOOTSTRAP ---
+        // If the action has no parameters and an empty body, it is immediately applicable.
         let param_list_id = action.parameters();
         if let Some(trigger_rule) = state.rules.last() {
             if trigger_rule.body().is_empty() && store.fetch_typed_list(param_list_id)?.is_empty() {
@@ -61,8 +81,8 @@ pub(crate) fn encode_action_defs(
             }
         }
 
-        // C. Extraction et encodage des effets de l'action
-        // 🌟 Appel mis à jour avec le contexte localisé et l'état complet unifié
+        // C. Extract and encode the action's effects
+        // 🌟 Call updated with the localized context and unified state
         encoder::expr::encode_effects(
             action.effect(),
             &action_atom,
@@ -78,30 +98,54 @@ pub(crate) fn encode_action_defs(
     Ok(())
 }
 
-/// Version locale (associée) pour générer l'atome de nom de l'action
+/// Encodes the action name into a primary n-ary Datalog atom based on its parameter signature.
+///
+/// # Arguments
+///
+/// * `action` - The PDDL action definition being processed.
+/// * `action_sk_id` - The atom skeleton identifier assigned to this action.
+/// * `store` - A mutable reference to the expression store holding problem definitions.
+///
+/// # Returns
+///
+/// Returns the n-ary `Atom` representing the action name with its variables, or a `DatalogError` on failure.
 fn encode_action_name(
     action: &ActionDef,
     action_sk_id: AtomSkeletonId,
     store: &mut ExprStore,
 ) -> Result<Atom, DatalogError> {
-    // 1. On récupère l'ID de la liste de paramètres
+    // 1. Retrieve the parameter list identifier from the action definition
     let param_list_id = action.parameters();
 
-    // 2. On extrait la liste concrète depuis le store du problème
+    // 2. Extract the concrete parameter list from the problem store
     let parameters = store.fetch_typed_list(param_list_id)?;
 
-    // 🚀 OPTIMISATION : Accumulation directe dans le SmallVec natif de l'Atom
+    // OPTIMIZATION: Direct accumulation into the Atom's native SmallVec to avoid heap allocation
     let mut head_terms = AtomArgs::with_capacity(parameters.len());
 
     for param in parameters.iter() {
         head_terms.push(Term::Variable(param.symbol()));
     }
 
-    // Utilisation du nouveau constructeur n-aire sans transit par la heap
+    // Use the n-ary constructor without heap transit
     Ok(Atom::nary(action_sk_id, head_terms))
 }
 
-/// Version locale (associée) pour compiler le corps de l'action
+/// Compiles the body (preconditions and anchor rules) of a given action definition
+/// into Datalog rules and appends them to the compilation state.
+///
+/// # Arguments
+///
+/// * `context` - The current global and local Datalog translation context.
+/// * `state` - A mutable reference to the compilation state tracking rules and databases.
+/// * `action` - The PDDL action definition being compiled.
+/// * `head` - The primary Datalog atom representing the action's name/signature.
+/// * `scratchpad` - A mutable scratchpad used for temporary traversal memory.
+/// * `store` - A mutable reference to the expression store holding problem expressions.
+///
+/// # Returns
+///
+/// Returns `Ok(())` upon successful encoding, or a `DatalogError` if an invalid expression or argument is encountered.
 fn encode_action_body(
     context: DatalogContext<'_>,
     state: &mut DatalogState<'_>,
@@ -110,19 +154,19 @@ fn encode_action_body(
     scratchpad: &mut DatalogScratchpad,
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
-    // 1. On récupère l'ID de la liste de paramètres
+    // 1. Retrieve the parameter list ID from the action definition
     let param_list_id = action.parameters();
 
-    // 💡 SÉCURITÉ BORROW CHECKER : On prend la taille avant d'emprunter immuablement via fetch_expr
+    // Borrow checker safety: capture the store length before immutable borrowing via fetch_expr
     let store_len = store.len();
 
-    // 🌟 On met à jour le contexte pour les préconditions de cette action spécifique
+    // Update context with the action's specific parameter list for precondition encoding
     let precond_ctx = DatalogContext {
         param_list_id,
         ..context
     };
 
-    // 💡 Appel mis à jour avec le contexte et l'état unifiés
+    // Encode preconditions using the unified context and state
     let precond_opt = encoder::expr::encode_preconditions(
         action.precondition(),
         precond_ctx,
@@ -131,18 +175,17 @@ fn encode_action_body(
         store,
     )?;
 
-    // 2. On récupère les paramètres et on prépare l'ancre "intelligente"
+    // 2. Initialize rule bodies for the final rule and anchor elements
     let mut final_action_body = RuleBody::new();
     let mut anchor_elements = RuleBody::new();
-    let mut covered_vars = std::collections::HashSet::new();
 
     // ==========================================================
-    // LE GARDIEN DE PARCOURS
+    // TRAVERSAL GUARD (INERTIAL ATOM EXTRACTION)
     // ==========================================================
     scratchpad.prepare_visited(store_len);
 
     let precondition = store.fetch_expr(action.precondition())?;
-    // Récupération des atomes en postorder
+    // Fetch atomic formulas in post-order traversal
     let atoms = precondition
         .postorder()
         .references()
@@ -168,7 +211,7 @@ fn encode_action_body(
         {
             let children = atom_node.children();
 
-            // 🚀 OPTIMISATION : Accumulateur direct sur la pile via SmallVec
+            // OPTIMIZATION: Direct stack accumulation via SmallVec
             let mut terms = AtomArgs::with_capacity(children.len().saturating_sub(1));
 
             for &term_id in children.iter().skip(1) {
@@ -177,7 +220,6 @@ fn encode_action_body(
                 let term = match term_node.kind() {
                     ExprKind::Variable(var_id) => {
                         let var_id = *var_id;
-                        covered_vars.insert(var_id);
                         Term::Variable(var_id)
                     }
                     ExprKind::Object(obj_id) => Term::Constant(*obj_id),
@@ -188,43 +230,29 @@ fn encode_action_body(
                 terms.push(term);
             }
 
-            // 🚀 OPTIMISATION : Utilisation du constructeur n-aire sans allocation de Vec intermédiaire
+            // 🚀 OPTIMIZATION: Build n-ary static atom without intermediate heap allocation
             let static_atom = Atom::nary(skel_id, terms);
             anchor_elements.push(static_atom);
         }
     }
 
     // ==========================================================
-    // TRAITEMENT DES PARAMÈTRES
+    // PARAMETER TYPE-ANCHORING
     // ==========================================================
-    // 🌟 Récupération locale des paramètres via l'ID et le store
+    // Fetch local parameters and build their unary type-anchoring atoms
     let parameters = store.fetch_typed_list(param_list_id)?;
-
-    // 🚀 OPTIMISATION BONUS : Utilisation d'un bitmask u64 au lieu d'un HashSet
-    let mut covered_mask: u64 = 0;
 
     for (i, param) in parameters.iter().enumerate() {
         let var_id = VariableId::from(i);
-        let bit_projected = 1 << i;
-
-        // Si la variable n'est pas encore couverte (bit à 0)
-        if (covered_mask & bit_projected) == 0 {
-            let var_term = Term::Variable(var_id);
-            let type_id = param.ty().members()[0].as_usize();
-            let type_sk = context.type_to_skeleton[type_id];
-
-            // 🚀 OPTIMISATION : Utilisation de Atom::unary au lieu de Atom::new + vec![]
-            // Aucun vecteur n'est alloué sur le tas ici.
-            anchor_elements.push(Atom::unary(type_sk, var_term));
-
-            // On marque la variable comme couverte dans le bitmask
-            covered_mask |= bit_projected;
-        }
+        let var_term = Term::Variable(var_id);
+        let type_id = param.ty().members()[0].as_usize();
+        let type_sk = context.type_to_skeleton[type_id];
+        anchor_elements.push(Atom::unary(type_sk, var_term));
     }
 
-    // 4. Génération de l'Ancre et de la règle finale
+    // 4. Generate the anchor rule and final rule bodies
     if !anchor_elements.is_empty() {
-        // 💡 Alignement ici : on passe explicitement la référence mutable `next_aux_id`
+        // 💡 Create the anchor head and register the intermediate anchor rule
         let anchor_head = create_anchor_atom(action.name(), parameters, &head, state.next_aux_id);
 
         state
@@ -242,22 +270,34 @@ fn encode_action_body(
     Ok(())
 }
 
+/// Creates an anchor atom for an action rule based on its header.
+///
+/// # Arguments
+///
+/// * `_action_id` - The symbol identifier of the action (retained for future debugging and naming).
+/// * `_parameters` - The typed parameter list of the action (retained for future structural context).
+/// * `action_head` - The reference atom representing the head of the action.
+/// * `next_aux_id` - A mutable reference to the auxiliary ID counter used for allocation.
+///
+/// # Returns
+///
+/// Returns a new n-ary `Atom` acting as the anchor for the action rule.
 fn create_anchor_atom(
-    _action_id: ActionSymbolId, // Utile pour le debug/nommage futur
+    _action_id: ActionSymbolId, // Retained for future debugging/naming
     _parameters: &TypedList<VariableId, TypeId>,
     action_head: &Atom,
     next_aux_id: &mut usize,
 ) -> Atom {
-    // 1. On alloue un nouvel ID auxiliaire via le compteur local
+    // 1. Allocate a new auxiliary ID using the local counter
     let anchor_id = *next_aux_id;
     *next_aux_id += 1;
 
     let sk_id = AtomSkeletonId::from(anchor_id);
 
-    // 2. 🚀 OPTIMISATION : On extrait et clone les termes directement dans un SmallVec
+    // 2. OPTIMIZATION: Extract and clone terms directly into a SmallVec
     let terms = AtomArgs::from_slice(action_head.arguments());
 
-    // 3. On crée l'atome d'ancre via le constructeur n-aire
+    // 3. Create the anchor atom via the n-ary constructor
     Atom::nary(sk_id, terms)
 }
 
