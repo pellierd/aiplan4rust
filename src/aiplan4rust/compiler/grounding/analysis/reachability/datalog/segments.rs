@@ -203,34 +203,14 @@ mod tests {
     use crate::DatalogEngine;
     use rustc_hash::FxHashMap;
 
-    /// # Test: Segment Boundaries and Conversions
-    ///
-    /// ## Objective
-    /// Verifies the correct behavior of strict interval segregation and ID conversions
-    /// across distinct Datalog engine ranges (fluents, types, actions, and auxiliaries).
-    /// It ensures that off-by-one errors do not occur at segment thresholds.
-    ///
-    /// ## Input
-    /// - Mocked/minimal `DatalogEngine` instance with manually configured threshold values:
-    ///   - `fluence_threshold = 2`
-    ///   - `type_segment_start = 4` (negative/mirror range from 2 to 4)
-    ///   - `type_threshold = 7` (types indices: 4, 5, 6)
-    ///   - `action_threshold = 10` (actions indices: 7, 8, 9)
-    ///   - `action_base_id = 7`
-    ///
-    /// ## Output / Assertions
-    /// - Confirms correct classification for positive/negative fluents, types, actions, and auxiliary boundaries.
-    /// - Validates bidirectional conversions between `AtomSkeletonId` and structural identifiers (`TypeId`, `ActionDefId`).
-    #[test]
-    fn test_segment_boundaries_and_conversions() {
-        // Creation of static minimal references for unit test requirements
+    /// Helper to create a pre-configured engine with custom segment boundaries for testing.
+    fn create_segmented_engine<'a>() -> DatalogEngine<'a> {
         let problem_ref = Box::leak(Box::new(LiftedProblem::default()));
         let registry_ref = Box::leak(Box::new(ValueRegistry::default()));
         let table_ref = Box::leak(Box::new(InertiaTable::empty()));
         let neg_ref = Box::leak(Box::new(Vec::new()));
 
-        // Direct initialization of the Engine to test segments in isolation
-        let mut engine = DatalogEngine {
+        DatalogEngine {
             problem: problem_ref,
             value_registry: registry_ref,
             inertia_table: table_ref,
@@ -241,11 +221,11 @@ mod tests {
             trailing_indices: Vec::new(),
             discovered_facts: Vec::new(),
             head_buffer: Vec::new(),
-            fluence_threshold: 0,
-            type_threshold: 0,
-            type_segment_start: 0,
-            action_base_id: 0,
-            action_threshold: 0,
+            fluence_threshold: 2,
+            type_segment_start: 4, // Negative/mirror zone from 2 to 4
+            type_threshold: 7,     // 3 types (indices 4, 5, 6)
+            action_threshold: 10,  // 3 actions (indices 7, 8, 9)
+            action_base_id: 7,
             builtin_threshold: 0,
             union_cache: FxHashMap::default(),
             base_aux_id: 0,
@@ -256,16 +236,23 @@ mod tests {
             action_anchor: None,
             negation_offset: 0,
             type_to_skeleton: Vec::new(),
-        };
+        }
+    }
 
-        // Simulation of arbitrary yet consistent thresholds to test ranges
-        engine.fluence_threshold = 2;
-        engine.type_segment_start = 4; // Negative/mirror zone from 2 to 4
-        engine.type_threshold = 7; // 3 types (indices 4, 5, 6)
-        engine.action_threshold = 10; // 3 actions (indices 7, 8, 9)
-        engine.action_base_id = 7;
+    /// # Test: Fluent and Negation Segment Boundaries
+    ///
+    /// ## Objective
+    /// Validates strict interval segregation and symmetry logic for fluents and negated fluents.
+    ///
+    /// ## Input
+    /// - An engine with `fluence_threshold = 2` and `type_segment_start = 4`.
+    ///
+    /// ## Expected Output
+    /// - Proper identification of positive and negative fluents, and correct bidirectional ID negation mappings.
+    #[test]
+    fn test_fluent_and_negation_boundaries() {
+        let engine = create_segmented_engine();
 
-        // --- 1. Fluent and negation tests ---
         assert!(
             engine.is_fluent(AtomSkeletonId::from(0)),
             "0 must be a positive fluent"
@@ -301,8 +288,22 @@ mod tests {
         let neg_id = engine.negate_id(pos_id);
         assert_eq!(neg_id, AtomSkeletonId::from(3));
         assert_eq!(engine.pos_id_from_negated(neg_id), pos_id);
+    }
 
-        // --- 2. Type tests and conversions ---
+    /// # Test: Type Segment Boundaries and Conversions
+    ///
+    /// ## Objective
+    /// Validates that structural type segment bounds are respected and correctly translated to `TypeId`.
+    ///
+    /// ## Input
+    /// - An engine with type segment mapped between indices 4 and 7.
+    ///
+    /// ## Expected Output
+    /// - Correct classification of type IDs and accurate mapping from `AtomSkeletonId` to `TypeId`.
+    #[test]
+    fn test_type_segment_conversions() {
+        let engine = create_segmented_engine();
+
         assert!(
             !engine.is_type(AtomSkeletonId::from(3)),
             "3 is before the type segment"
@@ -328,8 +329,22 @@ mod tests {
             engine.atom_id_to_type_id(AtomSkeletonId::from(6)),
             TypeId::from(2)
         );
+    }
 
-        // --- 3. Action tests and conversions (multi-index) ---
+    /// # Test: Action Segment Boundaries and Conversions
+    ///
+    /// ## Objective
+    /// Validates action segment ranges and bidirectional translations between `AtomSkeletonId` and `ActionDefId`.
+    ///
+    /// ## Input
+    /// - An engine with action segment mapped between indices 7 and 10 (`action_base_id = 7`).
+    ///
+    /// ## Expected Output
+    /// - Accurate detection of action boundaries and correct conversion indexes.
+    #[test]
+    fn test_action_segment_conversions() {
+        let engine = create_segmented_engine();
+
         assert!(!engine.is_action(AtomSkeletonId::from(6)), "6 is a type");
         assert!(
             engine.is_action(AtomSkeletonId::from(7)),
@@ -364,8 +379,22 @@ mod tests {
             engine.action_id_to_skeleton(ActionDefId::from(2)),
             AtomSkeletonId::from(9)
         );
+    }
 
-        // --- 4. Auxiliary tests ---
+    /// # Test: Auxiliary Segment Boundaries
+    ///
+    /// ## Objective
+    /// Validates that auxiliary axioms and derived pivots correctly start past the action threshold.
+    ///
+    /// ## Input
+    /// - An engine with action threshold at 10.
+    ///
+    /// ## Expected Output
+    /// - Confirms index 9 is an action and index 10 marks the exact start of the auxiliary segment.
+    #[test]
+    fn test_auxiliary_segment_boundaries() {
+        let engine = create_segmented_engine();
+
         assert!(
             !engine.is_auxiliary(AtomSkeletonId::from(9)),
             "9 is an action, not an auxiliary"
