@@ -9,7 +9,7 @@ use crate::aiplan4rust::compiler::grounding::analysis::inertia::table::InertiaTa
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind};
 use crate::aiplan4rust::error::Traceable;
-use crate::aiplan4rust::support::lang::VariableId;
+use crate::aiplan4rust::support::lang::{ActionDefId, AtomSkeletonId, VariableId};
 use thiserror::Error;
 
 /// Errors encountered during the Datalog grounding and flattening process.
@@ -68,6 +68,14 @@ pub enum DatalogError {
         limit: usize,
     },
 
+    /// Raised when no rule can be found associated with a specific action definition identifier.
+    #[error("Action rule not found for action definition ID: {0:?}.")]
+    ActionRuleNotFound(ActionDefId),
+
+    /// Raised when an auxiliary atom fact is found without a corresponding rule in the store.
+    #[error("Auxiliary rule not found for skeleton ID: {0:?}.")]
+    AuxiliaryRuleNotFound(AtomSkeletonId),
+
     /// Raised when a required internal segment (e.g., Type registry or Root node)
     /// has not been initialized before use.
     #[error("Internal engine state inconsistency: {0}")]
@@ -109,6 +117,26 @@ impl DatalogError {
     #[track_caller]
     pub fn incompatible_expr(kind: ExprKind, node_id: ExprId) -> Self {
         DatalogError::IncompatibleExpr { kind, node_id }.trace()
+    }
+
+    /// Creates an `ActionRuleNotFound` error when an action rule lookup fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `action_id` - The definition identifier of the missing action rule.
+    #[track_caller]
+    pub fn action_rule_not_found(action_id: ActionDefId) -> Self {
+        DatalogError::ActionRuleNotFound(action_id).trace()
+    }
+
+    /// Creates an `AuxiliaryRuleNotFound` error when an auxiliary rule lookup fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `sk_id` - The skeleton identifier of the missing auxiliary rule.
+    #[track_caller]
+    pub fn auxiliary_rule_not_found(sk_id: AtomSkeletonId) -> Self {
+        DatalogError::AuxiliaryRuleNotFound(sk_id).trace()
     }
 
     /// Creates an `InternalState` error with a custom message and captures the trace.
