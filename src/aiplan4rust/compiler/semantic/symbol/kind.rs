@@ -37,7 +37,7 @@ pub enum Kind {
     Action,
 
     /// Represents a durative action symbol (used in temporal domains).
-    DASymbol,
+    DurativeAction,
 
     /// Represents a method used to define decompositions or procedural tasks.
     Method,
@@ -195,7 +195,7 @@ impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Kind::Action => write!(f, "Action"),
-            Kind::DASymbol => write!(f, "Durative Action"),
+            Kind::DurativeAction => write!(f, "Durative Action"),
             Kind::PrimitiveType => write!(f, "Primitive Type"),
             Kind::Predicate => write!(f, "Predicate"),
             Kind::Variable => write!(f, "Variable"),
