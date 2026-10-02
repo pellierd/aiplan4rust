@@ -46,6 +46,25 @@ impl Atom {
     /// Immutable identifier reserved for structural equality predicates.
     pub const EQUALITY_ID: usize = Self::BUILTIN_ZONE_START;
 
+    /// Creates a new zero-ary (empty) `Atom` containing no arguments.
+    ///
+    /// This specialized constructor is designed for propositional predicates (arity 0),
+    /// guaranteeing zero heap allocations.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The unique [`AtomSkeletonId`] relation symbol mapping to a specific proposition schema.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a fresh [`Self`] instance initialized as a positive zero-ary literal.
+    pub fn empty(symbol: AtomSkeletonId) -> Self {
+        Self {
+            symbol,
+            args: AtomArgs::new(),
+        }
+    }
+
     /// Creates a new n-ary `Atom` from an internal stack-allocated buffer.
     ///
     /// By default, a newly constructed atom is initialized as a positive (non-negated) literal.

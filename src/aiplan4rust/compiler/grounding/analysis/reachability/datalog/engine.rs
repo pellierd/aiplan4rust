@@ -286,5 +286,50 @@ impl<'a> DatalogEngine<'a> {
 }
 
 #[cfg(test)]
+pub(crate) mod test_utils {
+    use super::*;
+    use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
+    use crate::aiplan4rust::compiler::lir::problem::LiftedProblem;
+    use crate::analysis::inertia::table::InertiaTable;
+    use crate::analysis::reachability::datalog::core::Database;
+    use rustc_hash::FxHashMap;
+
+    pub fn create_segmented_engine<'a>() -> DatalogEngine<'a> {
+        let problem_ref = Box::leak(Box::new(LiftedProblem::default()));
+        let registry_ref = Box::leak(Box::new(ValueRegistry::default()));
+        let table_ref = Box::leak(Box::new(InertiaTable::empty()));
+        let neg_ref = Box::leak(Box::new(Vec::new()));
+
+        DatalogEngine {
+            problem: problem_ref,
+            value_registry: registry_ref,
+            inertia_table: table_ref,
+            negated_predicates: neg_ref,
+            db: Database::new(),
+            rules: Vec::new(),
+            current_env: [None; crate::analysis::reachability::datalog::engine::MAX_VARS],
+            trailing_indices: Vec::new(),
+            discovered_facts: Vec::new(),
+            head_buffer: Vec::new(),
+            fluence_threshold: 2,
+            type_segment_start: 4,
+            type_threshold: 7,
+            action_threshold: 10,
+            action_base_id: 7,
+            builtin_threshold: 0,
+            union_cache: FxHashMap::default(),
+            base_aux_id: 0,
+            next_aux_id: 0,
+            aux_defs: Vec::new(),
+            cache: FxHashMap::default(),
+            action_effects: Vec::new(),
+            action_anchor: None,
+            negation_offset: 0,
+            type_to_skeleton: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
 #[path = "tests/engine_tests.rs"]
 mod engine_tests;
