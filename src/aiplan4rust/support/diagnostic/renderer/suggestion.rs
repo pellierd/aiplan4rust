@@ -610,7 +610,7 @@ fn format_undeclared_symbol_suggestion(
             "Action '{}' is not declared. Define it using the ':action' keyword.",
             name
         )),
-        SymbolKind::DASymbol => Some(format!(
+        SymbolKind::DurativeAction => Some(format!(
             "Durative action '{}' is not declared. Define it using the ':durative-action' keyword.",
             name
         )),

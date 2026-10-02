@@ -180,7 +180,7 @@ impl AstNode {
             AstKind::FunctionSymbol => SymbolKind::Function,
             AstKind::PredicateSymbol => SymbolKind::Predicate,
             AstKind::ActionSymbol => SymbolKind::Action,
-            AstKind::DASymbol => SymbolKind::DASymbol,
+            AstKind::DASymbol => SymbolKind::DurativeAction,
             AstKind::MethodSymbol => SymbolKind::Method,
             AstKind::TaskSymbol => SymbolKind::Task,
             AstKind::TaskLabel => SymbolKind::TaskID,

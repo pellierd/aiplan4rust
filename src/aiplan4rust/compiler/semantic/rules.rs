@@ -53,7 +53,10 @@ fn check_namespace_compatibility(
         (SymbolKind::PrimitiveType, SymbolKind::Predicate)
         | (SymbolKind::Predicate, SymbolKind::PrimitiveType) => true,
 
+        // Ponts entre Tâches et Actions (classiques et duratives)
         (SymbolKind::Task, SymbolKind::Action) | (SymbolKind::Action, SymbolKind::Task) => true,
+        (SymbolKind::Task, SymbolKind::DurativeAction)
+        | (SymbolKind::DurativeAction, SymbolKind::Task) => true,
 
         _ => false,
     }
@@ -121,10 +124,11 @@ pub fn check_kind_compatibility(decl_kind: SymbolKind, usage_kind: SymbolKind) -
         return true;
     }
 
-    // 2. Règle métier spécifique HDDL : Pont entre Task et Action
+    // 2. Règle métier HDDL : Pont entre Task et Actions (Action classique & Durative Action)
     match (decl_kind, usage_kind) {
-        (SymbolKind::Task, SymbolKind::Action) => true,
-        (SymbolKind::Action, SymbolKind::Task) => true,
+        (SymbolKind::Task, SymbolKind::Action) | (SymbolKind::Action, SymbolKind::Task) => true,
+        (SymbolKind::Task, SymbolKind::DurativeAction)
+        | (SymbolKind::DurativeAction, SymbolKind::Task) => true,
         _ => false,
     }
 }

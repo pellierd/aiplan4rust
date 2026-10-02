@@ -132,7 +132,7 @@ fn skip_unused_symbol_declaration(
             | SymbolKind::ProblemName
             | SymbolKind::Requirement
             | SymbolKind::Action
-            | SymbolKind::DASymbol
+            | SymbolKind::DurativeAction
             | SymbolKind::Method
             | SymbolKind::TaskID
     ) {
