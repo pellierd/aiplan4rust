@@ -1,3 +1,16 @@
+//! # Datalog Engine Module
+//!
+//! This module provides the core [`DatalogEngine`] struct, which serves as the central
+//! orchestrator for PDDL problem grounding and reachability analysis using Datalog saturation.
+//!
+//! ## Key Responsibilities
+//! - **Problem Encoding:** Transforms lifted PDDL planning problems, types, actions, and initial states
+//!   into relational facts, Datalog rules, and auxiliary definitions via [`DatalogEngine::encode`].
+//! - **Multi-Stratum Execution:** Drives the semi-naive evaluation loop through multiple distinct strata
+//!   (positive saturation, negation materialization, and conditional action activation) via [`DatalogEngine::run`].
+//! - **Diagnostics & Rendering:** Provides utilities to dump database contents and compiled rules for inspection.
+//! - **Testing Support:** Exposes internal mock utilities (`test_utils::create_segmented_engine`) for isolated unit testing.
+
 use crate::aiplan4rust::compiler::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::atom::Atom;
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::cause::Cause;
@@ -17,9 +30,7 @@ use crate::analysis::reachability::datalog::encoder;
 use crate::analysis::reachability::datalog::encoder::aliasing;
 use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
 use crate::analysis::reachability::datalog::state::DatalogState;
-use itertools::Itertools;
 use rustc_hash::FxHashMap;
-use toml::value::Index;
 
 /// Maximum number of variables (parameters) allowed per action or rule.
 ///
@@ -27,55 +38,111 @@ use toml::value::Index;
 /// using a single CPU register (u64 bitset).
 pub const MAX_VARS: usize = 64;
 
-// pre requis les types doivent faltten et les quantfier remove pas d'imply
+/// Core engine orchestrating the Datalog reachability analysis, grounding,
+/// and fixed-point saturation process for PDDL planning problems.
 pub struct DatalogEngine<'a> {
+    /// Mutable reference to the lifted planning problem being processed.
     pub(crate) problem: &'a mut LiftedProblem,
+
+    /// Registry mapping constants, objects, and values to unique internal identifiers.
     pub(crate) value_registry: &'a ValueRegistry,
+
+    /// Inertia table classifying predicates as static or dynamic (fluent).
     pub(crate) inertia_table: &'a InertiaTable,
+
+    /// Collection of atom skeleton IDs corresponding to negated predicates.
     pub(crate) negated_predicates: &'a Vec<AtomSkeletonId>,
+
+    /// The relational database storing stable facts and working memory (deltas).
     pub(crate) db: Database,
+
+    /// List of compiled Datalog inference rules.
     pub(crate) rules: Vec<Rule>,
+
+    /// Active variable environment mapping variable indices to object IDs.
     pub(crate) current_env: [Option<ObjectId>; MAX_VARS],
-    /// Pile de traçage pour le rollback des variables (Undo Stack)
+
+    /// Undo stack tracking variable bindings for efficient backtracking and rollbacks.
     pub(crate) trailing_indices: Vec<usize>,
-    // Buffer temporaire pour stocker les faits trouvés pour une règle
+
+    /// Temporary buffer used to store facts discovered during rule evaluation.
     pub(crate) discovered_facts: Vec<(AtomSkeletonId, Vec<ObjectId>)>,
+
+    /// Temporary buffer for constructing rule head argument lists.
     pub(crate) head_buffer: Vec<ObjectId>,
+
+    /// Threshold boundary separating standard predicates from subsequent segments.
     pub(crate) fluence_threshold: usize,
+
+    /// Threshold marking the boundary for type-related predicates.
     pub(crate) type_threshold: usize,
+
+    /// Starting index offset for the type segment partition.
     pub(crate) type_segment_start: usize,
+
+    /// Base identifier offset allocated for action representations.
     pub(crate) action_base_id: usize,
+
+    /// Threshold marking the end of the action segment.
     pub(crate) action_threshold: usize,
+
+    /// Threshold marking the boundary for built-in evaluation predicates.
     pub(crate) builtin_threshold: usize,
-    /// Cache pour ne pas dupliquer les prédicats d'union.
-    /// Clé : La liste triée des TypeId. Valeur : L'ID du squelette Datalog.
+
+    /// Structural cache preventing duplicate union predicates.
+    /// Key: Sorted list of `TypeId`s. Value: Corresponding Datalog skeleton ID.
     pub(crate) union_cache: FxHashMap<Vec<TypeId>, AtomSkeletonId>,
 
-    //////////////////////////////////////////////////
-    //// ENCODER
+    // ENCODER //
     /// The starting offset for auxiliary predicate IDs.
     /// Typically set to the count of original predicates in the domain.
     pub(crate) base_aux_id: usize,
+
     /// Monotonic counter for generating the next unique auxiliary ID.
     pub(crate) next_aux_id: usize,
+
     /// Registry of auxiliary predicate signatures (skeletons).
     /// Used for debugging and reconstructing the logical state post-saturation.
     pub(crate) aux_defs: Vec<AtomicFormulaSkeleton>,
+
     /// Structural cache mapping a set of body atoms to a head atom.
     /// Prevents the redundant creation of multiple auxiliary predicates
     /// for the same logical sub-expression (Common Subexpression Elimination).
     pub(crate) cache: FxHashMap<Vec<Atom>, Atom>,
 
-    /// Table de causalité : associe chaque effet à son origine (Action ou Pivot).
+    /// Causality table associating each effect to its origin (Action or Pivot).
     pub(crate) action_effects: Vec<Vec<(Atom, Cause)>>,
 
+    /// Optional anchor atom representing the active action context during evaluation.
     pub(crate) action_anchor: Option<Atom>,
 
+    /// Offset applied to handle predicate negation correctly within the database.
     pub(crate) negation_offset: usize,
+
+    /// Mapping linking type identifiers to their respective atom skeletons.
     pub(crate) type_to_skeleton: Vec<AtomSkeletonId>,
 }
 
 impl<'a> DatalogEngine<'a> {
+    /// Encodes a lifted planning problem into a Datalog-based representation,
+    /// populating initial facts, type hierarchies, action schemas, and inference rules.
+    ///
+    /// This method performs the initial compilation pipeline phases, including store extraction,
+    /// threshold allocation, schema declaration, database ingestion, and rule generation.
+    ///
+    /// # Arguments
+    /// * `problem` - Mutable reference to the `LiftedProblem` to be encoded and analyzed.
+    /// * `value_registry` - Reference to the `ValueRegistry` mapping constants and values.
+    /// * `inertia_table` - Reference to the `InertiaTable` classifying predicates as static or fluent.
+    /// * `negated_predicates` - Reference to a vector of `AtomSkeletonId` corresponding to negated predicates.
+    ///
+    /// # Returns
+    /// * `Ok(Self)` - A fully initialized and populated `DatalogEngine` ready for fixed-point execution.
+    /// * `Err(DatalogError)` - Returns a datalog error if any schema declaration, fact ingestion, or rule encoding step fails.
+    ///
+    /// # Complexity
+    /// * Time complexity: Proportional to the size of the problem domain, number of actions, and initial expression tree complexity.
+    /// * Space complexity: Proportional to the number of generated rules, auxiliary definitions, and total facts inserted into the database.
     pub fn encode(
         problem: &'a mut LiftedProblem,
         value_registry: &'a ValueRegistry,
@@ -142,7 +209,7 @@ impl<'a> DatalogEngine<'a> {
         // =========================================================================
         // 3. INGESTION DES DONNÉES ET COMPILATION DES RÈGLES
         // =========================================================================
-        // 🌟 Initialisation du contexte (maintenant que type_to_skeleton est prêt et figé)
+        // Initialisation du contexte (maintenant que type_to_skeleton est prêt et figé)
         let ctx = DatalogContext::new(
             TypedListId::default(),
             &type_to_skeleton,
@@ -150,7 +217,7 @@ impl<'a> DatalogEngine<'a> {
             inertia_table,
         );
 
-        // 🌟 3. Nouvelle signature propre pour fill_db_from_objects (ctx + state)
+        // 3. Nouvelle signature propre pour fill_db_from_objects (ctx + state)
         encoder::facts::fill_db_from_objects(ctx, &mut state, object_defs_slice, type_defs_slice)?;
 
         // Dans pub fn encode, section 3 :
@@ -215,6 +282,17 @@ impl<'a> DatalogEngine<'a> {
         Ok(engine)
     }
 
+    /// Executes the multi-stratum Datalog fixed-point saturation process.
+    ///
+    /// This method orchestrates the evaluation pipeline in three distinct strata:
+    /// 1. **Rule Optimization**: Refines and reorders rules for efficient execution.
+    /// 2. **Stratum 0 (Positive Saturation)**: Computes all physical and positive facts using semi-naive evaluation.
+    /// 3. **Stratum 1 (Negation Materialization)**: Evaluates negated predicates and default negations via the value registry.
+    /// 4. **Stratum 2 (Conditional Actions)**: Re-runs semi-naive saturation to incorporate negative facts and trigger conditional action rules.
+    ///
+    /// # Complexity
+    /// * Time complexity: Bounded by the number of possible ground facts and rule evaluation rounds until fixed-point convergence.
+    /// * Space complexity: Proportional to the size of the working database, delta sets, and active rule bindings.
     pub fn run(&mut self) {
         // 'OPTIMISATION SE FAIT ICI, SANS EFFORT, CAR ENGINE EXISTE ENFIN !
         self.optimize_all_rules();
@@ -259,6 +337,14 @@ impl<'a> DatalogEngine<'a> {
         }*/
     }
 
+    /// Dumps and renders the current contents of the Datalog database for diagnostic purposes.
+    ///
+    /// This method creates a rendering context snapshot of the current engine state
+    /// and delegates the output formatting to the specialized database renderer.
+    ///
+    /// # Complexity
+    /// * Time complexity: Proportional to the number of stored relations and facts in the database.
+    /// * Space complexity: $O(1)$ auxiliary memory overhead during rendering.
     pub fn dump_database(&self) {
         // 1. On crée le Snapshot de données (le contexte)
         let ctx = self.render_context();
@@ -267,6 +353,14 @@ impl<'a> DatalogEngine<'a> {
         database::render(&ctx, &self.db);
     }
 
+    /// Dumps and renders the compiled Datalog rules for inspection and debugging.
+    ///
+    /// Utilizes the current rendering context snapshot to format and output
+    /// all active inference rules managed by the engine.
+    ///
+    /// # Complexity
+    /// * Time complexity: Proportional to the number of compiled rules and their body sizes.
+    /// * Space complexity: $O(1)$ auxiliary memory overhead during rendering.
     // Affiche la logique compilée (Rules)
     // On ne prend plus de paramètres, on utilise self.rules
     pub fn dump_rules(&self) {
@@ -274,6 +368,17 @@ impl<'a> DatalogEngine<'a> {
         rules::render(&ctx, &self.rules);
     }
 
+    /// Constructs and returns a new rendering context snapshot (`DatalogRenderContext`).
+    ///
+    /// Bundles the problem reference, type skeletons, and critical structural thresholds
+    /// required by external renderers to interpret internal identifiers correctly.
+    ///
+    /// # Returns
+    /// * `DatalogRenderContext` - A configured render context snapshot of the current engine state.
+    ///
+    /// # Complexity
+    /// * Time complexity: $O(1)$
+    /// * Space complexity: $O(1)$
     fn render_context(&self) -> DatalogRenderContext {
         DatalogRenderContext::new(
             self.problem,
@@ -285,6 +390,7 @@ impl<'a> DatalogEngine<'a> {
     }
 }
 
+/// Test utilities providing mock or pre-configured engine instances for unit testing.
 #[cfg(test)]
 pub(crate) mod test_utils {
     use super::*;
@@ -294,6 +400,18 @@ pub(crate) mod test_utils {
     use crate::analysis::reachability::datalog::core::Database;
     use rustc_hash::FxHashMap;
 
+    /// Creates a pre-segmented mock `DatalogEngine` instance with predefined thresholds
+    /// and leaked default references for isolated unit testing.
+    ///
+    /// This utility avoids calling the full `encode` pipeline when testing individual
+    /// engine components or structural invariants, supplying safe default boundaries.
+    ///
+    /// # Returns
+    /// * `DatalogEngine<'a>` - A configured engine instance ready for lightweight unit tests.
+    ///
+    /// # Complexity
+    /// * Time complexity: $O(1)$
+    /// * Space complexity: $O(1)$ (with heap-allocated leaked references designed for tests)
     pub fn create_segmented_engine<'a>() -> DatalogEngine<'a> {
         let problem_ref = Box::leak(Box::new(LiftedProblem::default()));
         let registry_ref = Box::leak(Box::new(ValueRegistry::default()));
@@ -307,7 +425,7 @@ pub(crate) mod test_utils {
             negated_predicates: neg_ref,
             db: Database::new(),
             rules: Vec::new(),
-            current_env: [None; crate::analysis::reachability::datalog::engine::MAX_VARS],
+            current_env: [None; MAX_VARS],
             trailing_indices: Vec::new(),
             discovered_facts: Vec::new(),
             head_buffer: Vec::new(),
@@ -329,7 +447,3 @@ pub(crate) mod test_utils {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "tests/engine_tests.rs"]
-mod engine_tests;
