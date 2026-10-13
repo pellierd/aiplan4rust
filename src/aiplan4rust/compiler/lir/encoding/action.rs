@@ -75,6 +75,7 @@ pub fn encode(
                             &SyntaxSubtree::new(pre_node, pre_node_id, ast),
                             registry,
                             builder,
+                            true,
                         )?;
                     }
                     AstKind::EffectDef => {
@@ -84,6 +85,7 @@ pub fn encode(
                             &SyntaxSubtree::new(eff_node, eff_node_id, ast),
                             registry,
                             builder,
+                            false,
                         )?;
                     }
                     _ => return Err(EncodingError::unsupported_ast_node_kind(child_node.kind())),
@@ -119,6 +121,7 @@ pub fn encode(
                 &SyntaxSubtree::new(actual_duration_node, actual_duration_id, ast),
                 registry,
                 builder,
+                true,
             )?;
 
             // 2. Conditions temporelles (:condition ...)
@@ -128,6 +131,7 @@ pub fn encode(
                 &SyntaxSubtree::new(condition_node, condition_id, ast),
                 registry,
                 builder,
+                true,
             )?;
 
             // 3. Effets temporels (:effect ...)
@@ -137,6 +141,7 @@ pub fn encode(
                 &SyntaxSubtree::new(eff_node, eff_node_id, ast),
                 registry,
                 builder,
+                false,
             )?;
 
             let variable_symbols = registry.get_variable_symbols();

@@ -21,5 +21,5 @@ pub fn encode(
 
     // On encode directement l'enfant (le ConGD ou PrefConGD)
     // Le LIR résultant aura pour racine le 'and', le 'always', ou la 'preference'
-    expr::encode(&child_subtree, registry, builder)
+    expr::encode(&child_subtree, registry, builder, true)
 }

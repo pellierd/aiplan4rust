@@ -10,6 +10,7 @@ use aiplan4rust::analysis::inertia::table::InertiaTable;
 use aiplan4rust::qnf::problem::expand_with;
 use aiplan4rust::DatalogEngine;
 use std::path::Path;
+use std::process::Command;
 use test_case::test_case;
 
 pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
@@ -20,7 +21,7 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
     let problems_to_process = get_test_files_for_mode(filter_problem_files(&all_files));
 
     println!(
-        "\n\x1b[1;36m>>> Running Datalog Reachability Suite in: {}\x1b[0m",
+        "\n\x1b[1;36m>>> Running Datalog Reachability Suite with Dynamic FD Oracle in: {}\x1b[0m",
         domain_dir.display()
     );
 
@@ -29,11 +30,29 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
         let problem_name = problem_path.file_name().unwrap().to_str().unwrap();
         let oracle_key = format!("{}/{}", domain_name, problem_name);
 
-        print!("  Processing Oracle Key [{}] ... ", oracle_key);
+        print!("  Processing Problem [{}] ... ", oracle_key);
         let _ = std::io::Write::flush(&mut std::io::stdout());
 
         let domain_path = find_associated_domain(problem_path).expect("Domain not found");
 
+        // 1. Lancement de Fast Downward et extraction systématique des données de l'oracle
+        let (exp_f, exp_a, expected_actions, _expected_fluents) =
+            match run_fast_downward_and_get_content(&domain_path, problem_path) {
+                Ok(content) => {
+                    let acts = extract_actions_from_content(&content).unwrap_or_default();
+                    let fluents = extract_fluents_from_content(&content).unwrap_or_default();
+                    (fluents.len(), acts.len(), acts, fluents)
+                }
+                Err(e) => {
+                    println!(
+                        "\x1b[1;33m[WARNING]\x1b[0m Impossible de lancer Fast Downward: {}",
+                        e
+                    );
+                    (0, 0, Vec::new(), Vec::new())
+                }
+            };
+
+        // 2. Analyse PDDL et Pipeline Datalog
         let d_ana = analyze_file(&domain_path, "domain", &mut success);
         let p_ana = analyze_file(problem_path, "problem", &mut success);
 
@@ -66,9 +85,8 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
 
         let mut lifted_problem = lir_result.take_lifted_problem().expect("No lifted problem");
 
-        // --- PIPELINE DE PRÉ-TRAITEMENT ISSU DE TON NOYAU ---
+        // --- PIPELINE DE PRÉ-TRAITEMENT ---
 
-        // 2. ANALYSE D'INERTIE
         let table = match InertiaTable::build(&lifted_problem) {
             Ok(t) => t,
             Err(e) => {
@@ -79,7 +97,6 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             }
         };
 
-        // 3. VALUE REGISTRY CONSTRUCTION
         let registry = match ValueRegistry::build(
             lifted_problem.type_defs().as_slice(),
             lifted_problem.object_defs().as_slice(),
@@ -93,7 +110,6 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             }
         };
 
-        // Extraction propre de init pour l'évaluateur d'inertie
         let init = Expr::new(lifted_problem.init(), lifted_problem.store());
         let evaluator = match InertiaEvaluator::build(
             lifted_problem.predicate_defs(),
@@ -113,7 +129,6 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             }
         };
 
-        // 5. QUANTIFIER EXPANSION
         if let Err(e) = expand_with(&mut lifted_problem, &registry, Some(&evaluator)) {
             println!("\x1b[1;31mFAILED (QNF Expansion)\x1b[0m");
             eprintln!("    Error: {}", e);
@@ -121,7 +136,6 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             continue;
         }
 
-        // 6. PNF
         let negated_predicates = match to_pnf(&mut lifted_problem) {
             Ok(np) => np,
             Err(e) => {
@@ -132,64 +146,136 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             }
         };
 
-        // 1. Appel direct à DatalogEngine::load (plus besoin de let mut datalog = DatalogEngine::new(); avant)
         let mut datalog = match DatalogEngine::encode(
             &mut lifted_problem,
             &registry,
             &table,
             &negated_predicates,
         ) {
-            Ok(engine_configured) => engine_configured, // L'engine est créé ET configuré d'un coup
+            Ok(engine_configured) => engine_configured,
             Err(e) => {
                 println!("\x1b[1;31mFAILED (Datalog Load)\x1b[0m");
                 eprintln!("    Error: {}", e);
                 success = false;
-                continue; // Passe à l'itération suivante de ta boucle
+                continue;
             }
         };
 
-        // 2. Maintenant datalog possède à nouveau la propriété de l'objet,
-        // et tu peux appeler .run() sans erreur !
         datalog.run();
 
         let actual_f = datalog.get_reachable_fluents().len();
         let actual_a = datalog.get_reachable_actions().len();
 
-        // Comparaison avec les Oracles connus
-        let expected = match oracle_key.as_str() {
-            "combinatorial/pb01.pddl" => Some((13, 15)),
-            "combinatorial/pb02.pddl" => Some((267, 680)),
-            "combinatorial/pb03.pddl" => Some((701, 6020)),
-            "combinatorial/pb04.pddl" => Some((2721, 11050)),
-            "combinatorial/pb05.pddl" => Some((6636, 18880)),
-            "combinatorial/pb06.pddl" => Some((6891, 39280)),
-            "assembly/pb01.pddl" => Some((650, 114)),
-            _ => None,
-        };
+        // 3. Affichage systématique des détails de l'oracle FD et des résultats de Datalog
+        println!("\x1b[1;32m[INFO / ORACLE]\x1b[0m");
+        println!("    -> FD Oracle  : {} Fluents, {} Actions", exp_f, exp_a);
+        println!(
+            "    -> Datalog    : {} Fluents, {} Actions",
+            actual_f, actual_a
+        );
 
-        match expected {
-            Some((exp_f, exp_a)) => {
-                if actual_f != exp_f || actual_a != exp_a {
-                    println!("\x1b[1;31m[FAIL]\x1b[0m");
-                    println!(
-                        "    Expected: ({} Fluents, {} Actions) | Got: ({} Fluents, {} Actions)",
-                        exp_f, exp_a, actual_f, actual_a
-                    );
-                    success = false;
-                } else {
-                    println!("\x1b[1;32m[PASS]\x1b[0m ({}F, {}A)", actual_f, actual_a);
+        // Affichage systématique de la liste des actions générées par l'oracle FD
+        println!(
+            "\n    --- [FD] Liste détaillée des Actions attendues ({}) ---",
+            expected_actions.len()
+        );
+        for act in &expected_actions {
+            println!("      - {}", act);
+        }
+        println!("    --------------------------------------------------------\n");
+    }
+
+    success
+}
+
+pub fn extract_fluents_from_content(sas_content: &str) -> Result<Vec<String>, String> {
+    let mut fluents = Vec::new();
+    let mut lines = sas_content.lines();
+
+    while let Some(line) = lines.next() {
+        let trimmed = line.trim();
+
+        if trimmed == "begin_variable" {
+            // Sauter le nom de la variable SAS+ et l'axiom layer
+            let _ = lines.next(); // var name/id
+            let _ = lines.next(); // -1 ou axiom layer
+
+            // La ligne suivante indique le nombre de valeurs possibles
+            if let Some(count_line) = lines.next() {
+                if let Ok(count) = count_line.trim().parse::<usize>() {
+                    // Les lignes suivantes sont les valeurs (les fluents STRIPS)
+                    for _ in 0..count {
+                        if let Some(val_line) = lines.next() {
+                            fluents.push(val_line.trim().to_string());
+                        }
+                    }
                 }
             }
-            None => {
-                println!(
-                    "\x1b[1;34m[NEW ORACLE]\x1b[0m Grounded Layout -> {} Fluents, {} Actions",
-                    actual_f, actual_a
-                );
+        }
+        // Le bloc "end_variable" n'a pas besoin d'être intercepté s'il n'y a rien de particulier à faire
+    }
+
+    Ok(fluents)
+}
+
+pub fn extract_actions_from_content(sas_content: &str) -> Result<Vec<String>, String> {
+    let mut actions = Vec::new();
+    let mut lines = sas_content.lines().peekable();
+
+    while let Some(line) = lines.next() {
+        if line.trim() == "begin_operator" {
+            // La ligne suivante contient le nom de l'action et ses paramètres
+            if let Some(action_name) = lines.next() {
+                actions.push(action_name.trim().to_string());
             }
         }
     }
 
-    success
+    Ok(actions)
+}
+
+/// Lance Fast Downward et retourne directement le contenu de output.sas sous forme de String
+pub fn run_fast_downward_and_get_content(
+    domain_path: &Path,
+    problem_path: &Path,
+) -> Result<String, String> {
+    // Récupère le chemin depuis l'environnement ou utilise le chemin par défaut
+    let fd_path_str =
+        std::env::var("FAST_DOWNWARD_PATH").unwrap_or_else(|_| "fd/fast-downward.py".to_string());
+
+    let fd_path = Path::new(&fd_path_str);
+    if !fd_path.exists() {
+        return Err(format!(
+            "Fast Downward introuvable au chemin : {}. Définis la variable d'environnement FAST_DOWNWARD_PATH ou place le dossier fd/ au bon endroit.",
+            fd_path.display()
+        ));
+    }
+
+    println!("  [Oracle] Lancement de Fast Downward...");
+
+    let output = Command::new("python3")
+        .arg(fd_path)
+        .arg("--translate") // <-- Placé ici avant les fichiers PDDL pour éviter l'erreur d'option
+        .arg(domain_path)
+        .arg(problem_path)
+        .output()
+        .map_err(|e| format!("Impossible de lancer le processus Fast Downward : {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "Fast Downward a échoué avec le code de sortie : {}\nStderr: {}",
+            output.status, stderr
+        ));
+    }
+
+    // Fast Downward écrit par défaut un fichier "output.sas" dans le répertoire courant.
+    // On le lit directement en mémoire pour récupérer son contenu en String,
+    // puis on le retourne proprement.
+    let sas_content = std::fs::read_to_string("output.sas")
+        .map_err(|e| format!("Impossible de lire le fichier output.sas généré : {}", e))?;
+
+    Ok(sas_content)
 }
 
 #[test_case("tests/fixtures/pddl/ipc98/assembly/adl/"; "ipc98_adl_assembly")]

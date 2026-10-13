@@ -131,6 +131,9 @@ const MAX_CHILDREN: usize = 32;
 /// * `builder` - A mutable reference to the `ExprBuilder` responsible for interning and smart-reducing expressions.
 /// * `scratch` - A mutable reference to the persistent `Scratchpad` storage used for buffer windowing.
 /// * `recursive` - A boolean flag enabling deep, cascading sub-factorization on extracted branches.
+/// * `check_contradictions` - A boolean flag controlling whether smart constructor optimizations
+///   (such as contradiction and tautology checking) are applied during bottom-up reconstruction (`true`)
+///   or bypassed via unchecked methods to protect strict structures like effects (`false`).
 ///
 /// ### Returns
 /// * `Ok(ExprId)` - The unique identifier of the fully factored, canonicalized, and interned expression tree.
@@ -140,6 +143,7 @@ pub fn to_fnf(
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
     recursive: bool,
+    check_contradictions: bool,
 ) -> Result<ExprId, ExprOpError> {
     if expr.is_none() {
         return Ok(expr);
@@ -151,9 +155,16 @@ pub fn to_fnf(
 
     // --- 2 & 3. CORE LOGIC & ASSEMBLY ---
     let factored_branch = if total_groups < 2 {
-        rebuild_flat_groups(builder, scratch, 0, total_groups)
+        rebuild_flat_groups(builder, scratch, 0, total_groups, check_contradictions)
     } else {
-        factorize_slice(builder, scratch, 0, total_groups, recursive)?
+        factorize_slice(
+            builder,
+            scratch,
+            0,
+            total_groups,
+            recursive,
+            check_contradictions,
+        )?
     };
 
     // --- C. COMBINE WITH ORIGINAL NAKED LITERALS ---
@@ -310,15 +321,36 @@ fn prepare_input(
 ///    - *Right Branch*: Recursively processes the remaining groups that did not contain $f$.
 /// 5. **Post-Order Assembly**: Integrates the results using the distributive identity:
 ///    $$(f \land \text{left\_branch}) \lor \text{right\_branch}$$
+///
+/// ### Arguments
+/// * `builder` - A mutable reference to the `ExprBuilder` responsible for interning and smart-reducing expressions.
+/// * `scratch` - A mutable reference to the persistent `Scratchpad` storage used for buffer windowing.
+/// * `start_idx` - The inclusive start index of the global group window to factorize.
+/// * `end_idx` - The exclusive end index of the global group window to factorize.
+/// * `recursive` - A boolean flag enabling deep, cascading sub-factorization on extracted branches.
+/// * `check_contradictions` - A boolean flag controlling whether smart constructor optimizations
+///   (such as contradiction and tautology checking) are applied during bottom-up reconstruction (`true`)
+///   or bypassed via unchecked methods to protect strict structures like effects (`false`).
+///
+/// ### Returns
+/// * `Ok(ExprId)` - The unique identifier of the factored and interned sub-expression tree.
+/// * `Err(ExprOpError)` - If an interning or retrieval error occurs within the Hash-Consing layer.
 fn factorize_slice(
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
     start_idx: usize,
     end_idx: usize,
     recursive: bool,
+    check_contradictions: bool,
 ) -> Result<ExprId, ExprOpError> {
     if (end_idx - start_idx) < 2 {
-        return Ok(rebuild_flat_groups(builder, scratch, start_idx, end_idx));
+        return Ok(rebuild_flat_groups(
+            builder,
+            scratch,
+            start_idx,
+            end_idx,
+            check_contradictions,
+        ));
     }
 
     // 1. Local frequency analysis
@@ -330,19 +362,45 @@ fn factorize_slice(
         let num_with_f = scratch.partition_slice_by_factor(start_idx, end_idx, f);
 
         if num_with_f == 0 {
-            return Ok(rebuild_flat_groups(builder, scratch, start_idx, end_idx));
+            return Ok(rebuild_flat_groups(
+                builder,
+                scratch,
+                start_idx,
+                end_idx,
+                check_contradictions,
+            ));
         }
 
         let sub_branch_end = start_idx + num_with_f;
 
         // 4. Recursive divide-and-conquer processing
         let left_branch = if recursive {
-            factorize_slice(builder, scratch, start_idx, sub_branch_end, recursive)?
+            factorize_slice(
+                builder,
+                scratch,
+                start_idx,
+                sub_branch_end,
+                recursive,
+                check_contradictions,
+            )?
         } else {
-            rebuild_flat_groups(builder, scratch, start_idx, sub_branch_end)
+            rebuild_flat_groups(
+                builder,
+                scratch,
+                start_idx,
+                sub_branch_end,
+                check_contradictions,
+            )
         };
 
-        let right_branch = factorize_slice(builder, scratch, sub_branch_end, end_idx, recursive)?;
+        let right_branch = factorize_slice(
+            builder,
+            scratch,
+            sub_branch_end,
+            end_idx,
+            recursive,
+            check_contradictions,
+        )?;
 
         // 5. Intelligent post-order tree construction via distributivity
         let empty_and = builder.empty_and();
@@ -351,7 +409,11 @@ fn factorize_slice(
         let left_assembled = if left_branch == empty_and || left_branch == empty_or {
             f
         } else {
-            builder.and(&[f, left_branch])
+            if check_contradictions {
+                builder.and(&[f, left_branch])
+            } else {
+                builder.and_unchecked_contradictions(&[left_branch, f])
+            }
         };
 
         if right_branch == empty_or || sub_branch_end == end_idx {
@@ -360,7 +422,13 @@ fn factorize_slice(
             Ok(builder.or(&[left_assembled, right_branch]))
         }
     } else {
-        Ok(rebuild_flat_groups(builder, scratch, start_idx, end_idx))
+        Ok(rebuild_flat_groups(
+            builder,
+            scratch,
+            start_idx,
+            end_idx,
+            check_contradictions,
+        ))
     }
 }
 
@@ -374,17 +442,37 @@ fn factorize_slice(
 ///   separate immutable group slicing borrows from mutable `scratch.build_buffer_mut()` staging targets.
 /// - **Buffer Reuse**: Utilizes the scratchpad's `build_buffer` to stage the temporary `AND`
 ///   nodes before sending them to the top-level `OR` constructor, ensuring **zero heap allocations**.
+///
+/// ### Arguments
+/// * `builder` - A mutable reference to the `ExprBuilder` responsible for interning and smart-reducing expressions.
+/// * `scratch` - A mutable reference to the persistent `Scratchpad` storage used for buffer windowing.
+/// * `start` - The inclusive start index of the group window to rebuild.
+/// * `end` - The exclusive end index of the group window to rebuild.
+/// * `check_contradictions` - A boolean flag controlling whether smart constructor optimizations
+///   (such as contradiction checking) are applied when building the temporary `AND` nodes (`true`)
+///   or bypassed via unchecked methods (`false`).
+///
+/// ### Returns
+/// * `ExprId` - The unique identifier of the rebuilt flat disjunction expression.
 fn rebuild_flat_groups(
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
     start: usize,
     end: usize,
+    check_contradictions: bool,
 ) -> ExprId {
     scratch.build_buffer_mut().clear();
 
     for i in start..end {
         let group = scratch.get_group(i);
-        let and_expr = builder.and(group);
+
+        // Choix dynamique selon le contexte
+        let and_expr = if check_contradictions {
+            builder.and(group)
+        } else {
+            builder.and_unchecked_contradictions(group)
+        };
+
         scratch.build_buffer_mut().push(and_expr);
     }
 
@@ -420,7 +508,7 @@ mod tests {
         let and2 = builder.and(&[a, c]);
         let root = builder.or(&[and1, and2]);
 
-        let result_id = to_fnf(root, &mut builder, &mut scratch, false)?;
+        let result_id = to_fnf(root, &mut builder, &mut scratch, false, true)?;
         let entry = builder.fetch(result_id)?;
 
         // The root should now be an AND node because 'A' was extracted.
@@ -456,7 +544,7 @@ mod tests {
         let and2 = builder.and(&[a, c]);
         let root = builder.or(&[and1, and2, d]);
 
-        let result_id = to_fnf(root, &mut builder, &mut scratch, false)?;
+        let result_id = to_fnf(root, &mut builder, &mut scratch, false, true)?;
         let entry = builder.fetch(result_id)?;
 
         // The root must remain an OR because 'D' cannot be factored with 'A'.
@@ -494,7 +582,7 @@ mod tests {
         let root = builder.or(&[and1, and2]);
 
         // We set recursive = true to extract both A and B.
-        let result_id = to_fnf(root, &mut builder, &mut scratch, true)?;
+        let result_id = to_fnf(root, &mut builder, &mut scratch, true, true)?;
         let entry = builder.fetch(result_id)?;
 
         assert!(matches!(entry.kind(), ExprKind::And));
@@ -525,7 +613,7 @@ mod tests {
         let and2 = builder.and(&[c, d]);
         let root = builder.or(&[and1, and2]);
 
-        let result_id = to_fnf(root, &mut builder, &mut scratch, true)?;
+        let result_id = to_fnf(root, &mut builder, &mut scratch, true, true)?;
 
         // Result should be structurally identical to root.
         assert_eq!(result_id, root);
@@ -549,8 +637,8 @@ mod tests {
         let and2 = builder.and(&[a, c]);
         let root = builder.or(&[and1, and2]);
 
-        let first_pass = to_fnf(root, &mut builder, &mut scratch, true)?;
-        let second_pass = to_fnf(first_pass, &mut builder, &mut scratch, true)?;
+        let first_pass = to_fnf(root, &mut builder, &mut scratch, true, true)?;
+        let second_pass = to_fnf(first_pass, &mut builder, &mut scratch, true, true)?;
 
         assert_eq!(first_pass, second_pass, "FNF transformation must be stable");
         Ok(())
@@ -575,7 +663,7 @@ mod tests {
         let and2 = builder.and(&[common_factor, d]);
         let root = builder.or(&[and1, and2]);
 
-        let result_id = to_fnf(root, &mut builder, &mut scratch, true)?;
+        let result_id = to_fnf(root, &mut builder, &mut scratch, true, true)?;
         let entry = builder.fetch(result_id)?;
 
         assert!(matches!(entry.kind(), ExprKind::And));
@@ -600,7 +688,7 @@ mod tests {
         let and2 = builder.and(&[a, b]); // This should be the same ExprId thanks to HC
         let root = builder.or(&[and1, and2]);
 
-        let result_id = to_fnf(root, &mut builder, &mut scratch, true)?;
+        let result_id = to_fnf(root, &mut builder, &mut scratch, true, true)?;
 
         // After factoring A and B, the remaining OR is empty or contains identity.
         // The result should logically be equivalent to (A & B).
@@ -627,12 +715,12 @@ mod tests {
         // Single child
         let a = atom(&mut builder, 1);
         let root_single = builder.or(&[a]);
-        let res_single = to_fnf(root_single, &mut builder, &mut scratch, true)?;
+        let res_single = to_fnf(root_single, &mut builder, &mut scratch, true, true)?;
         assert_eq!(res_single, a); // Should return A or OR(A)
 
         // Empty OR
         let root_empty = builder.or(&[]);
-        let res_empty = to_fnf(root_empty, &mut builder, &mut scratch, true)?;
+        let res_empty = to_fnf(root_empty, &mut builder, &mut scratch, true, true)?;
         assert_eq!(res_empty, builder.empty_or());
 
         Ok(())
@@ -658,7 +746,7 @@ mod tests {
         let root = builder.or(&[and1, and2]);
 
         // Should extract at least one, and if recursive, both.
-        let result_id = to_fnf(root, &mut builder, &mut scratch, true)?;
+        let result_id = to_fnf(root, &mut builder, &mut scratch, true, true)?;
         let entry = builder.fetch(result_id)?;
 
         assert!(matches!(entry.kind(), ExprKind::And));
@@ -702,7 +790,7 @@ mod tests {
         let root = builder.or(&[and1, and2, and3]);
 
         // Execute with recursive = true to ensure it doesn't stop after extracting 'A'
-        let result = to_fnf(root, &mut builder, &mut scratch, true)?;
+        let result = to_fnf(root, &mut builder, &mut scratch, true, true)?;
         let entry = builder.fetch(result)?;
 
         // Root should be an AND node because 'A' was extracted from every branch of the top-level OR
@@ -753,7 +841,7 @@ mod tests {
         let root = builder.or(&[and1, and2, and3]);
 
         // Execute FNF with recursive enabled
-        let result = to_fnf(root, &mut builder, &mut scratch, true)?;
+        let result = to_fnf(root, &mut builder, &mut scratch, true, true)?;
 
         // The primary goal is that the algorithm doesn't crash and performs at least
         // one level of factorization, proving it successfully navigated the tie-break.
@@ -797,7 +885,7 @@ mod tests {
         let root = builder.or(&[and1, and2, a]);
 
         // We run to_fnf with recursive = true
-        let result = to_fnf(root, &mut builder, &mut scratch, true)?;
+        let result = to_fnf(root, &mut builder, &mut scratch, true, true)?;
 
         let entry = builder.fetch(result)?;
 

@@ -10,14 +10,14 @@ use crate::aiplan4rust::support::interner::SymbolInterner;
 
 /// Encode un AST en LIR en utilisant un itérateur post-ordre (Bottom-Up).
 pub enum Step {
-    Enter(NodeId),
-    Exit(NodeId, usize),
+    Enter(NodeId, bool),
+    Exit(NodeId, usize, bool),
 }
-
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     builder: &mut ExprBuilder,
+    check_contradictions: bool,
 ) -> Result<ExprId, EncodingError> {
     // On récupère les buffers du registry pour éviter toute allocation
     let mut stack = std::mem::take(&mut registry.stack_buffer);
@@ -26,11 +26,11 @@ pub fn encode(
     stack.clear();
     results.clear();
 
-    stack.push(Step::Enter(subtree.node_id()));
+    stack.push(Step::Enter(subtree.node_id(), check_contradictions));
 
     while let Some(step) = stack.pop() {
         match step {
-            Step::Enter(ast_id) => {
+            Step::Enter(ast_id, current_is_condition) => {
                 let ast_node = subtree.tree().try_node(ast_id)?;
                 let kind = ast_node.kind();
 
@@ -41,32 +41,39 @@ pub fn encode(
                     register_local_variables(tl_node, subtree, registry)?;
                 }
 
-                // 1. ON EMPLE LE EXIT EN PREMIER
-                // Il sera tout en bas par rapport à ses enfants, donc il sortira en dernier.
-
-                // On doit calculer children_to_process AVANT ou stocker les IDs
                 let mut children_to_process = 0;
-                let mut children_stack = Vec::new(); // Temporaire pour l'ordre
+                let mut children_stack = Vec::new();
 
-                for &child_id in ast_node.children().iter().rev() {
+                for (index, &child_id) in ast_node.children().iter().enumerate().rev() {
                     let child_node = subtree.tree().try_node(child_id)?;
                     if child_node.kind() != AstKind::TypedList {
-                        children_stack.push(child_id);
+                        // LOGIQUE DE PROPAGATION DU CONTEXTE :
+                        let child_is_condition = match kind {
+                            // Dans un 'When', l'enfant 0 est la condition, l'enfant 1 est l'effet
+                            AstKind::When => index == 0,
+                            // Par défaut, l'enfant hérite du contexte courant
+                            _ => current_is_condition,
+                        };
+
+                        children_stack.push((child_id, child_is_condition));
                         children_to_process += 1;
                     }
                 }
 
-                // L'ordre critique pour une pile LIFO :
-                // [BAS] EXIT -> ENFANT_1 -> ENFANT_2 -> ENFANT_N [HAUT]
+                // On sauvegarde le contexte courant dans le Exit
+                stack.push(Step::Exit(
+                    ast_id,
+                    children_to_process,
+                    current_is_condition,
+                ));
 
-                stack.push(Step::Exit(ast_id, children_to_process));
-
-                for child_id in children_stack {
-                    stack.push(Step::Enter(child_id));
+                // On empile les enfants avec leur propre contexte
+                for (child_id, child_is_cond) in children_stack {
+                    stack.push(Step::Enter(child_id, child_is_cond));
                 }
             }
 
-            Step::Exit(ast_id, children_count) => {
+            Step::Exit(ast_id, children_count, node_is_condition) => {
                 let ast_node = subtree.tree().try_node(ast_id)?;
                 let kind = ast_node.kind();
 
@@ -126,7 +133,13 @@ pub fn encode(
                     }
 
                     // 2. Logique
-                    AstKind::And => builder.and(children_ids),
+                    AstKind::And => {
+                        if node_is_condition {
+                            builder.and(children_ids)
+                        } else {
+                            builder.and_unchecked_contradictions(children_ids)
+                        }
+                    }
                     AstKind::Or => builder.or(children_ids),
                     AstKind::Not => builder.not(children_ids[0]),
                     AstKind::Imply => builder.imply(children_ids[0], children_ids[1]),

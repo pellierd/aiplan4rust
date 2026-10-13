@@ -150,7 +150,7 @@ pub fn normalize(
 
             // Extract the newly mapped children slice and reconstruct the node
             let new_children_slice = &scratch.children_buffer()[start_idx..end_idx];
-            let new_id = builder.reconstruct(target_kind, new_children_slice)?;
+            let new_id = builder.raw_reconstruct(target_kind, new_children_slice)?;
 
             // Clean up the temporary segment in the scratchpad and cache the result
             scratch.children_buffer_mut().truncate(start_idx);

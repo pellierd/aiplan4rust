@@ -31,7 +31,7 @@ pub fn normalize(
 
     // 1. Negation Normal Form (NNF)
     // Pushes negations inwards down to the literal level.
-    let root = nnf::to_nnf(root, &mut builder, scratch)?;
+    let root = nnf::to_nnf(root, &mut builder, scratch, !is_effect)?;
 
     // 2. Temporal Normal Form (TNF)
     // Decomposes temporal structures into synchronized streams (start, end, overall).
@@ -43,7 +43,7 @@ pub fn normalize(
 
     // 3. Flattening and Factorization Normal Form (FNF)
     // Flattens associative operators (AND/OR) and eliminates structural redundancies.
-    let final_root = fnf::to_fnf(root, &mut builder, scratch, true)?;
+    let final_root = fnf::to_fnf(root, &mut builder, scratch, true, !is_effect)?;
 
     // Global pipeline validation
     check_post_conditions(builder.store_mut(), root, final_root);

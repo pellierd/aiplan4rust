@@ -21,7 +21,22 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// The unique `ExprId` representing the simplified conjunction.
     pub fn and(&mut self, children: &[ExprId]) -> ExprId {
-        self.reduce(ExprKind::And, children)
+        self.reduce(ExprKind::And, children, true)
+    }
+
+    /// Creates a logical `AND` node with one or more children, bypassing contradiction checks.
+    ///
+    /// This is designed for PDDL state effects (e.g., delete-then-add sequences like `(not P) AND P`)
+    /// where complementary pairs represent valid state transitions rather than logical contradictions.
+    /// All other reductions (flattening, sorting, deduplication, conditional fusion) still apply.
+    ///
+    /// # Arguments
+    /// * `children` - A slice of `ExprId` operands to be joined by an AND operator.
+    ///
+    /// # Returns
+    /// The unique `ExprId` representing the simplified conjunction.
+    pub fn and_unchecked_contradictions(&mut self, children: &[ExprId]) -> ExprId {
+        self.reduce(ExprKind::And, children, false)
     }
 
     /// Creates an empty `AND` node, representing the logical constant "True".
@@ -48,7 +63,22 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// The unique `ExprId` representing the simplified disjunction.
     pub fn or(&mut self, children: &[ExprId]) -> ExprId {
-        self.reduce(ExprKind::Or, children)
+        self.reduce(ExprKind::Or, children, true)
+    }
+
+    /// Creates a logical `OR` node with one or more children, bypassing tautology checks.
+    ///
+    /// This is designed for contexts where complementary terms should not be
+    /// automatically simplified away by tautology detection.
+    /// All other reductions (flattening, sorting, deduplication) still apply.
+    ///
+    /// # Arguments
+    /// * `children` - A slice of `ExprId` operands to be joined by an OR operator.
+    ///
+    /// # Returns
+    /// The unique `ExprId` representing the simplified disjunction.
+    pub fn or_unchecked_tautologies(&mut self, children: &[ExprId]) -> ExprId {
+        self.reduce(ExprKind::Or, children, false)
     }
 
     /// Creates an empty `OR` node, representing the logical constant "False".
@@ -75,12 +105,13 @@ impl<'a> ExprBuilder<'a> {
     /// 2. **Neutral Element**: Removes `True` from `AND` or `False` from `OR`.
     /// 3. **Flattening**: Merges nested operations of the same kind, e.g., `AND(A, AND(B, C))` -> `AND(A, B, C)`.
     /// 4. **Canonicalization**: Sorts and deduplicates operands to ensure a unique representation.
-    /// 5. **Complementary Pairs**: Detects tautologies (`P OR !P`) and contradictions (`P AND !P`).
+    /// 5. **Complementary Pairs**: Detects tautologies (`P OR !P`) and contradictions (`P AND !P`) if enabled.
     /// 6. **Conditional Fusion**: Triggers advanced merging for `When` nodes within `AND` blocks.
     ///
     /// # Arguments
     /// * `kind` - The type of logical operation (`And` or `Or`).
     /// * `children` - The raw list of operand `ExprId`s.
+    /// * `check_contradictions` - Whether to enable complementary pair / contradiction detection.
     ///
     /// # Returns
     /// A canonical `ExprId` representing the simplified expression.
@@ -89,7 +120,12 @@ impl<'a> ExprBuilder<'a> {
     /// To bypass the Rust borrow checker and maintain zero-allocation, this function
     /// leverages disjoint field access (`self.old` vs `self.primary_buffer`) and
     /// uses `secondary_buffer` as a temporary staging area for flattening.
-    pub fn reduce(&mut self, kind: ExprKind, children: &[ExprId]) -> ExprId {
+    pub fn reduce(
+        &mut self,
+        kind: ExprKind,
+        children: &[ExprId],
+        check_contradictions: bool,
+    ) -> ExprId {
         let (neutral, absorbing) = match kind {
             ExprKind::And => (self.empty_and(), self.empty_or()),
             ExprKind::Or => (self.empty_or(), self.empty_and()),
@@ -140,7 +176,7 @@ impl<'a> ExprBuilder<'a> {
         // Ownership dance: Move buffer out to perform analysis, then return it.
         let mut collected = std::mem::take(&mut self.primary_buffer);
 
-        let result = if self.has_complementary_pair(&collected) {
+        let result = if check_contradictions && self.has_complementary_pair(&collected) {
             absorbing
         } else {
             match kind {
@@ -704,7 +740,8 @@ impl<'a> ExprBuilder<'a> {
                 // To avoid borrow-checker conflicts or reentrancy issues with internal buffers,
                 // we clone the slice before passing it to the n-ary constructor.
                 let remaining_slice = self.secondary_buffer.clone();
-                let simplified_eff = self.and(&remaining_slice);
+                let simplified_eff = self.intern(ExprKind::And, &remaining_slice);
+
                 return self.intern(ExprKind::When, &[cond, simplified_eff]);
             }
         }

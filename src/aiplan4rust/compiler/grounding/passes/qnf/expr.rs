@@ -32,6 +32,7 @@ pub fn expand(
     expr_id: ExprId,
     store: &mut ExprStore,
     value_registry: &ValueRegistry,
+    check_contradictions: bool,
 ) -> Result<ExprId, GroundingError> {
     // SAFETY: If the starting ID is invalid or marked as "None"
     if expr_id.is_none() {
@@ -45,6 +46,7 @@ pub fn expand(
         store,
         value_registry,
         None,
+        check_contradictions,
         &mut binding_scratchpad,
         &mut expansion_scratchpad,
     )
@@ -77,6 +79,8 @@ pub fn expand(
 /// * `store` - The central, mutable DOD expression arena hosting the node properties and interned paths.
 /// * `value_registry` - The concrete planning problem registry tracking current object instances and type domains.
 /// * `evaluator` - An optional dynamic expression evaluator used for on-the-fly conditional pruning.
+/// * `check_contradictions` - A boolean flag controlling whether contradiction checks and filtering
+///   are enabled when reconstructing expressions during quantifier expansion and interning.
 /// * `binding_scratchpad` - A long-lived, reusable environment buffer managing variable-to-instance tracking states.
 /// * `expansion_scratchpad` - A long-lived, reusable context buffer hosting the execution stack and the $O(1)$ memoization table.
 ///
@@ -89,6 +93,7 @@ pub fn expand_with(
     store: &mut ExprStore,
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn ExprEvaluator>,
+    check_contradictions: bool,
     binding_scratchpad: &mut BindingScratchpad,
     expansion_scratchpad: &mut QnfScratchpad,
 ) -> Result<ExprId, GroundingError> {
@@ -170,6 +175,7 @@ pub fn expand_with(
                         expansion_scratchpad,
                         value_registry,
                         evaluator,
+                        check_contradictions,
                     )?
                 }
                 // Standard nodes: map sub-tree structural modifications structurally
@@ -255,6 +261,7 @@ fn check_qnf_post_condition(store: &ExprStore, root_id: ExprId) {
         "LOGICAL VIOLATION: QNF expansion failed! Quantifier nodes (Forall/Exists) were detected in the final grounded tree."
     );
 }
+
 /// Materializes and compresses quantified expressions by evaluating their Cartesian product bindings.
 ///
 /// This core function performs the actual grounding of first-order logic quantifiers (`forall` / `exists`).
@@ -285,6 +292,8 @@ fn check_qnf_post_condition(store: &ExprStore, root_id: ExprId) {
 /// * `expansion_scratchpad` - A long-lived, reusable context buffer hosting variable lists and instance accumulation buffers.
 /// * `value_registry` - The problem instance registry managing concrete object sets and type domains.
 /// * `evaluator` - An optional dynamic expression evaluator used for on-the-fly conditional pruning.
+/// * `check_contradictions` - A boolean flag controlling whether contradiction checks and filtering
+///   are enabled when reconstructing expressions during grounding and expansion.
 ///
 /// # Errors
 ///
@@ -299,6 +308,7 @@ fn quantified_expr(
     expansion_scratchpad: &mut QnfScratchpad,
     value_registry: &ValueRegistry,
     evaluator: Option<&dyn ExprEvaluator>,
+    check_contradictions: bool,
 ) -> Result<ExprId, GroundingError> {
     // Clear and populate local variables list to avoid heap allocations
     expansion_scratchpad.variables.clear();
@@ -327,8 +337,14 @@ fn quantified_expr(
     // Iterate through all generated variable-to-value bindings
     while let Some(bindings) = iterator.next() {
         // Substitute variables and partially evaluate the body sub-tree
-        let (result_id, culprit) =
-            bind_with(body_id, store, &bindings, evaluator, binding_scratchpad)?;
+        let (result_id, culprit) = bind_with(
+            body_id,
+            store,
+            &bindings,
+            check_contradictions,
+            evaluator,
+            binding_scratchpad,
+        )?;
 
         // Short-circuit: Immediately break and return if a killer value violates the quantifier type
         if is_forall && result_id == const_false {
@@ -458,6 +474,7 @@ mod tests {
             &mut store,
             &registry,
             None,
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -469,6 +486,7 @@ mod tests {
             &mut store,
             &registry,
             None,
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -518,6 +536,7 @@ mod tests {
             &mut store,
             &registry,
             Some(&evaluator),
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -573,6 +592,7 @@ mod tests {
             &mut store,
             &registry,
             Some(&evaluator),
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -615,6 +635,7 @@ mod tests {
             &mut store,
             &registry,
             None,
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -700,6 +721,7 @@ mod tests {
             &mut store,
             &registry,
             Some(&MockNoneEvaluator),
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -754,6 +776,7 @@ mod tests {
             &mut store,
             &registry,
             Some(&evaluator),
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -824,6 +847,7 @@ mod tests {
             &mut store,
             &registry,
             None,
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -884,6 +908,7 @@ mod tests {
             &mut store,
             &registry,
             Some(&evaluator),
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -944,6 +969,7 @@ mod tests {
             &mut store,
             &registry,
             None,
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -986,6 +1012,7 @@ mod tests {
             &mut store,
             &registry,
             None,
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -1036,6 +1063,7 @@ mod tests {
             &mut store,
             &registry,
             Some(&evaluator),
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;
@@ -1095,6 +1123,7 @@ mod tests {
             &mut store,
             &registry,
             None,
+            true,
             &mut b_scratch,
             &mut e_scratch,
         )?;

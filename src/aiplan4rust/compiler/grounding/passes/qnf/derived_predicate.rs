@@ -70,6 +70,7 @@ pub fn expand_with(
         store,
         value_registry,
         evaluator,
+        true,
         binding_scratchpad,
         expansion_scratchpad,
     )?;

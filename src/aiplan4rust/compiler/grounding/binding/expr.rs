@@ -13,12 +13,20 @@ pub fn bind(
     expr_id: ExprId,
     store: &mut ExprStore,
     sub: &Bindings,
+    check_contradictions: bool,
 ) -> Result<(ExprId, Option<VariableId>), BindingError> {
     if expr_id.is_none() {
         return Ok((expr_id, None));
     }
     let mut scratchpad = BindingScratchpad::new();
-    bind_with(expr_id, store, sub, None, &mut scratchpad)
+    bind_with(
+        expr_id,
+        store,
+        sub,
+        check_contradictions,
+        None,
+        &mut scratchpad,
+    )
 }
 
 /// **Version Avancée** : Moteur de parcours unique, ultra-optimisé et sans allocation.
@@ -34,6 +42,7 @@ pub fn bind_with(
     expr_id: ExprId,
     store: &mut ExprStore,
     sub: &Bindings,
+    check_contradictions: bool,
     evaluator: Option<&dyn ExprEvaluator>,
     scratchpad: &mut BindingScratchpad,
 ) -> Result<(ExprId, Option<VariableId>), BindingError> {
@@ -159,7 +168,11 @@ pub fn bind_with(
                 _ => {
                     if has_changed {
                         // On ne clone le Kind que si la reconstruction est inévitable
-                        builder.reconstruct(entry_kind.clone(), &scratchpad.children_buffer)?
+                        builder.reconstruct(
+                            entry_kind.clone(),
+                            &scratchpad.children_buffer,
+                            check_contradictions,
+                        )?
                     } else {
                         old_id
                     }
@@ -269,7 +282,7 @@ mod tests {
         bindings.insert(var_id, obj_id);
 
         // 3. Execute the standard grounding binding pipeline
-        let result = bind(expr_var, &mut store, &bindings);
+        let result = bind(expr_var, &mut store, &bindings, true);
 
         // 4. Assert successful execution and extract the resulting node identifier
         assert!(result.is_ok(), "The variable binding execution failed.");
@@ -331,7 +344,7 @@ mod tests {
 
         // 3. Run the standard binding execution pipeline
         // CORRECTION : Déstructuration du tuple (ExprId, Option<VariableId>)
-        let (new_root, culprit) = bind(expr_num, &mut store, &bindings).unwrap();
+        let (new_root, culprit) = bind(expr_num, &mut store, &bindings, true).unwrap();
 
         // 4. Assert that the returned node identifier is strictly identical to the input identifier
         assert_eq!(
@@ -390,6 +403,7 @@ mod tests {
             expr_atomic,
             &mut store,
             &bindings,
+            true,
             Some(&evaluator),
             &mut scratchpad,
         );
@@ -477,7 +491,7 @@ mod tests {
         bindings.insert(var_x, obj_100);
 
         // 3. Execute the grounding binding pipeline
-        let result = bind(root, &mut store, &bindings);
+        let result = bind(root, &mut store, &bindings, true);
 
         // 4. Assert execution success and check that a new node was generated
         assert!(result.is_ok(), "The basic binding execution failed.");
@@ -560,7 +574,7 @@ mod tests {
         bindings.insert(x_id, obj_100);
 
         // 3. Execute the standard binding pipeline
-        let (new_root, culprit) = bind(root, &mut store, &bindings).unwrap();
+        let (new_root, culprit) = bind(root, &mut store, &bindings, true).unwrap();
 
         // 4. Assert that a structural change occurred and a new root node was interned
         assert_ne!(
@@ -615,7 +629,7 @@ mod tests {
 
         // 3. Run the binding process
         // CORRECTION : Déstructuration du tuple (ExprId, Option<VariableId>)
-        let (new_root, culprit) = bind(root, &mut store, &bindings).unwrap();
+        let (new_root, culprit) = bind(root, &mut store, &bindings, true).unwrap();
 
         // 4. Assert that the resulting node identity is strictly equal to the input root identity
         assert_eq!(
@@ -663,6 +677,7 @@ mod tests {
             expr_atomic,
             &mut store,
             &bindings,
+            true,
             Some(&evaluator),
             &mut scratchpad,
         )
@@ -759,7 +774,7 @@ mod tests {
         bindings.insert(var_x, obj_100);
 
         // 4. Run the binding pipeline
-        let result = bind(root, &mut store, &bindings);
+        let result = bind(root, &mut store, &bindings, true);
 
         assert!(result.is_ok(), "The binding process failed to execute.");
 
@@ -840,6 +855,7 @@ mod tests {
             expr_function,
             &mut store,
             &bindings,
+            true,
             Some(&evaluator),
             &mut scratchpad,
         )
@@ -924,6 +940,7 @@ mod tests {
             expr_var,
             &mut store,
             &bindings,
+            true,
             Some(&evaluator),
             &mut scratchpad,
         )
@@ -1019,7 +1036,7 @@ mod tests {
 
         // 5. Execute the evaluation using an isolated scratchpad
         let mut scratchpad = BindingScratchpad::new();
-        let result = bind_with(root, &mut store, &bindings, None, &mut scratchpad);
+        let result = bind_with(root, &mut store, &bindings, true, None, &mut scratchpad);
 
         assert!(
             result.is_ok(),
@@ -1107,6 +1124,7 @@ mod tests {
             root,
             &mut store,
             &bindings,
+            true,
             Some(&evaluator),
             &mut scratchpad,
         )
@@ -1188,6 +1206,7 @@ mod tests {
             root,
             &mut store,
             &bindings,
+            true,
             Some(&evaluator),
             &mut scratchpad,
         )
@@ -1246,6 +1265,7 @@ mod tests {
             root,
             &mut store,
             &bindings,
+            true,
             Some(&evaluator),
             &mut scratchpad,
         )

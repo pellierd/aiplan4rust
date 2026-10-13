@@ -68,6 +68,7 @@ pub fn expand_with(
         store,
         value_registry,
         evaluator,
+        true,
         binding_scratchpad,
         expansion_scratchpad,
     )?;
@@ -80,6 +81,7 @@ pub fn expand_with(
         store,
         value_registry,
         evaluator,
+        false,
         binding_scratchpad,
         expansion_scratchpad,
     )?;
@@ -92,6 +94,7 @@ pub fn expand_with(
             store,
             value_registry,
             evaluator,
+            true,
             binding_scratchpad,
             expansion_scratchpad,
         )?;

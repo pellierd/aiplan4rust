@@ -135,6 +135,12 @@ impl<'a> ExprBuilder<'a> {
     /// * `kind` - The [`ExprKind`] of the node to reconstruct.
     /// * `children` - A slice of [`ExprId`] representing the already interned children
     ///   of this expression.
+    /// * `check_contradictions` - A boolean flag controlling the contradiction filtering policy:
+    ///   - `true`: Enables contradiction checks and filtering (reserved for pure logical
+    ///     constraints, preconditions, and goals).
+    ///   - `false`: Bypasses contradiction filtering (reserved for effects, metrics, lengths,
+    ///     and HTN structures where contradiction filtering is semantically irrelevant or
+    ///     performance-prohibitive).
     ///
     /// # Returns
     ///
@@ -151,11 +157,18 @@ impl<'a> ExprBuilder<'a> {
         &mut self,
         kind: ExprKind,
         children: &[ExprId],
+        check_contradictions: bool,
     ) -> Result<ExprId, ExprBuilderError> {
         let id = match kind {
             // --- 1. Variadic Logical and Arithmetic Operators ---
             // Uses smart constructors to trigger potential simplifications (e.g., flattening)
-            ExprKind::And => self.and(children),
+            ExprKind::And => {
+                if check_contradictions {
+                    self.and(children)
+                } else {
+                    self.and_unchecked_contradictions(children)
+                }
+            }
             ExprKind::Or => self.or(children),
             ExprKind::Arithmetic(op) => self.arithmetic(op, children),
 
@@ -211,6 +224,42 @@ impl<'a> ExprBuilder<'a> {
             // Objects, Numbers, Variables, etc. take no children in the buffer.
             leaf_kind => self.intern(leaf_kind, &[]),
         };
+        Ok(id)
+    }
+
+    /// Reconstructs an expression node directly via raw interning,
+    /// bypassing all smart constructors, logical simplifications, and validation layers.
+    ///
+    /// This method acts as a low-level structural dispatcher. Unlike [`ExprBuilder::reconstruct`],
+    /// it does not trigger flattening, logical deduplication rules, contradiction checks,
+    /// or scope validation. It directly interns the node into the underlying store.
+    ///
+    /// # When to Use
+    /// This is specifically designed for structural rewriting passes (such as type normalization
+    /// within quantifier scopes) where the expression tree shape is already guaranteed, valid,
+    /// and only specific attributes (like variable type lists) are being updated.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The [`ExprKind`] of the node to reconstruct.
+    /// * `children` - A slice of [`ExprId`] representing the already transformed or interned children
+    ///   of this expression.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(ExprId)` - The identifier of the newly interned raw node.
+    /// * `Err(ExprBuilderError)` - If the store fails to allocate slot IDs during interning.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error only if structural store allocation fails;
+    /// semantic and logical errors are bypassed by design.
+    pub fn raw_reconstruct(
+        &mut self,
+        kind: ExprKind,
+        children: &[ExprId],
+    ) -> Result<ExprId, ExprBuilderError> {
+        let id = self.intern(kind, children);
         Ok(id)
     }
 

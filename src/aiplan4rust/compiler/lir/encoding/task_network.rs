@@ -77,6 +77,7 @@ fn encode_task_network_content(
                     &SyntaxSubtree::new(ast.try_node(tasks_node_id)?, tasks_node_id, ast),
                     registry,
                     builder,
+                    false,
                 )?;
             }
             AstKind::OrderedSubtaskDef => {
@@ -85,6 +86,7 @@ fn encode_task_network_content(
                     &SyntaxSubtree::new(ast.try_node(tasks_node_id)?, tasks_node_id, ast),
                     registry,
                     builder,
+                    false,
                 )?;
                 total_ordered = true;
             }
@@ -94,6 +96,7 @@ fn encode_task_network_content(
                     &SyntaxSubtree::new(ast.try_node(ordering_node_id)?, ordering_node_id, ast),
                     registry,
                     builder,
+                    false,
                 )?;
             }
             AstKind::TaskLogicalConstraintDef => {
@@ -102,6 +105,7 @@ fn encode_task_network_content(
                     &SyntaxSubtree::new(ast.try_node(logical_node_id)?, logical_node_id, ast),
                     registry,
                     builder,
+                    true,
                 )?;
             }
             _ => return Err(EncodingError::unsupported_ast_node_kind(child_node.kind())),
@@ -131,7 +135,6 @@ fn finalize_task_network(
     // On utilise désormais ExprId pour task_nodes comme convenu
     let mut task_nodes = vec![ExprId::default(); num_tasks];
     let mut task_defs = vec![TaskSkeletonId::default(); num_tasks];
-    // Note: task_labels n'est plus nécessaire si tu ne t'en sers pas dans TaskNetwork::new
 
     // On crée l'itérateur pour parcourir l'arbre à partir de la racine 'tasks_id'
     let iter = TreePreorderIter::new(builder.store_mut(), tasks_id);

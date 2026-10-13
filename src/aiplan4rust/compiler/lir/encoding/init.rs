@@ -39,7 +39,7 @@ pub fn encode(
     // 2. Utilisation de l'encodeur d'expression avec le builder.
     // Contrairement à l'ancienne version, cela retourne un ExprId.
     // L'expression résultante est généralement un "And" de tous les faits initiaux.
-    let init_expr_id = expr::encode(&child_subtree, registry, builder)?;
+    let init_expr_id = expr::encode(&child_subtree, registry, builder, true)?;
 
     Ok(init_expr_id)
 }

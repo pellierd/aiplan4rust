@@ -82,6 +82,9 @@ use crate::aiplan4rust::compiler::lir::renderers::{LiftedDebugDisplay, LirRender
 /// * `builder` - A mutable reference to the [`ExprBuilder`] used to intern newly generated nodes.
 /// * `scratch` - A mutable reference to a reusable [`Scratchpad`] providing stable allocations
 ///   for stack operations, cached memoization, and localized child buffers.
+/// * `check_contradictions` - A boolean flag controlling whether smart constructor optimizations
+///   (such as contradiction and tautology checking) are applied during bottom-up reconstruction (`true`)
+///   or bypassed via unchecked methods to protect strict structures like effects (`false`).
 ///
 /// # Returns
 ///
@@ -93,6 +96,7 @@ pub fn to_nnf(
     id: ExprId,
     builder: &mut ExprBuilder,
     scratch: &mut Scratchpad,
+    check_contradictions: bool,
 ) -> Result<ExprId, ExprOpError> {
     if id.is_none() {
         return Ok(id);
@@ -253,10 +257,14 @@ pub fn to_nnf(
                     }
 
                     // Apply De Morgan dualities on-the-fly based on the accumulated negation state
-                    if apply_de_morgan(is_and, negate) {
-                        builder.and(scratch.build_buffer())
-                    } else {
-                        builder.or(scratch.build_buffer())
+                    let use_and = apply_de_morgan(is_and, negate);
+                    match (use_and, check_contradictions) {
+                        (true, true) => builder.and(scratch.build_buffer()),
+                        (true, false) => {
+                            builder.and_unchecked_contradictions(scratch.build_buffer())
+                        }
+                        (false, true) => builder.or(scratch.build_buffer()),
+                        (false, false) => builder.or_unchecked_tautologies(scratch.build_buffer()),
                     }
                 }
 
@@ -530,7 +538,7 @@ mod tests {
         let root = builder.not(and_node);
 
         // 2. Transformation: De Morgan's Law ¬(A ∧ B) -> (¬A ∨ ¬B)
-        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch, true)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -578,7 +586,7 @@ mod tests {
         let root = builder.not(or_node);
 
         // 2. Transformation: De Morgan's Law ¬(A ∨ B) -> (¬A ∧ ¬B)
-        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch, true)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -633,7 +641,7 @@ mod tests {
         let root = builder.not(forall_node);
 
         // 2. Transformation: ¬∀x.A -> ∃x.¬A
-        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch, true)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -685,7 +693,7 @@ mod tests {
         let root = builder.not(exists_node);
 
         // 2. Transformation: ¬∃x.A -> ∀x.¬A
-        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch, true)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -726,7 +734,7 @@ mod tests {
         let root = builder.not(a);
 
         // 2. Transformation: Aucun changement structurel attendu
-        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch, true)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -773,7 +781,7 @@ mod tests {
         // 2. Transformation
         // Internal push_negation logic transforms:
         // ¬(A ∧ ¬B ∧ ∃x.C)  =>  (¬A ∨ B ∨ ∀x.¬C)
-        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch, true)?;
         let root_node = builder.fetch(result_id)?;
 
         // 3. Validation
@@ -879,7 +887,7 @@ mod tests {
         let root_id = builder.not(and_node);
 
         // 4. Perform NNF Transformation
-        let result_id = to_nnf(root_id, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root_id, &mut builder, &mut scratch, true)?;
 
         // 5. Validation phase
         let children: Vec<ExprId> = {
@@ -952,11 +960,11 @@ mod tests {
         // ROOT: ¬((A ∧ B) ∨ (A ∧ C))
         let root = builder.not(or_node);
 
-        let result_id = to_nnf(root, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(root, &mut builder, &mut scratch, true)?;
 
         // On calcule manuellement ¬(A ∧ B) pour vérifier le partage
         let not_and_ab = builder.not(and_ab);
-        let expected_part_id = to_nnf(not_and_ab, &mut builder, &mut scratch)?;
+        let expected_part_id = to_nnf(not_and_ab, &mut builder, &mut scratch, true)?;
 
         let root_node = builder.fetch(result_id)?;
 
@@ -992,7 +1000,7 @@ mod tests {
         let n2 = builder.not(n1);
         let not_3_a = builder.not(n2);
 
-        let result_id = to_nnf(not_3_a, &mut builder, &mut scratch)?;
+        let result_id = to_nnf(not_3_a, &mut builder, &mut scratch, true)?;
         let root_node = builder.fetch(result_id)?;
 
         // Le résultat doit être simplement ¬A (ID de n1)
@@ -1021,8 +1029,8 @@ mod tests {
         let and_node = builder.and(&[a, b]);
         let root = builder.not(and_node);
 
-        let first_pass = to_nnf(root, &mut builder, &mut scratch)?;
-        let second_pass = to_nnf(first_pass, &mut builder, &mut scratch)?;
+        let first_pass = to_nnf(root, &mut builder, &mut scratch, true)?;
+        let second_pass = to_nnf(first_pass, &mut builder, &mut scratch, true)?;
 
         assert_eq!(
             first_pass, second_pass,

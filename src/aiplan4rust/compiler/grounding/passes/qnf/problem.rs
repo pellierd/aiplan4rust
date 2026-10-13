@@ -53,6 +53,7 @@ pub fn expand_with(
         &mut store,
         value_registry,
         evaluator,
+        true,
         &mut binding_scratchpad,
         &mut expansion_scratchpad,
     )?;
@@ -63,6 +64,7 @@ pub fn expand_with(
         &mut store,
         value_registry,
         evaluator,
+        true,
         &mut binding_scratchpad,
         &mut expansion_scratchpad,
     )?;
@@ -110,6 +112,7 @@ pub fn expand_with(
         &mut store,
         value_registry,
         evaluator,
+        true,
         &mut binding_scratchpad,
         &mut expansion_scratchpad,
     )?;
@@ -120,6 +123,7 @@ pub fn expand_with(
         &mut store,
         value_registry,
         evaluator,
+        false,
         &mut binding_scratchpad,
         &mut expansion_scratchpad,
     )?;
@@ -136,6 +140,7 @@ pub fn expand_with(
         &mut store,
         value_registry,
         evaluator,
+        true,
         &mut binding_scratchpad,
         &mut expansion_scratchpad,
     )?;

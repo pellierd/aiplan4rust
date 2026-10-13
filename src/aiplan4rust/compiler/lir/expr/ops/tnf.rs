@@ -144,9 +144,12 @@ pub fn to_tnf(
                     }
 
                     // Rebuild logical nodes for each flux
-                    let s_id = rebuild_safe(builder, &kind, scratch.at_start_buffer(), empty)?;
-                    let e_id = rebuild_safe(builder, &kind, scratch.at_end_buffer(), empty)?;
-                    let o_id = rebuild_safe(builder, &kind, scratch.overall_buffer(), empty)?;
+                    let s_id =
+                        rebuild_safe(builder, &kind, scratch.at_start_buffer(), empty, !is_effect)?;
+                    let e_id =
+                        rebuild_safe(builder, &kind, scratch.at_end_buffer(), empty, !is_effect)?;
+                    let o_id =
+                        rebuild_safe(builder, &kind, scratch.overall_buffer(), empty, !is_effect)?;
                     (s_id, e_id, o_id)
                 }
 
@@ -305,6 +308,8 @@ fn check_post_conditions(builder: &mut ExprBuilder, final_res: ExprId, is_effect
 /// * `kind`: The [`ExprKind`] of the node to reconstruct (e.g., `And`, `Or`, `Not`).
 /// * `kids`: A slice of [`ExprId`] representing the already transformed children of this node.
 /// * `empty`: The [`ExprId`] of the neutral element (logical True/empty AND) to return if `kids` is empty.
+/// * `check_contradictions`: A boolean flag controlling whether logical contradiction checks
+///   and filtering are enabled when delegating to the builder's reconstruction pipeline.
 ///
 /// # Returns
 /// * `Ok(ExprId)`: The ID of the simplified or reconstructed node.
@@ -315,12 +320,13 @@ fn check_post_conditions(builder: &mut ExprBuilder, final_res: ExprId, is_effect
 /// 2. **Identity Law**: For `And` and `Or` nodes, if there is exactly one child, the node
 ///    is bypassed and the child's ID is returned directly.
 /// 3. **Canonicalization**: In all other cases, it delegates to `builder.reconstruct`,
-///    which handles structural deduplication (hash-consing).
+///    which handles structural deduplication (hash-consing) with the specified contradiction policy.
 fn rebuild_safe(
     builder: &mut ExprBuilder,
     kind: &ExprKind,
     kids: &[ExprId],
     empty: ExprId,
+    check_contradictions: bool,
 ) -> Result<ExprId, ExprOpError> {
     if kids.is_empty() {
         // Identity: empty AND/OR often simplifies to True/False in TNF contexts
@@ -330,7 +336,7 @@ fn rebuild_safe(
         Ok(kids[0])
     } else {
         // General case: call the builder to intern the node
-        Ok(builder.reconstruct(kind.clone(), kids)?)
+        Ok(builder.reconstruct(kind.clone(), kids, check_contradictions)?)
     }
 }
 

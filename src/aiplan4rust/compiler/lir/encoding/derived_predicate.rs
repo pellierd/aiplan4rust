@@ -84,6 +84,7 @@ pub fn encode(
         &SyntaxSubtree::new(body_node, body_node_id, ast),
         registry,
         builder,
+        true,
     )?;
 
     // --- STEP 5: Finalization ---

@@ -171,13 +171,13 @@ pub fn encode_problem_logic(
 
             // Optimization objective (e.g., minimize total-time)
             AstKind::Metric => {
-                let metric = expr::encode(&subtree, registry, builder)?;
+                let metric = expr::encode(&subtree, registry, builder, false)?;
                 ir.set_metric_spec(metric);
             }
 
             // Plan length specifications (often for search guidance)
             AstKind::Length => {
-                let length = expr::encode(&subtree, registry, builder)?;
+                let length = expr::encode(&subtree, registry, builder, false)?;
                 ir.set_length_spec(length);
             }
 

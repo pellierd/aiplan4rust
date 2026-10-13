@@ -52,6 +52,7 @@ pub fn encode(
         &SyntaxSubtree::new(task_node, task_node_id, ast),
         registry,
         builder,
+        true,
     )?;
     child_index += 1;
 
@@ -66,6 +67,7 @@ pub fn encode(
                 &SyntaxSubtree::new(pre_node, pre_node_id, ast),
                 registry,
                 builder,
+                true,
             )?
         } else {
             builder.empty_or() // Utilisation du builder au lieu de Expr::empty_or()

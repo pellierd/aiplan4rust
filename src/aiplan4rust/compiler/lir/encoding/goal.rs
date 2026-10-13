@@ -37,7 +37,7 @@ pub fn encode(
 
     // 2. Encodage récursif de l'expression de but.
     // Comme pour l'init, cela retourne maintenant un ExprId pointant vers le Store.
-    let goal_expr_id = expr::encode(&child_subtree, registry, builder)?;
+    let goal_expr_id = expr::encode(&child_subtree, registry, builder, true)?;
 
     Ok(goal_expr_id)
 }
