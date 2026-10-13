@@ -36,19 +36,19 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
         let domain_path = find_associated_domain(problem_path).expect("Domain not found");
 
         // 1. Lancement de Fast Downward et extraction systématique des données de l'oracle
-        let (exp_f, exp_a, expected_actions, _expected_fluents) =
+        let (exp_f, exp_a, expected_actions, _expected_fluents, fd_available) =
             match run_fast_downward_and_get_content(&domain_path, problem_path) {
                 Ok(content) => {
                     let acts = extract_actions_from_content(&content).unwrap_or_default();
                     let fluents = extract_fluents_from_content(&content).unwrap_or_default();
-                    (fluents.len(), acts.len(), acts, fluents)
+                    (fluents.len(), acts.len(), acts, fluents, true)
                 }
                 Err(e) => {
                     println!(
                         "\x1b[1;33m[WARNING]\x1b[0m Impossible de lancer Fast Downward: {}",
                         e
                     );
-                    (0, 0, Vec::new(), Vec::new())
+                    (0, 0, Vec::new(), Vec::new(), false)
                 }
             };
 
@@ -166,7 +166,7 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
         let actual_f = datalog.get_reachable_fluents().len();
         let actual_a = datalog.get_reachable_actions().len();
 
-        // 3. Affichage systématique des détails de l'oracle FD et des résultats de Datalog
+        // 3. Affichage et comparaison avec l'oracle FD
         println!("\x1b[1;32m[INFO / ORACLE]\x1b[0m");
         println!("    -> FD Oracle  : {} Fluents, {} Actions", exp_f, exp_a);
         println!(
@@ -174,15 +174,32 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             actual_f, actual_a
         );
 
-        // Affichage systématique de la liste des actions générées par l'oracle FD
-        println!(
-            "\n    --- [FD] Liste détaillée des Actions attendues ({}) ---",
-            expected_actions.len()
-        );
-        for act in &expected_actions {
-            println!("      - {}", act);
+        let mut problem_ok = true;
+
+        if fd_available {
+            if actual_a != exp_a {
+                println!(
+                    "    \x1b[1;31m[MISMATCH] Actions attendues: {}, trouvées par Datalog: {}\x1b[0m",
+                    exp_a, actual_a
+                );
+                problem_ok = false;
+            }
+
+            if actual_f != exp_f {
+                println!(
+                    "    \x1b[1;33m[MISMATCH] Fluents attendus: {}, trouvés par Datalog: {}\x1b[0m",
+                    exp_f, actual_f
+                );
+                problem_ok = false;
+            }
         }
-        println!("    --------------------------------------------------------\n");
+
+        if !problem_ok {
+            success = false;
+            println!("    \x1b[1;31m[FAILED]\x1b[0m\n");
+        } else {
+            println!("    \x1b[1;32m[PASSED]\x1b[0m\n");
+        }
     }
 
     success

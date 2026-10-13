@@ -254,6 +254,15 @@ impl<'a> InertiaEvaluator<'a> {
         )
     }
 
+    /// Returns the maximum combinatorial projection threshold configured for this evaluator instance.
+    ///
+    /// This threshold restricts the size of partial instantiation subsets evaluated during
+    /// combinatorial projection analysis, preventing hash-map and memory explosions when
+    /// processing high-arity predicates or functions with free variables[cite: 6].
+    pub fn max_projections(&self) -> usize {
+        self.max_proj
+    }
+
     /// Validates the structural and configuration invariants of the evaluator.
     ///
     /// This method enforces critical boundary conditions before the grounding and evaluation
@@ -339,7 +348,7 @@ impl<'a> InertiaEvaluator<'a> {
     /// This method unifies and centralizes the zero-cost evaluation of argument masks for both
     /// logical predicates and numerical functions. It enforces two critical rules from the IPP framework:
     /// 1. **Projection Limiting (`max_proj`)**: Restricts combinatorial explosion by aborting evaluation
-    ///    if the number of bound constant objects exceeds the configured threshold.
+    ///    if the number of bound constant objects exceeds the configured threshold, exempting fully grounded terms.
     /// 2. **Global Instantiation Status (`grounded`)**: Determines via $O(1)$ bitwise operations whether
     ///    the call contains any unbound free variables.
     ///
@@ -360,31 +369,27 @@ impl<'a> InertiaEvaluator<'a> {
     ///
     /// # Returns
     ///
-    /// * `Some(true)`  - The expression is fully instantiated (*fully grounded*). All required arguments are constants.
+    /// * `Some(true)` - The expression is fully instantiated (*fully grounded*). All required arguments are constants.
     /// * `Some(false)` - The expression is partially instantiated. It contains at least one free variable.
-    /// * `None`        - The maximum projection limit has been breached (`count_ones() > max_proj`). The caller
-    ///                   must immediately abort the current evaluation path and return `Ok(None)`.
+    /// * `None` - The maximum projection limit has been breached (`count_ones() > max_proj`) for a non-fully-grounded term.
+    ///            The caller must immediately abort the current evaluation path and return `Ok(None)`.
     #[inline]
     pub(crate) fn validate_projection_and_grounding(
         &self,
         mask: u16,
         arity: usize,
     ) -> Option<bool> {
-        // 1. Strict limitation of combinatorial projection (Prevents hash-map table explosion)
-        if mask != 0 && mask.count_ones() as usize > self.max_proj {
+        // 1. Determine whether the atom is fully grounded (all arguments are constants)
+        let is_fully_grounded = arity == 0 || mask == ((1u16 << arity) - 1);
+
+        // 2. Apply the max_proj limit only if the atom is NOT fully grounded.
+        // If an atom is 100% fixed, there is no combinatorial explosion risk, so it is permitted.
+        if !is_fully_grounded && mask != 0 && mask.count_ones() as usize > self.max_proj {
             return None;
         }
 
-        // 2. Ultra-fast bitwise check for fully-grounded status.
-        // If arity == 0, the item is trivially grounded.
-        // Otherwise, all lower-order bits up to 'arity' must be set to 1.
-        let grounded = arity == 0
-            || mask
-                == if arity >= 16 {
-                    0xFFFF
-                } else {
-                    (1u16 << arity) - 1
-                };
+        // 3. Resolve the grounded status
+        let grounded = is_fully_grounded;
 
         Some(grounded)
     }

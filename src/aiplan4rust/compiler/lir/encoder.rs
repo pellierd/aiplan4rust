@@ -242,8 +242,8 @@ fn encode_lifted_problem(mut context: LinkedSemanticContext) -> Result<LiftedPro
     problem.set_store(expr_store);
 
     // --- 🔍 DUMP 1 : AVANT NORMALISATION ---
-    println!("=== DUMP TECHNIQUE DU PROBLEM AVANT NORMALISATION ===");
-    println!("{}", problem);
+    /*println!("=== DUMP TECHNIQUE DU PROBLEM AVANT NORMALISATION ===");
+    println!("{}", problem);*/
 
     // 7. Normalize the lifted problem (apply simplifications / rewrites)
     normalization::normalize(&mut problem)?;
@@ -251,10 +251,10 @@ fn encode_lifted_problem(mut context: LinkedSemanticContext) -> Result<LiftedPro
     // --- 🔍 AJOUTE L'AFFICHAGE ICI ---
 
     // Option A : Affichage Debug technique complet (via ton impl Display)
-    println!(
+    /*println!(
         "=== DUMP TECHNIQUE DU PROBLEM APRES NORMALISATION ===\n{}",
         problem
-    );
+    );*/
 
     // Option B : Si tu préfères voir le rendu syntaxique PDDL pur à la place :
     /*

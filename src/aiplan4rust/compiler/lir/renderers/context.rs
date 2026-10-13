@@ -37,6 +37,21 @@ impl<'a> LirRenderContext<'a> {
         }
     }
 
+    pub fn with_store(problem: &'a LiftedProblem, store: &'a ExprStore) -> Self {
+        Self {
+            interner: &problem.interner(),
+            store,
+            type_symbols: problem.type_symbols(),
+            predicate_symbols: &problem.predicate_symbols(),
+            functor_symbols: &problem.function_symbols(),
+            object_symbols: &problem.object_symbols(),
+            task_symbols: &problem.task_symbols(),
+            action_symbols: &problem.action_symbols(),
+            method_symbols: &problem.method_symbols(),
+            variable_symbols: None,
+        }
+    }
+
     /// Creates a fallback, symbol-free rendering context for structural diagnostics.
     ///
     /// This constructor is specifically designed for isolation testing, internal pipeline
