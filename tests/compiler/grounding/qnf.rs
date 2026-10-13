@@ -68,7 +68,7 @@ pub fn test_qnf_quantifier_elimination_all_files(domain_dir: &Path) -> bool {
             &table,
             &registry,
             config::DEFAULT_MAX_ARITY,
-            config::DEFAULT_MAX_PROJ,
+            config::DEFAULT_MAX_PROJECTION,
         )
         .expect("InertiaEvaluator build failed");
 

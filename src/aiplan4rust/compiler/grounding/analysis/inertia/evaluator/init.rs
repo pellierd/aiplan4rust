@@ -173,7 +173,7 @@ impl<'a> InertiaEvaluator<'a> {
         // 3. Mask generation (2^arity combinations)
         for mask in 0..(1 << arity) {
             let bit_count = (mask as u32).count_ones() as usize;
-            if mask != 0 && bit_count > self.max_proj {
+            if mask != 0 && bit_count > self.max_projections {
                 continue;
             }
 
@@ -343,7 +343,7 @@ impl<'a> InertiaEvaluator<'a> {
         for mask in 0..(1 << arity) {
             // Projection limit filter to avoid memory explosion
             let bit_count = (mask as u32).count_ones() as usize;
-            if mask != 0 && bit_count > self.max_proj {
+            if mask != 0 && bit_count > self.max_projections {
                 continue;
             }
 

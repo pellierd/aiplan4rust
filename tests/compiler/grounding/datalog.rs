@@ -118,7 +118,7 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
             &table,
             &registry,
             config::DEFAULT_MAX_ARITY,
-            config::DEFAULT_MAX_PROJ,
+            config::DEFAULT_MAX_PROJECTION,
         ) {
             Ok(ev) => ev,
             Err(e) => {

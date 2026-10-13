@@ -80,7 +80,7 @@ impl Grounder {
             &table,
             &registry,
             config::DEFAULT_MAX_ARITY,
-            config::DEFAULT_MAX_PROJ,
+            config::DEFAULT_MAX_PROJECTION,
         )?;
 
         //print!("{}", lifted_problem.domain_view().to_syntax_string());

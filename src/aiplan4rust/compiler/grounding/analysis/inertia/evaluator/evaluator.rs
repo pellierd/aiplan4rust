@@ -4,6 +4,7 @@ use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprEvaluator;
 use crate::aiplan4rust::compiler::grounding::binding::evaluator::{
     ExprConstant, ExprEvaluatorError,
 };
+use crate::aiplan4rust::compiler::grounding::config::{DEFAULT_MAX_ARITY, DEFAULT_MAX_PROJECTION};
 use crate::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::compiler::lir::expr::Expr;
 use crate::aiplan4rust::compiler::lir::expr::{ExprKind, ExprNode, ExprStore};
@@ -13,20 +14,6 @@ use crate::aiplan4rust::compiler::lir::problem::skeleton::{
 use crate::aiplan4rust::support::lang::{AtomSkeletonId, FunctionSkeletonId, ObjectId};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-
-/// The maximum number of arguments a predicate or function can possess by default.
-///
-/// This serves as a structural safety boundary used during `check_invariants` to prevent
-/// the processing of excessively large signatures that could overflow static constraints
-/// or downstream fixed bitmasks.
-pub(crate) const DEFAULT_MAX_ARITY: usize = 15;
-
-/// The fallback maximum projection size allowed for combinatorial indexing.
-///
-/// This configuration restricts the size of the sub-vectors evaluated during partial
-/// instantiation analysis (Definition 7 & 8 of the IPP paper). It prevents exponential
-/// explosion when calculating the power set of combinations for highly variable fluents.
-pub(crate) const DEFAULT_MAX_PROJ: usize = 3;
 
 /// The inline capacity threshold for stack-allocated argument arrays.
 ///
@@ -125,7 +112,7 @@ pub struct InertiaEvaluator<'a> {
     pub(super) max_arity: usize,
 
     /// The upper threshold for combinatorial projection slicing.
-    pub(super) max_proj: usize,
+    pub(super) max_projections: usize,
 }
 
 impl<'a> InertiaEvaluator<'a> {
@@ -143,7 +130,7 @@ impl<'a> InertiaEvaluator<'a> {
     /// * `inertia` - A long-lived reference to the `InertiaTable` detailing which fluent symbols are rigid/static.
     /// * `value_registry` - A long-lived reference to the global object and constant value coordinator.
     /// * `max_arity` - The strict upper bound for predicate/function arguments allowed by this evaluator instance.
-    /// * `max_proj` - The strict upper bound for the dynamic combinatorial projection sizing.
+    /// * `max_projections` - The strict upper bound for the dynamic combinatorial projection sizing.
     ///
     /// # Returns
     ///
@@ -173,7 +160,7 @@ impl<'a> InertiaEvaluator<'a> {
         inertia: &'a InertiaTable,
         value_registry: &'a ValueRegistry,
         max_arity: usize,
-        max_proj: usize,
+        max_projections: usize,
     ) -> Result<Self, InertiaEvaluatorError> {
         // 1. Isolate and own the structural definitions via boxed slices
         let mut evaluator = Self {
@@ -185,7 +172,7 @@ impl<'a> InertiaEvaluator<'a> {
             static_functions: FxHashMap::default(),
             consensus_values: Default::default(),
             max_arity,
-            max_proj,
+            max_projections,
         };
 
         // 2. Check structural invariants
@@ -218,11 +205,11 @@ impl<'a> InertiaEvaluator<'a> {
         Ok(evaluator)
     }
 
-    /// Construits an `InertiaEvaluator` using the fallback max limits.
+    /// Constructs an `InertiaEvaluator` using adaptive limits derived from the domain signatures.
     ///
     /// This named alternative constructor provides an ergonomic interface for general-purpose grounding
-    /// and evaluation pipelines, removing the need to manually supply execution bounds when custom
-    /// constraints are unnecessary.
+    /// and evaluation pipelines, automatically determining the optimal projection threshold based on the
+    /// maximum arity present in the domain's predicates and functions, bounded by a global safety ceiling.
     ///
     /// # Arguments
     ///
@@ -235,7 +222,8 @@ impl<'a> InertiaEvaluator<'a> {
     /// # Default Parameters Applied
     ///
     /// * `max_arity` -> Driven by `DEFAULT_MAX_ARITY` (configured to 15).
-    /// * `max_proj`  -> Driven by `DEFAULT_MAX_PROJ` (configured to 3).
+    /// * `max_proj`  -> Adaptively computed as `min(max_found_arity, DEFAULT_MAX_PROJECTION)`
+    ///                  to prevent combinatorial explosion while optimizing memory for simpler domains.
     pub fn build_with_defaults(
         predicate_defs: &[AtomicFormulaSkeleton],
         function_defs: &[AtomicFunctionSkeleton],
@@ -243,6 +231,25 @@ impl<'a> InertiaEvaluator<'a> {
         inertia: &'a InertiaTable,
         value_registry: &'a ValueRegistry,
     ) -> Result<Self, InertiaEvaluatorError> {
+        let store = init.store();
+        let mut max_found_arity = 0;
+
+        // 1. Scan the maximum arity across all domain predicates
+        for p in predicate_defs {
+            let arity = store.typed_list_len(p.parameters())?;
+            max_found_arity = max_found_arity.max(arity);
+        }
+
+        // 2. Scan the maximum arity across all domain functions
+        for f in function_defs {
+            let arity = store.typed_list_len(f.parameters())?;
+            max_found_arity = max_found_arity.max(arity);
+        }
+
+        // 3. Apply the min mechanism:
+        // Adapt to the domain's actual requirements, but never exceed the global safety ceiling (DEFAULT_MAX_PROJECTION).
+        let dynamic_max_proj = max_found_arity.min(DEFAULT_MAX_PROJECTION);
+
         Self::build(
             predicate_defs,
             function_defs,
@@ -250,7 +257,7 @@ impl<'a> InertiaEvaluator<'a> {
             inertia,
             value_registry,
             DEFAULT_MAX_ARITY,
-            DEFAULT_MAX_PROJ,
+            dynamic_max_proj,
         )
     }
 
@@ -260,7 +267,7 @@ impl<'a> InertiaEvaluator<'a> {
     /// combinatorial projection analysis, preventing hash-map and memory explosions when
     /// processing high-arity predicates or functions with free variables[cite: 6].
     pub fn max_projections(&self) -> usize {
-        self.max_proj
+        self.max_projections
     }
 
     /// Validates the structural and configuration invariants of the evaluator.
@@ -304,14 +311,17 @@ impl<'a> InertiaEvaluator<'a> {
     fn check_invariants(&self, store: &ExprStore) -> Result<(), InertiaEvaluatorError> {
         // 1. Absolute Type Safety: Disallow configurations exceeding the u16 bitmask capacity
         if self.max_arity > 16 {
-            return Err(InertiaEvaluatorError::invalid_limits(16, self.max_proj));
+            return Err(InertiaEvaluatorError::invalid_limits(
+                16,
+                self.max_projections,
+            ));
         }
 
         // 2. Validate configuration coherence
-        if self.max_proj > self.max_arity {
+        if self.max_projections > self.max_arity {
             return Err(InertiaEvaluatorError::invalid_limits(
                 self.max_arity,
-                self.max_proj,
+                self.max_projections,
             ));
         }
 
@@ -347,8 +357,9 @@ impl<'a> InertiaEvaluator<'a> {
     ///
     /// This method unifies and centralizes the zero-cost evaluation of argument masks for both
     /// logical predicates and numerical functions. It enforces two critical rules from the IPP framework:
-    /// 1. **Projection Limiting (`max_proj`)**: Restricts combinatorial explosion by aborting evaluation
-    ///    if the number of bound constant objects exceeds the configured threshold, exempting fully grounded terms.
+    /// 1. **Projection Limiting (`max_proj`)**: Restricts combinatorial explosion and respects lookup table boundaries
+    ///    by aborting evaluation if the number of bound constant objects exceeds the configured threshold,
+    ///    regardless of whether the term is fully grounded.
     /// 2. **Global Instantiation Status (`grounded`)**: Determines via $O(1)$ bitwise operations whether
     ///    the call contains any unbound free variables.
     ///
@@ -369,29 +380,29 @@ impl<'a> InertiaEvaluator<'a> {
     ///
     /// # Returns
     ///
-    /// * `Some(true)` - The expression is fully instantiated (*fully grounded*). All required arguments are constants.
-    /// * `Some(false)` - The expression is partially instantiated. It contains at least one free variable.
-    /// * `None` - The maximum projection limit has been breached (`count_ones() > max_proj`) for a non-fully-grounded term.
-    ///            The caller must immediately abort the current evaluation path and return `Ok(None)`.
+    /// * `Some(true)` - The expression is fully instantiated (*fully grounded*), and its projection footprint
+    ///   does not exceed the configured maximum threshold. All required arguments are constants.
+    /// * `Some(false)` - The expression is partially instantiated and within projection bounds. It contains at least one free variable.
+    /// * `None` - The maximum projection limit has been breached (`count_ones() > max_proj`), meaning the lookup
+    ///            tables do not cover this cardinality. The caller must immediately abort the current evaluation path and return `Ok(None)`.
     #[inline]
     pub(crate) fn validate_projection_and_grounding(
         &self,
         mask: u16,
         arity: usize,
     ) -> Option<bool> {
-        // 1. Determine whether the atom is fully grounded (all arguments are constants)
-        let is_fully_grounded = arity == 0 || mask == ((1u16 << arity) - 1);
-
-        // 2. Apply the max_proj limit only if the atom is NOT fully grounded.
-        // If an atom is 100% fixed, there is no combinatorial explosion risk, so it is permitted.
-        if !is_fully_grounded && mask != 0 && mask.count_ones() as usize > self.max_proj {
+        // 1. Check projection limits first:
+        // If the number of bound constant arguments exceeds max_projections, our counting tables
+        // do not contain this data, so we return None.
+        if mask != 0 && mask.count_ones() as usize > self.max_projections {
             return None;
         }
 
-        // 3. Resolve the grounded status
-        let grounded = is_fully_grounded;
+        // 2. Determine whether the atom is fully grounded (all arguments are constants)
+        let is_fully_grounded = arity == 0 || mask == ((1u16 << arity) - 1);
 
-        Some(grounded)
+        // 3. Resolve the grounded status
+        Some(is_fully_grounded)
     }
 
     /// Extracts the instantiation mask and associated constant objects from an atomic formula or function term.
@@ -564,7 +575,7 @@ pub(crate) mod tests {
                 static_functions: FxHashMap::default(),
                 consensus_values: Default::default(),
                 max_arity: 15,
-                max_proj: 3,
+                max_projections: 3,
             }
         }
 
@@ -586,7 +597,7 @@ pub(crate) mod tests {
                 static_functions: FxHashMap::default(),
                 consensus_values: FxHashMap::default(),
                 max_arity,
-                max_proj,
+                max_projections: max_proj,
             }
         }
     }

@@ -117,7 +117,7 @@ impl<'a> InertiaEvaluator<'a> {
         };
 
         // 3. Prevent slicing out of bounds by capping at max_proj threshold
-        let n_limit = buffer.len().min(self.max_proj);
+        let n_limit = buffer.len().min(self.max_projections);
         let lookup_slice = &buffer[..n_limit];
 
         // --- STEP C: Direct O(1) multi-level map lookups for function values ---
