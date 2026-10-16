@@ -199,12 +199,20 @@ pub fn to_pnf_with(
                                 if atom_id.is_negated() {
                                     return Err(StorerError::invalid_node(new_child_id).into());
                                 }
-                                // Negation Absorption: Toggle MSB bit-mask on the atom skeleton
                                 atom_id.set_negated(true);
                                 negated_atoms.push(atom_id);
 
-                                // Intern the newly modified negated atom
-                                store.intern(ExprKind::AtomicFormula(atom_id), &[])
+                                // On vide le buffer temporaire du scratchpad et on y copie les enfants
+                                scratchpad.children_buffer.clear();
+                                scratchpad
+                                    .children_buffer
+                                    .extend_from_slice(store[new_child_id].children());
+
+                                // On intererne en passant le buffer du scratchpad (zéro allocation supplémentaire)
+                                store.intern(
+                                    ExprKind::AtomicFormula(atom_id),
+                                    &scratchpad.children_buffer,
+                                )
                             }
                             ExprKind::Comparison(_) => store.intern(ExprKind::Not, &[new_child_id]),
                             _ => {

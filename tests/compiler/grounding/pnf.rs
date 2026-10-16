@@ -3,12 +3,14 @@ use crate::common::io::{
     collect_domain_files, delete_all_files_with_extension, filter_problem_files,
     find_associated_domain, get_test_files_for_mode,
 };
+use ahash::HashMapExt;
 use aiplan4rust::aiplan4rust::compiler::grounding::passes::to_pnf;
-use aiplan4rust::aiplan4rust::compiler::lir::expr::validation;
+use aiplan4rust::aiplan4rust::compiler::lir::expr::{validation, ExprId, ExprKind, ExprStore};
 use aiplan4rust::aiplan4rust::compiler::lir::problem::LiftedProblem;
+use aiplan4rust::aiplan4rust::support::lang::AtomSkeletonId;
+use rustc_hash::FxHashMap;
 use std::path::Path;
 use test_case::test_case;
-
 // =========================================================================
 // EXÉCUTEUR DU TEST D'INTÉGRATION PNF (Positive Normal Form)
 // =========================================================================
@@ -71,8 +73,8 @@ pub fn test_pnf_positive_normalization_all_files(domain_dir: &Path) -> bool {
     success
 }
 
-/// Verifies that a LiftedProblem strictly complies with the Positive PNF constraints.
-/// Returns `true` if the problem is valid, `false` if any unabsorbed 'Not' operators are found.
+/// Verifies that a LiftedProblem strictly complies with the Positive PNF constraints,
+/// and ensures that all absorbed negated atoms correctly retain their child arguments.
 pub fn check_pnf_constraints(pb: &LiftedProblem, problem_path: &Path) -> bool {
     let store = pb.store();
     let mut violation_found = false;
@@ -97,26 +99,42 @@ pub fn check_pnf_constraints(pb: &LiftedProblem, problem_path: &Path) -> bool {
     }
 
     for root_id in pure_conditions {
-        if !root_id.is_none() && !validation::is_pnf(store, root_id, false) {
-            println!(
-                "  - ORACLE ERROR [PNF-CONDITION]: Violation in condition context in {:?}",
-                problem_path
-            );
-            violation_found = true;
+        if !root_id.is_none() {
+            if !validation::is_pnf(store, root_id, false) {
+                println!(
+                    "  - ORACLE ERROR [PNF-CONDITION]: Violation in condition context in {:?}",
+                    problem_path
+                );
+                violation_found = true;
+            }
+            if !check_negated_atoms_integrity(store, root_id) {
+                println!(
+                    "  - ORACLE ERROR [PNF-ARGUMENTS]: A negated atom lost its arguments in condition context in {:?}",
+                    problem_path
+                );
+                violation_found = true;
+            }
         }
     }
 
     // B. ACTIONS: Preconditions (is_effect = false) vs Effects (is_effect = true)
     for action in pb.action_defs() {
         // Validate pure action precondition scope
-        if !action.precondition().is_none()
-            && !validation::is_pnf(store, action.precondition(), false)
-        {
-            println!(
-                "  - ORACLE ERROR [PNF-PRECONDITION]: Violation in action '{}' precondition in {:?}",
-                action.name(), problem_path
-            );
-            violation_found = true;
+        if !action.precondition().is_none() {
+            if !validation::is_pnf(store, action.precondition(), false) {
+                println!(
+                    "  - ORACLE ERROR [PNF-PRECONDITION]: Violation in action '{}' precondition in {:?}",
+                    action.name(), problem_path
+                );
+                violation_found = true;
+            }
+            if !check_negated_atoms_integrity(store, action.precondition()) {
+                println!(
+                    "  - ORACLE ERROR [PNF-ARGUMENTS]: A negated atom lost its arguments in action '{}' precondition in {:?}",
+                    action.name(), problem_path
+                );
+                violation_found = true;
+            }
         }
 
         // Validate action effect scope. Internal conditional effects ('When')
@@ -132,6 +150,53 @@ pub fn check_pnf_constraints(pb: &LiftedProblem, problem_path: &Path) -> bool {
     }
 
     !violation_found
+}
+
+// Helper function to non-recursively walk an expression tree and verify
+/// that atomic formulas (both positive and negated) maintain consistent arity
+/// and proper structural integrity.
+fn check_negated_atoms_integrity(store: &ExprStore, root_id: ExprId) -> bool {
+    let mut stack = vec![root_id];
+    let mut visited = rustc_hash::FxHashSet::default();
+
+    // Map pour associer chaque squelette de base à son nombre d'arguments attendu
+    let mut arity_map: FxHashMap<AtomSkeletonId, usize> = FxHashMap::with_capacity(32);
+
+    while let Some(expr_id) = stack.pop() {
+        if expr_id.is_none() || !visited.insert(expr_id) {
+            continue;
+        }
+
+        let node = &store[expr_id];
+
+        if let ExprKind::AtomicFormula(atom_id) = node.kind() {
+            let children_count = node.children().len();
+
+            // On normalise l'ID pour ignorer le bit de négation (MSB)
+            // afin de cibler le même squelette de prédicat qu'il soit positif ou nié.
+            let mut base_skeleton = *atom_id;
+            base_skeleton.set_negated(false);
+
+            // Vérification de la cohérence de l'arité
+            if let Some(&expected_count) = arity_map.get(&base_skeleton) {
+                if expected_count != children_count {
+                    println!(
+                        "  - ORACLE ERROR [ARITY MISMATCH]: Atom skeleton {:?} has inconsistent argument count! Expected {}, found {}.",
+                        base_skeleton, expected_count, children_count
+                    );
+                    return false;
+                }
+            } else {
+                arity_map.insert(base_skeleton, children_count);
+            }
+        }
+
+        for &child in node.children() {
+            stack.push(child);
+        }
+    }
+
+    true
 }
 
 // IPC 1998
