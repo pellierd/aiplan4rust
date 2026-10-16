@@ -149,6 +149,8 @@ impl<'a> DatalogEngine<'a> {
         inertia_table: &'a InertiaTable,
         negated_predicates: &'a Vec<AtomSkeletonId>,
     ) -> Result<Self, DatalogError> {
+        println!("{}", problem.to_string());
+
         // =========================================================================
         // 1. EXTRACTION DU STORE ET THRESHOLDS INITIALES
         // =========================================================================

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprEvaluator;
+use crate::aiplan4rust::compiler::grounding::binding::evaluator::{ExprConstant, ExprEvaluator};
 use crate::aiplan4rust::compiler::grounding::binding::iter::BindingsIterator;
 use crate::aiplan4rust::compiler::grounding::binding::{bind_with, BindingScratchpad};
 use crate::aiplan4rust::compiler::grounding::error::GroundingError;
@@ -180,35 +180,51 @@ pub fn expand_with(
                 }
                 // Standard nodes: map sub-tree structural modifications structurally
                 _ => {
-                    let entry = &store[old_id];
-                    let mut has_changed = false;
-
-                    // Scan child statuses to evaluate if a sub-tree hash structural mutation occurred
-                    for &child_id in entry.children() {
-                        if expansion_scratchpad.cache[child_id.as_usize()] != default_id {
-                            has_changed = true;
-                            break;
-                        }
-                    }
-
-                    if has_changed {
-                        expansion_scratchpad.children_buffer.clear();
-                        let entry = &store[old_id];
-
-                        // Assemble the newly mapped structural children IDs block
-                        for &child_id in entry.children() {
-                            let cached_child = expansion_scratchpad.cache[child_id.as_usize()];
-                            let new_child_id = if cached_child != default_id {
-                                cached_child
-                            } else {
-                                child_id
-                            };
-                            expansion_scratchpad.children_buffer.push(new_child_id);
-                        }
-                        // Re-intern the mutated node shape back into the main arena
-                        store.intern(*entry_kind, &expansion_scratchpad.children_buffer)
+                    // 1. On vérifie d'abord si l'évaluateur peut trancher ce nœud directement
+                    let evaluated_constant = if let Some(eval) = evaluator {
+                        let current_expr = Expr::new(old_id, store);
+                        eval.evaluate(current_expr).ok().flatten()
                     } else {
-                        old_id
+                        None
+                    };
+
+                    match evaluated_constant {
+                        Some(ExprConstant::Boolean(true)) => store.empty_and(),
+                        Some(ExprConstant::Boolean(false)) => store.empty_or(),
+                        _ => {
+                            // 3. Sinon, on garde ton comportement initial (propagation des enfants modifiés)
+                            let entry = &store[old_id];
+                            let mut has_changed = false;
+
+                            // Scan child statuses to evaluate if a sub-tree hash structural mutation occurred
+                            for &child_id in entry.children() {
+                                if expansion_scratchpad.cache[child_id.as_usize()] != default_id {
+                                    has_changed = true;
+                                    break;
+                                }
+                            }
+
+                            if has_changed {
+                                expansion_scratchpad.children_buffer.clear();
+                                let entry = &store[old_id];
+
+                                // Assemble the newly mapped structural children IDs block
+                                for &child_id in entry.children() {
+                                    let cached_child =
+                                        expansion_scratchpad.cache[child_id.as_usize()];
+                                    let new_child_id = if cached_child != default_id {
+                                        cached_child
+                                    } else {
+                                        child_id
+                                    };
+                                    expansion_scratchpad.children_buffer.push(new_child_id);
+                                }
+                                // Re-intern the mutated node shape back into the main arena
+                                store.intern(*entry_kind, &expansion_scratchpad.children_buffer)
+                            } else {
+                                old_id
+                            }
+                        }
                     }
                 }
             };

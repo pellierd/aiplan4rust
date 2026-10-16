@@ -13,6 +13,7 @@ use aiplan4rust::aiplan4rust::compiler::grounding::config;
 use aiplan4rust::aiplan4rust::compiler::grounding::passes::qnf::problem::expand_with;
 use aiplan4rust::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
 use aiplan4rust::aiplan4rust::compiler::lir::expr::{validation, Expr};
+use aiplan4rust::aiplan4rust::compiler::lir::renderers::{LiftedSyntaxDisplay, LirRenderContext};
 // =========================================================================
 // EXÉCUTEUR DU TEST D'INTÉGRATION QNF
 // =========================================================================
@@ -121,6 +122,31 @@ pub fn test_qnf_quantifier_elimination_all_files(domain_dir: &Path) -> bool {
                     "  - ORACLE ERROR [QNF]: Residual quantifier found in file {:?}",
                     problem_path
                 );
+                success = false;
+            }
+            // 2. Vérification stricte et collecte des atomes statiques non éliminés
+            let mut faulty_atoms = Vec::new();
+            validation::collect_evaluable_static_atoms(
+                root_id,
+                pb.store(),
+                &evaluator,
+                &table,
+                &mut faulty_atoms,
+            );
+
+            if !faulty_atoms.is_empty() {
+                let ctx = LirRenderContext::with_store(&pb, pb.store());
+                println!(
+                    "  - \x1b[1;31m[ERREUR QNF] {} atome(s) statique(s) évaluable(s) subsistent dans {:?}:\x1b[0m",
+                    faulty_atoms.len(),
+                    problem_path
+                );
+
+                for atom_id in faulty_atoms {
+                    let expr_wrapper = Expr::new(atom_id, pb.store());
+                    println!("    -> Atome fautif : {}", expr_wrapper.as_syntax(&ctx));
+                }
+
                 success = false;
             }
         }

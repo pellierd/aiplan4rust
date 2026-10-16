@@ -30,9 +30,12 @@
 //! identifiers ([`ExprId`]) bound to contiguous memory stores ([`ExprStore`], [`ExprBuilder`]),
 //! ensuring optimal CPU cache locality during analysis.
 
+use crate::aiplan4rust::compiler::grounding::binding::evaluator::ExprEvaluator;
 use crate::aiplan4rust::compiler::lir::expr::iter::PreorderIter;
 use crate::aiplan4rust::compiler::lir::expr::ops::error::ExprOpError;
-use crate::aiplan4rust::compiler::lir::expr::{ExprBuilder, ExprId, ExprKind, ExprStore};
+use crate::aiplan4rust::compiler::lir::expr::{Expr, ExprBuilder, ExprId, ExprKind, ExprStore};
+use crate::analysis::inertia::evaluator::InertiaEvaluator;
+use crate::analysis::inertia::table::InertiaTable;
 use std::collections::BTreeSet;
 
 /// Checks whether a logical expression strictly adheres to the Negation Normal Form (NNF).
@@ -411,4 +414,77 @@ pub fn is_pnf(store: &ExprStore, root: ExprId, is_effect: bool) -> bool {
     }
 
     true
+}
+
+/// Checks whether any evaluatable static atomic formula abnormally persists within the expression.
+///
+/// This function performs a recursive check to detect potential Quantified Normal Form (QNF)
+/// violations where a static atom (non-fluent) could have been evaluated and eliminated by
+/// the inertia evaluator but remains present in its raw form.
+///
+/// # Arguments
+///
+/// * `expr_id` - The root expression identifier to inspect.
+/// * `store` - A reference to the expression store (`ExprStore`) holding the expression nodes.
+/// * `evaluator` - The inertia evaluator used to test if sub-expressions can be computed.
+/// * `table` - The inertia table providing predicate classifications (fluent vs. static).
+///
+/// # Returns
+///
+/// Returns `true` if at least one evaluatable static atom is found (indicating a QNF violation),
+/// and `false` otherwise.
+pub fn has_evaluable_static_atoms(
+    expr_id: ExprId,
+    store: &ExprStore,
+    evaluator: &InertiaEvaluator,
+    table: &InertiaTable,
+) -> bool {
+    let mut collected = Vec::new();
+    collect_evaluable_static_atoms(expr_id, store, evaluator, table, &mut collected);
+    !collected.is_empty()
+}
+
+/// Recursively collects all evaluatable static atomic formulas within an expression tree.
+///
+/// Traverses the expression graph starting from `expr_id`. When an atomic formula is encountered,
+/// it checks via the `InertiaTable` whether the predicate is static (non-fluent). If it is static
+/// and can be successfully evaluated by the `InertiaEvaluator`, its `ExprId` is pushed into
+/// the `collected` vector.
+///
+/// # Arguments
+///
+/// * `expr_id` - The current expression identifier being visited in the traversal.
+/// * `store` - A reference to the expression store (`ExprStore`).
+/// * `evaluator` - The inertia evaluator used to assess sub-expression values.
+/// * `table` - The inertia table for predicate static/fluent classification.
+/// * `collected` - A mutable vector buffer where matching expression IDs are accumulated.
+pub fn collect_evaluable_static_atoms(
+    expr_id: ExprId,
+    store: &ExprStore,
+    evaluator: &InertiaEvaluator,
+    table: &InertiaTable,
+    collected: &mut Vec<ExprId>,
+) {
+    let node = match store.get(expr_id) {
+        Some(n) => n,
+        None => return,
+    };
+
+    match node.kind() {
+        ExprKind::AtomicFormula(skel_id) => {
+            if let Some(inertia) = table.get_predicate(*skel_id) {
+                if !inertia.is_fluent() {
+                    let sub_expr = Expr::new(expr_id, store);
+                    if let Ok(Some(_val)) = evaluator.evaluate(sub_expr) {
+                        collected.push(expr_id);
+                    }
+                }
+            }
+        }
+        _ => {
+            for &child_id in node.children() {
+                collect_evaluable_static_atoms(child_id, store, evaluator, table, collected);
+            }
+        }
+    }
 }
