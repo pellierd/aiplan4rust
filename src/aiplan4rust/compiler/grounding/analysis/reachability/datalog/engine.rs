@@ -199,7 +199,7 @@ impl<'a> DatalogEngine<'a> {
         // 1. Déclaration et remplissage de type_to_skeleton via le State unifié
         encoder::facts::declare_type_defs(type_defs_slice, &mut type_to_skeleton, &mut state);
 
-        let type_threshold = type_segment_start;
+        let type_threshold = *state.next_aux_id;
         let action_base_id = type_threshold;
 
         // 2. Déclaration des actions via le State unifié
@@ -258,7 +258,7 @@ impl<'a> DatalogEngine<'a> {
             head_buffer: Vec::with_capacity(16),
             union_cache,
 
-            base_aux_id: type_segment_start,
+            base_aux_id: action_threshold,
             next_aux_id: final_builtin_threshold,
             aux_defs,
             cache,
@@ -306,7 +306,7 @@ impl<'a> DatalogEngine<'a> {
         // --- STRATE 1 : Le Pivot (Négation) ---
         // On utilise le ValueRegistry pour combler les trous.
         // Cette fonction va remplir le Delta avec les "not_incorporated".
-        self.materialize_negations();
+        //self.materialize_negations();
 
         // --- STRATE 2 : Les Actions conditionnelles ---
         // On relance. Maintenant, le moteur voit les faits négatifs
@@ -348,11 +348,43 @@ impl<'a> DatalogEngine<'a> {
     /// * Time complexity: Proportional to the number of stored relations and facts in the database.
     /// * Space complexity: $O(1)$ auxiliary memory overhead during rendering.
     pub fn dump_database(&self) {
+        // 1. Affichage de la cartographie globale des segments en premier
+        self.dump_segments();
         // 1. On crée le Snapshot de données (le contexte)
         let ctx = self.render_context();
 
         // 2. On appelle le renderer spécialisé
         database::render(&ctx, &self.db);
+    }
+
+    /// Dumps and renders a complete diagnostic cartography of all identifier segments
+    /// managed by the Datalog engine in a clean, styled box layout.
+    pub fn dump_segments(&self) {
+        let type_count = self.type_to_skeleton.len();
+        let action_count = self.problem.action_defs().len();
+
+        println!("====================================================================================================");
+        println!("                                🗺️  DATALOG ID SEGMENT MAPPING                                     ");
+        println!("====================================================================================================");
+        println!(
+            "  • [01] Fluents range     : 0 to {} (total: {})",
+            self.fluence_threshold, self.fluence_threshold
+        );
+        println!(
+            "  • [02] Types range       : {} to {} (total types: {})",
+            self.type_segment_start,
+            self.type_segment_start + type_count,
+            type_count
+        );
+        println!(
+            "  • [03] Actions range     : {} to {} (actions count: {})",
+            self.action_base_id, self.action_threshold, action_count
+        );
+        println!(
+            "  • [04] Auxiliaries range : {} to {} (next free ID: {})",
+            self.base_aux_id, self.next_aux_id, self.next_aux_id
+        );
+        println!("====================================================================================================");
     }
 
     /// Dumps and renders the compiled Datalog rules for inspection and debugging.

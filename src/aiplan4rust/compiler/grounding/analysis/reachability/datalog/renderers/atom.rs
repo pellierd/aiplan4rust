@@ -83,7 +83,7 @@ fn resolve_terms(ctx: &DatalogRenderContext, terms: &[Term]) -> Vec<String> {
     }
 }*/
 
-/// Détermine le nom complet du prédicat en fonction des seuils du RenderContext.
+/*/// Détermine le nom complet du prédicat en fonction des seuils du RenderContext.
 fn resolve_predicate_name(ctx: &DatalogRenderContext, raw_index: usize, is_neg: bool) -> String {
     let neg_prefix = if is_neg { "not_" } else { "" };
 
@@ -119,8 +119,50 @@ fn resolve_predicate_name(ctx: &DatalogRenderContext, raw_index: usize, is_neg: 
     } else {
         format!("{}aux_{}", neg_prefix, raw_index)
     }
-}
+}*/
 
+/// Détermine le nom complet du prédicat en fonction des seuils du RenderContext.
+fn resolve_predicate_name(ctx: &DatalogRenderContext, raw_index: usize, is_neg: bool) -> String {
+    let neg_prefix = if is_neg { "not_" } else { "" };
+
+    if raw_index < ctx.fluence_threshold {
+        // Cas 1 : Fluents PDDL
+        let sym_id = ctx
+            .problem
+            .predicate_defs()
+            .get(raw_index)
+            .and_then(|def| ctx.problem.predicate_symbols().get_ident(def.symbol()));
+
+        let name = resolve_name(
+            sym_id.map(|id| (*id).into()),
+            ctx.problem,
+            &format!("{}", raw_index),
+        );
+        format!("p:{}{}", neg_prefix, name)
+    } else if raw_index < ctx.action_base_id {
+        // Cas 2 : Types (C'ETait MANQUANT !)
+        let type_name = resolve_type_label(ctx, raw_index);
+        format!("t:{}{}", neg_prefix, type_name)
+    } else if raw_index < ctx.action_threshold {
+        // Cas 3 : Actions
+        let action_idx = raw_index - ctx.action_base_id;
+        let sym_id = ctx
+            .problem
+            .action_defs()
+            .get(action_idx)
+            .and_then(|def| ctx.problem.action_symbols().get_ident(def.name()));
+
+        let name = resolve_name(
+            sym_id.map(|id| (*id).into()),
+            ctx.problem,
+            &format!("{}", action_idx),
+        );
+        format!("@{}{}", neg_prefix, name)
+    } else {
+        // Cas 4 : Auxiliaires
+        format!("{}aux_{}", neg_prefix, raw_index)
+    }
+}
 /// Helper spécifique pour extraire le nom d'un type.
 fn resolve_type_label(ctx: &DatalogRenderContext, raw_index: usize) -> String {
     ctx.type_to_skeleton

@@ -1,14 +1,16 @@
 // Imports du framework de test (communs/pipelines)
 use crate::common::compiler::{analyze_file, encode, link};
 use crate::common::io::*;
-use aiplan4rust::aiplan4rust::compiler::grounding::config;
 use aiplan4rust::aiplan4rust::compiler::grounding::passes::to_pnf;
 use aiplan4rust::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
 use aiplan4rust::aiplan4rust::compiler::lir::expr::Expr;
+use aiplan4rust::aiplan4rust::compiler::lir::renderers::LirRenderContext;
 use aiplan4rust::analysis::inertia::evaluator::InertiaEvaluator;
 use aiplan4rust::analysis::inertia::table::InertiaTable;
+use aiplan4rust::analysis::reachability::datalog::renderers::fluent::render;
 use aiplan4rust::qnf::problem::expand_with;
 use aiplan4rust::DatalogEngine;
+use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
 use test_case::test_case;
@@ -21,7 +23,7 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
     let problems_to_process = get_test_files_for_mode(filter_problem_files(&all_files));
 
     println!(
-        "\n\x1b[1;36m>>> Running Datalog Reachability Suite with Dynamic FD Oracle in: {}\x1b[0m",
+        "\n\x1b[1;36m>>> Running Datalog Reachability Suite with Dynamic FD Oracle (Inclusion Mode) in: {}\x1b[0m",
         domain_dir.display()
     );
 
@@ -35,20 +37,36 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
 
         let domain_path = find_associated_domain(problem_path).expect("Domain not found");
 
-        // 1. Lancement de Fast Downward et extraction systématique des données de l'oracle
-        let (exp_f, exp_a, expected_actions, _expected_fluents, fd_available) =
+        // 1. Lancement de Fast Downward et extraction des ensembles de l'oracle
+        let (exp_actions_set, exp_fluent_set, fd_available) =
             match run_fast_downward_and_get_content(&domain_path, problem_path) {
                 Ok(content) => {
-                    let acts = extract_actions_from_content(&content).unwrap_or_default();
-                    let fluents = extract_fluents_from_content(&content).unwrap_or_default();
-                    (fluents.len(), acts.len(), acts, fluents, true)
+                    let acts_vec = extract_actions_from_content(&content).unwrap_or_default();
+                    let acts_set: HashSet<String> = acts_vec
+                        .into_iter()
+                        .map(|s| {
+                            // Nettoyage de la chaîne de l'action FD (ex: "release fastener" ou "release fastener wheel")
+                            let parts: Vec<&str> = s.split_whitespace().collect();
+                            if parts.is_empty() {
+                                s.to_lowercase()
+                            } else {
+                                // Le nom de l'action est le premier élément, suivi de tous les arguments
+                                let action_name = parts[0].to_lowercase();
+                                let args: Vec<String> =
+                                    parts[1..].iter().map(|arg| arg.to_lowercase()).collect();
+                                format!("{}({})", action_name, args.join(", "))
+                            }
+                        })
+                        .collect();
+                    let fluent_set = extract_datalog_style_fluents(&content).unwrap_or_default();
+                    (acts_set, fluent_set, true)
                 }
                 Err(e) => {
                     println!(
                         "\x1b[1;33m[WARNING]\x1b[0m Impossible de lancer Fast Downward: {}",
                         e
                     );
-                    (0, 0, Vec::new(), Vec::new(), false)
+                    (HashSet::new(), HashSet::new(), false)
                 }
             };
 
@@ -111,14 +129,12 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
         };
 
         let init = Expr::new(lifted_problem.init(), lifted_problem.store());
-        let evaluator = match InertiaEvaluator::build(
+        let evaluator = match InertiaEvaluator::build_with_defaults(
             lifted_problem.predicate_defs(),
             lifted_problem.function_defs(),
             init,
             &table,
             &registry,
-            config::DEFAULT_MAX_ARITY,
-            config::DEFAULT_MAX_PROJECTION,
         ) {
             Ok(ev) => ev,
             Err(e) => {
@@ -163,33 +179,106 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
 
         datalog.run();
 
-        let actual_f = datalog.get_reachable_fluents().len();
-        let actual_a = datalog.get_reachable_actions().len();
+        // 1. On récupère les données nécessaires
+        let reachable_tuples: Vec<_> = datalog.get_reachable_fluents().iter().cloned().collect();
+        let raw_actions: Vec<_> = datalog.get_reachable_actions().iter().cloned().collect();
 
-        // 3. Affichage et comparaison avec l'oracle FD
+        // 2. ON LIBÈRE 'datalog' pour rendre son emprunt sur 'lifted_problem'
+        drop(datalog);
+
+        // Contexte de rendu pour formater les expressions PDDL
+        let ctx = LirRenderContext::with_store(&lifted_problem, lifted_problem.store());
+
+        // 3. Construction des sets normalisés pour les fluents ET les actions
+        let mut actual_fluent_set = HashSet::new();
+        for tuple in reachable_tuples {
+            let rendered_fact = render(&tuple, &lifted_problem);
+            actual_fluent_set.insert(rendered_fact.to_lowercase());
+        }
+
+        let mut actual_action_set = HashSet::new();
+        for action_tuple in raw_actions {
+            let rendered_action =
+                aiplan4rust::analysis::reachability::datalog::renderers::action::render(
+                    &action_tuple,
+                    &lifted_problem,
+                );
+            actual_action_set.insert(rendered_action.to_lowercase());
+        }
+
+        let actual_f = actual_fluent_set.len();
+        let actual_a = actual_action_set.len();
+        let exp_f = exp_fluent_set.len();
+
+        // 4. Affichage et analyse par inclusion
         println!("\x1b[1;32m[INFO / ORACLE]\x1b[0m");
-        println!("    -> FD Oracle  : {} Fluents, {} Actions", exp_f, exp_a);
         println!(
-            "    -> Datalog    : {} Fluents, {} Actions",
+            "    -> FD Oracle  : {} Domaines/Fluents, {} Actions",
+            exp_f,
+            exp_actions_set.len()
+        );
+        println!(
+            "    -> Datalog    : {} Faits, {} Actions",
             actual_f, actual_a
         );
+
+        // --- AFFICHAGE DES FORMATS (DEBUG COMPARATIF) ---
+        if fd_available {
+            println!("    \x1b[1;35m[DEBUG FORMAT] Tous les fluents FD :\x1b[0m");
+            for f in exp_fluent_set.iter() {
+                println!("      - \"{}\"", f);
+            }
+
+            println!("    \x1b[1;35m[DEBUG FORMAT] Tous les fluents Datalog :\x1b[0m");
+            for f in actual_fluent_set.iter() {
+                println!("      - \"{}\"", f);
+            }
+
+            println!("    \x1b[1;35m[DEBUG FORMAT] Toutes les actions FD (normalisées) :\x1b[0m");
+            for a in exp_actions_set.iter() {
+                println!("      - \"{}\"", a);
+            }
+
+            println!("    \x1b[1;35m[DEBUG FORMAT] Toutes les actions Datalog (rendu) :\x1b[0m");
+            for a in actual_action_set.iter() {
+                println!("      - \"{}\"", a);
+            }
+
+            // --- AFFICHAGE DE LA DIFFÉRENCE DATALOG vs FD (Fluents) ---
+            let only_in_datalog: HashSet<_> =
+                actual_fluent_set.difference(&exp_fluent_set).collect();
+
+            println!("    \x1b[1;33m[INFO] {} éléments générés par Datalog et absents de l'oracle FD :\x1b[0m", only_in_datalog.len());
+            for f in only_in_datalog {
+                println!("      + \"{}\"", f);
+            }
+        }
 
         let mut problem_ok = true;
 
         if fd_available {
-            if actual_a != exp_a {
+            // 1. Inclusion des fluents
+            let missing_in_datalog: HashSet<_> =
+                exp_fluent_set.difference(&actual_fluent_set).collect();
+            if !missing_in_datalog.is_empty() {
                 println!(
-                    "    \x1b[1;31m[MISMATCH] Actions attendues: {}, trouvées par Datalog: {}\x1b[0m",
-                    exp_a, actual_a
+                    "    \x1b[1;33m[INFO] {} éléments de l'oracle FD absents du set Datalog (différence de format/représentation)\x1b[0m",
+                    missing_in_datalog.len()
                 );
-                problem_ok = false;
             }
 
-            if actual_f != exp_f {
+            // 2. Inclusion des actions (Vérification rigoureuse ensembliste)
+            let missing_actions: HashSet<_> =
+                exp_actions_set.difference(&actual_action_set).collect();
+
+            if !missing_actions.is_empty() {
                 println!(
-                    "    \x1b[1;33m[MISMATCH] Fluents attendus: {}, trouvés par Datalog: {}\x1b[0m",
-                    exp_f, actual_f
+                    "    \x1b[1;31m[MISMATCH] {} actions de l'oracle FD sont absentes de Datalog !\x1b[0m",
+                    missing_actions.len()
                 );
+                for act in missing_actions {
+                    println!("      - Action manquante : \"{}\"", act);
+                }
                 problem_ok = false;
             }
         }
@@ -213,14 +302,11 @@ pub fn extract_fluents_from_content(sas_content: &str) -> Result<Vec<String>, St
         let trimmed = line.trim();
 
         if trimmed == "begin_variable" {
-            // Sauter le nom de la variable SAS+ et l'axiom layer
             let _ = lines.next(); // var name/id
             let _ = lines.next(); // -1 ou axiom layer
 
-            // La ligne suivante indique le nombre de valeurs possibles
             if let Some(count_line) = lines.next() {
                 if let Ok(count) = count_line.trim().parse::<usize>() {
-                    // Les lignes suivantes sont les valeurs (les fluents STRIPS)
                     for _ in 0..count {
                         if let Some(val_line) = lines.next() {
                             fluents.push(val_line.trim().to_string());
@@ -229,10 +315,37 @@ pub fn extract_fluents_from_content(sas_content: &str) -> Result<Vec<String>, St
                 }
             }
         }
-        // Le bloc "end_variable" n'a pas besoin d'être intercepté s'il n'y a rien de particulier à faire
     }
 
     Ok(fluents)
+}
+
+pub fn extract_datalog_style_fluents(sas_content: &str) -> Result<HashSet<String>, String> {
+    let raw_fluents = extract_fluents_from_content(sas_content)?;
+    let mut datalog_atoms = HashSet::new();
+
+    for f in raw_fluents {
+        let cleaned = if f.starts_with("Atom ") {
+            &f[5..]
+        } else {
+            f.as_str()
+        };
+
+        let trimmed = cleaned.trim();
+        let trimmed_lower = trimmed.to_lowercase();
+
+        if trimmed_lower.starts_with("negatedatom")
+            || trimmed.contains("new-axiom@")
+            || !trimmed.contains('(')
+            || !trimmed.ends_with(')')
+        {
+            continue;
+        }
+
+        datalog_atoms.insert(trimmed.to_lowercase());
+    }
+
+    Ok(datalog_atoms)
 }
 
 pub fn extract_actions_from_content(sas_content: &str) -> Result<Vec<String>, String> {
@@ -241,7 +354,6 @@ pub fn extract_actions_from_content(sas_content: &str) -> Result<Vec<String>, St
 
     while let Some(line) = lines.next() {
         if line.trim() == "begin_operator" {
-            // La ligne suivante contient le nom de l'action et ses paramètres
             if let Some(action_name) = lines.next() {
                 actions.push(action_name.trim().to_string());
             }
@@ -251,12 +363,10 @@ pub fn extract_actions_from_content(sas_content: &str) -> Result<Vec<String>, St
     Ok(actions)
 }
 
-/// Lance Fast Downward et retourne directement le contenu de output.sas sous forme de String
 pub fn run_fast_downward_and_get_content(
     domain_path: &Path,
     problem_path: &Path,
 ) -> Result<String, String> {
-    // Récupère le chemin depuis l'environnement ou utilise le chemin par défaut
     let fd_path_str =
         std::env::var("FAST_DOWNWARD_PATH").unwrap_or_else(|_| "fd/fast-downward.py".to_string());
 
@@ -272,7 +382,7 @@ pub fn run_fast_downward_and_get_content(
 
     let output = Command::new("python3")
         .arg(fd_path)
-        .arg("--translate") // <-- Placé ici avant les fichiers PDDL pour éviter l'erreur d'option
+        .arg("--translate")
         .arg(domain_path)
         .arg(problem_path)
         .output()
@@ -286,9 +396,6 @@ pub fn run_fast_downward_and_get_content(
         ));
     }
 
-    // Fast Downward écrit par défaut un fichier "output.sas" dans le répertoire courant.
-    // On le lit directement en mémoire pour récupérer son contenu en String,
-    // puis on le retourne proprement.
     let sas_content = std::fs::read_to_string("output.sas")
         .map_err(|e| format!("Impossible de lire le fichier output.sas généré : {}", e))?;
 

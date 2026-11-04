@@ -44,6 +44,28 @@ pub fn extract_fluents_from_content(sas_content: &str) -> Result<Vec<String>, St
     Ok(fluents)
 }
 
+/// Extrait et normalise tous les atomes/fluents possibles des domaines SAS+
+/// pour les rendre comparables aux faits de la base Datalog.
+pub fn extract_datalog_style_fluents(sas_content: &str) -> Result<HashSet<String>, String> {
+    // 1. On récupère la liste brute fournie par ta fonction existante
+    let raw_fluents = extract_fluents_from_content(sas_content)?;
+    let mut datalog_atoms = HashSet::new();
+
+    for f in raw_fluents {
+        // Nettoyer le préfixe "Atom " si présent dans output.sas
+        let cleaned = if f.starts_with("Atom ") {
+            &f[5..]
+        } else {
+            f.as_str()
+        };
+
+        // Normalisation en minuscules pour éviter les conflits de casse PDDL
+        datalog_atoms.insert(cleaned.trim().to_lowercase());
+    }
+
+    Ok(datalog_atoms)
+}
+
 pub fn run_fast_downward_and_get_content(
     domain_path: &Path,
     problem_path: &Path,

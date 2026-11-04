@@ -56,7 +56,7 @@ pub(crate) fn encode_action_defs(
         // A. Generate the name atom (Pivot: action(?p1, ?p2...))
         let action_atom = encode_action_name(action, action_sk_id, store)?;
 
-        // 🌟 Locally update the context with the current action's parameters
+        // Locally update the context with the current action's parameters
         let action_ctx = DatalogContext {
             param_list_id: action.parameters(),
             ..ctx
