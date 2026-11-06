@@ -275,6 +275,7 @@ impl<'a> DatalogEngine<'a> {
             builtin_threshold: final_builtin_threshold,
         };
 
+        println!("--- DIAGNOSTIC PRE-SATURATION ---");
         #[cfg(debug_assertions)]
         engine.dump_database();
 
@@ -303,6 +304,10 @@ impl<'a> DatalogEngine<'a> {
         // On calcule tout ce qui est "vrai" physiquement (at, part_of, etc.)
         self.saturate_semi_naive();
 
+        println!("--- DIAGNOSTIC POST-SATURATION (Stratum 0) ---");
+        self.dump_database();
+        self.dump_rules();
+
         // --- STRATE 1 : Le Pivot (Négation) ---
         // On utilise le ValueRegistry pour combler les trous.
         // Cette fonction va remplir le Delta avec les "not_incorporated".
@@ -312,6 +317,10 @@ impl<'a> DatalogEngine<'a> {
         // On relance. Maintenant, le moteur voit les faits négatifs
         // et peut enfin activer Aux_34 et Aux_35 pour l'Action 22.
         self.saturate_semi_naive();
+
+        println!("--- DIAGNOSTIC POST-SATURATION (Stratum 1) ---");
+        self.dump_database();
+        self.dump_rules();
 
         /*println!("--- DIAGNOSTIC POST-SATURATION (Action 22) ---");
         let dep_1 = AtomSkeletonId::from(35);

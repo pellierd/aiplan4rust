@@ -120,7 +120,11 @@ pub fn encode_effects(
     let mut root_cause = action_atom.clone();
     for term in root_cause.arguments_mut() {
         if let Term::Variable(v) = *term {
-            *term = aliasing::find(v, state.current_aliases);
+            let mapped = aliasing::find(v, state.current_aliases);
+            // On n'autorise que le remappage variable -> variable
+            if matches!(mapped, Term::Variable(_)) {
+                *term = mapped;
+            }
         }
     }
 
@@ -150,7 +154,10 @@ pub fn encode_effects(
 
                 for term in effect_atom.arguments_mut() {
                     if let Term::Variable(v) = *term {
-                        *term = aliasing::find(v, state.current_aliases);
+                        let mapped = aliasing::find(v, state.current_aliases);
+                        if matches!(mapped, Term::Variable(_)) {
+                            *term = mapped;
+                        }
                     }
                 }
 
@@ -237,7 +244,10 @@ pub fn encode_effects(
 
                         for term in del_atom.arguments_mut() {
                             if let Term::Variable(v) = *term {
-                                *term = aliasing::find(v, state.current_aliases);
+                                let mapped = aliasing::find(v, state.current_aliases);
+                                if matches!(mapped, Term::Variable(_)) {
+                                    *term = mapped;
+                                }
                             }
                         }
 
