@@ -116,9 +116,8 @@ pub struct DatalogEngine<'a> {
     /// Optional anchor atom representing the active action context during evaluation.
     pub(crate) action_anchor: Option<Atom>,
 
-    /// Offset applied to handle predicate negation correctly within the database.
-    pub(crate) negation_offset: usize,
-
+    ///// Offset applied to handle predicate negation correctly within the database.
+    //pub(crate) negation_offset: usize,
     /// Mapping linking type identifiers to their respective atom skeletons.
     pub(crate) type_to_skeleton: Vec<AtomSkeletonId>,
 }
@@ -157,11 +156,13 @@ impl<'a> DatalogEngine<'a> {
         let mut local_store = problem.take_store();
 
         let fluence_threshold = problem.predicate_defs().len();
-        let type_segment_start = if negated_predicates.is_empty() {
+        /*let type_segment_start = if negated_predicates.is_empty() {
             fluence_threshold
         } else {
             fluence_threshold * 2
-        };
+        };*/
+        let type_segment_start = fluence_threshold;
+
         let action_count = problem.action_defs().len();
         let init_expr_id = problem.init();
 
@@ -264,7 +265,6 @@ impl<'a> DatalogEngine<'a> {
             cache,
             action_effects,
             action_anchor: None,
-            negation_offset: fluence_threshold,
             type_to_skeleton,
 
             fluence_threshold,
@@ -297,6 +297,32 @@ impl<'a> DatalogEngine<'a> {
     /// * Time complexity: Bounded by the number of possible ground facts and rule evaluation rounds until fixed-point convergence.
     /// * Space complexity: Proportional to the size of the working database, delta sets, and active rule bindings.
     pub fn run(&mut self) {
+        // 'OPTIMISATION SE FAIT ICI, SANS EFFORT, CAR ENGINE EXISTE ENFIN !
+        self.optimize_all_rules();
+
+        // --- STRATE 0 : Le Positif ---
+        // On calcule tout ce qui est "vrai" physiquement (at, part_of, etc.)
+        self.saturate_semi_naive();
+
+        println!("--- DIAGNOSTIC POST-SATURATION (Stratum 0) ---");
+        self.dump_database();
+        self.dump_rules();
+
+        self.materialize_negations();
+        self.db.commit_delta();
+
+        println!("--- DIAGNOSTIC POST-NEGATIONS MATERIALISATION---");
+        self.dump_database();
+        self.dump_rules();
+
+        self.saturate_semi_naive();
+
+        println!("--- DIAGNOSTIC POST-SATURATION (Stratum 1) ---");
+        self.dump_database();
+        self.dump_rules();
+    }
+
+    /*pub fn run(&mut self) {
         // 'OPTIMISATION SE FAIT ICI, SANS EFFORT, CAR ENGINE EXISTE ENFIN !
         self.optimize_all_rules();
 
@@ -346,7 +372,7 @@ impl<'a> DatalogEngine<'a> {
             println!("Analyse de la branche 34 :");
             self.debug_recursive_rule(dep_2, 1);
         }*/
-    }
+    }*/
 
     /// Dumps and renders the current contents of the Datalog database for diagnostic purposes.
     ///
@@ -485,7 +511,6 @@ pub(crate) mod test_utils {
             cache: FxHashMap::default(),
             action_effects: Vec::new(),
             action_anchor: None,
-            negation_offset: 0,
             type_to_skeleton: Vec::new(),
         }
     }

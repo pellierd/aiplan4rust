@@ -234,7 +234,6 @@ mod tests {
             cache: FxHashMap::default(),
             action_effects: Vec::new(),
             action_anchor: None,
-            negation_offset: 0,
             type_to_skeleton: Vec::new(),
         }
     }

@@ -25,7 +25,7 @@ mod logic;
 mod error;
 /// Orchestration logic for running multiple finalization in the correct sequence.
 mod normalization;
-mod typing;
+pub(crate) mod typing;
 
 // Re-export the primary entry point for convenience.
 // This allows callers to use `finalization::normalize(&mut problem)` directly.

@@ -52,25 +52,15 @@ pub fn to_pnf_with(
     // 1. Process and lower the method preconditions
     // We pass `is_effect = false` (initializing context as an evaluation condition)
     let old_precondition_id = method.precondition();
-    let new_precondition_id = expr::to_pnf_with(
-        old_precondition_id,
-        store,
-        negated_atoms,
-        scratchpad,
-        false, // is_effect = false -> context is a query condition
-    )?;
+    let new_precondition_id =
+        expr::to_pnf_with(old_precondition_id, store, negated_atoms, scratchpad)?;
     method.set_precondition(new_precondition_id);
 
     // 2. Process and lower the logical constraints of the inner Task Network
     // Handled directly as a non-optional ExprId node block
     let old_constraints_id = method.task_network().logical_constraints();
-    let new_constraints_id = expr::to_pnf_with(
-        old_constraints_id,
-        store,
-        negated_atoms,
-        scratchpad,
-        false, // is_effect = false -> htn network restrictions are conditions
-    )?;
+    let new_constraints_id =
+        expr::to_pnf_with(old_constraints_id, store, negated_atoms, scratchpad)?;
     method
         .task_network_mut()
         .set_logical_constraints(new_constraints_id);

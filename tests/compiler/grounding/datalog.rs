@@ -281,6 +281,18 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
                 }
                 problem_ok = false;
             }
+
+            // 3. Actions générées par Datalog mais absentes de FD (actions excédentaires / exhaustivité)
+            let extra_actions: HashSet<_> =
+                actual_action_set.difference(&exp_actions_set).collect();
+
+            println!(
+                "    \x1b[1;33m[INFO] {} actions générées par Datalog et absentes de l'oracle FD (sur-approximation)\x1b[0m",
+                extra_actions.len()
+            );
+            for act in extra_actions {
+                println!("      + Action en plus (Datalog) : \"{}\"", act);
+            }
         }
 
         if !problem_ok {
@@ -402,7 +414,18 @@ pub fn run_fast_downward_and_get_content(
     Ok(sas_content)
 }
 
-#[test_case("tests/fixtures/pddl/ipc98/assembly/adl/"; "ipc98_adl_assembly")]
+#[test_case("tests/fixtures/pddl/ipc00/blocks/strips/typed"; "ipc00_pddl_typed_strips_blocks")]
+//#[test_case("tests/fixtures/pddl/ipc00/blocks/strips/untyped"; "ipc00_pddl_untyped_strips_blocks")]
+//#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/typed"; "ipc00_pddl_typed_strips_elevator")]
+//#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/untyped"; "ipc00_pddl_untyped_strips_elevator")]
+//#[test_case("tests/fixtures/pddl/ipc00/elevator/adl/full-typed"; "ipc00_pddl_full_typed_adl_elevator")]
+//#[test_case("tests/fixtures/pddl/ipc00/elevator/adl/simple-typed"; "ipc00_pddl_simple_typed_adl_elevator")]
+//#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/typed"; "ipc00_pddl_typed_strips_freecell")]
+//#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/untyped"; "ipc00_pddl_untyped_strips_freecell")]
+//#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/typed"; "ipc00_pddl_typed_strips_logistics")]
+//#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/untyped"; "ipc00_pddl_untyped_strips_logistics")]
+//#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/typed"; "ipc00_pddl_typed_adl_schedule")]
+//#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/untyped"; "ipc00_pddl_untyped_adl_schedule")]
 pub fn test_pddl_datalog(domain_path: &str) {
     let _ = env_logger::builder().is_test(true).try_init();
     let path = Path::new(domain_path);

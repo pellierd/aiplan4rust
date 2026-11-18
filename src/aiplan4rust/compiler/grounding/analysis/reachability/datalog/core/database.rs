@@ -268,12 +268,20 @@ impl Database {
     /// Delta relations map to avoid heap reallocations, merging its structural content
     /// into the corresponding Stable relation buckets, clearing the Delta buffer for the next generation.
     ///
+    /// # Returns
+    ///
+    /// Returns `true` if at least one new fact (tuple or proposition) was actually added to
+    /// the Stable storage (meaning progress was made and saturation must continue),
+    /// or `false` if no new facts were discovered (reaching a fixpoint).
+    ///
     /// # Complexity
     ///
     /// Time complexity scales with $O(T)$ where $T$ represents the absolute number of individual
     /// tuples currently residing inside the delta buffer layer, as each item is moved and re-inserted
     /// into the permanent stable mappings.
-    pub fn commit_delta(&mut self) {
+    pub fn commit_delta(&mut self) -> bool {
+        let mut changed = false;
+
         for (sk_id, delta_rel) in self.delta.drain() {
             let arity = delta_rel.arity();
             let rel = self
@@ -285,16 +293,23 @@ impl Database {
                 // ARITY 0 CASE: Fast pathway for propositions.
                 // If delta contains the truth token, insert it into stable.
                 if !delta_rel.is_empty() {
-                    rel.insert(&[]);
+                    // rel.insert doit retourner true si le fait est réellement nouveau
+                    if rel.insert(&[]) {
+                        changed = true;
+                    }
                 }
             } else {
                 // STANDARD CASE: Direct flat-buffer chunking.
                 // Zero allocations, perfect L1/L2 cache locality, fully inlined.
                 for tuple in delta_rel.data().chunks_exact(arity) {
-                    rel.insert(tuple);
+                    if rel.insert(tuple) {
+                        changed = true;
+                    }
                 }
             }
         }
+
+        changed
     }
 
     /// Attempts to stage a new inferred discovery into the transient Delta buffer lane.

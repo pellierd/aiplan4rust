@@ -4,8 +4,9 @@
 //! metadata, parameter references, type mappings, and inertia tables across
 //! the various compilation and encoding phases of the Datalog pipeline.
 
-use crate::aiplan4rust::support::lang::{AtomSkeletonId, TypedListId};
-use crate::analysis::inertia::table::InertiaTable;
+use crate::aiplan4rust::compiler::grounding::analysis::inertia::table::InertiaTable;
+use crate::aiplan4rust::compiler::lir::normalization::typing::problem::ROOT_TYPE_ID;
+use crate::aiplan4rust::support::lang::{AtomSkeletonId, TypeId, TypedListId};
 
 /// Encapsulates contextual configuration and reference mappings for Datalog translation.
 ///
@@ -44,6 +45,18 @@ impl<'a> DatalogContext<'a> {
             type_to_skeleton,
             negation_offset,
             inertia_table,
+        }
+    }
+
+    #[inline]
+    pub fn resolve_skeleton(&self, type_id: TypeId) -> AtomSkeletonId {
+        if type_id == ROOT_TYPE_ID {
+            *self
+                .type_to_skeleton
+                .last()
+                .expect("Root typing skeleton missing")
+        } else {
+            self.type_to_skeleton[type_id.as_usize()]
         }
     }
 }

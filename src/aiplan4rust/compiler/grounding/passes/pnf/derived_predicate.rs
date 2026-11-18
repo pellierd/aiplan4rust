@@ -53,13 +53,7 @@ pub fn to_pnf_with(
     // We execute the pass with `is_effect = false` (initializing context as an evaluation condition).
     let old_body_id = predicate.body();
 
-    let new_body_id = expr::to_pnf_with(
-        old_body_id,
-        store,
-        negated_atoms,
-        scratchpad,
-        false, // is_effect = false -> context is a pure query condition
-    )?;
+    let new_body_id = expr::to_pnf_with(old_body_id, store, negated_atoms, scratchpad)?;
 
     // Update the derived predicate body with the newly restructured and interned expression ID
     predicate.set_body(new_body_id);

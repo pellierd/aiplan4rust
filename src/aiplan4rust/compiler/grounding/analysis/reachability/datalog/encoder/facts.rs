@@ -225,6 +225,62 @@ pub(crate) fn fill_db_from_objects(
     Ok(())
 }
 
+/*pub(crate) fn fill_db_from_objects(
+    ctx: DatalogContext<'_>,
+    state: &mut DatalogState<'_>,
+    object_defs: &[TypedSymbol<ObjectId, TypeId>],
+    type_defs: &[TypedSymbol<TypeId, TypeId>],
+) -> Result<(), DatalogError> {
+    // Iterate over each declared domain object
+    for object in object_defs {
+        let obj_id = object.symbol();
+
+        // Iterate over all direct types assigned to the object
+        for &type_id in object.ty() {
+            let type_idx = type_id.as_usize();
+
+            // Map type identifier to target skeleton ID safely
+            let sk_id = ctx
+                .type_to_skeleton
+                .get(type_idx)
+                .copied()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Out of bounds type_id index: {} (len: {})",
+                        type_idx,
+                        ctx.type_to_skeleton.len()
+                    );
+                });
+
+            // Insert object into its direct typing relation
+            state.db.insert_stable_fact(sk_id, &[obj_id]);
+
+            // Resolve parent types and insert object into ancestor relations
+            if let Some(ty_def) = type_defs.get(type_idx) {
+                for &parent_id in ty_def.ty().members() {
+                    let parent_idx = parent_id.as_usize();
+                    let parent_sk_id = ctx
+                        .type_to_skeleton
+                        .get(parent_idx)
+                        .copied()
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Out of bounds parent_id index: {} (len: {})",
+                                parent_idx,
+                                ctx.type_to_skeleton.len()
+                            );
+                        });
+
+                    // Insert object into parent typing relation
+                    state.db.insert_stable_fact(parent_sk_id, &[obj_id]);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}*/
+
 /// Ingests the initial problem state expression tree into the dynamic delta database.
 ///
 /// This function performs a preorder traversal over the expression AST starting

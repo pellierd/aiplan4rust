@@ -37,7 +37,7 @@ impl<'a> DatalogEngine<'a> {
     /// # Complexity
     /// - Time complexity: Proportional to the total number of value combinations
     ///   across all parameters for each negated predicate.
-    pub(crate) fn materialize_negations(&mut self) -> Result<(), DatalogError> {
+    /*pub(crate) fn materialize_negations(&mut self) -> Result<(), DatalogError> {
         let offset = self.fluence_threshold;
 
         // 1. Iterate by reference over the vector pointed to by the reference
@@ -69,6 +69,48 @@ impl<'a> DatalogEngine<'a> {
                 if !self.db.has_fact(pos_id, &self.head_buffer) {
                     let storage_id = AtomSkeletonId::from(pos_id.as_usize() + offset);
                     // Insert the negative fact into Delta for Stratum 1
+                    self.db.insert_delta_fact(storage_id, &self.head_buffer);
+                }
+            }
+        }
+        Ok(())
+    }*/
+
+    pub(crate) fn materialize_negations(&mut self) -> Result<(), DatalogError> {
+        // Plus besoin de `let offset = self.fluence_threshold;` puisque
+        // la négation est portée par le bit de poids fort de l'AtomSkeletonId.
+
+        for neg_id in self.negated_predicates.iter() {
+            // neg_id est déjà le skeleton ID négatif (avec le flag de négation)
+            // On extrait sa version positive pour consulter les définitions et la base stable
+            let pos_id = neg_id.strip_negation();
+            let pred_def = &self.problem.predicate_defs()[pos_id.as_usize()];
+
+            let param_list_id = pred_def.parameters();
+            let parameters = self.problem.store().fetch_typed_list(param_list_id)?;
+
+            let mut iter = BindingsIterator::new(parameters, self.value_registry).unwrap();
+
+            while let Some(bindings) = iter.next() {
+                self.head_buffer.clear();
+
+                for param in parameters {
+                    if let Some(obj_id) = bindings.get(param.symbol()) {
+                        self.head_buffer.push(obj_id);
+                    }
+                }
+
+                // CLOSED WORLD ASSUMPTION
+                // Si le fait positif est absent de la base stable, la négation est vraie
+                if !self.db.has_fact(pos_id, &self.head_buffer) {
+                    // Le storage_id est directement le skeleton ID négatif (qui intègre le bit fort)
+                    let storage_id = *neg_id;
+
+                    // Alternative équivalente si tu préfères l'expliciter :
+                    // let mut storage_id = pos_id;
+                    // storage_id.set_negated(true);
+
+                    // Insertion du fait négatif dans le Delta pour la strate suivante
                     self.db.insert_delta_fact(storage_id, &self.head_buffer);
                 }
             }
@@ -275,12 +317,8 @@ impl<'a> DatalogEngine<'a> {
             return self.eval_equality(atom);
         }
 
-        // 2. LAZY NEGATION HANDLING
-        // Check MSB bit via interface and mirror segment
-        let is_neg_id = sk_id.as_usize() >= self.fluence_threshold
-            && sk_id.as_usize() < self.type_segment_start;
-
-        if sk_id.is_negated() || is_neg_id {
+        // 2. LAZY NEGATION HANDLING (UNIFIED WITH NATIVE FLAG)
+        if atom.is_negated() || sk_id.is_negated() {
             // --- Use engine's internal buffer ---
             self.head_buffer.clear();
 
@@ -293,13 +331,8 @@ impl<'a> DatalogEngine<'a> {
             }
 
             // --- POSITIVE ID DETERMINATION ---
-            let pos_sk_id = if sk_id.is_negated() {
-                // Use interface method to strip negation from ID
-                sk_id.strip_negation()
-            } else {
-                // For the mirror segment [N..2N[, use offset calculation
-                self.pos_id_from_negated(sk_id)
-            };
+            // Strip negation from skeleton ID using native interface method
+            let pos_sk_id = sk_id.strip_negation();
 
             // --- NAF (Negation as Failure) LOGIC ---
             // Return TRUE if the POSITIVE fact is ABSENT from the database

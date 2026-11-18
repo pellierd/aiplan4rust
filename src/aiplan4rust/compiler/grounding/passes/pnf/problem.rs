@@ -59,7 +59,6 @@ pub fn to_pnf_with(
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // is_effect = false -> evaluation condition
     )?;
     problem.set_domain_constraints(new_domain_constraints);
 
@@ -69,7 +68,6 @@ pub fn to_pnf_with(
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // is_effect = false -> evaluation condition
     )?;
     problem.set_problem_constraints(new_problem_constraints);
 
@@ -90,23 +88,11 @@ pub fn to_pnf_with(
 
     // --- 6. PROBLEM INSTANCE SPECIFICS (Goal & Metrics) ---
     let old_goal = problem.goal();
-    let new_goal = expr::to_pnf_with(
-        old_goal,
-        &mut store,
-        &mut negated_atoms,
-        scratchpad,
-        false, // Goals act as conditions
-    )?;
+    let new_goal = expr::to_pnf_with(old_goal, &mut store, &mut negated_atoms, scratchpad)?;
     problem.set_goal(new_goal);
 
     let old_metric = problem.metric_spec();
-    let new_metric = expr::to_pnf_with(
-        old_metric,
-        &mut store,
-        &mut negated_atoms,
-        scratchpad,
-        false, // Metric calculations do not evaluate to side effects
-    )?;
+    let new_metric = expr::to_pnf_with(old_metric, &mut store, &mut negated_atoms, scratchpad)?;
     problem.set_metric_spec(new_metric);
 
     // --- 7. HTN INITIAL TASK NETWORK ---
@@ -119,7 +105,6 @@ pub fn to_pnf_with(
         &mut store,
         &mut negated_atoms,
         scratchpad,
-        false, // Initial constraints evaluate as conditions
     )?;
     problem
         .initial_task_network_mut()

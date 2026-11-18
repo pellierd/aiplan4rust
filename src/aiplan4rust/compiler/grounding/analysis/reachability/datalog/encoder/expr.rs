@@ -24,7 +24,7 @@ use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::co
 use crate::aiplan4rust::compiler::grounding::analysis::reachability::datalog::core::term::Term;
 use crate::aiplan4rust::compiler::lir::expr::error::StorerError;
 use crate::aiplan4rust::compiler::lir::expr::{ExprId, ExprKind, ExprStore};
-use crate::aiplan4rust::support::lang::{AtomSkeletonId, CompareOp, VariableId};
+use crate::aiplan4rust::support::lang::{CompareOp, VariableId};
 use crate::analysis::reachability::datalog::context::DatalogContext;
 use crate::analysis::reachability::datalog::core::rule::RuleBody;
 use crate::analysis::reachability::datalog::encoder::{aliasing, predicate};
@@ -251,14 +251,11 @@ pub fn encode_effects(
                             }
                         }
 
+                        // Utilisation directe du drapeau natif de négation sur l'atome et son squelette
                         del_atom.set_negated(true);
-
-                        let pure_id = del_atom.symbol().as_usize();
-                        let target_idx = pure_id + ctx.negation_offset;
-
-                        let mut final_skeleton = AtomSkeletonId::from(target_idx);
-                        final_skeleton.set_negated(true);
-                        del_atom.set_symbol(final_skeleton);
+                        let mut sk = del_atom.symbol();
+                        sk.set_negated(true);
+                        del_atom.set_symbol(sk);
 
                         let cause = if current_cause.symbol() == root_cause_id {
                             Cause::Action
@@ -267,6 +264,11 @@ pub fn encode_effects(
                         };
 
                         action_effects[action_index].push((del_atom.clone(), cause));
+
+                        let mut rule_body = RuleBody::new();
+                        rule_body.push(current_cause.clone());
+
+                        state.rules.push(Rule::new(del_atom, rule_body));
                     }
                 }
             }

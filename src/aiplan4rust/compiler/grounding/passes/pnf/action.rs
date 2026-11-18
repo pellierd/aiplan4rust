@@ -52,36 +52,19 @@ pub fn to_pnf_with(
     // 1. Process and lower the action preconditions
     // We pass `is_effect = false` (initializing context as an evaluation condition)
     let old_precondition_id = action.precondition();
-    let new_precondition_id = expr::to_pnf_with(
-        old_precondition_id,
-        store,
-        negated_atoms,
-        scratchpad,
-        false, // is_effect = false -> context is a condition
-    )?;
+    let new_precondition_id =
+        expr::to_pnf_with(old_precondition_id, store, negated_atoms, scratchpad)?;
     action.set_precondition(new_precondition_id);
 
     // 2. Process and lower the action effects
     // We pass `is_effect = true` (initializing context as a structural mutation/delete effect)
     let old_effect_id = action.effect();
-    let new_effect_id = expr::to_pnf_with(
-        old_effect_id,
-        store,
-        negated_atoms,
-        scratchpad,
-        true, // is_effect = true -> context is an effect
-    )?;
+    let new_effect_id = expr::to_pnf_with(old_effect_id, store, negated_atoms, scratchpad)?;
     action.set_effect(new_effect_id);
 
     // 3. Process and lower the action duration constraints if they exist
     if let Some(duration_id) = action.duration() {
-        let new_duration_id = expr::to_pnf_with(
-            duration_id,
-            store,
-            negated_atoms,
-            scratchpad,
-            false, // Action durations structurally behave like evaluation conditions
-        )?;
+        let new_duration_id = expr::to_pnf_with(duration_id, store, negated_atoms, scratchpad)?;
         action.set_duration(new_duration_id);
     }
 

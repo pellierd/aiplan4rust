@@ -7,20 +7,18 @@
 //! The Datalog engine partitions its internal atom space into contiguous, non-overlapping
 //! segments to efficiently process grounding, types, actions, and auxiliary facts:
 //!
-//! 1. **Positive Fluents**: Ranging from index `0` up to `fluence_threshold`.
-//! 2. **Negated Fluents**: Ranging from `fluence_threshold` up to `type_segment_start`.
-//!    Provides a mirror zone for negative literals.
-//! 3. **Types**: Ranging from `type_segment_start` up to `type_threshold`.
+//! 1. **Fluents**: Ranging from index `0` up to `fluence_threshold` (supporting native negation flags).
+//! 2. **Types**: Ranging from `type_segment_start` (equal to `fluence_threshold`) up to `type_threshold`.
 //!    Mapped directly to structural `TypeId` instances.
-//! 4. **Actions**: Ranging from `type_threshold` up to `action_threshold`.
+//! 3. **Actions**: Ranging from `type_threshold` up to `action_threshold`.
 //!    Mapped directly to structural `ActionDefId` instances.
-//! 5. **Auxiliaries**: Ranging from `action_threshold` up to `Atom::BUILTIN_ZONE_START`.
-//! 6. **Built-ins**: Anything at or beyond `Atom::BUILTIN_ZONE_START`.
+//! 4. **Auxiliaries**: Ranging from `action_threshold` up to `Atom::BUILTIN_ZONE_START`.
+//! 5. **Built-ins**: Anything at or beyond `Atom::BUILTIN_ZONE_START`.
 //!
 //! ## Key Features
 //! - Strict boundary checking (`is_fluent`, `is_type`, `is_action`, `is_auxiliary`, `is_builtin`).
 //! - Bidirectional conversions between internal skeleton IDs and external identifiers (`TypeId`, `ActionDefId`).
-//! - Symmetry management for positive and negated atoms (`negate_id`, `pos_id_from_negated`).
+//! - Native negation support (`is_negated`, `strip_negation`, `negate_id`, `pos_id_from_negated`).
 
 use crate::aiplan4rust::support::lang::{ActionDefId, AtomSkeletonId, TypeId};
 use crate::analysis::reachability::datalog::core::Atom;
@@ -30,120 +28,112 @@ impl<'a> DatalogEngine<'a> {
     /// Checks whether the given atom skeleton ID represents a fluent.
     ///
     /// # Arguments
-    /// * `id` - The `AtomSkeletonId` to check.
+    /// * `id` - The [`AtomSkeletonId`] to check.
     ///
     /// # Returns
-    /// `true` if the ID is strictly before the type segment start (covering both positive and optional negative blocks), `false` otherwise.
+    /// `true` if the underlying fluent ID (ignoring negation) is strictly before the fluence threshold, `false` otherwise.
     #[inline]
     pub fn is_fluent(&self, id: AtomSkeletonId) -> bool {
-        // Anything before the start of types is a fluent
-        // (this includes both the positive block and the optional negative block)
-        id.as_usize() < self.type_segment_start
+        id.strip_negation().as_usize() < self.fluence_threshold
     }
 
     /// Checks whether the given atom skeleton ID represents a negated fluent.
     ///
     /// # Arguments
-    /// * `id` - The `AtomSkeletonId` to check.
+    /// * `id` - The [`AtomSkeletonId`] to check.
     ///
     /// # Returns
-    /// `true` if the ID falls within the negated fluent range, `false` otherwise.
+    /// `true` if the ID represents a fluent and carries a native negation flag, `false` otherwise.
     #[inline]
     pub fn is_negated_fluent(&self, id: AtomSkeletonId) -> bool {
-        let val = id.as_usize();
-        val >= self.fluence_threshold && val < self.type_segment_start
+        id.is_negated() && self.is_fluent(id.strip_negation())
     }
 
     /// Checks whether the given atom skeleton ID represents a type predicate.
     ///
     /// # Arguments
-    /// * `id` - The `AtomSkeletonId` to check.
+    /// * `id` - The [`AtomSkeletonId`] to check.
     ///
     /// # Returns
     /// `true` if the ID is located within the type segment boundaries, `false` otherwise.
     #[inline]
     pub fn is_type(&self, id: AtomSkeletonId) -> bool {
-        let p = id.as_usize();
-        // The type segment is sandwiched between its own boundary and the start of actions
+        let p = id.strip_negation().as_usize();
         p >= self.type_segment_start && p < self.type_threshold
     }
 
     /// Converts an atom skeleton ID belonging to the type segment into a `TypeId`.
     ///
     /// # Arguments
-    /// * `sk_id` - The `AtomSkeletonId` corresponding to a type.
+    /// * `sk_id` - The [`AtomSkeletonId`] corresponding to a type.
     ///
     /// # Returns
     /// The corresponding structural `TypeId`.
     #[inline]
     pub fn atom_id_to_type_id(&self, sk_id: AtomSkeletonId) -> TypeId {
-        let id_val = sk_id.as_usize();
+        let id_val = sk_id.strip_negation().as_usize();
         debug_assert!(self.is_type(sk_id));
-        // The subtraction offset is now dynamic
         TypeId::from(id_val - self.type_segment_start)
     }
 
     /// Computes the negated counterpart of a positive fluent atom skeleton ID.
     ///
     /// # Arguments
-    /// * `id` - The positive `AtomSkeletonId`.
+    /// * `id` - The positive [`AtomSkeletonId`].
     ///
     /// # Returns
     /// The negated `AtomSkeletonId` corresponding to the input.
     #[inline]
     pub fn negate_id(&self, id: AtomSkeletonId) -> AtomSkeletonId {
-        let val = id.as_usize();
-        // We assume that id is a positive fluent < fluence_threshold
-        debug_assert!(val < self.fluence_threshold);
-        AtomSkeletonId::from(val + self.fluence_threshold)
+        debug_assert!(self.is_fluent(id) && !id.is_negated());
+        let mut neg_id = id;
+        neg_id.set_negated(true);
+        neg_id
     }
 
     /// Retrieves the original positive fluent atom skeleton ID from its negated counterpart.
     ///
     /// # Arguments
-    /// * `id` - The negated `AtomSkeletonId`.
+    /// * `id` - The negated [`AtomSkeletonId`].
     ///
     /// # Returns
     /// The underlying positive `AtomSkeletonId`.
     #[inline]
     pub fn pos_id_from_negated(&self, id: AtomSkeletonId) -> AtomSkeletonId {
-        let val = id.as_usize();
-        // We assume that id is a negative fluent [N..2N[
-        debug_assert!(val >= self.fluence_threshold && val < self.type_segment_start);
-        AtomSkeletonId::from(val - self.fluence_threshold)
+        debug_assert!(self.is_negated_fluent(id));
+        id.strip_negation()
     }
 
     /// Checks whether an atom skeleton ID belongs to the Action segment.
     ///
     /// # Arguments
-    /// * `id` - The `AtomSkeletonId` to check.
+    /// * `id` - The [`AtomSkeletonId`] to check.
     ///
     /// # Returns
     /// `true` if the ID falls within the action boundaries, `false` otherwise.
     #[inline]
     pub fn is_action(&self, id: AtomSkeletonId) -> bool {
-        let p = id.as_usize();
+        let p = id.strip_negation().as_usize();
         p >= self.type_threshold && p < self.action_threshold
     }
 
     /// Converts an action-segment atom skeleton ID into an `ActionDefId`.
     ///
     /// # Arguments
-    /// * `sk_id` - The `AtomSkeletonId` corresponding to an action.
+    /// * `sk_id` - The [`AtomSkeletonId`] corresponding to an action.
     ///
     /// # Returns
     /// The corresponding `ActionDefId`.
     #[inline]
     pub fn atom_id_to_action_def_id(&self, sk_id: AtomSkeletonId) -> ActionDefId {
-        let id_val = sk_id.as_usize();
-        // We don't touch anything here, the calculation is mathematically correct for the vector
+        let id_val = sk_id.strip_negation().as_usize();
         ActionDefId::from(id_val - self.type_threshold)
     }
 
     /// Converts a public `ActionDefId` into an internal `AtomSkeletonId`.
     ///
     /// # Arguments
-    /// * `def_id` - The `ActionDefId` to convert.
+    /// * `def_id` - The [`ActionDefId`] to convert.
     ///
     /// # Returns
     /// The mapped `AtomSkeletonId`.
@@ -155,39 +145,36 @@ impl<'a> DatalogEngine<'a> {
     /// utilized specifically by the Datalog engine.
     ///
     /// # Arguments
-    /// * `action_id` - The `ActionDefId` to convert.
+    /// * `action_id` - The [`ActionDefId`] to convert.
     ///
     /// # Returns
     /// The target `AtomSkeletonId`.
     pub fn action_id_to_skeleton(&self, action_id: ActionDefId) -> AtomSkeletonId {
-        // We use the same calculation as atom_id_to_action_def_id but in reverse
         AtomSkeletonId::from(action_id.as_usize() + self.type_threshold)
     }
 
     /// Checks whether the given atom skeleton ID belongs to the built-in zone.
     ///
     /// # Arguments
-    /// * `id` - The `AtomSkeletonId` to check.
+    /// * `id` - The [`AtomSkeletonId`] to check.
     ///
     /// # Returns
     /// `true` if the ID is at or beyond the built-in zone threshold, `false` otherwise.
     #[inline]
     pub fn is_builtin(&self, id: AtomSkeletonId) -> bool {
-        id.as_usize() >= Atom::BUILTIN_ZONE_START
+        id.strip_negation().as_usize() >= Atom::BUILTIN_ZONE_START
     }
 
     /// Checks whether the given atom skeleton ID represents an auxiliary atom.
     ///
     /// # Arguments
-    /// * `id` - The `AtomSkeletonId` to check.
+    /// * `id` - The [`AtomSkeletonId`] to check.
     ///
     /// # Returns
     /// `true` if the ID lies between the end of actions and the built-ins zone, `false` otherwise.
     #[inline]
     pub fn is_auxiliary(&self, id: AtomSkeletonId) -> bool {
-        let p = id.as_usize();
-        // An auxiliary is anything located between the end of actions
-        // and the start of the zone reserved for built-ins (equality).
+        let p = id.strip_negation().as_usize();
         p >= self.action_threshold && p < Atom::BUILTIN_ZONE_START
     }
 }

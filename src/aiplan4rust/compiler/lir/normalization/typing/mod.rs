@@ -28,7 +28,7 @@
 //! function is exposed to the rest of the compiler crate.
 
 // --- Main Orchestration ---
-mod problem;
+pub(crate) mod problem;
 
 // --- Utilities ---
 mod action;
