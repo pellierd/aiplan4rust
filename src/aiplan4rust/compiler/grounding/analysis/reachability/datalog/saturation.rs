@@ -683,7 +683,7 @@ impl<'a> DatalogEngine<'a> {
         self.rules = rules;
     }
 
-    /// Optimizes the evaluation order of a rule's body predicates by dynamically
+    /*/// Optimizes the evaluation order of a rule's body predicates by dynamically
     /// selecting the best next atom based on bound variables, relation size,
     /// and semantic priority.
     ///
@@ -738,6 +738,88 @@ impl<'a> DatalogEngine<'a> {
                 .unwrap();
 
             let best_idx = best_idx; // clear reference
+            let best_atom = remaining.swap_remove(best_idx);
+
+            // Update the mask of bound variables
+            for term in best_atom.arguments() {
+                if let Term::Variable(v) = term {
+                    let v_idx = v.as_usize();
+                    if v_idx < 64 {
+                        bound_vars_mask |= 1 << v_idx;
+                    }
+                }
+            }
+            optimized.push(best_atom);
+        }
+
+        // Direct and transparent replacement without going through the heap
+        *body = optimized;
+    }*/
+
+    /// Optimizes the evaluation order of a rule's body predicates by dynamically
+    /// selecting the best next atom based on bound variables, relation size,
+    /// and semantic priority.
+    ///
+    /// # Arguments
+    /// * `body` - A mutable reference to the [`RuleBody`] to be reordered in-place.
+    ///
+    /// # Complexity
+    /// - Time complexity: $O(N^2)$ relative to the number of atoms $N$ in the rule body,
+    ///   as it iteratively scans remaining atoms to find the optimal choice.
+    pub fn optimize_rule(&self, body: &mut RuleBody) {
+        if body.len() <= 1 {
+            return;
+        }
+
+        // OPTIMIZATION: Use RuleBody directly to stay on the stack
+        let mut optimized = RuleBody::with_capacity(body.len());
+        let mut bound_vars_mask: u64 = 0;
+
+        // mem::take works perfectly because RuleBody implements Default
+        let mut remaining = std::mem::take(body);
+
+        while !remaining.is_empty() {
+            let best_idx = remaining
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, atom)| {
+                    let sk_id = atom.symbol();
+
+                    // 1. Calculation of already bound variables
+                    let mut bound_count = 0;
+                    let mut has_unbound_vars = false;
+                    for term in atom.arguments() {
+                        match term {
+                            Term::Constant(_) => bound_count += 1,
+                            Term::Variable(v) => {
+                                let v_idx = v.as_usize();
+                                if v_idx < 64 && (bound_vars_mask & (1 << v_idx)) != 0 {
+                                    bound_count += 1;
+                                } else {
+                                    has_unbound_vars = true; // Détecte si une variable manque encore
+                                }
+                            }
+                        }
+                    }
+
+                    // SÉCURITÉ : Si c'est un filtre (égalité/inégalité/négation) et qu'il
+                    // manque des variables liées, on lui donne une pénalité maximale pour
+                    // forcer l'optimiseur à l'évaluer plus tard, lorsque toutes ses variables seront connues.
+                    if (atom.is_equality() || atom.is_negated()) && has_unbound_vars {
+                        return (1000, 255, 0);
+                    }
+
+                    // 2. Actual size of data in the DB
+                    let rel_size = self.db.get_relation_size(sk_id);
+
+                    // 3. Semantic category (Type, Fluent, etc.)
+                    let priority = self.get_predicate_priority(atom);
+
+                    (-(bound_count as i32), priority, rel_size)
+                })
+                .map(|(idx, _)| idx)
+                .unwrap();
+
             let best_atom = remaining.swap_remove(best_idx);
 
             // Update the mask of bound variables
