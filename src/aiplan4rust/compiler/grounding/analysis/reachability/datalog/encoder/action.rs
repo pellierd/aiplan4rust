@@ -20,6 +20,7 @@ use crate::analysis::reachability::datalog::encoder;
 use crate::analysis::reachability::datalog::error::DatalogError;
 use crate::analysis::reachability::datalog::scratchpad::DatalogScratchpad;
 use crate::analysis::reachability::datalog::state::DatalogState;
+use log::debug;
 
 /// Compiles all PDDL domain action definitions into logical Datalog rules.
 ///
@@ -49,6 +50,15 @@ pub(crate) fn encode_action_defs(
     store: &mut ExprStore,
 ) -> Result<(), DatalogError> {
     for (id, action) in action_defs.iter().enumerate() {
+        // Skip any action whose precondition resolved to False (empty_or) during expansion
+        if action.precondition() == store.empty_or() {
+            debug!(
+                "  [Datalog] Skipping dead action (unsatisfiable precondition): {}",
+                action.name()
+            );
+            continue;
+        }
+
         // ID segmentation: compute the Datalog skeleton ID for this action
         let action_sk_id = AtomSkeletonId::from(action_base_id + id);
         let action_index = id;
@@ -73,12 +83,13 @@ pub(crate) fn encode_action_defs(
         )?;
 
         // --- ACTION BOOTSTRAP ---
-        // If the action has no parameters and an empty body, it is immediately applicable.
+        // If the action has no parameters and a trivial/empty precondition, it is immediately applicable.
         let param_list_id = action.parameters();
-        if let Some(trigger_rule) = state.rules.last() {
-            if trigger_rule.body().is_empty() && store.fetch_typed_list(param_list_id)?.is_empty() {
-                state.db.insert_delta_fact(action_sk_id, &[]);
-            }
+        let is_parameterless = store.fetch_typed_list(param_list_id)?.is_empty();
+        let has_trivial_precond = action.precondition() == store.empty_and();
+
+        if is_parameterless && has_trivial_precond {
+            state.db.insert_delta_fact(action_sk_id, &[]);
         }
 
         // C. Extract and encode the action's effects
