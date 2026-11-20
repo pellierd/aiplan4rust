@@ -1,5 +1,8 @@
 // Imports du framework de test (communs/pipelines)
 use crate::common::compiler::{analyze_file, encode, link};
+use crate::common::fd::{
+    extract_actions_from_content, extract_datalog_style_fluents, run_fast_downward_and_get_content,
+};
 use crate::common::io::*;
 use aiplan4rust::aiplan4rust::compiler::grounding::passes::to_pnf;
 use aiplan4rust::aiplan4rust::compiler::grounding::problem::registry::value::ValueRegistry;
@@ -12,7 +15,6 @@ use aiplan4rust::qnf::problem::expand_with;
 use aiplan4rust::DatalogEngine;
 use std::collections::HashSet;
 use std::path::Path;
-use std::process::Command;
 use test_case::test_case;
 
 pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
@@ -306,124 +308,16 @@ pub fn test_datalog_cardinality(domain_dir: &Path) -> bool {
     success
 }
 
-pub fn extract_fluents_from_content(sas_content: &str) -> Result<Vec<String>, String> {
-    let mut fluents = Vec::new();
-    let mut lines = sas_content.lines();
-
-    while let Some(line) = lines.next() {
-        let trimmed = line.trim();
-
-        if trimmed == "begin_variable" {
-            let _ = lines.next(); // var name/id
-            let _ = lines.next(); // -1 ou axiom layer
-
-            if let Some(count_line) = lines.next() {
-                if let Ok(count) = count_line.trim().parse::<usize>() {
-                    for _ in 0..count {
-                        if let Some(val_line) = lines.next() {
-                            fluents.push(val_line.trim().to_string());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(fluents)
-}
-
-pub fn extract_datalog_style_fluents(sas_content: &str) -> Result<HashSet<String>, String> {
-    let raw_fluents = extract_fluents_from_content(sas_content)?;
-    let mut datalog_atoms = HashSet::new();
-
-    for f in raw_fluents {
-        let cleaned = if f.starts_with("Atom ") {
-            &f[5..]
-        } else {
-            f.as_str()
-        };
-
-        let trimmed = cleaned.trim();
-        let trimmed_lower = trimmed.to_lowercase();
-
-        if trimmed_lower.starts_with("negatedatom")
-            || trimmed.contains("new-axiom@")
-            || !trimmed.contains('(')
-            || !trimmed.ends_with(')')
-        {
-            continue;
-        }
-
-        datalog_atoms.insert(trimmed.to_lowercase());
-    }
-
-    Ok(datalog_atoms)
-}
-
-pub fn extract_actions_from_content(sas_content: &str) -> Result<Vec<String>, String> {
-    let mut actions = Vec::new();
-    let mut lines = sas_content.lines().peekable();
-
-    while let Some(line) = lines.next() {
-        if line.trim() == "begin_operator" {
-            if let Some(action_name) = lines.next() {
-                actions.push(action_name.trim().to_string());
-            }
-        }
-    }
-
-    Ok(actions)
-}
-
-pub fn run_fast_downward_and_get_content(
-    domain_path: &Path,
-    problem_path: &Path,
-) -> Result<String, String> {
-    let fd_path_str =
-        std::env::var("FAST_DOWNWARD_PATH").unwrap_or_else(|_| "fd/fast-downward.py".to_string());
-
-    let fd_path = Path::new(&fd_path_str);
-    if !fd_path.exists() {
-        return Err(format!(
-            "Fast Downward introuvable au chemin : {}. Définis la variable d'environnement FAST_DOWNWARD_PATH ou place le dossier fd/ au bon endroit.",
-            fd_path.display()
-        ));
-    }
-
-    println!("  [Oracle] Lancement de Fast Downward...");
-
-    let output = Command::new("python3")
-        .arg(fd_path)
-        .arg("--translate")
-        .arg(domain_path)
-        .arg(problem_path)
-        .output()
-        .map_err(|e| format!("Impossible de lancer le processus Fast Downward : {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "Fast Downward a échoué avec le code de sortie : {}\nStderr: {}",
-            output.status, stderr
-        ));
-    }
-
-    let sas_content = std::fs::read_to_string("output.sas")
-        .map_err(|e| format!("Impossible de lire le fichier output.sas généré : {}", e))?;
-
-    Ok(sas_content)
-}
-
 #[test_case("tests/fixtures/pddl/ipc00/blocks/strips/typed"; "ipc00_pddl_typed_strips_blocks")]
-//#[test_case("tests/fixtures/pddl/ipc00/blocks/strips/untyped"; "ipc00_pddl_untyped_strips_blocks")]
-//#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/typed"; "ipc00_pddl_typed_strips_elevator")]
-//#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/untyped"; "ipc00_pddl_untyped_strips_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/blocks/strips/untyped"; "ipc00_pddl_untyped_strips_blocks")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/typed"; "ipc00_pddl_typed_strips_elevator")]
+#[test_case("tests/fixtures/pddl/ipc00/elevator/strips/untyped"; "ipc00_pddl_untyped_strips_elevator")]
 //#[test_case("tests/fixtures/pddl/ipc00/elevator/adl/full-typed"; "ipc00_pddl_full_typed_adl_elevator")]
 //#[test_case("tests/fixtures/pddl/ipc00/elevator/adl/simple-typed"; "ipc00_pddl_simple_typed_adl_elevator")]
-//#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/typed"; "ipc00_pddl_typed_strips_freecell")]
-//#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/untyped"; "ipc00_pddl_untyped_strips_freecell")]
-//#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/typed"; "ipc00_pddl_typed_strips_logistics")]
-//#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/untyped"; "ipc00_pddl_untyped_strips_logistics")]
+#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/typed"; "ipc00_pddl_typed_strips_freecell")]
+#[test_case("tests/fixtures/pddl/ipc00/freecell/strips/untyped"; "ipc00_pddl_untyped_strips_freecell")]
+#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/typed"; "ipc00_pddl_typed_strips_logistics")]
+#[test_case("tests/fixtures/pddl/ipc00/logistics/strips/untyped"; "ipc00_pddl_untyped_strips_logistics")]
 //#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/typed"; "ipc00_pddl_typed_adl_schedule")]
 //#[test_case("tests/fixtures/pddl/ipc00/schedule/adl/untyped"; "ipc00_pddl_untyped_adl_schedule")]
 pub fn test_pddl_datalog(domain_path: &str) {

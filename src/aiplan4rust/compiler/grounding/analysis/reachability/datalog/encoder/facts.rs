@@ -202,8 +202,8 @@ pub(crate) fn fill_db_from_objects(
 
         // Iterate over all direct types assigned to the object
         for &type_id in object.ty() {
-            // Map type identifier to target skeleton ID
-            let sk_id = ctx.type_to_skeleton[type_id.as_usize()];
+            // Resolve skeleton safely using the context helper (handles ROOT_TYPE_ID uniformly)
+            let sk_id = ctx.resolve_skeleton(type_id);
 
             // Insert object into its direct typing relation
             state.db.insert_stable_fact(sk_id, &[obj_id]);
@@ -212,8 +212,8 @@ pub(crate) fn fill_db_from_objects(
             if let Some(ty_def) = type_defs.get(type_id.as_usize()) {
                 // Iterate through all ancestor member types
                 for &parent_id in ty_def.ty().members() {
-                    // Map parent type identifier to skeleton ID
-                    let parent_sk_id = ctx.type_to_skeleton[parent_id.as_usize()];
+                    // Resolve parent skeleton safely using the context helper
+                    let parent_sk_id = ctx.resolve_skeleton(parent_id);
 
                     // Insert object into parent typing relation
                     state.db.insert_stable_fact(parent_sk_id, &[obj_id]);

@@ -541,10 +541,12 @@ pub fn encode_condition(
                                 for term in head.arguments() {
                                     if let Term::Variable(v) = term {
                                         if !covered_vars.contains(v) {
-                                            let type_id = parameters[v.as_usize()].ty().members()
-                                                [0]
-                                            .as_usize();
-                                            let type_sk = ctx.type_to_skeleton[type_id];
+                                            // Retrieve the TypeId directly without converting to usize early
+                                            let type_id =
+                                                parameters[v.as_usize()].ty().members()[0];
+
+                                            // Resolve safely via DatalogContext (handles ROOT_TYPE_ID correctly)
+                                            let type_sk = ctx.resolve_skeleton(type_id);
 
                                             branch_body
                                                 .push(Atom::unary(type_sk, Term::Variable(*v)));

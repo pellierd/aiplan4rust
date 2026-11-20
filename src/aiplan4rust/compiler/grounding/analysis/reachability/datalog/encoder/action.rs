@@ -245,8 +245,13 @@ fn encode_action_body(
     for (i, param) in parameters.iter().enumerate() {
         let var_id = VariableId::from(i);
         let var_term = Term::Variable(var_id);
-        let type_id = param.ty().members()[0].as_usize();
-        let type_sk = context.type_to_skeleton[type_id];
+
+        // Retrieve the primary type ID directly from the parameter members invariant
+        let type_id = param.ty().members()[0];
+
+        // Resolve the skeleton safely using the context helper (handles ROOT_TYPE_ID uniformly)
+        let type_sk = context.resolve_skeleton(type_id);
+
         anchor_elements.push(Atom::unary(type_sk, var_term));
     }
 
